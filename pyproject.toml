@@ -1,0 +1,25 @@
+[project]
+name = "mcp-gw"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "duckduckgo-search>=8.0.1",
+    "fastmcp>=2.3.3",
+    "requests>=2.32.3",
+]
+[tool.pyright]
+include = ["src", "tests"]
+exclude = ["**/node_modules", "**/__pycache__", ".venv", ".git", "dist"]
+venvPath = "."
+venv = ".venv"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = [
+    "tests",
+]
