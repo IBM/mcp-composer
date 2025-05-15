@@ -4,7 +4,7 @@ from typing import Dict
 from fastmcp import FastMCP, Client
 from fastmcp.client.transports import StreamableHttpTransport, SSETransport
 import httpx
-from utils.logger import LoggerFactory
+from mcp_gateway.utils.logger import LoggerFactory
 logger = LoggerFactory.get_logger()
 
 class MCPServerBuilder:

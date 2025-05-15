@@ -7,7 +7,7 @@ from typing import Optional, List, Dict, Any, Annotated
 from fastmcp.utilities.types import (
     _convert_set_defaults,
 )
-from utils.logger import LoggerFactory
+from mcp_gateway.utils import LoggerFactory
 logger = LoggerFactory.get_logger()
 
 def default_serializer(data: Any) -> str:

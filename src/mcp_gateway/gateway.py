@@ -2,10 +2,10 @@
 
 from fastmcp import FastMCP
 from typing import Any, Dict, Optional
-from utils.logger import LoggerFactory
-from member_servers.server_manager import ServerManager
-from member_servers.member_server import MemberMCPServer
-from member_servers.builder import MCPServerBuilder
+from .utils import LoggerFactory
+from .member_servers import ServerManager
+from .member_servers import MemberMCPServer
+from .member_servers import MCPServerBuilder
 logger = LoggerFactory.get_logger()
 
 
