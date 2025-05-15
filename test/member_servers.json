@@ -1,25 +1,22 @@
-[{
-  "id": "cos",
-  "type": "openapi",
-  "endpoint": "https://s3.us-south.cloud-object-storage.appdomain.cloud",
-  "openapi_url": "https://cloud.ibm.com/apidocs/cos",
-  "auth_strategy": "iam",
-  "auth": {
-    "api_key": "XXX",
-    "iam_endpoint": "https://iam.cloud.ibm.com/identity/token"
-  }
-},
+[
 {
   "id": "customer-service",
   "type": "client",
-  "endpoint": "https://api.example.com/mcp",
+  "endpoint": "http://0.0.0.0:8080/mcp",
   "auth_strategy": "apikey",
   "auth": {
     "name": "Authorization",
     "value": "apikey abc123"
   }
-}, 
+},
 {
-  "id": "local_stdio",
-  
-}] 
+  "id": "customer-http",
+  "type": "http",
+  "endpoint": "http://0.0.0.0:8080/mcp"
+},
+{
+  "id": "customer-sse",
+  "type": "sse",
+  "endpoint": "http://0.0.0.0:8080/sse"
+}
+] 
