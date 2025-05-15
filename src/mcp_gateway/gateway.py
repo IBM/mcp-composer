@@ -2,11 +2,9 @@
 
 from fastmcp import FastMCP
 from typing import Any, Dict, Optional
-from .utils import LoggerFactory
-from .member_servers import ServerManager
-from .member_servers import MemberMCPServer
-from .member_servers import MCPServerBuilder
-from .utils import AllServersValidator, ValidationError
+from mcp_gateway.utils import LoggerFactory, AllServersValidator, ValidationError, ServerConfigValidator
+from mcp_gateway.member_servers import ServerManager, MemberMCPServer, MCPServerBuilder
+
 import sys
 logger = LoggerFactory.get_logger()
 
@@ -51,11 +49,13 @@ class MCPGateway(FastMCP):
         Register a single server dynamically from config.
         """
         logger.info(f" Register a single server dynamically from config :{config}")
+        
         try:
+            ServerConfigValidator(config).validate()
             return    await self._mount_member_server(config)
         except Exception as e:
-            logger.exception(f"Failed to register memeber server '{config.get('id')}': {e}")
-            return f"Failed to register memeber server '{config.get('id')}'"
+            logger.exception(f"Failed to register memeber server '{config}': {e}")
+            return f"Failed to register memeber server '{config}'"
 
    
     async def remove_mcp_server(self, server_id:str) -> str:
@@ -69,7 +69,8 @@ class MCPGateway(FastMCP):
             return f"Failed to remove memeber server '{server_id}'"
 
 
-    async def _mount_member_server(self, config: dict) -> str:
+    async def _mount_member_server(self, config: dict) -> str:       
+        
         server_id = config["id"]
 
         if self._server_manager.has_member_server(server_id):

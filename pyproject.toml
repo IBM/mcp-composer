@@ -24,7 +24,7 @@ dev = [
 ]
 
 [tool.pyright]
-include = ["src", "tests"]
+include = ["src", "test"]
 exclude = ["**/node_modules", "**/__pycache__", ".venv", ".git", "dist"]
 venvPath = "."
 venv = ".venv"
@@ -35,5 +35,5 @@ where = ["src"]
 [tool.pytest.ini_options]
 pythonpath = ["src"]
 testpaths = [
-    "tests",
+    "test",
 ]

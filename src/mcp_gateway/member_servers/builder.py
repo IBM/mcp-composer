@@ -23,15 +23,7 @@ class MCPServerBuilder:
 
     async def build(self) -> FastMCP:
         logger.info(f"Builing new { self.mcp_type} Server")
-        if self.config:
-            try:
-                ServerConfigValidator(self.config).validate()
-                logger.info(f"The configuration is {self.config}")
-    
-            except ValidationError as e:
-                print("Validation error:", e)
-                sys.exit(1)         
-        
+            
         if self.mcp_type == "client":
             return await self._build_from_client()
 
