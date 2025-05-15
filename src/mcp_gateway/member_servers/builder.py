@@ -2,7 +2,7 @@
 
 from typing import Dict
 from fastmcp import FastMCP, Client
-from fastmcp.client.transports import StreamableHttpTransport
+from fastmcp.client.transports import StreamableHttpTransport, SSETransport
 import httpx
 from utils.logger import LoggerFactory
 logger = LoggerFactory.get_logger()
@@ -23,7 +23,7 @@ class MCPServerBuilder:
             return await self._build_from_client()
 
         elif self.mcp_type in {"http", "sse"}:
-            return await self._build_from_transport()
+            return await self._build_from_transport(transport_type=self.mcp_type)
 
         elif self.mcp_type == "openapi":
             return await self._build_from_openapi()
@@ -37,15 +37,21 @@ class MCPServerBuilder:
         else:
             raise ValueError(f"Unsupported MCP type: {self.mcp_type}")
     
-    async def _build_from_transport(self) -> FastMCP:
+    async def _build_from_transport(self, transport_type=None) -> FastMCP:
         # auth = build_auth_strategy(self.config["auth_strategy"], self.config.get("auth", {}))
         # headers = await auth.get_headers()
         headers = self.config["headers"]
-
-        transport = StreamableHttpTransport(
-            url=self.config["endpoint"],
-            headers=headers
-        )
+        if transport_type == 'http':
+            transport = StreamableHttpTransport(
+                url=self.config["endpoint"],
+                headers=headers
+            )
+        elif transport_type == 'sse':
+            transport = SSETransport(
+                url=self.config["endpoint"], headers=headers
+            )
+        else:
+            raise ValueError(f"Unsupported MCP type: {self.mcp_type}")
         client = Client(transport)
         return FastMCP.from_client(client, name=self.mcp_id)
 

@@ -33,7 +33,6 @@ class MCPGateway(FastMCP):
                 logger.exception(f"Failed to mount server '{config.get('id')}': {e}")
 
 
-    
     async def register_mcp_server(self, config: dict) -> str:
         """
         Register a single server dynamically from config.
@@ -59,7 +58,7 @@ class MCPGateway(FastMCP):
     async def _mount_member_server(self, config: dict) -> str:
         server_id = config["id"]
 
-        if self._server_manager.get(server_id):
+        if self._server_manager.has_member_server(server_id):
             logger.warning(f"Server '{server_id}' already mounted.")
             return f"Server '{server_id}' already mounted."
 
@@ -94,6 +93,3 @@ class MCPGateway(FastMCP):
             {"id": m.id, "server_name": m.get_server().name}
             for m in self._server_manager.list()
         ]
-    
-
-    
