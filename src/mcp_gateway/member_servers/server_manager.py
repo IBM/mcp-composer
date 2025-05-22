@@ -93,14 +93,46 @@ class ServerManager:
     def add_server_db(self, config: dict) -> None:
         client = self._cloudant()
         doc_id = config["id"]
-        try:
-            existing = client.get_document(db=self._db_name, doc_id=doc_id).get_result()
-            config["_rev"] = existing["_rev"]
-        except Exception:
-            pass
-        client.post_document(db=self._db_name, document=Document(**config)).get_result()
-        logger.info("Saved server '%s' to Cloudant", doc_id)
 
+        try:
+            # Check if a document with this ID already exists
+            existing = client.get_document(db=self._db_name, doc_id=doc_id).get_result()
+            logger.info("Server '%s' already exists in Cloudant. Skipping add.", doc_id)
+            return  # Skip adding if already exists
+        except Exception:
+            # Not found, proceed to add
+            pass
+
+        try:
+            client.post_document(db=self._db_name, document=Document(**config)).get_result()
+            logger.info("Saved server '%s' to Cloudant", doc_id)
+        except Exception as e:
+            logger.error("Failed to save server '%s': %s", doc_id, e)
+
+    def remove_mcp_server(self, server_id: str) -> None:
+        client = self._cloudant()
+        logger.info("removing the MCP from cloudant")
+        try:
+            result = client.post_find(
+                db=self._db_name,
+                selector={"id": {"$eq": server_id}}
+            ).get_result()
+
+            docs = result.get("docs", [])
+            if not docs:
+                logger.warning(f"No documents found in Cloudant for server_id='{server_id}'")
+                return
+
+            for doc in docs:
+                try:
+                    client.delete_document(db=self._db_name, doc_id=doc["_id"], rev=doc["_rev"])
+                    logger.info("Deleted server '%s' from Cloudant", server_id)
+                except Exception as delete_exc:
+                    logger.error("Failed to delete server '%s' from Cloudant: %s", server_id, delete_exc)
+
+        except Exception as exc:
+            logger.error("Cloudant find operation failed: %s", exc)
+    
     def load_all_servers_db(self) -> List[dict]:
         client = self._cloudant()
         try:
