@@ -55,7 +55,6 @@ class MCPGateway(FastMCP):
         try:
             ServerConfigValidator(config).validate()
             result = await self._mount_member_server(config)
-            self._server_manager.add_server_db(config)
             return result
         except Exception as e:
             logger.exception(f"Failed to register member server '{config}': {e}")
@@ -92,6 +91,7 @@ class MCPGateway(FastMCP):
             tool_count=None
         )
         member.set_server(sub_mcp)
+        self._server_manager.add_server_db(config)
         self._server_manager.add_member(server_id, member)
 
         logger.info(f"Mounted MCP server: {server_id}")
@@ -101,6 +101,8 @@ class MCPGateway(FastMCP):
         member = self._server_manager.get(server_id)
         if not member:
             return f"Server '{server_id}' not mounted."
+        self.unmount(server_id)
+        self._server_manager.remove_mcp_server(server_id)
         self._server_manager.remove_member(server_id)
         return f"Server '{server_id}' unmounted."
 
