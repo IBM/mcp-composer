@@ -2,10 +2,10 @@
 
 from fastmcp import FastMCP
 from typing import Any, Dict, Optional
-from utils.logger import LoggerFactory
-from member_servers.server_manager import ServerManager
-from member_servers.member_server import MemberMCPServer
-from member_servers.builder import MCPServerBuilder
+from mcp_gateway.utils import LoggerFactory, AllServersValidator, ValidationError, ServerConfigValidator
+from mcp_gateway.member_servers import ServerManager, MemberMCPServer, MCPServerBuilder
+
+import sys
 logger = LoggerFactory.get_logger()
 
 
@@ -15,12 +15,23 @@ class MCPGateway(FastMCP):
     """
     def __init__(self, name: str = "MCPGateway", config: Optional[list[dict]] = None):
         super().__init__(name=name)
-        self.config = config or []
+        if config:
+            try:
+                AllServersValidator(config).validate_all()
+                self.config = config
+                logger.info(f"The configuration is {config}")
+    
+            except ValidationError as e:
+                print("Validation error:", e)
+                sys.exit(1)     
+        else:
+            self.config = []    
         self._server_manager = ServerManager()
         self.add_tool(self.register_mcp_server)
         self.add_tool(self.remove_mcp_server)
 
-    async def setup(self):
+    
+    async def setup_member_servers(self):
         """
         Mount multiple servers from a JSON list in self.config.
         This runs at startup or from manual trigger.
@@ -37,11 +48,14 @@ class MCPGateway(FastMCP):
         """
         Register a single server dynamically from config.
         """
+        logger.info(f" Register a single server dynamically from config :{config}")
+        
         try:
+            ServerConfigValidator(config).validate()
             return    await self._mount_member_server(config)
         except Exception as e:
-            logger.exception(f"Failed to register memeber server '{config.get('id')}': {e}")
-            return f"Failed to register memeber server '{config.get('id')}'"
+            logger.exception(f"Failed to register memeber server '{config}': {e}")
+            return f"Failed to register memeber server '{config}'"
 
    
     async def remove_mcp_server(self, server_id:str) -> str:
@@ -55,16 +69,18 @@ class MCPGateway(FastMCP):
             return f"Failed to remove memeber server '{server_id}'"
 
 
-    async def _mount_member_server(self, config: dict) -> str:
+    async def _mount_member_server(self, config: dict) -> str:       
+        
         server_id = config["id"]
 
         if self._server_manager.has_member_server(server_id):
             logger.warning(f"Server '{server_id}' already mounted.")
             return f"Server '{server_id}' already mounted."
-
+        logger.info(f"Building new server with config {config}")
         builder = MCPServerBuilder(config)
         sub_mcp = await builder.build()
-
+        self.mount(server_id, sub_mcp)
+        
         member = MemberMCPServer(
             id=server_id,
             type=config["type"],
@@ -76,7 +92,7 @@ class MCPGateway(FastMCP):
         member.set_server(sub_mcp)
 
         self._server_manager.add_member(server_id,member)
-        self.mount(server_id, sub_mcp)
+        
         logger.info(f"Mounted MCP server: {server_id}")
         return f"Server '{server_id}' mounted."
 

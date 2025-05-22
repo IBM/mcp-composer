@@ -3,9 +3,9 @@
 from typing import Dict
 from fastmcp import FastMCP
 from fastmcp.settings import DuplicateBehavior
-from utils.logger import LoggerFactory
+from mcp_gateway.utils import LoggerFactory
 from collections.abc import Callable
-from member_servers.member_server import MemberMCPServer
+from mcp_gateway.member_servers.member_server import MemberMCPServer
 from typing import  Any
 logger = LoggerFactory.get_logger()
 

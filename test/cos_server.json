@@ -1,0 +1,11 @@
+{
+  "id": "cos",
+  "type": "openapi",
+  "endpoint": "https://s3.us-south.cloud-object-storage.appdomain.cloud",
+  "openapi_url": "https://cloud.ibm.com/apidocs/cos",
+  "auth_strategy": "iam",
+  "auth": {
+    "api_key": "XXX",
+    "iam_endpoint": "https://iam.cloud.ibm.com/identity/token"
+  }
+}

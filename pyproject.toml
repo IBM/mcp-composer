@@ -1,5 +1,5 @@
 [project]
-name = "mcp-gw"
+name = "mcp-gateway"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
@@ -9,8 +9,22 @@ dependencies = [
     "fastmcp>=2.3.3",
     "requests>=2.32.3",
 ]
+
+[dependency-groups]
+dev = [
+
+    "dirty-equals>=0.9.0",
+    "pytest>=8.3.3",
+    "pytest-asyncio>=0.23.5",
+    "pytest-cov>=6.1.1",
+    "pytest-flakefinder",
+    "pytest-report>=0.2.1",
+    "pytest-timeout>=2.4.0",
+    "pytest-xdist>=3.6.1",
+]
+
 [tool.pyright]
-include = ["src", "tests"]
+include = ["src", "test"]
 exclude = ["**/node_modules", "**/__pycache__", ".venv", ".git", "dist"]
 venvPath = "."
 venv = ".venv"
@@ -21,5 +35,5 @@ where = ["src"]
 [tool.pytest.ini_options]
 pythonpath = ["src"]
 testpaths = [
-    "tests",
+    "test",
 ]

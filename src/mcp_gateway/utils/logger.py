@@ -22,6 +22,6 @@ class LoggerFactory:
         )
         handler.setFormatter(formatter)
 
-        logger.setLevel(level.upper())
+        logger.setLevel(logging.DEBUG)
         logger.addHandler(handler)
         return logger

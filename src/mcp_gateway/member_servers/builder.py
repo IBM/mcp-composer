@@ -4,8 +4,10 @@ from typing import Dict
 from fastmcp import FastMCP, Client
 from fastmcp.client.transports import StreamableHttpTransport, SSETransport
 import httpx
-from utils.logger import LoggerFactory
+from mcp_gateway.utils.logger import LoggerFactory
+from mcp_gateway.utils import ServerConfigValidator, ValidationError
 logger = LoggerFactory.get_logger()
+import sys 
 
 class MCPServerBuilder:
     """
@@ -14,11 +16,14 @@ class MCPServerBuilder:
     """
 
     def __init__(self, config: Dict):
+        logger.info(f"Building Member Server with config {config}")
         self.config = config
         self.mcp_id = config["id"]
         self.mcp_type = config["type"]
 
     async def build(self) -> FastMCP:
+        logger.info(f"Builing new { self.mcp_type} Server")
+            
         if self.mcp_type == "client":
             return await self._build_from_client()
 
@@ -40,7 +45,8 @@ class MCPServerBuilder:
     async def _build_from_transport(self, transport_type=None) -> FastMCP:
         # auth = build_auth_strategy(self.config["auth_strategy"], self.config.get("auth", {}))
         # headers = await auth.get_headers()
-        headers = self.config["headers"]
+
+        headers = self.config.get("headers")
         if transport_type == 'http':
             transport = StreamableHttpTransport(
                 url=self.config["endpoint"],
@@ -59,9 +65,10 @@ class MCPServerBuilder:
     async def _build_from_client(self) -> FastMCP:
         # auth = build_auth_strategy(self.config["auth_strategy"], self.config.get("auth", {}))
         # headers = await auth.get_headers()
-        headers = self.config["headers"]
+        
         client = Client(self.config["endpoint"])
         
+        headers = self.config.get("headers")
         if headers:
             transport = StreamableHttpTransport(
                 url=self.config["endpoint"],

@@ -1,10 +1,13 @@
-# src/mcp_gateway/__init__.py
+from importlib.metadata import version
 
-# Re-export public API from core components
-from .mcp_gateway import MCPGateway
+from mcp_gateway.gateway import MCPGateway
+from .utils import LoggerFactory, ValidationError, AllServersValidator, ServerConfigValidator
+from .member_servers import MCPServerBuilder, ServerManager
 
-# Optional: expose these directly if commonly used
-from .member_servers.builder import MCPServerBuilder
-from .member_servers.member_server import MemberMCPServer
-from .member_servers.server_manager import ServerManager
 
+
+try:
+    from importlib.metadata import version
+    __version__ = version("mcp_gateway")
+except Exception:
+    __version__ = "0.0.0-dev"
