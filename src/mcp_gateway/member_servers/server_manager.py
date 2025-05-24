@@ -79,16 +79,26 @@ class ServerManager:
 
     @classmethod
     def _cloudant(cls) -> CloudantV1:
-        if cls._cloudant_client is None:
-            authenticator = IAMAuthenticator(os.environ.get("CLOUDANT_API_KEY"))
-            client = CloudantV1(authenticator=authenticator)
-            client.set_service_url(os.environ.get("CLOUDANT_URL"))
+        api_key = os.environ.get("CLOUDANT_API_KEY")
+        service_url = os.environ.get("CLOUDANT_URL")
 
-            if cls._db_name not in client.get_all_dbs().get_result():
-                client.put_database(cls._db_name)
-            cls._cloudant_client = client
+        if not api_key or not service_url:
+            logger.error("CLOUDANT_API_KEY or CLOUDANT_URL is not set in environment.")
+            raise EnvironmentError("Missing Cloudant credentials in environment variables.")
+        try:
+            if cls._cloudant_client is None:
+                authenticator = IAMAuthenticator(api_key)
+                client = CloudantV1(authenticator=authenticator)
+                client.set_service_url(service_url)
 
-        return cls._cloudant_client
+                if cls._db_name not in client.get_all_dbs().get_result():
+                    client.put_database(cls._db_name)
+                cls._cloudant_client = client
+
+            return cls._cloudant_client
+        except Exception as e:
+            logger.error(f"Failed to connect to Cloudant: {e}")
+            raise ConnectionError(f"Could not establish Cloudant connection: {e}")
 
     def add_server_db(self, config: dict) -> None:
         client = self._cloudant()
