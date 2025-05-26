@@ -26,7 +26,7 @@ class DynamicTokenClient(httpx.AsyncClient):
         )
     
     async def _refresh_token(self):
-        logger.debug(f"crating access token >>>>>>>>>>>>{self.apikey} and {self.token_url}")
+        logger.debug(f"crating access token at {self.token_url}")
         # Expect apikey to be in headers: self.headers["apikey"]
 
 
@@ -41,17 +41,17 @@ class DynamicTokenClient(httpx.AsyncClient):
 
         response = await super().post(self.token_url, headers=form_headers, data=data)
         response.raise_for_status()
-        print("Response>>>>>>>>>>>>", response.status_code)
+        
         token_data = response.json()
         self._access_token = token_data["access_token"]
-        print(f"token_url >>>>>>>>>>>>>>>>>{self.token_url} and _access_token { self._access_token}")
+      
         expires_in = token_data.get("expires_in", 3600)
         self._expires_at = time.time() + expires_in - 60  # refresh early
 
     
     async def request(self, method: str, url: httpx.URL | str, **kwargs) -> httpx.Response:
         # Prevent recursion if the token_url is being called
-        print("requesting>>>>>>>>>>>>>", method, url)
+       
         if method.upper() == "POST" and str(url).startswith(str(self.token_url)):
             return await super().request(method, url, **kwargs)
         if not self._access_token or time.time() >= self._expires_at:
