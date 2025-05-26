@@ -5,8 +5,10 @@ from fastmcp import FastMCP, Client
 from fastmcp.client.transports import StreamableHttpTransport, SSETransport
 import httpx
 from mcp_gateway.utils.logger import LoggerFactory
-from mcp_gateway.utils import ServerConfigValidator, ValidationError
+from mcp_gateway.utils import *
+from mcp_gateway.auth_handler import DynamicTokenClient
 logger = LoggerFactory.get_logger()
+
 import sys 
 
 class MCPServerBuilder:
@@ -82,20 +84,25 @@ class MCPServerBuilder:
             raise RuntimeError(f"Failed to build member MCP server '{self.mcp_id}'") from e
     
     async def _build_from_openapi(self) -> FastMCP:
-        # auth = build_auth_strategy(self.config["auth_strategy"], self.config.get("auth", {}))
-        # headers = await auth.get_headers()
-        # client=httpx.AsyncClient(base_url=self.config["endpoint"], auth=auth, headers=headers),
+        openapi_config = self.config[ConfigKey.OPEN_API]
+        custom_mappings = await load_custom_mappings_from_json( openapi_config[ConfigKey.CUSTOM_ROUTES])
+        spec = {}
+        if openapi_config[ConfigKey.SPEC_URL]:
+            spec = await load_spec_from_url(openapi_config[ConfigKey.ENDPOINT],openapi_config[ConfigKey.SPEC_URL])
+        elif openapi_config[ConfigKey.SPEC_FILEPATH]:
+            spec = await load_json(openapi_config[ConfigKey.SPEC_FILEPATH])
+        else:
+           raise NotImplementedError("Spec is missing")
+    
+       
+        http_client = DynamicTokenClient(base_url=openapi_config[ConfigKey.ENDPOINT],
+                                            token_url= self.config[ConfigKey.AUTH][ConfigKey.Token_URL], 
+                                            api_key=self.config[ConfigKey.AUTH][ConfigKey.APIKEY])
         
-        async with httpx.AsyncClient(base_url=self.config["endpoint"]) as client:
-            response = await client.get(self.config["openapi_url"])
-            response.raise_for_status()
-            spec = response.json()
-
-        return FastMCP.from_openapi(
-            openapi_spec=spec,
-            client=httpx.AsyncClient(base_url=self.config["endpoint"]),
-            name=self.mcp_id
-        )
+        mcp = FastMCP.from_openapi(spec, 
+                               client=http_client, route_maps=custom_mappings)
+        
+        return mcp
 
     def _build_from_fastapi(self) -> FastMCP:
         raise NotImplementedError("Local file loading not yet supported.")
