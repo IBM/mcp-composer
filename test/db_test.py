@@ -1,99 +1,56 @@
-# tests/test_gateway_restart.py
 import pytest
 import logging
 
 from mcp_gateway import MCPGateway
-from mcp_gateway.member_servers.server_manager import ServerManager
+from mcp_gateway.store.database import DatabaseInterface
 
 
 ###############################################################################
-# Fake Cloudant – implements only what ServerManager uses
+# Fake Database – implements only what ServerManager uses
 ###############################################################################
-class _Response:
-    def __init__(self, result):
-        self._result = result
-    def get_result(self):
-        return self._result
-
-
-class FakeCloudantV1:
+class FakeDatabase(DatabaseInterface):
     def __init__(self):
-        self._dbs: dict[str, dict[str, dict]] = {}
+        self._servers: dict[str, dict] = {}
+        self.reset()
 
-    # ---------- convenience ----------
     def reset(self):
-        self._dbs.clear()
+        self._servers.clear()
 
-    # ---------- meta ----------
-    def get_all_dbs(self):
-        return _Response(list(self._dbs))
-    def put_database(self, db_name):
-        self._dbs.setdefault(db_name, {})
-        return _Response({"ok": True})
+    def load_all_servers(self) -> list[dict]:
+        return list(self._servers.values())
 
-    # ---------- CRUD ----------
-    def get_document(self, db, doc_id):
-        try:
-            return _Response(self._dbs[db][doc_id])
-        except KeyError:
-            raise Exception("doc_not_found")
+    def add_server(self, config: dict) -> None:
+        self._servers[config["id"]] = config
 
-    def post_document(self, db, document):
-        # if we get an IBM `Document` object, convert it
-        if not isinstance(document, dict):
-            document = getattr(document, "to_dict", lambda: vars(document))()
-        self._dbs.setdefault(db, {})[document["id"]] = document
-        return _Response({"ok": True})
-
-    def delete_document(self, db, doc_id, rev=None):
-        self._dbs[db].pop(doc_id, None)
-        return _Response({"ok": True})
-
-    # ---------- queries ----------
-    def post_find(self, db, selector):
-        sid = selector["id"]["$eq"]
-        doc = self._dbs.get(db, {}).get(sid)
-        return _Response({"docs": [doc] if doc else []})
-
-    def post_all_docs(self, db, include_docs=True):
-        rows = [{"doc": d.copy()} for d in self._dbs.get(db, {}).values()]
-        return _Response({"rows": rows})
+    def remove_server(self, server_id: str) -> None:
+        self._servers.pop(server_id, None)
 
 
 ###############################################################################
-# Autouse fixture that **guarantees** every test sees the fake DB
+# Fixtures
 ###############################################################################
-@pytest.fixture(autouse=True)
-def fake_cloudant(monkeypatch):
-    """
-    1. Builds a fresh FakeCloudantV1 for *this* test.
-    2. Zeros out any previously cached real client.
-    3. Monkey‑patches ServerManager so it returns our fake.
-    4. After the test, clears state so nothing leaks.
-    """
-    fake = FakeCloudantV1()
+@pytest.fixture
+def fake_db():
+    """Provides a fresh fake database for each test"""
+    db = FakeDatabase()
+    yield db
+    db.reset()
 
-    # 1️⃣ blow away a Cloudant client that might already be cached
-    ServerManager._cloudant_client = None
 
-    # 2️⃣ patch the factory so *future* calls get the fake
-    monkeypatch.setattr(
-        ServerManager,
-        "_cloudant",
-        classmethod(lambda cls: fake),
-        raising=True,
-    )
+@pytest.fixture
+def server_config():
+    return {
+        "id": "test-server",
+        "type": "sse",
+        "endpoint": "https://mcp-server-fetch.1vgzmntiwjzl.eu-es.codeengine.appdomain.cloud/sse"
+    }
 
-    yield fake          # << test runs here, sharing the fake DB
-
-    # 3️⃣ reset for the next test
-    fake.reset()
 
 ###############################################################################
-# 3. Your original test logic (unchanged)
+# Tests
 ###############################################################################
 @pytest.mark.asyncio
-async def test_gateway_restart_persists_and_restores_server(caplog):
+async def test_gateway_restart_persists_and_restores_server(fake_db, server_config, caplog):
     """
     1. Register a server with config (first run)
     2. Simulate gateway restart (load from fake DB)
@@ -102,64 +59,66 @@ async def test_gateway_restart_persists_and_restores_server(caplog):
     caplog.set_level(logging.DEBUG)
     logger = logging.getLogger(__name__)
 
-    server_id = "mcp-server-fetch"
-    config = [{
-        "id": server_id,
-        "type": "sse",
-        "endpoint": "https://dummy.endpoint/sse"  # A dummy endpoint is fine
-    }]
-
     # -------- First run --------
-    gateway_1 = MCPGateway("gateway", config=config)
+    gateway_1 = MCPGateway("gateway", config=[server_config], database_config=fake_db)
     await gateway_1.setup_member_servers()
     tools_1 = await gateway_1.get_tools()
     logger.debug("[First run] Tools: %s", tools_1)
-    assert any(server_id in t for t in tools_1), \
+    assert any(server_config["id"] in t for t in tools_1), \
         "Server tools not available after registration"
 
     # -------- Simulate restart --------
-    gateway_2 = MCPGateway("gateway")
+    gateway_2 = MCPGateway("gateway", database_config=fake_db)
     await gateway_2.setup_member_servers()
     tools_2 = await gateway_2.get_tools()
     logger.debug("[After restart] Tools: %s", tools_2)
-    assert any(server_id in t for t in tools_2), \
+    assert any(server_config["id"] in t for t in tools_2), \
         "Server tool not found after restart"
 
-@pytest.mark.asyncio
-async def test_duplicate_registration_skips_duplicate(fake_cloudant, caplog):
-    server_id = "duplicate-server"
-    config = [{
-        "id": server_id,
-        "type": "sse",
-        "endpoint": "http://dummy/endpoint"
-    }]
 
+@pytest.mark.asyncio
+async def test_duplicate_registration_skips_duplicate(fake_db, server_config, caplog):
     caplog.set_level(logging.INFO)
-    gateway = MCPGateway("gateway", config=config)
+    gateway = MCPGateway("gateway", config=[server_config], database_config=fake_db)
     await gateway.setup_member_servers()
 
     # Register again with same config
     await gateway.setup_member_servers()
 
-    db = fake_cloudant._dbs["mcp_servers"]
-    assert len(db) == 1, "Duplicate registration should not add a second entry"
-    assert server_id in db
+    assert len(fake_db._servers) == 1, "Duplicate registration should not add a second entry"
+    assert server_config["id"] in fake_db._servers
+
 
 @pytest.mark.asyncio
-async def test_corrupt_entry_does_not_crash_gateway(fake_cloudant):
-    db = fake_cloudant._dbs.setdefault("mcp_servers", {})
-    db["corrupt-entry"] = {"type": "sse", "endpoint": "http://bad"}
+async def test_corrupt_entry_does_not_crash_gateway(fake_db):
+    # Add corrupt entry directly to the fake database
+    fake_db._servers["corrupt-entry"] = {"type": "sse", "endpoint": "http://bad"}
 
-    gateway = MCPGateway("gateway")
+    gateway = MCPGateway("gateway", database_config=fake_db)
     # Should not raise error even though one entry is invalid
     await gateway.setup_member_servers()
 
     tools = await gateway.get_tools()
     assert isinstance(tools, dict), "Gateway should recover from bad DB entries"
 
+
 @pytest.mark.asyncio
-async def test_empty_database_loads_no_servers():
-    gateway = MCPGateway("gateway")
+async def test_empty_database_loads_no_servers(fake_db):
+    gateway = MCPGateway("gateway", database_config=fake_db)
     await gateway.setup_member_servers()
     mounted_servers = gateway.list_member_servers()
     assert mounted_servers == [], "Gateway should start cleanly with empty DB"
+
+
+@pytest.mark.asyncio
+async def test_no_database_config_works(fake_db, server_config):
+    # Test with no database config
+    gateway = MCPGateway("gateway", config=[server_config])
+    await gateway.setup_member_servers()
+    
+    # Should still work but not persist
+    tools = await gateway.get_tools()
+    assert any(server_config["id"] in t for t in tools)
+    
+    # Verify nothing was persisted to database
+    assert len(fake_db._servers) == 0

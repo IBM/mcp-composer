@@ -1,8 +1,9 @@
 from fastmcp import FastMCP
 from dotenv import load_dotenv
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Union
 from mcp_gateway.utils import LoggerFactory, AllServersValidator, ValidationError, ServerConfigValidator
 from mcp_gateway.member_servers import ServerManager, MemberMCPServer, MCPServerBuilder
+from mcp_gateway.store.database import DatabaseInterface
 load_dotenv()
 import sys
 
@@ -13,14 +14,40 @@ class MCPGateway(FastMCP):
     """
     Extended FastMCP server with dynamic runtime server composition.
     """
-    def __init__(self, name: str = "MCPGateway", config: Optional[list[dict]] = None):
+    def __init__(
+            self,
+            name: str = "MCPGateway",
+            config: Optional[list[dict]] = None,
+            database_config: Optional[Union[Dict[str, Any], DatabaseInterface]] = None
+        ):
         super().__init__(name=name)
 
-        self._server_manager = ServerManager()
+        database = None
+        if database_config:
+            try:
+                if isinstance(database_config, DatabaseInterface):
+                    database = database_config
+                elif database_config.get("type") == "cloudant":
+                    from mcp_gateway.store.cloudant_adapter import CloudantAdapter
+                    required_keys = ["api_key", "service_url"]
+                    if not all(k in database_config for k in required_keys):
+                        raise ValueError("Missing required Cloudant config keys: api_key, service_url")
+                    
+                    database = CloudantAdapter(
+                        api_key=database_config["api_key"],
+                        service_url=database_config["service_url"],
+                        db_name=database_config.get("db_name", "mcp_servers"),
+                    )
+                else:
+                    logger.warning(f"Unsupported database type: {database_config.get('type')}")
+            except Exception as e:
+                logger.error(f"Failed to initialize database: {e}")
+                raise
+
+
+        self._server_manager = ServerManager(database=database)
 
         self._db_configs: list[dict] = self._server_manager.load_all_servers_db()
-        logger.info("Loaded %d server configs from Cloudant", len(self._db_configs))
-
         self._config: list[dict] = []
         if config:
             try:
