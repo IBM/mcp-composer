@@ -85,20 +85,31 @@ class MCPServerBuilder:
     
     async def _build_from_openapi(self) -> FastMCP:
         openapi_config = self.config[ConfigKey.OPEN_API]
-        custom_mappings = await load_custom_mappings_from_json( openapi_config[ConfigKey.CUSTOM_ROUTES])
+        custom_mappings = []
+        if ConfigKey.CUSTOM_ROUTES in openapi_config:
+            custom_mappings = await load_custom_mappings_from_json( openapi_config[ConfigKey.CUSTOM_ROUTES])
         spec = {}
-        if openapi_config[ConfigKey.SPEC_URL]:
+        if ConfigKey.SPEC_URL in openapi_config:
             spec = await load_spec_from_url(openapi_config[ConfigKey.ENDPOINT],openapi_config[ConfigKey.SPEC_URL])
-        elif openapi_config[ConfigKey.SPEC_FILEPATH]:
+        elif ConfigKey.SPEC_FILEPATH in openapi_config:
             spec = await load_json(openapi_config[ConfigKey.SPEC_FILEPATH])
         else:
            raise NotImplementedError("Spec is missing")
-    
-       
-        http_client = DynamicTokenClient(base_url=openapi_config[ConfigKey.ENDPOINT],
-                                            token_url= self.config[ConfigKey.AUTH][ConfigKey.Token_URL], 
-                                            api_key=self.config[ConfigKey.AUTH][ConfigKey.APIKEY])
+
+        headers ={}
+        http_client=httpx.AsyncClient(base_url=openapi_config[ConfigKey.ENDPOINT]) 
         
+        if self.config[ConfigKey.AUTH_STRATEGY] == AuthStrategy.DYNAMIC_BEARER:
+            http_client = DynamicTokenClient(base_url=openapi_config[ConfigKey.ENDPOINT],
+                                                token_url= self.config[ConfigKey.AUTH][ConfigKey.Token_URL], 
+                                                api_key=self.config[ConfigKey.AUTH][ConfigKey.APIKEY])
+
+        if self.config[ConfigKey.AUTH_STRATEGY] == AuthStrategy.BEARER: 
+            logger.info("Setting up header and client for bearer")     
+            headers[ConfigKey.AUTH_HEADRR] = f"Bearer {self.config[ConfigKey.AUTH][ConfigKey.TOKEN]}"
+            http_client=httpx.AsyncClient(base_url=openapi_config[ConfigKey.ENDPOINT], headers=headers) 
+       
+       
         mcp = FastMCP.from_openapi(spec, 
                                client=http_client, route_maps=custom_mappings)
         

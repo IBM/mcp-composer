@@ -14,10 +14,20 @@ class ConfigKey(str, Enum):
     OPEN_API="open_api"
     CUSTOM_ROUTES="custom_routes"
     Token_URL="token_url"
+    AUTH_HEADRR ="Authorization"
+    TOKEN ="token"
 
 class MemberServerType(str, Enum):
     OpenAPI="openapi"
     Client="client"
+
+class AuthStrategy(str, Enum):
+    OAUTH="oauth2"
+    APIKEY="apikey"
+    BEARER ="bearer"
+    DYNAMIC_BEARER="dynamic_bearer"
+
+
 
 
 class ValidationError(Exception):
@@ -32,8 +42,10 @@ class ServerConfigValidator:
 
     def validate(self) -> None:
         """Run all validation checks."""
-        self._validate_auth_dependency()
-        self._validate_openapi_requirements()
+        if ConfigKey.AUTH_STRATEGY in self.config:
+            self._validate_auth_dependency()
+        if self.config.get(ConfigKey.TYPE) == MemberServerType.OpenAPI:
+            self._validate_openapi_requirements()
         self._validate_client_requirements()  
 
     def _validate_auth_dependency(self) -> None:
@@ -46,10 +58,10 @@ class ServerConfigValidator:
         strategy = self.config[ConfigKey.AUTH_STRATEGY].lower()
 
         required_auth_keys = {
-            "apikey": ["apikey"],
-            "bearer": ["token"],
-            "dynamic_bearer": ["apikey", "token_url"],
-            "oauth2": ["client_id", "client_secret", "token_url"],
+            AuthStrategy.APIKEY: ["apikey"],
+            AuthStrategy.BEARER: ["token"],
+            AuthStrategy.DYNAMIC_BEARER: ["apikey", "token_url"],
+            AuthStrategy.OAUTH: ["client_id", "client_secret", "token_url"],
         }
 
         # Check if strategy is supported
@@ -65,7 +77,7 @@ class ServerConfigValidator:
 
     def _validate_openapi_requirements(self) -> None:
         """Ensure 'endpoint' and 'openapi_url' exist if type is 'openapi'."""
-        if self.config.get("type") != "openapi":
+        if self.config.get(ConfigKey.TYPE) != MemberServerType.OpenAPI:
             return  # nothing to validate
 
         openapi_config = self.config.get(ConfigKey.OPEN_API, {})
