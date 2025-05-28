@@ -147,8 +147,6 @@ class MCPGateway(FastMCP):
         member.set_server(sub_mcp)
         self._server_manager.add_server_db(config)
         self._server_manager.add_member(server_id, member)
-
-        logger.info(f"Mounted MCP server: {server_id}")
         return f"Server '{server_id}' mounted."
 
     async def unmount_server(self, server_id: str) -> str:
