@@ -43,6 +43,10 @@ class MCPGateway(FastMCP):
             except Exception as e:
                 logger.error(f"Failed to initialize database: {e}")
                 raise
+        else:
+            from mcp_gateway.store.local_file_adapter import LocalFileAdapter
+            database = LocalFileAdapter()
+            logger.info("No database config provided, using local file storage")
 
 
         self._server_manager = ServerManager(database=database)
