@@ -1,11 +1,12 @@
-# gateway/mcp_gateway.py
-
 from fastmcp import FastMCP
-from typing import Any, Dict, Optional
+from dotenv import load_dotenv
+from typing import Any, Dict, Optional, Union
 from mcp_gateway.utils import LoggerFactory, AllServersValidator, ValidationError, ServerConfigValidator
 from mcp_gateway.member_servers import ServerManager, MemberMCPServer, MCPServerBuilder
-
+from mcp_gateway.store.database import DatabaseInterface
+load_dotenv()
 import sys
+
 logger = LoggerFactory.get_logger()
 
 
@@ -13,36 +14,87 @@ class MCPGateway(FastMCP):
     """
     Extended FastMCP server with dynamic runtime server composition.
     """
-    def __init__(self, name: str = "MCPGateway", config: Optional[list[dict]] = None):
+    def __init__(
+            self,
+            name: str = "MCPGateway",
+            config: Optional[list[dict]] = None,
+            database_config: Optional[Union[Dict[str, Any], DatabaseInterface]] = None
+        ):
         super().__init__(name=name)
+
+        database = None
+        if database_config:
+            try:
+                if isinstance(database_config, DatabaseInterface):
+                    database = database_config
+                elif database_config.get("type") == "cloudant":
+                    from mcp_gateway.store.cloudant_adapter import CloudantAdapter
+                    required_keys = ["api_key", "service_url"]
+                    if not all(k in database_config for k in required_keys):
+                        raise ValueError("Missing required Cloudant config keys: api_key, service_url")
+                    
+                    database = CloudantAdapter(
+                        api_key=database_config["api_key"],
+                        service_url=database_config["service_url"],
+                        db_name=database_config.get("db_name", "mcp_servers"),
+                    )
+                else:
+                    logger.warning(f"Unsupported database type: {database_config.get('type')}")
+            except Exception as e:
+                logger.error(f"Failed to initialize database: {e}")
+                raise
+
+
+        self._server_manager = ServerManager(database=database)
+
+        self._db_configs: list[dict] = self._server_manager.load_all_servers_db()
+        self._config: list[dict] = []
         if config:
             try:
                 AllServersValidator(config).validate_all()
-                self.config = config
-                logger.info(f"The configuration is {config}")
-    
+                self._config = config
+                logger.info("Merged %d configs supplied at launch", len(config))
             except ValidationError as e:
-                print("Validation error:", e)
-                sys.exit(1)     
-        else:
-            self.config = []    
-        self._server_manager = ServerManager()
+                logger.error("Validation error: %s", e)
+                sys.exit(1)
+
         self.add_tool(self.register_mcp_server)
         self.add_tool(self.remove_mcp_server)
 
-    
     async def setup_member_servers(self):
         """
         Mount multiple servers from a JSON list in self.config.
         This runs at startup or from manual trigger.
         """
-        logger.info(f"Setting up {len(self.config)} configured servers...")
-        for config in self.config:
-            try:
-                await self._mount_member_server(config)
-            except Exception as e:
-                logger.exception(f"Failed to mount server '{config.get('id')}': {e}")
+        all_configs = self._config + self._db_configs
+        seen_ids = set()
+        logger.info(f"Setting up {len(self._config)} CLI servers and {len(self._db_configs)} DB servers...")
 
+        for cfg in all_configs:
+            server_id = cfg.get("id")
+            if not server_id:
+                logger.error("Skipping corrupt config with no 'id': %s", cfg)
+                continue
+
+            if server_id in seen_ids:
+                logger.debug(f"Skipping duplicate server '{server_id}'")
+                continue
+
+            if self._server_manager.has_member_server(server_id):
+                logger.debug(f"Server '{server_id}' already mounted, skipping.")
+                seen_ids.add(server_id)
+                continue
+
+            await self._safe_mount(cfg)
+            seen_ids.add(server_id)
+
+
+    async def _safe_mount(self, cfg: dict):
+        try:
+            await self._mount_member_server(cfg)
+        except Exception as exc:
+            logger.error("Failed to mount server '%s': %s",
+                              cfg.get("id", "<missing‑id>"), exc)
 
     async def register_mcp_server(self, config: dict) -> str:
         """
@@ -52,35 +104,38 @@ class MCPGateway(FastMCP):
         
         try:
             ServerConfigValidator(config).validate()
-            return    await self._mount_member_server(config)
+            result = await self._mount_member_server(config)
+            return result
         except Exception as e:
-            logger.exception(f"Failed to register memeber server '{config}': {e}")
-            return f"Failed to register memeber server '{config}'"
+            logger.exception(f"Failed to register member server '{config}': {e}")
+            return f"Failed to register member server '{config}'"
 
-   
-    async def remove_mcp_server(self, server_id:str) -> str:
+    async def remove_mcp_server(self, server_id: str) -> str:
         """
         Remove a single server dynamically from config.
         """
         try:
             return await self.unmount_server(server_id)
         except Exception as e:
-            logger.exception(f"Failed to remove memeber server '{server_id}': {e}")
-            return f"Failed to remove memeber server '{server_id}'"
+            logger.exception(f"Failed to remove member server '{server_id}': {e}")
+            return f"Failed to remove member server '{server_id}'"
 
+    async def _mount_member_server(self, config: dict) -> str:
+        if "id" not in config:
+            logger.error("Invalid server config, missing 'id': %s", config)
+            return f"Invalid server config, missing 'id': {config}"
 
-    async def _mount_member_server(self, config: dict) -> str:       
-        
         server_id = config["id"]
 
         if self._server_manager.has_member_server(server_id):
             logger.warning(f"Server '{server_id}' already mounted.")
             return f"Server '{server_id}' already mounted."
+
         logger.info(f"Building new server with config {config}")
         builder = MCPServerBuilder(config)
         sub_mcp = await builder.build()
         self.mount(server_id, sub_mcp)
-        
+
         member = MemberMCPServer(
             id=server_id,
             type=config["type"],
@@ -90,9 +145,9 @@ class MCPGateway(FastMCP):
             tool_count=None
         )
         member.set_server(sub_mcp)
+        self._server_manager.add_server_db(config)
+        self._server_manager.add_member(server_id, member)
 
-        self._server_manager.add_member(server_id,member)
-        
         logger.info(f"Mounted MCP server: {server_id}")
         return f"Server '{server_id}' mounted."
 
@@ -100,11 +155,13 @@ class MCPGateway(FastMCP):
         member = self._server_manager.get(server_id)
         if not member:
             return f"Server '{server_id}' not mounted."
+        self.unmount(server_id)
+        self._server_manager.remove_mcp_server(server_id)
         self._server_manager.remove_member(server_id)
         return f"Server '{server_id}' unmounted."
 
     def list_member_servers(self) -> list[dict]:
-        logger.info("list_member_servers")
+        logger.info("Listing member servers")
         return [
             {"id": m.id, "server_name": m.get_server().name}
             for m in self._server_manager.list()
