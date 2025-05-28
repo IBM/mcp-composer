@@ -6,8 +6,9 @@ readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
     "duckduckgo-search>=8.0.1",
-    "fastmcp>=2.3.3",
+    "fastmcp>=2.5.1",
     "requests>=2.32.3",
+    "httpx>=0.28.1",
 ]
 
 [dependency-groups]
@@ -23,6 +24,7 @@ dev = [
     "pytest-xdist>=3.6.1",
 ]
 
+
 [tool.pyright]
 include = ["src", "test"]
 exclude = ["**/node_modules", "**/__pycache__", ".venv", ".git", "dist"]
@@ -32,8 +34,18 @@ venv = ".venv"
 [tool.setuptools.packages.find]
 where = ["src"]
 
+[tool.setuptools]
+package-dir = {"" = "src"}
+
 [tool.pytest.ini_options]
 pythonpath = ["src"]
 testpaths = [
     "test",
 ]
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+
+

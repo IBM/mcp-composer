@@ -11,6 +11,7 @@ uv run test_gw.py
 3. Run the MCP Inspector
 
 ```
+
 npx @modelcontextprotocol/inspector
 ```
 
@@ -44,3 +45,4 @@ Once the tool is run , it will be successfully registered
 10.  Run any tools
 
 <img width="1670" alt="image" src="https://github.ibm.com/ai-elite/mcp-gateway/assets/3014/f6678d13-99d3-4367-93ad-ab58d6431532">
+
