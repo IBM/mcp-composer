@@ -2,6 +2,7 @@
 from typing import List, Dict
 from ibmcloudant import CloudantV1
 from ibm_cloud_sdk_core.authenticators import IAMAuthenticator
+from ibm_cloud_sdk_core.api_exception import ApiException
 from ibmcloudant.cloudant_v1 import Document
 from mcp_gateway.utils import LoggerFactory
 from .database import DatabaseInterface
@@ -39,10 +40,17 @@ class CloudantAdapter(DatabaseInterface):
     def add_server(self, config: Dict) -> None:
         doc_id = config["id"]
         try:
-            self._client.post_document(db=self._db_name, document=Document(**config)).get_result()
-            logger.info("Saved server '%s' to Cloudant", doc_id)
-        except Exception as e:
-            logger.error("Failed to save server '%s': %s", doc_id, e)
+            self._client.get_document(db=self._db_name, doc_id=doc_id).get_result()
+            logger.info("Server '%s' already exists in Cloudant. Skipping add.", doc_id)
+        except ApiException as e:
+            if e.code == 404:
+                try:
+                    self._client.post_document(db=self._db_name, document=Document(**config)).get_result()
+                    logger.info("Saved server '%s' to Cloudant", doc_id)
+                except Exception as post_err:
+                    logger.error("Failed to save server '%s': %s", doc_id, post_err)
+            else:
+                logger.error("Error checking server '%s': %s", doc_id, e)
     
     def remove_server(self, server_id: str) -> None:
         try:
