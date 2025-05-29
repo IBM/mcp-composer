@@ -1,5 +1,4 @@
 from typing import Dict, List, Any, Optional
-from fastmcp import FastMCP
 from fastmcp.settings import DuplicateBehavior
 from mcp_gateway.utils import LoggerFactory
 from collections.abc import Callable
@@ -22,11 +21,13 @@ class ServerManager:
         self,
         duplicate_behavior: DuplicateBehavior | None = None,
         serializer: Callable[[str, MemberMCPServer], Any] | None = None,
-        database: Optional[DatabaseInterface] = None 
+        database: Optional[DatabaseInterface] = None,
     ):
         self._member_servers: dict[str, MemberMCPServer] = {}
         # Fix here: explicitly declare non-optional type
-        self._serializer: Callable[[str, MemberMCPServer], Any] = serializer or self.default_serializer
+        self._serializer: Callable[[str, MemberMCPServer], Any] = (
+            serializer or self.default_serializer
+        )
         self._database = database
 
         if duplicate_behavior is None:
@@ -87,3 +88,12 @@ class ServerManager:
         if self._database is None:
             return []
         return self._database.load_all_servers()
+
+    def add_remove_tools(self, tools: List[str], server_id) -> None:
+        if self._database:
+            self._database.add_remove_tools(tools, server_id)
+
+    def fetch_remove_tools(self) -> Dict[Any, List]:
+        if self._database is None:
+            return {}
+        return self._database.fetch_remove_tools()

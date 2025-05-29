@@ -1,0 +1,164 @@
+{
+    "test_get_tool_config_by_name": [
+        {
+            "name": "search_news",
+            "description": "Simulate news search using a ticker and return top articles.",
+            "parameters": {
+                "properties": {
+                    "keyword": {
+                        "title": "Keyword",
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "keyword"
+                ],
+                "type": "object"
+            }
+        }
+    ],
+    "test_get_tool_config_by_server": [
+        {
+            "name": "fetch_html",
+            "description": "Fetch a website and return the content as HTML",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "url": {
+                        "type": "string",
+                        "description": "URL of the website to fetch"
+                    },
+                    "headers": {
+                        "type": "object",
+                        "description": "Optional headers to include in the request"
+                    }
+                },
+                "required": [
+                    "url"
+                ]
+            }
+        },
+        {
+            "name": "fetch_markdown",
+            "description": "Fetch a website and return the content as Markdown",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "url": {
+                        "type": "string",
+                        "description": "URL of the website to fetch"
+                    },
+                    "headers": {
+                        "type": "object",
+                        "description": "Optional headers to include in the request"
+                    }
+                },
+                "required": [
+                    "url"
+                ]
+            }
+        },
+        {
+            "name": "fetch_txt",
+            "description": "Fetch a website, return the content as plain text (no HTML)",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "url": {
+                        "type": "string",
+                        "description": "URL of the website to fetch"
+                    },
+                    "headers": {
+                        "type": "object",
+                        "description": "Optional headers to include in the request"
+                    }
+                },
+                "required": [
+                    "url"
+                ]
+            }
+        },
+        {
+            "name": "fetch_json",
+            "description": "Fetch a JSON file from a URL",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "url": {
+                        "type": "string",
+                        "description": "URL of the JSON to fetch"
+                    },
+                    "headers": {
+                        "type": "object",
+                        "description": "Optional headers to include in the request"
+                    }
+                },
+                "required": [
+                    "url"
+                ]
+            }
+        }
+    ],
+    "test_remove_tools": [
+        {
+            "name": "fetch_markdown",
+            "description": "Fetch a website and return the content as Markdown",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "url": {
+                        "type": "string",
+                        "description": "URL of the website to fetch"
+                    },
+                    "headers": {
+                        "type": "object",
+                        "description": "Optional headers to include in the request"
+                    }
+                },
+                "required": [
+                    "url"
+                ]
+            }
+        },
+        {
+            "name": "fetch_txt",
+            "description": "Fetch a website, return the content as plain text (no HTML)",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "url": {
+                        "type": "string",
+                        "description": "URL of the website to fetch"
+                    },
+                    "headers": {
+                        "type": "object",
+                        "description": "Optional headers to include in the request"
+                    }
+                },
+                "required": [
+                    "url"
+                ]
+            }
+        },
+        {
+            "name": "fetch_json",
+            "description": "Fetch a JSON file from a URL",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "url": {
+                        "type": "string",
+                        "description": "URL of the JSON to fetch"
+                    },
+                    "headers": {
+                        "type": "object",
+                        "description": "Optional headers to include in the request"
+                    }
+                },
+                "required": [
+                    "url"
+                ]
+            }
+        }
+    ]
+}
