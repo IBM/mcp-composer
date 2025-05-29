@@ -4,6 +4,8 @@ from typing import Any, Dict, Optional, Union
 from mcp_gateway.utils import LoggerFactory, AllServersValidator, ValidationError, ServerConfigValidator
 from mcp_gateway.member_servers import ServerManager, MemberMCPServer, MCPServerBuilder
 from mcp_gateway.store.database import DatabaseInterface
+from mcp_gateway.store.cloudant_adapter import CloudantAdapter
+from mcp_gateway.store.local_file_adapter import LocalFileAdapter
 load_dotenv()
 import sys
 
@@ -28,7 +30,6 @@ class MCPGateway(FastMCP):
                 if isinstance(database_config, DatabaseInterface):
                     database = database_config
                 elif database_config.get("type") == "cloudant":
-                    from mcp_gateway.store.cloudant_adapter import CloudantAdapter
                     required_keys = ["api_key", "service_url"]
                     if not all(k in database_config for k in required_keys):
                         raise ValueError("Missing required Cloudant config keys: api_key, service_url")
@@ -44,7 +45,6 @@ class MCPGateway(FastMCP):
                 logger.error(f"Failed to initialize database: {e}")
                 raise
         else:
-            from mcp_gateway.store.local_file_adapter import LocalFileAdapter
             database = LocalFileAdapter()
             logger.info("No database config provided, using local file storage")
 
