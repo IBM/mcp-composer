@@ -1,0 +1,12 @@
+[
+    {
+        "id": "mcp-stock-info",
+        "type": "http",
+        "endpoint": "https://mcp-stock-info.1vgzmntiwjzl.eu-es.codeengine.appdomain.cloud/mcp"
+    },
+    {
+        "id": "mcp-server-fetch",
+        "type": "sse",
+        "endpoint": "https://mcp-server-fetch.1vgzmntiwjzl.eu-es.codeengine.appdomain.cloud/sse"
+    }
+]

@@ -1,7 +1,6 @@
 import json
-import os
 from pathlib import Path
-from typing import List, Dict, Any
+from typing import List, Dict
 from mcp_gateway.utils import LoggerFactory
 from .database import DatabaseInterface
 
@@ -58,8 +57,19 @@ class LocalFileAdapter(DatabaseInterface):
         else:
             logger.info("Server '%s' not found in local file", server_id)
 
-    def add_remove_tools(self, tools: list[str], server_id: str) -> None:
-        return None
+    def get_document(self, server_id: str) -> Dict:
+        data = self._read_data()
+        server_cfg = {}
+        for server_cfg in data:
+            if server_cfg["id"] == server_id:
+                return server_cfg
 
-    def fetch_remove_tools(self) -> Dict[Any, List]:
-        return {}
+    def add_remove_tools(self, tools: list[str], server_id: str) -> None:
+        data = self._read_data()
+
+        for server in data:
+            if server.get("id") == server_id:
+                server["remove_tools"] = tools
+
+        self._write_data(data)
+        logger.info("Saved server '%s' to local file", server_id)

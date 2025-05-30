@@ -79,56 +79,56 @@ class CloudantAdapter(DatabaseInterface):
             existing_doc = self._client.get_document(
                 db=self._db_name, doc_id=server_id
             ).get_result()
-            logger.info(
-                f"""Remove tool list is already  
-                    {existing_doc["remove_tools"]} present in cloudant for server_id {server_id}. 
-                    So, update the remove tool list.
-                    Response: {existing_doc}"""
-            )
-            tools_exists = set(existing_doc["remove_tools"])
-            new_tools = set(tools)
-            duplicate_tool = tools_exists.intersection(new_tools)
-            if duplicate_tool:
-                raise NotFoundError(f"Tool {duplicate_tool} is already removed")
-            else:
-                existing_doc["remove_tools"] = existing_doc["remove_tools"].extend(
-                    tools
+
+            if existing_doc.get("remove_tools"):
+                logger.info(
+                    f"""Remove tool list is already  
+                        {existing_doc["remove_tools"]} present in cloudant for server_id {server_id}. 
+                        So, update the remove tool list.
+                        Response: {existing_doc}"""
                 )
+                tools_exists = set(existing_doc["remove_tools"])
+                new_tools = set(tools)
+                duplicate_tool = tools_exists.intersection(new_tools)
+                if duplicate_tool:
+                    raise NotFoundError(f"Tool {duplicate_tool} is already removed")
+                else:
+                    existing_doc["remove_tools"] = existing_doc["remove_tools"].extend(
+                        tools
+                    )
+                    response = self._client.post_document(
+                        db=self._db_name,
+                        document=existing_doc,
+                    ).get_result()
+                    logger.info(
+                        f"Updated remove tool list {existing_doc} for server_id {server_id}. Response: {response}"
+                    )
+            else:
+                existing_doc["remove_tools"] = tools
                 response = self._client.post_document(
                     db=self._db_name,
                     document=existing_doc,
                 ).get_result()
                 logger.info(
-                    f"Updated remove tool list {existing_doc} for server_id {server_id}. Response: {response}"
+                    f"Saved remove tool list {existing_doc} for server_id {server_id}. Response: {response}"
                 )
         except ApiException as e:
             if e.code == 404:
-                tool_doc = Document(id=server_id, remove_tools=tools)
+                tool_doc = Document(_id=server_id, id=server_id, remove_tools=tools)
                 response = self._client.post_document(
                     db=self._db_name,
                     document=tool_doc,
                 ).get_result()
                 logger.info(
-                    f"Saved remove tool list {existing_doc} for server_id {server_id}. Response: {response}"
+                    f"Saved remove tool list {tools} for server_id {server_id}. Response: {response}"
                 )
             else:
                 logger.error(f"Failed to save remove tool list: {str(e)}")
 
-    def fetch_remove_tools(self) -> Dict[Any, List]:
-        try:
-            result = self._client.post_all_docs(
-                db=self._db_name, include_docs=True
-            ).get_result()
-            [row["doc"] for row in result.get("rows", []) if "doc" in row]
-            result = self._client.get_document(
-                db=self._db_name, doc_id="removed_tools_list"
-            ).get_result()
-            return result
-
-        except ApiException as exc:
-            if exc.status_code == 404:
-                logger.info("Remove tools not found in database")
-                return {}
-            else:
-                logger.error("Cloudant fetch remove tools list failed: %s", exc)
-                return {}
+    def get_document(self, server_id: str) -> Dict:
+        server_doc = self._client.get_document(
+            db=self._db_name, doc_id=server_id
+        ).get_result()
+        if not server_doc:
+            return {}
+        return server_doc

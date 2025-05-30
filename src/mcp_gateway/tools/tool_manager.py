@@ -7,6 +7,11 @@ from fastmcp.exceptions import NotFoundError
 from fastmcp.settings import DuplicateBehavior
 from collections.abc import Callable
 
+from mcp_gateway.utils import LoggerFactory
+from mcp_gateway.member_servers import ServerManager
+
+logger = LoggerFactory.get_logger()
+
 
 class MCPToolManager(ToolManager):
     """Manages member servers tools."""
@@ -47,74 +52,79 @@ class MCPToolManager(ToolManager):
     async def get_all_tools(
         self,
         mounted_servers: dict[str, MountedServer],
+        server_manager: ServerManager,
         server_id: Optional[str] = None,
+        server_config: Optional[list[dict]] = None,
         remove_tools: Optional[list[dict]] = None,
     ) -> dict[str, Tool]:
         """Get all tools by key."""
-        tools = {}
+        tools: dict[str, Tool] = {}
 
         async def fetch_server_tools(
             server: MountedServer, remove: Optional[list[str]] = None
         ) -> dict[str, Tool]:
             server_tools = await server.get_tools()
-            if remove:
-                server_tools = {
-                    k: v for k, v in server_tools.items() if k not in remove
-                }
-            return server_tools
+            return {
+                k: v for k, v in server_tools.items() if not remove or k not in remove
+            }
 
-        # Case: Specific server only
+        # Case 1: Fetch tools for a specific server
         if server_id:
-            print("case 1")
             server = mounted_servers.get(server_id)
             if server:
-                tools.update(await fetch_server_tools(server))
+                server_doc = server_manager.get_document(server_id)
+                remove = server_doc.get("remove_tools", []) if server_doc else []
+
+                tools.update(await fetch_server_tools(server, remove))
+                logger.info(f"Case 1: Fetch tools for a specific server: {server_id}")
             return tools
 
-        # Case: All servers with global removal list
-        if remove_tools:
-            print("case 2")
-            include_gw_tools = False
-            for server_cfg in remove_tools:
-                tools_to_remove = server_cfg.get("remove_tools")
-                server = server_cfg["id"]
+        # Case 2: Fetch tools based on server configuration
+        if server_config:
+            include_gateway_tools = False
 
-                if tools_to_remove and server == "gateway":
-                    # Apply removal to gateway tools
-                    gateway_tools = {
-                        k: v
-                        for k, v in self.get_tools().items()
-                        if k not in tools_to_remove
-                    }
-                    tools.update(gateway_tools)
-                elif tools_to_remove:
-                    include_gw_tools = True
-                    server = mounted_servers.get(server)
-                    if not server:
-                        raise NotFoundError(f"Unknown server: {server_id}")
-                    tools.update(await fetch_server_tools(server, tools_to_remove))
+            for cfg in server_config:
+                sid = cfg["id"]
+                remove = cfg.get("remove_tools")
+                if sid == "gateway":
+                    if remove:
+                        tools.update(
+                            {
+                                k: v
+                                for k, v in self.get_tools().items()
+                                if k not in remove
+                            }
+                        )
+                        logger.info(
+                            f"Case 2: Fetch tools for the mcp gateway server with remove tools: {server_id}"
+                        )
+                    else:
+                        tools.update(self.get_tools())
+                        logger.info(
+                            f"Case 3: Fetch tools for the mcp gateway server: {server_id}"
+                        )
                 else:
-                    # Default case: Get all tools from all servers and gateway
-                    include_gw_tools = True
-                    print("case 3", server)
-                    server = mounted_servers.get(server)
-                    print("----", await server.get_tools())
-                    await server.get_tools()
+                    logger.info(
+                        f"Case 4: Fetch tools for the member server with remove tools: {sid}"
+                    )
+                    include_gateway_tools = True
+                    server = mounted_servers.get(sid)
                     if not server:
-                        raise NotFoundError(f"Unknown server: {server_id}")
-                    tools.update(await fetch_server_tools(server))
-                    print("tools", tools)
-
-            if include_gw_tools:
+                        raise NotFoundError(f"Unknown server: {sid}")
+                    tools.update(await fetch_server_tools(server, remove))
+            if include_gateway_tools:
                 tools.update(self.get_tools())
-        else:
-            print("----7")
-            # Fetch from all servers concurrently
-            results = await asyncio.gather(
-                *[fetch_server_tools(server) for server in mounted_servers.values()]
-            )
-            for server_tools in results:
-                tools.update(server_tools)
-            tools.update(self.get_tools())
 
+            return tools
+
+        # Default Case: Fetch from all mounted servers and gateway
+        results = await asyncio.gather(
+            *[fetch_server_tools(server) for server in mounted_servers.values()]
+        )
+        for server_tools in results:
+            tools.update(server_tools)
+        tools.update(self.get_tools())
+        logger.info(
+            "Case default: Fetch all tools from the member servers and gateway server"
+        )
         return tools

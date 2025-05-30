@@ -7,9 +7,11 @@ import httpx
 from mcp_gateway.utils.logger import LoggerFactory
 from mcp_gateway.utils import *
 from mcp_gateway.auth_handler import DynamicTokenClient
+
 logger = LoggerFactory.get_logger()
 
-import sys 
+import sys
+
 
 class MCPServerBuilder:
     """
@@ -24,8 +26,8 @@ class MCPServerBuilder:
         self.mcp_type = config["type"]
 
     async def build(self) -> FastMCP:
-        logger.info(f"Builing new { self.mcp_type} Server")
-            
+        logger.info(f"Builing new {self.mcp_type} Server")
+
         if self.mcp_type == "client":
             return await self._build_from_client()
 
@@ -43,76 +45,83 @@ class MCPServerBuilder:
 
         else:
             raise ValueError(f"Unsupported MCP type: {self.mcp_type}")
-    
+
     async def _build_from_transport(self, transport_type=None) -> FastMCP:
         # auth = build_auth_strategy(self.config["auth_strategy"], self.config.get("auth", {}))
         # headers = await auth.get_headers()
 
         headers = self.config.get("headers")
-        if transport_type == 'http':
+        if transport_type == "http":
             transport = StreamableHttpTransport(
-                url=self.config["endpoint"],
-                headers=headers
-            )
-        elif transport_type == 'sse':
-            transport = SSETransport(
                 url=self.config["endpoint"], headers=headers
             )
+        elif transport_type == "sse":
+            transport = SSETransport(url=self.config["endpoint"], headers=headers)
         else:
             raise ValueError(f"Unsupported MCP type: {self.mcp_type}")
         client = Client(transport)
         return FastMCP.from_client(client, name=self.mcp_id)
 
-    
     async def _build_from_client(self) -> FastMCP:
         # auth = build_auth_strategy(self.config["auth_strategy"], self.config.get("auth", {}))
         # headers = await auth.get_headers()
-        
+
         client = Client(self.config["endpoint"])
-        
+
         headers = self.config.get("headers")
         if headers:
             transport = StreamableHttpTransport(
-                url=self.config["endpoint"],
-                headers= headers
+                url=self.config["endpoint"], headers=headers
             )
             client = Client(transport)
         try:
             return FastMCP.from_client(client, name=self.mcp_id)
         except Exception as e:
-            logger.exception(f"Failed to build member MCP server '{self.config.get('id')}': {e}")
-            raise RuntimeError(f"Failed to build member MCP server '{self.mcp_id}'") from e
-    
+            logger.exception(
+                f"Failed to build member MCP server '{self.config.get('id')}': {e}"
+            )
+            raise RuntimeError(
+                f"Failed to build member MCP server '{self.mcp_id}'"
+            ) from e
+
     async def _build_from_openapi(self) -> FastMCP:
         openapi_config = self.config[ConfigKey.OPEN_API]
         custom_mappings = []
         if ConfigKey.CUSTOM_ROUTES in openapi_config:
-            custom_mappings = await load_custom_mappings_from_json( openapi_config[ConfigKey.CUSTOM_ROUTES])
+            custom_mappings = await load_custom_mappings_from_json(
+                openapi_config[ConfigKey.CUSTOM_ROUTES]
+            )
         spec = {}
         if ConfigKey.SPEC_URL in openapi_config:
-            spec = await load_spec_from_url(openapi_config[ConfigKey.ENDPOINT],openapi_config[ConfigKey.SPEC_URL])
+            spec = await load_spec_from_url(
+                openapi_config[ConfigKey.ENDPOINT], openapi_config[ConfigKey.SPEC_URL]
+            )
         elif ConfigKey.SPEC_FILEPATH in openapi_config:
             spec = await load_json(openapi_config[ConfigKey.SPEC_FILEPATH])
         else:
-           raise NotImplementedError("Spec is missing")
+            raise NotImplementedError("Spec is missing")
 
-        headers ={}
-        http_client=httpx.AsyncClient(base_url=openapi_config[ConfigKey.ENDPOINT]) 
-        
+        headers = {}
+        http_client = httpx.AsyncClient(base_url=openapi_config[ConfigKey.ENDPOINT])
+
         if self.config[ConfigKey.AUTH_STRATEGY] == AuthStrategy.DYNAMIC_BEARER:
-            http_client = DynamicTokenClient(base_url=openapi_config[ConfigKey.ENDPOINT],
-                                                token_url= self.config[ConfigKey.AUTH][ConfigKey.Token_URL], 
-                                                api_key=self.config[ConfigKey.AUTH][ConfigKey.APIKEY])
+            http_client = DynamicTokenClient(
+                base_url=openapi_config[ConfigKey.ENDPOINT],
+                token_url=self.config[ConfigKey.AUTH][ConfigKey.Token_URL],
+                api_key=self.config[ConfigKey.AUTH][ConfigKey.APIKEY],
+            )
 
-        if self.config[ConfigKey.AUTH_STRATEGY] == AuthStrategy.BEARER: 
-            logger.info("Setting up header and client for bearer")     
-            headers[ConfigKey.AUTH_HEADRR] = f"Bearer {self.config[ConfigKey.AUTH][ConfigKey.TOKEN]}"
-            http_client=httpx.AsyncClient(base_url=openapi_config[ConfigKey.ENDPOINT], headers=headers) 
-       
-       
-        mcp = FastMCP.from_openapi(spec, 
-                               client=http_client, route_maps=custom_mappings)
-        
+        if self.config[ConfigKey.AUTH_STRATEGY] == AuthStrategy.BEARER:
+            logger.info("Setting up header and client for bearer")
+            headers[ConfigKey.AUTH_HEADRR] = (
+                f"Bearer {self.config[ConfigKey.AUTH][ConfigKey.TOKEN]}"
+            )
+            http_client = httpx.AsyncClient(
+                base_url=openapi_config[ConfigKey.ENDPOINT], headers=headers
+            )
+
+        mcp = FastMCP.from_openapi(spec, client=http_client, route_maps=custom_mappings)
+
         return mcp
 
     def _build_from_fastapi(self) -> FastMCP:

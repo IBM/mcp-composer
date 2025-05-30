@@ -17,9 +17,9 @@ class DatabaseInterface(ABC):
         pass
 
     @abstractmethod
-    def add_remove_tools(self, tools: list[str], server_id: str) -> None:
+    def get_document(self, server_id: str) -> Dict:
         pass
 
     @abstractmethod
-    def fetch_remove_tools(self) -> Dict[Any, List]:
+    def add_remove_tools(self, tools: list[str], server_id: str) -> None:
         pass

@@ -160,5 +160,13 @@
                 ]
             }
         }
-    ]
+    ],
+    "server_config_after_tool_remove": {
+        "id": "mcp-server-fetch",
+        "type": "sse",
+        "remove_tools": [
+            "mcp-server-fetch_fetch_html"
+        ],
+        "endpoint": "https://mcp-server-fetch.1vgzmntiwjzl.eu-es.codeengine.appdomain.cloud/sse"
+    }
 }

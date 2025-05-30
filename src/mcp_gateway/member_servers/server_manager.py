@@ -93,7 +93,6 @@ class ServerManager:
         if self._database:
             self._database.add_remove_tools(tools, server_id)
 
-    def fetch_remove_tools(self) -> Dict[Any, List]:
-        if self._database is None:
-            return {}
-        return self._database.fetch_remove_tools()
+    def get_document(self, server_id: str) -> dict:
+        if self._database:
+            return self._database.get_document(server_id)

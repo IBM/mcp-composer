@@ -150,6 +150,7 @@ class MCPGateway(FastMCP):
             return f"Invalid server config, missing 'id': {config}"
 
         server_id = config["id"]
+        config["_id"] = server_id
 
         if self._server_manager.has_member_server(server_id):
             logger.warning(f"Server '{server_id}' already mounted.")
@@ -189,6 +190,19 @@ class MCPGateway(FastMCP):
             for m in self._server_manager.list()
         ]
 
+    async def get_tools(self, server_id: Optional[str] = None) -> dict[str, Tool]:
+        tools: dict[str, Tool] = {}
+        if (tools := self._cache.get("tools")) is self._cache.NOT_FOUND:
+            server_config = self._config + self._server_manager.load_all_servers_db()
+            tools = await self._tool_manager.get_all_tools(
+                self._mounted_servers,
+                self._server_manager,
+                server_id=server_id,
+                server_config=server_config,
+            )
+            self._cache.set("tools", tools)
+        return tools
+
     async def get_tool_config_by_name(self, name: str) -> list[dict]:
         """
         Get a tool configuration details
@@ -217,7 +231,7 @@ class MCPGateway(FastMCP):
         """
         Remove a tool or multiple from the servers and gateway
         """
-        all_tools = await self.get_tools()
+        all_tools = await self.get_tools(server_id=server_id)
         for tool_name in tools:
             if tool_name not in all_tools:
                 return f"Unknown tool: {tool_name}"

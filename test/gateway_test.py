@@ -1,16 +1,15 @@
 import unittest
-import pytest
+import logging
 import os
 import json
-from typing import Optional
-from mcp_gateway.utils import ValidationError, AllServersValidator
+from unittest.mock import MagicMock
+
+from mcp_gateway.utils import ValidationError
 from mcp_gateway import MCPGateway
-from fastmcp import Client
-import logging
+from mcp_gateway.store.database import DatabaseInterface
 
 
 class TestGateway(unittest.IsolatedAsyncioTestCase):
-
     SERVER_ID = "mcp-server-fetch"
     TOOL_NAME = "mcp-stock-info_search_news"
     TOOL_NAME_LIST = ["mcp-server-fetch_fetch_html"]
@@ -21,7 +20,9 @@ class TestGateway(unittest.IsolatedAsyncioTestCase):
         # Assumes file is in the root or test dir
         with open(path, "r") as f:
             config = json.load(f)
-        self.gw = MCPGateway("gateway", config)
+        self.fake_db = MagicMock(spec=DatabaseInterface)
+        self.fake_db.load_all_servers.return_value = config
+        self.gw = MCPGateway("gateway", database_config=self.fake_db)
         await self.gw.setup_member_servers()
 
         data_path = os.path.join(current_dir, "tools/test_data.json")
@@ -49,7 +50,6 @@ class TestGateway(unittest.IsolatedAsyncioTestCase):
         self.assertGreaterEqual(len(tools), 1)
 
     async def test_get_tools_with_server_id(self):
-
         tools = await self.gw.get_tools(server_id=self.SERVER_ID)
         self.assertIsInstance(tools, dict)
         self.assertGreaterEqual(len(tools), 1)
@@ -65,8 +65,13 @@ class TestGateway(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(tool_config, expected_output)
 
     async def test_remove_tools(self):
-        tool_config = await self.gw.remove_tools(name=self.TOOL_NAME_LIST)
+        tool_config = await self.gw.remove_tools(
+            tools=self.TOOL_NAME_LIST, server_id=self.SERVER_ID
+        )
         expected_output = self.test_data["test_remove_tools"]
+        self.fake_db.get_document.return_value = self.test_data[
+            "server_config_after_tool_remove"
+        ]
         tool_config = await self.gw.get_tool_config_by_server(server_id=self.SERVER_ID)
         self.assertEqual(tool_config, expected_output)
 
