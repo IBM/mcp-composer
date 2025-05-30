@@ -1,32 +1,12 @@
 [
-{
-  "id": "customer-service",
-  "type": "client",
-  "endpoint": "http://0.0.0.0:8080/mcp",
-  "auth_strategy": "apikey",
-  "auth": {
-    "name": "Authorization",
-    "value": "apikey abc123"
-  }
-},
-{
-  "id": "customer-http",
-  "type": "http",
-  "endpoint": "http://0.0.0.0:8080/mcp"
-},
-{
-  "id": "customer-sse",
-  "type": "sse",
-  "endpoint": "http://0.0.0.0:8080/sse"
-},
-{
-  "id": "mcp-stock-info",
-  "type": "http",
-  "endpoint": "https://mcp-stock-info.1vgzmntiwjzl.eu-es.codeengine.appdomain.cloud/mcp"
-},
-{
-  "id": "mcp-server-fetch",
-  "type": "sse",
-  "endpoint": "https://mcp-server-fetch.1vgzmntiwjzl.eu-es.codeengine.appdomain.cloud/sse"
- }
-] 
+    {
+        "id": "mcp-stock-info",
+        "type": "http",
+        "endpoint": "https://mcp-stock-info.1vgzmntiwjzl.eu-es.codeengine.appdomain.cloud/mcp"
+    },
+    {
+        "id": "mcp-server-fetch",
+        "type": "sse",
+        "endpoint": "https://mcp-server-fetch.1vgzmntiwjzl.eu-es.codeengine.appdomain.cloud/sse"
+    }
+]
