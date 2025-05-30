@@ -1,6 +1,12 @@
+# Setup
+
+1. clone the project
+2. run the `uv sync`
+
 # Demo 
 
 1. cd to test folder
+
 
 2. run the following command 
 

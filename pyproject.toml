@@ -9,6 +9,8 @@ dependencies = [
     "fastmcp>=2.5.1",
     "requests>=2.32.3",
     "httpx>=0.28.1",
+     "ibmcloudant>=0.10.2",
+    "ibm-cloud-sdk-core>=3.23.0",
 ]
 
 [dependency-groups]
