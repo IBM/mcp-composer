@@ -93,9 +93,7 @@ class CloudantAdapter(DatabaseInterface):
                 if duplicate_tool:
                     raise NotFoundError(f"Tool {duplicate_tool} is already removed")
                 else:
-                    existing_doc["remove_tools"] = existing_doc["remove_tools"].extend(
-                        tools
-                    )
+                    existing_doc["remove_tools"].extend(tools)
                     response = self._client.post_document(
                         db=self._db_name,
                         document=existing_doc,

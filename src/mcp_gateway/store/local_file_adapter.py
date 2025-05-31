@@ -69,7 +69,11 @@ class LocalFileAdapter(DatabaseInterface):
 
         for server in data:
             if server.get("id") == server_id:
-                server["remove_tools"] = tools
+                if server.get("remove_tools"):
+                    server["remove_tools"].extend(tools)
+                    server["remove_tools"] = list(set(server["remove_tools"]))
+                else:
+                    server["remove_tools"] = list(set(tools))
 
         self._write_data(data)
         logger.info("Saved server '%s' to local file", server_id)
