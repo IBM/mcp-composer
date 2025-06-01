@@ -6,11 +6,12 @@ readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
     "duckduckgo-search>=8.0.1",
-    "fastmcp>=2.5.1",
+    "fastmcp>=2.5.2",
     "requests>=2.32.3",
     "httpx>=0.28.1",
-     "ibmcloudant>=0.10.2",
+    "ibmcloudant>=0.10.2",
     "ibm-cloud-sdk-core>=3.23.0",
+    "fastapi>=0.115.12",
 ]
 
 [dependency-groups]
