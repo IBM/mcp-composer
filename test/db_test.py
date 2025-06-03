@@ -2,28 +2,7 @@ import pytest
 import logging
 
 from mcp_gateway import MCPGateway
-from mcp_gateway.store.database import DatabaseInterface
-
-
-###############################################################################
-# Fake Database – implements only what ServerManager uses
-###############################################################################
-class FakeDatabase(DatabaseInterface):
-    def __init__(self):
-        self._servers: dict[str, dict] = {}
-        self.reset()
-
-    def reset(self):
-        self._servers.clear()
-
-    def load_all_servers(self) -> list[dict]:
-        return list(self._servers.values())
-
-    def add_server(self, config: dict) -> None:
-        self._servers[config["id"]] = config
-
-    def remove_server(self, server_id: str) -> None:
-        self._servers.pop(server_id, None)
+from mcp_gateway.store.fake_database import FakeDatabase
 
 
 ###############################################################################
@@ -42,7 +21,7 @@ def server_config():
     return {
         "id": "test-server",
         "type": "sse",
-        "endpoint": "https://mcp-server-fetch.1vgzmntiwjzl.eu-es.codeengine.appdomain.cloud/sse"
+        "endpoint": "https://dummy.example.com/sse"
     }
 
 
