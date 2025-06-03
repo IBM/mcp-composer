@@ -23,3 +23,9 @@ class DatabaseInterface(ABC):
     @abstractmethod
     def add_remove_tools(self, tools: list[str], server_id: str) -> None:
         pass
+
+    @abstractmethod
+    def update_tool_description(
+        self, tool: str, description: str, server_id: str
+    ) -> None:
+        pass

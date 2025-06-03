@@ -1,5 +1,6 @@
 from typing import Dict, List, Any, Optional
 from fastmcp.settings import DuplicateBehavior
+from fastmcp.exceptions import NotFoundError
 from mcp_gateway.utils import LoggerFactory
 from collections.abc import Callable
 from mcp_gateway.member_servers.member_server import MemberMCPServer
@@ -60,7 +61,7 @@ class ServerManager:
 
     def get(self, server_id: str) -> MemberMCPServer:
         if server_id not in self._member_servers:
-            raise KeyError(f"MCP server '{server_id}' not found.")
+            raise NotFoundError(f"MCP Server '{server_id}' not mounted.")
         return self._member_servers[server_id]
 
     def list(self) -> list[MemberMCPServer]:
@@ -89,10 +90,16 @@ class ServerManager:
             return []
         return self._database.load_all_servers()
 
-    def add_remove_tools(self, tools: List[str], server_id) -> None:
+    def add_remove_tools(self, tools: List[str], server_id: str) -> None:
         if self._database:
             self._database.add_remove_tools(tools, server_id)
 
-    def get_document(self, server_id: str) -> dict:
+    def update_tool_description(
+        self, tool: str, description: str, server_id: str
+    ) -> None:
+        if self._database:
+            self._database.update_tool_description(tool, description, server_id)
+
+    def get_document(self, server_id: str) -> Dict:
         if self._database:
             return self._database.get_document(server_id)

@@ -1,8 +1,10 @@
+from enum import member
 import sys
 from dotenv import load_dotenv
 from fastmcp import FastMCP
 from typing import Any, Dict, Optional, Union
 from fastmcp.tools.tool import Tool
+from fastmcp.exceptions import NotFoundError, ToolError
 
 from mcp_gateway.tools import MCPToolManager
 from mcp_gateway.utils import (
@@ -11,6 +13,7 @@ from mcp_gateway.utils import (
     ValidationError,
     ServerConfigValidator,
 )
+
 from mcp_gateway.member_servers import ServerManager, MemberMCPServer, MCPServerBuilder
 from mcp_gateway.store.database import DatabaseInterface
 from mcp_gateway.store.cloudant_adapter import CloudantAdapter
@@ -83,35 +86,45 @@ class MCPGateway(FastMCP):
         self.add_tool(self.get_tool_config_by_server)
         self.add_tool(self.remove_tools)
         self.add_tool(self.list_mcp_servers)
+        self.add_tool(self.update_tool_description)
 
-    async def setup_member_servers(self):
+    def _check_server_exist(self, server_id) -> None:
+        if server_id != "gateway" and not self._server_manager.has_member_server(
+            server_id
+        ):
+            raise NotFoundError(f"Server '{server_id}' not mounted.")
+
+    def _check_tool_exist(
+        self, tools: list[str] | str, all_tools: dict[str, Tool]
+    ) -> None:
+        tools_to_check = [tools] if isinstance(tools, str) else tools
+        unknown_tools = [
+            tool for tool in tools_to_check if tool not in all_tools.keys()
+        ]
+
+        if unknown_tools:
+            raise NotFoundError(f"Unknown tool(s): {', '.join(unknown_tools)}")
+
+    def _remove_gateway_tools(self):
         """
-        Mount multiple servers from a JSON list in self.config.
-        This runs at startup or from manual trigger.
+        Run this function on every server startup for remove the tools for gateway if it's
+        already stored in persistant storage
         """
-        all_configs = self._config + self._db_configs
-        seen_ids = set()
-        logger.info(
-            f"Setting up {len(self._config)} CLI servers and {len(self._db_configs)} DB servers..."
-        )
+        self._tool_manager._remove_gateay_tools(self._server_manager)
 
-        for cfg in all_configs:
-            server_id = cfg.get("id")
-            if not server_id:
-                logger.error("Skipping corrupt config with no 'id': %s", cfg)
-                continue
+    def list_member_servers(self) -> list[dict]:
+        logger.info("Listing member servers")
+        return [
+            {"id": m.id, "server_name": m.get_server().name}
+            for m in self._server_manager.list()
+        ]
 
-            if server_id in seen_ids:
-                logger.debug(f"Skipping duplicate server '{server_id}'")
-                continue
-
-            if self._server_manager.has_member_server(server_id):
-                logger.debug(f"Server '{server_id}' already mounted, skipping.")
-                seen_ids.add(server_id)
-                continue
-
-            await self._safe_mount(cfg)
-            seen_ids.add(server_id)
+    def list_mcp_servers(self) -> list[MemberMCPServer]:
+        """
+        Lists all the MCP servers which are mounted
+        """
+        mcp_servers = self._server_manager.list()
+        return mcp_servers
 
     async def _safe_mount(self, cfg: dict):
         try:
@@ -120,30 +133,6 @@ class MCPGateway(FastMCP):
             logger.error(
                 "Failed to mount server '%s': %s", cfg.get("id", "<missing‑id>"), exc
             )
-
-    async def register_mcp_server(self, config: dict) -> str:
-        """
-        Register a single server dynamically from config.
-        """
-        logger.info(f" Register a single server dynamically from config :{config}")
-
-        try:
-            ServerConfigValidator(config).validate()
-            result = await self._mount_member_server(config)
-            return result
-        except Exception as e:
-            logger.exception(f"Failed to register member server '{config}': {e}")
-            return f"Failed to register member server '{config}'"
-
-    async def remove_mcp_server(self, server_id: str) -> str:
-        """
-        Remove a single server dynamically from config.
-        """
-        try:
-            return await self.unmount_server(server_id)
-        except Exception as e:
-            logger.exception(f"Failed to remove member server '{server_id}': {e}")
-            return f"Failed to remove member server '{server_id}'"
 
     async def _mount_member_server(self, config: dict) -> str:
         if "id" not in config:
@@ -175,21 +164,71 @@ class MCPGateway(FastMCP):
         self._server_manager.add_member(server_id, member)
         return f"Server '{server_id}' mounted."
 
+    async def setup_member_servers(self):
+        """
+        Mount multiple servers from a JSON list in self.config.
+        This runs at startup or from manual trigger.
+        """
+        all_configs = self._config + self._db_configs
+        seen_ids = set()
+        logger.info(
+            f"Setting up {len(self._config)} CLI servers and {len(self._db_configs)} DB servers..."
+        )
+
+        for cfg in all_configs:
+            server_id = cfg.get("id")
+            if not server_id:
+                logger.error("Skipping corrupt config with no 'id': %s", cfg)
+                continue
+
+            if server_id == "gateway":
+                logger.debug(f"Skipping gateway server '{server_id}'")
+                continue
+
+            if server_id in seen_ids:
+                logger.debug(f"Skipping duplicate server '{server_id}'")
+                continue
+
+            if self._server_manager.has_member_server(server_id):
+                logger.debug(f"Server '{server_id}' already mounted, skipping.")
+                seen_ids.add(server_id)
+                continue
+
+            await self._safe_mount(cfg)
+            seen_ids.add(server_id)
+        self._remove_gateway_tools()
+
+    async def register_mcp_server(self, config: dict) -> str:
+        """
+        Register a single server dynamically from config.
+        """
+        logger.info(f" Register a single server dynamically from config :{config}")
+
+        try:
+            ServerConfigValidator(config).validate()
+            result = await self._mount_member_server(config)
+            return result
+        except Exception as e:
+            logger.exception(f"Failed to register member server '{config}': {e}")
+            return f"Failed to register member server '{config}'"
+
+    async def remove_mcp_server(self, server_id: str) -> str:
+        """
+        Remove a single server dynamically from config.
+        """
+        try:
+            return await self.unmount_server(server_id)
+        except Exception as e:
+            logger.exception(f"Failed to remove member server '{server_id}': {e}")
+            return f"Failed to remove member server '{server_id}'"
+
     async def unmount_server(self, server_id: str) -> str:
-        member = self._server_manager.get(server_id)
-        if not member:
-            return f"Server '{server_id}' not mounted."
+        self._check_server_exist(server_id)
         self.unmount(server_id)
         self._server_manager.remove_mcp_server(server_id)
         self._server_manager.remove_member(server_id)
+        logger.info(f"Server {server_id} unmounted")
         return f"Server '{server_id}' unmounted."
-
-    def list_member_servers(self) -> list[dict]:
-        logger.info("Listing member servers")
-        return [
-            {"id": m.id, "server_name": m.get_server().name}
-            for m in self._server_manager.list()
-        ]
 
     async def get_tools(self, server_id: Optional[str] = None) -> dict[str, Tool]:
         tools: dict[str, Tool] = {}
@@ -209,9 +248,7 @@ class MCPGateway(FastMCP):
         Get a tool configuration details
         """
         all_tools = await self.get_tools()
-        if name not in all_tools:
-            return [{"message": f"Unknown tool: {name}"}]
-
+        self._check_tool_exist(name, all_tools)
         tool_config = self._tool_manager.tool_config(all_tools, name)
         logger.info(f"Tool configuration details by tool name: {tool_config}")
         return tool_config
@@ -220,9 +257,7 @@ class MCPGateway(FastMCP):
         """
         Get all tool configuration details of a specific member server
         """
-        if not self._server_manager.get(server_id):
-            return [{"message": f"Server '{server_id}' not mounted."}]
-
+        self._check_server_exist(server_id)
         server_tools = await self.get_tools(server_id)
         tool_config = self._tool_manager.tool_config(server_tools)
         logger.info(f"Tool configuration details by server name: {tool_config}")
@@ -232,17 +267,27 @@ class MCPGateway(FastMCP):
         """
         Remove a tool or multiple from the servers and gateway
         """
-        all_tools = await self.get_tools(server_id=server_id)
-        for tool_name in tools:
-            if tool_name not in all_tools:
-                return f"Unknown tool: {tool_name}"
+        self._check_server_exist(server_id)
+        if "remove_tools" in tools:
+            raise ToolError("Tool: remove_tools can't be removed")
+
+        server_tools = await self.get_tools(server_id=server_id)
+        self._check_tool_exist(tools, server_tools)
         self._server_manager.add_remove_tools(tools, server_id)
         logger.info(f"Removed {tools} tools from server")
         return f"Removed {tools} tool from server"
 
-    def list_mcp_servers(self) -> list[MemberMCPServer]:
+    async def update_tool_description(
+        self, tool: str, description: str, server_id: str
+    ) -> str:
         """
-        Lists all the MCP servers which are mounted
+        Update tool description of member servers
         """
-        mcp_servers = self._server_manager.list()
-        return mcp_servers
+        self._check_server_exist(server_id)
+        server_tools = await self.get_tools(server_id=server_id)
+        self._check_tool_exist(tool, server_tools)
+        self._server_manager.update_tool_description(tool, description, server_id)
+        logger.info(
+            f"Updated Tool: {tool} with description: {description} for the server: {server_id}"
+        )
+        return f"Updated {tool} with description: {description}"
