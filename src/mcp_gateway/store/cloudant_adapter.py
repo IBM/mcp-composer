@@ -100,29 +100,23 @@ class CloudantAdapter(DatabaseInterface):
                     )
                 else:
                     existing_doc["remove_tools"].extend(tools)
-                    response = self._client.post_document(
-                        db=self._db_name,
-                        document=existing_doc,
-                    ).get_result()
-                    logger.info(
-                        f"Updated remove tool list {existing_doc} for server {server_id}. Response: {response}"
-                    )
             else:
                 # if no remove tools list present add it
                 existing_doc["remove_tools"] = tools
-                response = self._client.post_document(
-                    db=self._db_name,
-                    document=existing_doc,
-                ).get_result()
-
-                logger.info(
-                    f"Saved remove tool list {existing_doc['remove_tools']} for server {server_id}. Response: {response}"
-                )
 
             # Remove tool descriptions if they exist
             if existing_doc["remove_tools"] and tools_description:
                 for tool in existing_doc["remove_tools"]:
                     tools_description.pop(tool, None)
+
+            response = self._client.post_document(
+                db=self._db_name,
+                document=existing_doc,
+            ).get_result()
+
+            logger.info(
+                f"Saved remove tool list {existing_doc['remove_tools']} for server {server_id}. Response: {response}"
+            )
 
         except ApiException as e:
             # Add server config to db with remove tools list, since it not exist
