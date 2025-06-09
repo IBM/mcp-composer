@@ -2,11 +2,15 @@
 
 from typing import Dict
 from fastmcp import FastMCP, Client
+from fastmcp.client.auth import OAuth
 from fastmcp.client.transports import StreamableHttpTransport, SSETransport
+from fastmcp.client.auth.oauth import FileTokenStorage
+
 import httpx
 from mcp_gateway.utils.logger import LoggerFactory
 from mcp_gateway.utils import *
 from mcp_gateway.auth_handler import DynamicTokenClient
+
 
 logger = LoggerFactory.get_logger()
 
@@ -50,16 +54,32 @@ class MCPServerBuilder:
         # auth = build_auth_strategy(self.config["auth_strategy"], self.config.get("auth", {}))
         # headers = await auth.get_headers()
 
-        headers = self.config.get("headers")
-        if transport_type == "http":
-            transport = StreamableHttpTransport(
-                url=self.config["endpoint"], headers=headers
-            )
-        elif transport_type == "sse":
-            transport = SSETransport(url=self.config["endpoint"], headers=headers)
-        else:
-            raise ValueError(f"Unsupported MCP type: {self.mcp_type}")
-        client = Client(transport)
+        config = self.config
+        endpoint = config["endpoint"]
+        headers = config.get("headers")
+        oauth = config.get("auth")
+
+        # Set up authentication if provided
+        auth = None
+        if oauth:
+            FileTokenStorage.clear_all()
+            auth = OAuth(mcp_url=endpoint)
+
+        # Map transport types to their corresponding classes
+        transport_classes = {
+            "http": StreamableHttpTransport,
+            "sse": SSETransport,
+        }
+
+        # Choose and instantiate the appropriate transport
+        TransportClass = transport_classes.get(transport_type)
+        if not TransportClass:
+            raise ValueError(f"Unsupported MCP type: {transport_type}")
+
+        transport = TransportClass(url=endpoint, headers=headers, auth=auth)
+
+        # Create the client and wrap it with FastMCP
+        client = Client(transport, auth=auth)
         return FastMCP.from_client(client, name=self.mcp_id)
 
     async def _build_from_client(self) -> FastMCP:
