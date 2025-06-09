@@ -86,7 +86,7 @@ class MCPGateway(FastMCP):
         self.add_tool(self.get_tool_config_by_name)
         self.add_tool(self.get_tool_config_by_server)
         self.add_tool(self.remove_tools)
-        self.add_tool(self.list_mcp_servers)
+        self.add_tool(self.list_member_servers)
 
     async def setup_member_servers(self):
         """
@@ -243,10 +243,3 @@ class MCPGateway(FastMCP):
         self._server_manager.add_remove_tools(tools, server_id)
         logger.info(f"Removed {tools} tools from server")
         return f"Removed {tools} tool from server"
-
-    def list_mcp_servers(self) -> list[MemberMCPServer]:
-        """
-        Lists all the MCP servers which are mounted
-        """
-        mcp_servers = self._server_manager.list()
-        return mcp_servers
