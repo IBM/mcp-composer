@@ -1,7 +1,26 @@
+# Overview
+
+The MCP gateway is a FastAPI based gateway that manages multiple MCP servers and tools. It handles dynamic tool registration, authentication, invocation dispatching, and health monitoring.
+Servers and tools can be registered at runtime using structured JSON configurations.
+The MCP gateway serves as an orchestrator for tool execution and forwards tool requests to the correct upstream MCP server or interface.
+
+# Purpose
+
+This system allows user to register any MCP servers or tools through a configuration JSON. The MCP Gateway exposes a set of MCP-compliant functions that allow listing tools, invoking them, updating credentials, and removing them.
+
+The goal is to provide a single unified gateway that:
+
+* Discovers and registers new MCP tools on startup or via API.
+* Handles multiple authentication strategies.
+* Mounts and unmounts member servers dynamically.
+* Exposes all tools across registered servers.
+* Supports tool filtering by server or tool name.
+
 # Setup
 
 1. clone the project
-2. run the `uv sync`
+2. cd mcp-gateway
+3. run the `uv sync` command
 
 # Demo
 
