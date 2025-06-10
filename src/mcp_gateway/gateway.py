@@ -1,7 +1,10 @@
 from enum import member
 import sys
 from dotenv import load_dotenv
+
 from fastmcp import FastMCP
+from fastmcp.server.auth.auth import OAuthProvider
+
 from typing import Any, Dict, Optional, Union
 from fastmcp.tools.tool import Tool
 from fastmcp.exceptions import NotFoundError, ToolError
@@ -35,9 +38,10 @@ class MCPGateway(FastMCP):
         name: str = "MCPGateway",
         config: Optional[list[dict]] = None,
         database_config: Optional[Union[Dict[str, Any], DatabaseInterface]] = None,
+        auth: OAuthProvider | None = None,
+        **settings: Any,
     ):
-        super().__init__(name=name)
-
+        super().__init__(name=name, auth=auth, settings=settings)
         database = None
         if database_config:
             try:
