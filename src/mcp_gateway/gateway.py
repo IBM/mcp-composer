@@ -83,13 +83,13 @@ class MCPGateway(FastMCP):
                 logger.error("Validation error: %s", e)
                 sys.exit(1)
 
-        self.add_tool(self.register_mcp_server)
-        self.add_tool(self.remove_mcp_server)
-        self.add_tool(self.get_tool_config_by_name)
-        self.add_tool(self.get_tool_config_by_server)
-        self.add_tool(self.remove_tools)
-        self.add_tool(self.list_member_servers)
-        self.add_tool(self.update_tool_description)
+        self.add_tool(Tool.from_function(self.register_mcp_server))
+        self.add_tool(Tool.from_function(self.remove_mcp_server))
+        self.add_tool(Tool.from_function(self.get_tool_config_by_name))
+        self.add_tool(Tool.from_function(self.get_tool_config_by_server))
+        self.add_tool(Tool.from_function(self.remove_tools))
+        self.add_tool(Tool.from_function(self.list_member_servers))
+        self.add_tool(Tool.from_function(self.update_tool_description))
 
     def _check_server_exist(self, server_id) -> None:
         if server_id != "gateway" and not self._server_manager.has_member_server(
