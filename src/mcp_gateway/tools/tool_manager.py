@@ -22,32 +22,28 @@ class MCPToolManager(ToolManager):
         serializer: Callable[[Any], str] | None = None,
     ):
         super().__init__(duplicate_behavior, serializer)
-        self._tools: dict[str, Tool] = {}
-        self.remove_tools: list[str] = []
 
     def tool_config(
         self, server_tools: dict[str, Tool], key: Optional[str] = None
     ) -> list[dict]:
-        if key:
-            if key not in server_tools:
-                raise NotFoundError(f"Unknown tool: {key}")
-            tool = server_tools[key]
-            return [
-                {
-                    "name": tool.name,
-                    "description": tool.description,
-                    "parameters": tool.parameters,
-                }
-            ]
+        """
+        Get tool configuration details by tool name or server
+        """
 
-        return [
-            {
+        def format_tool(tool: Tool) -> dict:
+            return {
                 "name": tool.name,
                 "description": tool.description,
                 "parameters": tool.parameters,
             }
-            for tool in server_tools.values()
-        ]
+
+        if key:
+            tool = server_tools.get(key)
+            if not tool:
+                raise NotFoundError(f"Unknown tool: {key}")
+            return [format_tool(tool)]
+
+        return [format_tool(tool) for tool in server_tools.values()]
 
     async def get_all_tools(
         self,
@@ -55,76 +51,106 @@ class MCPToolManager(ToolManager):
         server_manager: ServerManager,
         server_id: Optional[str] = None,
         server_config: Optional[list[dict]] = None,
-        remove_tools: Optional[list[dict]] = None,
     ) -> dict[str, Tool]:
         """Get all tools by key."""
         tools: dict[str, Tool] = {}
 
         async def fetch_server_tools(
-            server: MountedServer, remove: Optional[list[str]] = None
+            server: MountedServer,
+            remove: Optional[list[str]] = None,
+            description: Optional[dict[str, str]] = None,
         ) -> dict[str, Tool]:
-            server_tools = await server.get_tools()
-            return {
-                k: v for k, v in server_tools.items() if not remove or k not in remove
+            result = {
+                k: v
+                for k, v in (await server.get_tools()).items()
+                if not remove or k not in remove
             }
+            if description:
+                for name, desc in description.items():
+                    if name in result:
+                        result[name].description = desc
+            return result
 
-        # Case 1: Fetch tools for a specific server
+        def fetch_gateway_tools(
+            remove: Optional[list[str]] = None,
+            description: Optional[dict[str, str]] = None,
+        ) -> dict[str, Tool]:
+            result = {
+                k: v
+                for k, v in self.get_tools().items()
+                if not remove or k not in remove
+            }
+            if description:
+                for name, desc in description.items():
+                    if name in result:
+                        result[name].description = desc
+            return result
+
+        def get_server_doc_info(sid: str) -> tuple[list[str], dict[str, str]]:
+            doc = server_manager.get_document(sid)
+            remove_tools = []
+            tools_description = {}
+            if doc:
+                remove_tools = doc.get("remove_tools", [])
+                tools_description = doc.get("tools_description", {})
+            return remove_tools, tools_description
+
+        # Case 1: Gateway server
+        if server_id == "gateway":
+            logger.info("Case 1: Fetch tools for gateway server")
+            remove, description = get_server_doc_info(server_id)
+            return fetch_gateway_tools(remove, description)
+
+        # Case 2: Specific server
         if server_id:
             server = mounted_servers.get(server_id)
-            if server:
-                server_doc = server_manager.get_document(server_id)
-                remove = server_doc.get("remove_tools", []) if server_doc else []
-
-                tools.update(await fetch_server_tools(server, remove))
-                logger.info(f"Case 1: Fetch tools for a specific server: {server_id}")
+            if not server:
+                return tools
+            remove, description = get_server_doc_info(server_id)
+            tools.update(await fetch_server_tools(server, remove, description))
+            logger.info(
+                f"Case 2: Fetch tools for server '{server_id}'. Removed: {remove}. Descriptions: {description}"
+            )
             return tools
 
-        # Case 2: Fetch tools based on server configuration
+        # Case 3: Config-driven
         if server_config:
             include_gateway_tools = False
-
             for cfg in server_config:
                 sid = cfg["id"]
                 remove = cfg.get("remove_tools")
+                description = cfg.get("tools_description", {})
                 if sid == "gateway":
-                    if remove:
-                        tools.update(
-                            {
-                                k: v
-                                for k, v in self.get_tools().items()
-                                if k not in remove
-                            }
-                        )
-                        logger.info(
-                            f"Case 2: Fetch tools for the mcp gateway server with remove tools: {server_id}"
-                        )
-                    else:
-                        tools.update(self.get_tools())
-                        logger.info(
-                            f"Case 3: Fetch tools for the mcp gateway server: {server_id}"
-                        )
-                else:
                     logger.info(
-                        f"Case 4: Fetch tools for the member server with remove tools: {sid}"
+                        f"Case 3: Fetch gateway tools. Remove: {remove}. Descriptions: {description}"
                     )
-                    include_gateway_tools = True
+                    tools.update(fetch_gateway_tools(remove, description))
+                else:
                     server = mounted_servers.get(sid)
                     if not server:
                         raise NotFoundError(f"Unknown server: {sid}")
-                    tools.update(await fetch_server_tools(server, remove))
+                    logger.info(
+                        f"Case 4: Fetch tools for server '{sid}'. Remove: {remove}. Descriptions: {description}"
+                    )
+                    tools.update(await fetch_server_tools(server, remove, description))
+                    include_gateway_tools = True
             if include_gateway_tools:
                 tools.update(self.get_tools())
-
             return tools
 
-        # Default Case: Fetch from all mounted servers and gateway
+        # Default Case: All servers + gateway
         results = await asyncio.gather(
             *[fetch_server_tools(server) for server in mounted_servers.values()]
         )
-        for server_tools in results:
-            tools.update(server_tools)
+        for result in results:
+            tools.update(result)
         tools.update(self.get_tools())
-        logger.info(
-            "Case default: Fetch all tools from the member servers and gateway server"
-        )
+        logger.info("Default Case: Fetch all tools from member servers and gateway")
         return tools
+
+    def _remove_gateay_tools(self, server_manager: ServerManager):
+        # remove the gateway tools
+        server_doc = server_manager.get_document("gateway")
+        remove = server_doc.get("remove_tools", []) if server_doc else []
+        for tool in remove:
+            self.remove_tool(tool)

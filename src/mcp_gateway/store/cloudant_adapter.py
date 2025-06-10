@@ -1,14 +1,13 @@
 # cloudant_adapter.py
-from genericpath import exists
-from fastmcp.exceptions import NotFoundError
-from typing import Any, List, Dict
+from typing import List, Dict
 from ibmcloudant import CloudantV1
 from ibm_cloud_sdk_core import ApiException
 from ibm_cloud_sdk_core.authenticators import IAMAuthenticator
-from ibm_cloud_sdk_core.api_exception import ApiException
 from ibmcloudant.cloudant_v1 import Document
-from mcp_gateway.utils import LoggerFactory
+from mcp_gateway.utils import LoggerFactory, check_duplicate_tool
+from mcp_gateway.exceptions import ToolDuplicateError
 from .database import DatabaseInterface
+
 
 logger = LoggerFactory.get_logger()
 
@@ -76,59 +75,135 @@ class CloudantAdapter(DatabaseInterface):
 
     def add_remove_tools(self, tools: list[str], server_id: str) -> None:
         try:
+            # check if server config already present in db
             existing_doc = self._client.get_document(
                 db=self._db_name, doc_id=server_id
             ).get_result()
+            tools = list(set(tools))
+            existing_tools = existing_doc.get("remove_tools", [])
+            tools_description = existing_doc.get("tools_description", {})
 
-            if existing_doc.get("remove_tools"):
+            # check the tool already present in remove tools list
+            # if yes raise error, else update the remove tools list
+            if existing_tools:
                 logger.info(
                     f"""Remove tool list is already  
-                        {existing_doc["remove_tools"]} present in cloudant for server_id {server_id}. 
+                        {existing_tools} present in cloudant for server_id {server_id}. 
                         So, update the remove tool list.
                         Response: {existing_doc}"""
                 )
-                tools_exists = set(existing_doc["remove_tools"])
-                new_tools = set(tools)
-                duplicate_tool = tools_exists.intersection(new_tools)
+
+                duplicate_tool = check_duplicate_tool(existing_tools, tools)
                 if duplicate_tool:
-                    raise NotFoundError(f"Tool {duplicate_tool} is already removed")
+                    raise ToolDuplicateError(
+                        f"Tool {duplicate_tool} is already removed"
+                    )
                 else:
-                    existing_doc["remove_tools"] = existing_doc["remove_tools"].extend(
-                        tools
-                    )
-                    response = self._client.post_document(
-                        db=self._db_name,
-                        document=existing_doc,
-                    ).get_result()
-                    logger.info(
-                        f"Updated remove tool list {existing_doc} for server_id {server_id}. Response: {response}"
-                    )
+                    existing_doc["remove_tools"].extend(tools)
             else:
+                # if no remove tools list present add it
                 existing_doc["remove_tools"] = tools
-                response = self._client.post_document(
-                    db=self._db_name,
-                    document=existing_doc,
-                ).get_result()
-                logger.info(
-                    f"Saved remove tool list {existing_doc} for server_id {server_id}. Response: {response}"
-                )
+
+            # Remove tool descriptions if they exist
+            if existing_doc["remove_tools"] and tools_description:
+                for tool in existing_doc["remove_tools"]:
+                    tools_description.pop(tool, None)
+
+            response = self._client.post_document(
+                db=self._db_name,
+                document=existing_doc,
+            ).get_result()
+
+            logger.info(
+                f"Saved remove tool list {existing_doc['remove_tools']} for server {server_id}. Response: {response}"
+            )
+
         except ApiException as e:
+            # Add server config to db with remove tools list, since it not exist
             if e.code == 404:
+                logger.info(
+                    f"Server {server_id} is not exist in database. Adding the server with remove tool list"
+                )
                 tool_doc = Document(_id=server_id, id=server_id, remove_tools=tools)
                 response = self._client.post_document(
                     db=self._db_name,
                     document=tool_doc,
                 ).get_result()
                 logger.info(
-                    f"Saved remove tool list {tools} for server_id {server_id}. Response: {response}"
+                    f"Saved remove tool list {tools} for server {server_id}. Response: {response}"
                 )
             else:
                 logger.error(f"Failed to save remove tool list: {str(e)}")
 
+    def update_tool_description(
+        self, tool: str, description: str, server_id: str
+    ) -> None:
+        try:
+            # Try to retrieve the existing server document
+            existing_doc = self._client.get_document(
+                db=self._db_name, doc_id=server_id
+            ).get_result()
+
+            # Update or initialize tools_description
+            tools_description = existing_doc.get("tools_description", {})
+            tools_description[tool] = description
+            existing_doc["tools_description"] = tools_description
+
+            # Save the updated document
+            response = self._client.post_document(
+                db=self._db_name,
+                document=existing_doc,
+            ).get_result()
+
+            logger.info(
+                f"Updated tool description '{description}' for server '{server_id}'. Response: {response}"
+            )
+
+        except ApiException as e:
+            if e.code == 404:
+                # Document does not exist, create a new one
+                logger.info(
+                    f"Server '{server_id}' not found in database. Adding it with tool description."
+                )
+                tool_doc = Document(
+                    _id=server_id,
+                    id=server_id,
+                    tools_description={tool: description},
+                )
+                response = self._client.post_document(
+                    db=self._db_name,
+                    document=tool_doc,
+                ).get_result()
+
+                logger.info(
+                    f"Saved tool description '{description}' for server '{server_id}'. Response: {response}"
+                )
+            else:
+                logger.error(f"Failed to save tool description: {e}")
+
     def get_document(self, server_id: str) -> Dict:
-        server_doc = self._client.get_document(
-            db=self._db_name, doc_id=server_id
-        ).get_result()
-        if not server_doc:
-            return {}
+        # get the server config details of a single server
+        server_doc = {}
+        try:
+            server_doc = self._client.get_document(
+                db=self._db_name, doc_id=server_id
+            ).get_result()
+            logger.info(
+                f"Retrive server '{server_id}' config details from cloudant. Response: {server_doc}"
+            )
+        except ApiException as e:
+            # Add server config to db, since it not exist
+            # Only applicable to gateway serevr, for others return empty
+            if e.code == 404 and server_id == "gateway":
+                server_doc["_id"] = "gateway"
+                server_doc["id"] = "gateway"
+                response = self._client.post_document(
+                    db=self._db_name,
+                    document=server_doc,
+                ).get_result()
+                logger.info(
+                    f"No gateway server found, so adding gateway server '{server_id}' to DB. Response: {response}"
+                )
+            else:
+                logger.info("No server details found in  DB")
         return server_doc
