@@ -1,4 +1,3 @@
-from enum import member
 import sys
 from dotenv import load_dotenv
 
@@ -89,7 +88,7 @@ class MCPGateway(FastMCP):
         self.add_tool(self.get_tool_config_by_name)
         self.add_tool(self.get_tool_config_by_server)
         self.add_tool(self.remove_tools)
-        self.add_tool(self.list_mcp_servers)
+        self.add_tool(self.list_member_servers)
         self.add_tool(self.update_tool_description)
 
     def _check_server_exist(self, server_id) -> None:
@@ -122,13 +121,6 @@ class MCPGateway(FastMCP):
             {"id": m.id, "server_name": m.get_server().name}
             for m in self._server_manager.list()
         ]
-
-    def list_mcp_servers(self) -> list[MemberMCPServer]:
-        """
-        Lists all the MCP servers which are mounted
-        """
-        mcp_servers = self._server_manager.list()
-        return mcp_servers
 
     async def _safe_mount(self, cfg: dict):
         try:
