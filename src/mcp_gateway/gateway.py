@@ -38,9 +38,8 @@ class MCPGateway(FastMCP):
         config: Optional[list[dict]] = None,
         database_config: Optional[Union[Dict[str, Any], DatabaseInterface]] = None,
         auth: OAuthProvider | None = None,
-        **settings: Any,
     ):
-        super().__init__(name=name, auth=auth, settings=settings)
+        super().__init__(name=name, auth=auth)
         database = None
         if database_config:
             try:

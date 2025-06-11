@@ -1,11 +1,10 @@
 # gateway/member_server.py
 import pydantic_core
-from pydantic import BaseModel, Field, BeforeValidator, Field
-from collections.abc import Callable
+from pydantic import BaseModel, Field, BeforeValidator
 from fastmcp import FastMCP
-from typing import Optional, List, Dict, Any, Annotated
-from fastmcp.utilities.types import (
-    _convert_set_defaults,
+from typing import Optional, Dict, Any, Annotated
+from fastmcp.utilities.components import (
+    _convert_set_default_none,
 )
 from mcp_gateway.utils import LoggerFactory
 
@@ -25,7 +24,7 @@ class MemberMCPServer(BaseModel):
     id: str = Field(..., description="Unique ID of the mounted MCP server")
     type: str = Field(..., description="Server type: openapi, client, fastapi, etc.")
     label: Optional[str] = Field(None, description="Human-friendly label")
-    tags: Annotated[set[str], BeforeValidator(_convert_set_defaults)] = Field(
+    tags: Annotated[set[str], BeforeValidator(_convert_set_default_none)] = Field(
         default_factory=set, description="Tags for the tool"
     )
     config: Dict[str, Any] = Field(
