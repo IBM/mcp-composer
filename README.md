@@ -63,3 +63,20 @@ The goal is to provide a single unified gateway that:
 1. Run any tools:
 
    > <img width="1670" alt="image" src="https://github.ibm.com/ai-elite/mcp-gateway/assets/3014/f6678d13-99d3-4367-93ad-ab58d6431532">
+
+# Demo: OAuth
+#### 1. Create the environment file
+Navigate to src/mcp_gateway and create a .env.oauth file by copying the contents of .env.oauth.example:
+```bash
+cp src/mcp_gateway/.env.oauth.example src/mcp_gateway/.env.oauth
+
+```
+
+#### 2. Configure OAuth credentials
+Open .env.oauth and replace the placeholder values with your actual OAuth provider details (e.g., client ID, client secret, redirect URI, etc.).
+
+#### 3. Run the MCP Gateway server
+Execute the following command to start the server and test the OAuth integration:
+```bash
+uv run test/test_gw_oauth.py
+```

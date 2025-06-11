@@ -111,7 +111,7 @@ class SimpleOAuthProvider(OAuthProvider):
         auth_url = (
             f"{self.settings.auth_url}"
             f"?client_id={self.settings.client_id}"
-            f"&redirect_uri={self.settings.server_url}{self.settings.callback_path}"
+            f"&redirect_uri={self.settings.callback_path}"
             f"&scope={self.settings.scope}"
             f"&state={state}"
             f"&response_type=code"
@@ -139,7 +139,7 @@ class SimpleOAuthProvider(OAuthProvider):
                     "client_id": self.settings.client_id,
                     "client_secret": self.settings.client_secret,
                     "code": code,
-                    "redirect_uri": f"{self.settings.server_url}{self.settings.callback_path}",
+                    "redirect_uri": f"{self.settings.callback_path}",
                     "grant_type": "authorization_code",
                 },
                 headers={"Accept": "application/json"},
