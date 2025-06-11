@@ -49,11 +49,11 @@ The goal is to provide a single unified gateway that:
 
 ### Setup
 
-Clone the repository
-```bash
-git clone https://github.ibm.com/ai-elite/mcp-gateway.git
-cd mcp-gateway
-```
+1. Clone the repository
+    ```bash
+    git clone https://github.ibm.com/ai-elite/mcp-gateway.git
+    cd mcp-gateway
+    ```
 2. Create and sync the environment: 
    ```bash
    uv sync
