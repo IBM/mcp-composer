@@ -1,34 +1,95 @@
-# Overview
+<div align="center">
 
-The MCP gateway is a FastAPI based gateway that manages multiple MCP servers and tools. It handles dynamic tool registration, authentication, invocation dispatching, and health monitoring.
+<!-- omit in toc -->
+# MCP Gateway
+</div>
+
+---
+
+<!-- omit in toc -->
+## Table of Contents
+
+- [Overview](#overview)
+- [Purpose](#purpose)
+- [Installation](#installation)
+  - [Prerequisites](#prerequisites)
+  - [Setup](#setup)
+- [Key Features](#key-features)
+  - [MCP Gateway Tools](#mcp-gateway-tools)
+- [Demo using MCP Inspector](#demo-using-mcp-inspector)
+
+---
+
+## Overview
+
+The MCP gateway is a FastAPI based gateway that manages multiple MCP servers and tools.
 Servers and tools can be registered at runtime using structured JSON configurations.
 The MCP gateway serves as an orchestrator for tool execution and forwards tool requests to the correct upstream MCP server or interface.
 
-# Purpose
+The MCP Gateway supports multiple tool types, such as OpenAPI (REST), GraphQL, CLI-based tools, client SDKs, and nested MCP servers.
 
-This system allows user to register any MCP servers or tools through a configuration JSON. The MCP Gateway exposes a set of MCP-compliant functions that allow listing tools, invoking them, updating credentials, and removing them.
+## Purpose
+
+The goal of the gateway is to handle dynamic tool registration, authentication, invocation dispatching, and health monitoring.
+It abstracts underlying protocol, authentication and routing complexities, 
+and allows tools to be called through a single, unified interface. The MCP Gateway exposes a set of MCP-compliant functions that allow listing tools, invoking them, updating credentials, and removing them.
 
 The goal is to provide a single unified gateway that:
 
 * Discovers and registers new MCP tools on startup or via API.
-* Handles multiple authentication strategies.
 * Mounts and unmounts member servers dynamically.
 * Exposes all tools across registered servers.
-* Supports tool filtering by server or tool name.
 
-# Setup
+## Installation
 
-1. clone the project
-2. cd mcp-gateway
-3. run the `uv sync` command
+### Prerequisites
 
-# Demo
+*   Python 3.10+
+*   [uv](https://docs.astral.sh/uv/) (Recommended for environment management)
+
+### Setup
+
+Clone the repository
+```bash
+git clone https://github.ibm.com/ai-elite/mcp-gateway.git
+cd mcp-gateway
+```
+2. Create and sync the environment: 
+   ```bash
+   uv sync
+   ```
+   This installs all dependencies.
+   
+3. Activate the virtual environment.
+   ```bash
+   source .venv/bin/activate
+   ```
+
+
+## Key Features
+* Register or remove tools at runtime using structured JSON configurations.
+* Support a range of tool types (openapi, graphql, client, mcp, etc.)
+* Handles multiple authentication strategies.
+* Automatically forwards each request to the correct upstream server or tool.
+* List tools and metadata by name or server.
+
+### MCP Gateway Tools
+
+* register_mcp_server: Register a single server dynamically from config.
+* remove_mcp_server: Remove a single server dynamically from config.
+* get_tool_config_by_name: Get a tool configuration details
+* get_tool_config_by_server: Get all tool configuration details of a specific member server 
+* remove_tools: Remove a tool or multiple from the servers and gateway 
+* list_member_servers: List all registered member servers
+* update_tool_description: Update tool description of member servers
+
+### Demo using MCP Inspector
 
 1. Run the MCP Inspector
    ```bash
    npx -y @modelcontextprotocol/inspector@0.13.0
    ```
-1. run the following command
+1. Run the following command
    ```bash
    uv run test/test_gw.py
    ```
