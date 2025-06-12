@@ -1,13 +1,17 @@
 import sys
+import aiohttp
+import asyncio
 from dotenv import load_dotenv
 
 from fastmcp import FastMCP
 from fastmcp.server.auth.auth import OAuthProvider
 
-from typing import Any, Dict, Optional, Union
+from typing import Any, Dict, Optional, Tuple, Union
 from fastmcp.tools.tool import Tool
 from fastmcp.exceptions import NotFoundError, ToolError
+from aiohttp import ClientConnectorError
 
+from mcp_gateway.exceptions import MemberServerError
 from mcp_gateway.tools import MCPToolManager
 from mcp_gateway.utils import (
     LoggerFactory,
@@ -73,6 +77,8 @@ class MCPGateway(FastMCP):
 
         self._db_configs: list[dict] = self._server_manager.load_all_servers_db()
         self._config: list[dict] = []
+        self._unhealthy_servers: list[str] = []
+
         if config:
             try:
                 AllServersValidator(config).validate_all()
@@ -89,32 +95,10 @@ class MCPGateway(FastMCP):
         self.add_tool(Tool.from_function(self.remove_tools))
         self.add_tool(Tool.from_function(self.list_member_servers))
         self.add_tool(Tool.from_function(self.update_tool_description))
-
-    def _check_server_exist(self, server_id) -> None:
-        if server_id != "gateway" and not self._server_manager.has_member_server(
-            server_id
-        ):
-            raise NotFoundError(f"Server '{server_id}' not mounted.")
-
-    def _check_tool_exist(
-        self, tools: list[str] | str, all_tools: dict[str, Tool]
-    ) -> None:
-        tools_to_check = [tools] if isinstance(tools, str) else tools
-        unknown_tools = [
-            tool for tool in tools_to_check if tool not in all_tools.keys()
-        ]
-
-        if unknown_tools:
-            raise NotFoundError(f"Unknown tool(s): {', '.join(unknown_tools)}")
-
-    def _remove_gateway_tools(self):
-        """
-        Run this function on every server startup for remove the tools for gateway if it's
-        already stored in persistant storage
-        """
-        self._tool_manager._remove_gateay_tools(self._server_manager)
+        self.add_tool(Tool.from_function(self.member_health))
 
     def list_member_servers(self) -> list[dict]:
+        """Listing member servers"""
         logger.info("Listing member servers")
         return [
             {"id": m.id, "server_name": m.get_server().name}
@@ -141,7 +125,10 @@ class MCPGateway(FastMCP):
             logger.warning(f"Server '{server_id}' already mounted.")
             return f"Server '{server_id}' already mounted."
 
-        logger.info(f"Building new server with config {config}")
+        server_health = await self._member_health(config=config)
+        if server_health[server_id] == "Unhealthy":
+            self._unhealthy_servers.append(server_id)
+
         builder = MCPServerBuilder(config)
         sub_mcp = await builder.build()
         self.mount(server_id, sub_mcp)
@@ -157,7 +144,77 @@ class MCPGateway(FastMCP):
         member.set_server(sub_mcp)
         self._server_manager.add_server_db(config)
         self._server_manager.add_member(server_id, member)
+
+        logger.info(f"Unhealthy Servers: {self._unhealthy_servers}")
         return f"Server '{server_id}' mounted."
+
+    async def _get_status(self, session, url: str, server_id: str) -> Tuple[int, str]:
+        async with session.get(url) as resp:
+            return resp.status, server_id
+
+    async def _remove_unhealthy_server(self, config: list[dict]) -> list[dict]:
+        health_checks = await self.member_health()
+        return [d for d in config if health_checks.get(d["id"]) == "OK"]
+
+    def _check_server_exist(self, server_id) -> None:
+        if server_id != "gateway" and not self._server_manager.has_member_server(
+            server_id
+        ):
+            raise NotFoundError(f"Server '{server_id}' not mounted.")
+
+        if server_id in self._unhealthy_servers:
+            raise NotFoundError(f"Server '{server_id}' is down.")
+
+    def _check_tool_exist(
+        self, tools: list[str] | str, all_tools: dict[str, Tool]
+    ) -> None:
+        tools_to_check = [tools] if isinstance(tools, str) else tools
+        unknown_tools = [
+            tool for tool in tools_to_check if tool not in all_tools.keys()
+        ]
+
+        if unknown_tools:
+            raise NotFoundError(f"Unknown tool(s): {', '.join(unknown_tools)}")
+
+    def _remove_gateway_tools(self):
+        """
+        Run this function on every server startup for remove the tools for gateway if it's
+        already stored in persistant storage
+        """
+        self._tool_manager._remove_gateay_tools(self._server_manager)
+
+    async def _member_health(self, config: dict | None = None) -> dict:
+        try:
+            server_config = (
+                [config]
+                if config
+                else self._config + self._server_manager.load_all_servers_db()
+            )
+
+            async with aiohttp.ClientSession(trust_env=True) as session:
+                tasks = [
+                    asyncio.create_task(
+                        self._get_status(session, server["endpoint"], server["id"])
+                    )
+                    for server in server_config
+                    if "endpoint" in server and "id" in server
+                ]
+
+                http_health_checks = await asyncio.gather(*tasks)
+                return {
+                    server_id: "OK" if status_code in {200, 406, 401} else "Unhealthy"
+                    for status_code, server_id in http_health_checks
+                }
+        except ClientConnectorError as e:
+            logger.exception("Connection Error: Failed to connect to MCP server. %s", e)
+            raise MemberServerError(
+                f"Failed to fetch the status of member servers: {e}"
+            )
+        except Exception as e:
+            logger.exception("Failed to fetch the status of member servers: %s", e)
+            raise MemberServerError(
+                f"Failed to fetch the status of member servers: {e}"
+            )
 
     async def setup_member_servers(self):
         """
@@ -165,6 +222,7 @@ class MCPGateway(FastMCP):
         This runs at startup or from manual trigger.
         """
         all_configs = self._config + self._db_configs
+
         seen_ids = set()
         logger.info(
             f"Setting up {len(self._config)} CLI servers and {len(self._db_configs)} DB servers..."
@@ -222,20 +280,37 @@ class MCPGateway(FastMCP):
         self.unmount(server_id)
         self._server_manager.remove_mcp_server(server_id)
         self._server_manager.remove_member(server_id)
+
+        if server_id in self._unhealthy_servers:
+            self._unhealthy_servers.remove(server_id)
+
         logger.info(f"Server {server_id} unmounted")
         return f"Server '{server_id}' unmounted."
 
-    async def get_tools(self, server_id: Optional[str] = None) -> dict[str, Tool]:
-        tools: dict[str, Tool] = {}
-        if (tools := self._cache.get("tools")) is self._cache.NOT_FOUND:
-            server_config = self._config + self._server_manager.load_all_servers_db()
-            tools = await self._tool_manager.get_all_tools(
-                self._mounted_servers,
-                self._server_manager,
-                server_id=server_id,
-                server_config=server_config,
-            )
-            self._cache.set("tools", tools)
+    async def get_tools(self, server_id: str | None = None) -> dict[str, Tool]:
+        tools = self._cache.get("tools")
+        if tools is not self._cache.NOT_FOUND:
+            return tools
+
+        server_config = []
+
+        if not server_id:
+            all_servers = self._config + self._server_manager.load_all_servers_db()
+            server_config = await self._remove_unhealthy_server(all_servers)
+
+            if not server_config:
+                server_config = [{"id": "gateway", "type": "http", "_id": "gateway"}]
+
+        logger.info(f"Member server configs: {server_config}")
+
+        tools = await self._tool_manager.get_all_tools(
+            self._mounted_servers,
+            self._server_manager,
+            server_id=server_id,
+            server_config=server_config,
+        )
+
+        self._cache.set("tools", tools)
         return tools
 
     async def get_tool_config_by_name(self, name: str) -> list[dict]:
@@ -266,7 +341,7 @@ class MCPGateway(FastMCP):
         if "remove_tools" in tools:
             raise ToolError("Tool: remove_tools can't be removed")
 
-        server_tools = await self.get_tools(server_id=server_id)
+        server_tools = await self.get_tools(server_id)
         self._check_tool_exist(tools, server_tools)
         self._server_manager.add_remove_tools(tools, server_id)
         logger.info(f"Removed {tools} tools from server")
@@ -279,10 +354,14 @@ class MCPGateway(FastMCP):
         Update tool description of member servers
         """
         self._check_server_exist(server_id)
-        server_tools = await self.get_tools(server_id=server_id)
+        server_tools = await self.get_tools(server_id)
         self._check_tool_exist(tool, server_tools)
         self._server_manager.update_tool_description(tool, description, server_id)
         logger.info(
             f"Updated Tool: {tool} with description: {description} for the server: {server_id}"
         )
         return f"Updated {tool} with description: {description}"
+
+    async def member_health(self) -> dict:
+        """Get all member server status"""
+        return await self._member_health()

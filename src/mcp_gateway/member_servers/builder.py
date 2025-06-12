@@ -30,7 +30,7 @@ class MCPServerBuilder:
         self.mcp_type = config["type"]
 
     async def build(self) -> FastMCP:
-        logger.info(f"Builing new {self.mcp_type} Server")
+        logger.info(f"Building new {self.mcp_type} Server")
 
         if self.mcp_type == "client":
             return await self._build_from_client()

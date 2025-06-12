@@ -4,3 +4,7 @@ class MCPGatewayError(Exception):
 
 class ToolDuplicateError(MCPGatewayError):
     """Tool duplicate error"""
+
+
+class MemberServerError(MCPGatewayError):
+    """Member MCP Server Error"""

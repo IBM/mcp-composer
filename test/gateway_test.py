@@ -95,6 +95,10 @@ class TestGateway(unittest.IsolatedAsyncioTestCase):
         tool_config = await self.gw.get_tool_config_by_name(name=TestData.TOOL_NAME_2)
         self.assertEqual(tool_config[0]["description"], TestData.TOOL_DESCRIPTION)
 
+    async def test_member_health(self):
+        health_status = await self.gw.member_health()
+        self.assertEqual(list(health_status.values()), ["OK", "OK"])
+
 
 if __name__ == "__main__":
     unittest.main()
