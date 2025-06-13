@@ -1,4 +1,4 @@
-# gateway/member_server.py
+# composer/member_server.py
 import pydantic_core
 from pydantic import BaseModel, Field, BeforeValidator
 from fastmcp import FastMCP
@@ -6,7 +6,7 @@ from typing import Optional, Dict, Any, Annotated
 from fastmcp.utilities.components import (
     _convert_set_default_none,
 )
-from mcp_gateway.utils import LoggerFactory
+from mcp_composer.utils import LoggerFactory
 
 logger = LoggerFactory.get_logger()
 

@@ -2,15 +2,15 @@
 
 import logging
 import sys
-from typing import Optional
 
 
 class LoggerFactory:
     """
     Produces consistent structured loggers across the system.
     """
+
     @staticmethod
-    def get_logger(name: str = "mcp-gateway", level: str = "INFO") -> logging.Logger:
+    def get_logger(name: str = "mcp-composer", level: str = "INFO") -> logging.Logger:
         logger = logging.getLogger(name)
         if logger.hasHandlers():
             return logger  # Prevent duplicate handlers

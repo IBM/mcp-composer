@@ -1,11 +1,11 @@
 from typing import Dict, List, Any, Optional
 from fastmcp.settings import DuplicateBehavior
 from fastmcp.exceptions import NotFoundError
-from mcp_gateway.utils import LoggerFactory
+from mcp_composer.utils import LoggerFactory
 from collections.abc import Callable
-from mcp_gateway.member_servers.member_server import MemberMCPServer
+from mcp_composer.member_servers.member_server import MemberMCPServer
 
-from mcp_gateway.store.database import DatabaseInterface
+from mcp_composer.store.database import DatabaseInterface
 
 logger = LoggerFactory.get_logger()
 

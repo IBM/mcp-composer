@@ -7,9 +7,9 @@ from fastmcp.client.transports import StreamableHttpTransport, SSETransport
 from fastmcp.client.auth.oauth import FileTokenStorage
 
 import httpx
-from mcp_gateway.utils.logger import LoggerFactory
-from mcp_gateway.utils import *
-from mcp_gateway.auth_handler import DynamicTokenClient
+from mcp_composer.utils.logger import LoggerFactory
+from mcp_composer.utils import *
+from mcp_composer.auth_handler import DynamicTokenClient
 
 
 logger = LoggerFactory.get_logger()

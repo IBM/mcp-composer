@@ -7,8 +7,8 @@ from fastmcp.exceptions import NotFoundError
 from fastmcp.settings import DuplicateBehavior
 from collections.abc import Callable
 
-from mcp_gateway.utils import LoggerFactory
-from mcp_gateway.member_servers import ServerManager
+from mcp_composer.utils import LoggerFactory
+from mcp_composer.member_servers import ServerManager
 
 logger = LoggerFactory.get_logger()
 
@@ -71,7 +71,7 @@ class MCPToolManager(ToolManager):
                         result[name].description = desc
             return result
 
-        def fetch_gateway_tools(
+        def fetch_composer_tools(
             remove: Optional[list[str]] = None,
             description: Optional[dict[str, str]] = None,
         ) -> dict[str, Tool]:
@@ -95,11 +95,11 @@ class MCPToolManager(ToolManager):
                 tools_description = doc.get("tools_description", {})
             return remove_tools, tools_description
 
-        # Case 1: Gateway server
-        if server_id == "gateway":
-            logger.info("Case 1: Fetch tools for gateway server")
+        # Case 1: composer server
+        if server_id == "composer":
+            logger.info("Case 1: Fetch tools for composer server")
             remove, description = get_server_doc_info(server_id)
-            return fetch_gateway_tools(remove, description)
+            return fetch_composer_tools(remove, description)
 
         # Case 2: Specific server
         if server_id:
@@ -115,16 +115,16 @@ class MCPToolManager(ToolManager):
 
         # Case 3: Config-driven
         if server_config:
-            include_gateway_tools = False
+            include_composer_tools = False
             for cfg in server_config:
                 sid = cfg["id"]
                 remove = cfg.get("remove_tools")
                 description = cfg.get("tools_description", {})
-                if sid == "gateway":
+                if sid == "composer":
                     logger.info(
-                        f"Case 3: Fetch gateway tools. Remove: {remove}. Descriptions: {description}"
+                        f"Case 3: Fetch composer tools. Remove: {remove}. Descriptions: {description}"
                     )
-                    tools.update(fetch_gateway_tools(remove, description))
+                    tools.update(fetch_composer_tools(remove, description))
                 else:
                     server = mounted_servers.get(sid)
                     if not server:
@@ -133,24 +133,24 @@ class MCPToolManager(ToolManager):
                         f"Case 4: Fetch tools for server '{sid}'. Remove: {remove}. Descriptions: {description}"
                     )
                     tools.update(await fetch_server_tools(server, remove, description))
-                    include_gateway_tools = True
-            if include_gateway_tools:
+                    include_composer_tools = True
+            if include_composer_tools:
                 tools.update(self.get_tools())
             return tools
 
-        # Default Case: All servers + gateway
+        # Default Case: All servers + composer
         results = await asyncio.gather(
             *[fetch_server_tools(server) for server in mounted_servers.values()]
         )
         for result in results:
             tools.update(result)
         tools.update(self.get_tools())
-        logger.info("Default Case: Fetch all tools from member servers and gateway")
+        logger.info("Default Case: Fetch all tools from member servers and composer")
         return tools
 
     def _remove_gateay_tools(self, server_manager: ServerManager):
-        # remove the gateway tools
-        server_doc = server_manager.get_document("gateway")
+        # remove the composer tools
+        server_doc = server_manager.get_document("composer")
         remove = server_doc.get("remove_tools", []) if server_doc else []
         for tool in remove:
             self.remove_tool(tool)
