@@ -8,3 +8,7 @@ class ToolDuplicateError(MCPGatewayError):
 
 class MemberServerError(MCPGatewayError):
     """Member MCP Server Error"""
+
+
+class ToolRemoveError(MCPGatewayError):
+    """Tool Remove Error"""

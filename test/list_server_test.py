@@ -2,6 +2,7 @@ import pytest
 from mcp_gateway import MCPGateway
 from mcp_gateway.store.fake_database import FakeDatabase
 
+
 ###############################################################################
 # PyTest fixtures
 ###############################################################################
@@ -20,9 +21,11 @@ def server_config():
         "endpoint": "https://dummy/path/sse",
     }
 
+
 ###############################################################################
 # Tests
 ###############################################################################
+
 
 @pytest.mark.asyncio
 async def test_list_member_servers_empty(fake_db):
@@ -30,7 +33,7 @@ async def test_list_member_servers_empty(fake_db):
     gateway = MCPGateway("gateway", database_config=fake_db)
     await gateway.setup_member_servers()
 
-    members = gateway.list_member_servers()
+    members = gateway._server_manager.list_member_servers()
     assert members == [], "Expected no mounted servers on fresh start"
 
 
@@ -40,12 +43,16 @@ async def test_list_member_servers_populated(fake_db, server_config):
     gateway = MCPGateway("gateway", config=[server_config], database_config=fake_db)
     await gateway.setup_member_servers()
 
-    members = gateway.list_member_servers()
+    members = gateway._server_manager.list_member_servers()
 
     # basic shape checks
     assert isinstance(members, list)
-    assert all("id" in m and "server_name" in m for m in members), "List items must expose id and server_name"
+    assert all("id" in m and "server_name" in m for m in members), (
+        "List items must expose id and server_name"
+    )
 
     # ensure our test server is present exactly once
     hits = [m for m in members if m["id"] == server_config["id"]]
-    assert len(hits) == 1, "Mounted server should appear exactly once in list_member_servers()"
+    assert len(hits) == 1, (
+        "Mounted server should appear exactly once in list_member_servers()"
+    )

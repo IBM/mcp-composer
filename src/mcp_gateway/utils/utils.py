@@ -1,9 +1,18 @@
-from typing import List
-from fastmcp.server.openapi import RouteMap, MCPType
 import httpx
 import json
-from mcp_gateway.utils.logger import LoggerFactory
+import aiohttp
+import asyncio
+
+from typing import List, Tuple
 from enum import Enum
+from aiohttp import ClientConnectorError
+from fastmcp.server.openapi import RouteMap, MCPType
+from fastmcp.tools.tool import Tool
+
+from mcp_gateway.member_servers.member_server import HealthStatus, MemberMCPServer
+from mcp_gateway.utils.logger import LoggerFactory
+from mcp_gateway.exceptions import MemberServerError
+
 
 logger = LoggerFactory.get_logger()
 
@@ -11,6 +20,11 @@ logger = LoggerFactory.get_logger()
 class MemberServerType(str, Enum):
     OpenAPI = "openapi"
     Client = "client"
+
+
+async def _get_status(session, server: MemberMCPServer) -> Tuple[int, MemberMCPServer]:
+    async with session.get(server.config.get("endpoint")) as resp:
+        return resp.status, server
 
 
 async def load_custom_mappings_from_json(json_data: str | list[dict]) -> list[RouteMap]:
@@ -63,3 +77,54 @@ def check_duplicate_tool(existing_tools: List[str], tools: List[str]) -> set:
     tools_exists = set(existing_tools)
     new_tools = set(tools)
     return tools_exists.intersection(new_tools)
+
+
+async def get_member_health(
+    server_config: List[MemberMCPServer],
+) -> dict[str, HealthStatus]:
+    try:
+        async with aiohttp.ClientSession(trust_env=True) as session:
+            tasks = {
+                server.id: asyncio.create_task(_get_status(session, server))
+                for server in server_config
+                if "endpoint" in server.config
+            }
+
+            results = await asyncio.gather(*tasks.values())
+
+            status = {}
+            for (status_code, server), server_id in zip(results, tasks.keys()):
+                health = (
+                    HealthStatus.healthy
+                    if status_code in {200, 406, 401}
+                    else HealthStatus.unhealthy
+                )
+                server.health_status = health
+                status[server_id] = health
+
+            return status
+
+    except ClientConnectorError as e:
+        logger.exception("Connection Error: Failed to connect to MCP server. %s", e)
+        raise MemberServerError(f"Failed to fetch the status of member servers: {e}")
+
+    except Exception as e:
+        logger.exception("Failed to fetch the status of member servers: %s", e)
+        raise MemberServerError(f"Failed to fetch the status of member servers: {e}")
+
+
+def get_server_doc_info(doc: dict) -> tuple[list[str], dict[str, str]]:
+    remove_tools = []
+    tools_description = {}
+    if doc:
+        remove_tools = doc.get("remove_tools", [])
+        tools_description = doc.get("tools_description", {})
+    return remove_tools, tools_description
+
+
+def format_tool(tool: Tool) -> dict:
+    return {
+        "name": tool.name,
+        "description": tool.description,
+        "parameters": tool.parameters,
+    }

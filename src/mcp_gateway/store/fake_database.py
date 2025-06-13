@@ -1,6 +1,7 @@
 from typing import Dict
 from mcp_gateway.store.database import DatabaseInterface
 
+
 class FakeDatabase(DatabaseInterface):
     """A simple in-memory DB stub used for tests."""
 
@@ -24,4 +25,3 @@ class FakeDatabase(DatabaseInterface):
 
     def add_remove_tools(self, tools, server_id):
         raise NotImplementedError
-

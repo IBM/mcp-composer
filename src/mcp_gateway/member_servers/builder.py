@@ -80,7 +80,7 @@ class MCPServerBuilder:
 
         # Create the client and wrap it with FastMCP
         client = Client(transport, auth=auth)
-        return FastMCP.from_client(client, name=self.mcp_id)
+        return FastMCP.as_proxy(client, name=self.mcp_id)
 
     async def _build_from_client(self) -> FastMCP:
         # auth = build_auth_strategy(self.config["auth_strategy"], self.config.get("auth", {}))
@@ -95,7 +95,7 @@ class MCPServerBuilder:
             )
             client = Client(transport)
         try:
-            return FastMCP.from_client(client, name=self.mcp_id)
+            return FastMCP.as_proxy(client, name=self.mcp_id)
         except Exception as e:
             logger.exception(
                 f"Failed to build member MCP server '{self.config.get('id')}': {e}"

@@ -8,7 +8,7 @@ from starlette.responses import JSONResponse, RedirectResponse, Response
 from mcp.server.auth.middleware.auth_context import get_access_token
 from mcp_gateway.utils import LoggerFactory
 from mcp_gateway.gateway import MCPGateway
-from mcp_gateway.auth_handler import ServerSettings, SimpleOAuthProvider
+from mcp_gateway.auth_handler.oauth import ServerSettings, SimpleOAuthProvider
 
 logger = LoggerFactory.get_logger()
 
