@@ -1,9 +1,8 @@
 import json
 from pathlib import Path
 from typing import List, Dict
-from mcp_gateway import gateway
-from mcp_gateway.utils import LoggerFactory, check_duplicate_tool
-from mcp_gateway.exceptions import ToolDuplicateError
+from mcp_composer.utils import LoggerFactory, check_duplicate_tool
+from mcp_composer.exceptions import ToolDuplicateError
 from .database import DatabaseInterface
 
 logger = LoggerFactory.get_logger()
@@ -16,10 +15,10 @@ class LocalFileAdapter(DatabaseInterface):
 
     def _ensure_file_exists(self):
         if not self._file_path.exists():
-            gateway_server = {"id": "gateway", "type": "http", "_id": "gateway"}
+            composer_server = {"id": "composer", "type": "http", "_id": "composer"}
             self._file_path.parent.mkdir(parents=True, exist_ok=True)
             with open(self._file_path, "w") as f:
-                json.dump([gateway_server], f)
+                json.dump([composer_server], f)
 
     def _read_data(self) -> List[Dict]:
         try:

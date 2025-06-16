@@ -8,18 +8,18 @@ from typing import Any, Dict, Optional, Union
 from fastmcp.tools.tool import Tool
 from fastmcp.exceptions import NotFoundError, ToolError
 
-from mcp_gateway.tools import MCPToolManager
-from mcp_gateway.utils import (
+from mcp_composer.tools import MCPToolManager
+from mcp_composer.utils import (
     LoggerFactory,
     AllServersValidator,
     ValidationError,
     ServerConfigValidator,
 )
 
-from mcp_gateway.member_servers import ServerManager, MemberMCPServer, MCPServerBuilder
-from mcp_gateway.store.database import DatabaseInterface
-from mcp_gateway.store.cloudant_adapter import CloudantAdapter
-from mcp_gateway.store.local_file_adapter import LocalFileAdapter
+from mcp_composer.member_servers import ServerManager, MemberMCPServer, MCPServerBuilder
+from mcp_composer.store.database import DatabaseInterface
+from mcp_composer.store.cloudant_adapter import CloudantAdapter
+from mcp_composer.store.local_file_adapter import LocalFileAdapter
 
 load_dotenv()
 
@@ -27,14 +27,14 @@ load_dotenv()
 logger = LoggerFactory.get_logger()
 
 
-class MCPGateway(FastMCP):
+class MCPComposer(FastMCP):
     """
     Extended FastMCP server with dynamic runtime server composition.
     """
 
     def __init__(
         self,
-        name: str = "MCPGateway",
+        name: str = "MCPComposer",
         config: Optional[list[dict]] = None,
         database_config: Optional[Union[Dict[str, Any], DatabaseInterface]] = None,
         auth: OAuthProvider | None = None,
@@ -91,7 +91,7 @@ class MCPGateway(FastMCP):
         self.add_tool(Tool.from_function(self.update_tool_description))
 
     def _check_server_exist(self, server_id) -> None:
-        if server_id != "gateway" and not self._server_manager.has_member_server(
+        if server_id != "composer" and not self._server_manager.has_member_server(
             server_id
         ):
             raise NotFoundError(f"Server '{server_id}' not mounted.")
@@ -107,9 +107,9 @@ class MCPGateway(FastMCP):
         if unknown_tools:
             raise NotFoundError(f"Unknown tool(s): {', '.join(unknown_tools)}")
 
-    def _remove_gateway_tools(self):
+    def _remove_composer_tools(self):
         """
-        Run this function on every server startup for remove the tools for gateway if it's
+        Run this function on every server startup for remove the tools for composer if it's
         already stored in persistant storage
         """
         self._tool_manager._remove_gateay_tools(self._server_manager)
@@ -176,8 +176,8 @@ class MCPGateway(FastMCP):
                 logger.error("Skipping corrupt config with no 'id': %s", cfg)
                 continue
 
-            if server_id == "gateway":
-                logger.debug(f"Skipping gateway server '{server_id}'")
+            if server_id == "composer":
+                logger.debug(f"Skipping composer server '{server_id}'")
                 continue
 
             if server_id in seen_ids:
@@ -191,7 +191,7 @@ class MCPGateway(FastMCP):
 
             await self._safe_mount(cfg)
             seen_ids.add(server_id)
-        self._remove_gateway_tools()
+        self._remove_composer_tools()
 
     async def register_mcp_server(self, config: dict) -> str:
         """
@@ -260,7 +260,7 @@ class MCPGateway(FastMCP):
 
     async def remove_tools(self, tools: list[str], server_id: str) -> str:
         """
-        Remove a tool or multiple from the servers and gateway
+        Remove a tool or multiple from the servers and composer
         """
         self._check_server_exist(server_id)
         if "remove_tools" in tools:

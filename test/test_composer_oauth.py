@@ -11,16 +11,16 @@ from starlette.responses import JSONResponse, RedirectResponse, Response
 from mcp.server.auth.middleware.auth_context import get_access_token
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../src")))
-from mcp_gateway.utils import LoggerFactory
-from mcp_gateway.gateway import MCPGateway
-from mcp_gateway.auth_handler import ServerSettings, SimpleOAuthProvider
+from mcp_composer.utils import LoggerFactory
+from mcp_composer.composer import MCPComposer
+from mcp_composer.auth_handler import ServerSettings, SimpleOAuthProvider
 
 logger = LoggerFactory.get_logger()
 
 
-def create_mcp_server(settings: ServerSettings) -> MCPGateway:
+def create_mcp_server(settings: ServerSettings) -> MCPComposer:
     oauth_provider = SimpleOAuthProvider(settings)
-    gw = MCPGateway("gateway", auth=oauth_provider)
+    gw = MCPComposer("composer", auth=oauth_provider)
     callback_path = urlparse(settings.callback_path).path
 
     @gw.custom_route(f"{callback_path}", methods=["GET"])

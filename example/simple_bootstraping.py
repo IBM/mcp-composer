@@ -1,13 +1,8 @@
 import asyncio
-from mcp_gateway.gateway import MCPGateway
+from mcp_composer.composer import MCPComposer
 
-gw = MCPGateway(
-    "gateway",
-    database_config={
-        "type": "cloudant",
-        "api_key":"",
-        "service_url":""
-    }
+gw = MCPComposer(
+    "composer", database_config={"type": "cloudant", "api_key": "", "service_url": ""}
 )
 
 

@@ -17,7 +17,7 @@ from mcp.server.auth.provider import (
 from mcp.server.auth.settings import ClientRegistrationOptions
 from mcp.shared._httpx_utils import create_mcp_http_client
 from mcp.shared.auth import OAuthClientInformationFull, OAuthToken
-from mcp_gateway.utils import LoggerFactory
+from mcp_composer.utils import LoggerFactory
 
 logger = LoggerFactory.get_logger()
 load_dotenv(find_dotenv("../.env.oauth"))

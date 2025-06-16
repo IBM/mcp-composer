@@ -4,9 +4,9 @@ import os
 import json
 from unittest.mock import MagicMock
 
-from mcp_gateway.utils import ValidationError
-from mcp_gateway import MCPGateway
-from mcp_gateway.store.database import DatabaseInterface
+from mcp_composer.utils import ValidationError
+from mcp_composer import MCPComposer
+from mcp_composer.store.database import DatabaseInterface
 
 
 class TestData:
@@ -17,27 +17,27 @@ class TestData:
     TOOL_DESCRIPTION = "Test description"
 
 
-class TestGateway(unittest.IsolatedAsyncioTestCase):
+class TestComposer(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self):
         current_dir = os.path.dirname(__file__)
-        path = os.path.join(current_dir, "member_servers.json")
+        path = os.path.join(current_dir, "data/member_servers.json")
         # Assumes file is in the root or test dir
         with open(path, "r") as f:
             config = json.load(f)
         self.fake_db = MagicMock(spec=DatabaseInterface)
         self.fake_db.load_all_servers.return_value = config
-        self.gw = MCPGateway("gateway", database_config=self.fake_db)
+        self.gw = MCPComposer("composer", database_config=self.fake_db)
         await self.gw.setup_member_servers()
 
-        data_path = os.path.join(current_dir, "tools/test_data.json")
+        data_path = os.path.join(current_dir, "data/tools_data.json")
         with open(data_path, "r") as f:
             self.test_data = json.load(f)
 
-    def test_gateway(self):
-        gw = MCPGateway("gateway")
-        self.assertEqual(gw.name, "gateway", "Should be gateway")
+    def test_composer(self):
+        gw = MCPComposer("composer")
+        self.assertEqual(gw.name, "composer", "Should be composer")
 
-    async def test_gateway_with_config(self):
+    async def test_composer_with_config(self):
         logger = logging.getLogger()
         logger.setLevel(logging.DEBUG)
         try:

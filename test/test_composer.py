@@ -3,9 +3,9 @@ import sys
 import asyncio
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../src")))
-from mcp_gateway import MCPGateway
+from mcp_composer import MCPComposer
 
-gw = MCPGateway("gateway")
+gw = MCPComposer("composer")
 
 
 async def main():

@@ -7,4 +7,4 @@ RUN pip install -r requirements.txt
 
 COPY . .
 
-CMD ["uvicorn", "main:mcp_gateway", "--host", "0.0.0.0", "--port", "8080"]
+CMD ["uvicorn", "main:mcp_composer", "--host", "0.0.0.0", "--port", "8080"]

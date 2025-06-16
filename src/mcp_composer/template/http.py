@@ -1,13 +1,13 @@
 import asyncio
-from mcp_gateway import MCPGateway
+from mcp_composer import MCPComposer
 
-gw = MCPGateway(
-    "gateway",
+gw = MCPComposer(
+    "composer",
     config=[
         {
             "id": "mcp-server",
-            "type": "sse",
-            "endpoint": "https://dummy.endpoint/sse",
+            "type": "http",
+            "endpoint": "https://dummy.endpoint/mcp",
         }
     ],
 )

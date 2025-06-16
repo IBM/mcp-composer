@@ -2,7 +2,7 @@ from typing import List
 from fastmcp.server.openapi import RouteMap, MCPType
 import httpx
 import json
-from mcp_gateway.utils.logger import LoggerFactory
+from mcp_composer.utils.logger import LoggerFactory
 from enum import Enum
 
 logger = LoggerFactory.get_logger()
