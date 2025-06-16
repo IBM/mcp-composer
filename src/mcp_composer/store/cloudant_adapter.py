@@ -4,8 +4,8 @@ from ibmcloudant import CloudantV1
 from ibm_cloud_sdk_core import ApiException
 from ibm_cloud_sdk_core.authenticators import IAMAuthenticator
 from ibmcloudant.cloudant_v1 import Document
-from mcp_gateway.utils import LoggerFactory, check_duplicate_tool
-from mcp_gateway.exceptions import ToolDuplicateError
+from mcp_composer.utils import LoggerFactory, check_duplicate_tool
+from mcp_composer.exceptions import ToolDuplicateError
 from .database import DatabaseInterface
 
 
@@ -188,22 +188,10 @@ class CloudantAdapter(DatabaseInterface):
             server_doc = self._client.get_document(
                 db=self._db_name, doc_id=server_id
             ).get_result()
+
             logger.info(
                 f"Retrive server '{server_id}' config details from cloudant. Response: {server_doc}"
             )
         except ApiException as e:
-            # Add server config to db, since it not exist
-            # Only applicable to gateway serevr, for others return empty
-            if e.code == 404 and server_id == "gateway":
-                server_doc["_id"] = "gateway"
-                server_doc["id"] = "gateway"
-                response = self._client.post_document(
-                    db=self._db_name,
-                    document=server_doc,
-                ).get_result()
-                logger.info(
-                    f"No gateway server found, so adding gateway server '{server_id}' to DB. Response: {response}"
-                )
-            else:
-                logger.info("No server details found in  DB")
+            logger.error(f"No server details found in  DB: {e}")
         return server_doc

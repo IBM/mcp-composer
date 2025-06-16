@@ -17,7 +17,7 @@ from mcp.server.auth.provider import (
 from mcp.server.auth.settings import ClientRegistrationOptions
 from mcp.shared._httpx_utils import create_mcp_http_client
 from mcp.shared.auth import OAuthClientInformationFull, OAuthToken
-from mcp_gateway.utils import LoggerFactory
+from mcp_composer.utils import LoggerFactory
 
 logger = LoggerFactory.get_logger()
 load_dotenv(find_dotenv("../.env.oauth"))
@@ -254,9 +254,7 @@ class SimpleOAuthProvider(OAuthProvider):
         """Exchange refresh token"""
         raise NotImplementedError("Not supported")
 
-    async def revoke_token(
-        self, token: str, token_type_hint: str | None = None
-    ) -> None:
+    async def revoke_token(self, token: str) -> None:
         """Revoke a token."""
         if token in self.tokens:
             del self.tokens[token]

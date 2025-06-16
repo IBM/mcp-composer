@@ -4,14 +4,14 @@ from collections.abc import Callable
 from fastmcp.settings import DuplicateBehavior
 from fastmcp.exceptions import NotFoundError
 
-from mcp_gateway.utils import LoggerFactory, get_member_health, check_duplicate_tool
-from mcp_gateway.member_servers.member_server import HealthStatus, MemberMCPServer
-from mcp_gateway.exceptions import (
+from mcp_composer.utils import LoggerFactory, get_member_health, check_duplicate_tool
+from mcp_composer.member_servers.member_server import HealthStatus, MemberMCPServer
+from mcp_composer.exceptions import (
     MemberServerError,
     ToolDuplicateError,
     ToolRemoveError,
 )
-from mcp_gateway.store.database import DatabaseInterface
+from mcp_composer.store.database import DatabaseInterface
 
 logger = LoggerFactory.get_logger()
 
@@ -53,7 +53,7 @@ class ServerManager:
     def default_serializer(server_id: str, member: MemberMCPServer):
         return member.to_dict()
 
-    async def member_health(self, config: list[MemberMCPServer]) -> dict:
+    async def member_health(self, config: list[MemberMCPServer]) -> list[dict]:
         server_config = config if config else self.list()
         health_status = await get_member_health(server_config)
         return health_status
@@ -64,7 +64,7 @@ class ServerManager:
         return [{"id": m.id, "server_name": m.get_server().name} for m in self.list()]
 
     def check_server_exist(self, server_id) -> None:
-        if server_id != "gateway" and not self.has_member_server(server_id):
+        if not self.has_member_server(server_id):
             raise NotFoundError(f"Server '{server_id}' not mounted.")
 
     def has_member_server(self, key: str) -> bool:

@@ -1,6 +1,6 @@
 import pytest
-from mcp_gateway import MCPGateway
-from mcp_gateway.store.fake_database import FakeDatabase
+from mcp_composer import MCPComposer
+from mcp_composer.store.fake_database import FakeDatabase
 
 
 ###############################################################################
@@ -29,21 +29,21 @@ def server_config():
 
 @pytest.mark.asyncio
 async def test_list_member_servers_empty(fake_db):
-    """Gateway should return an empty list when no servers are mounted."""
-    gateway = MCPGateway("gateway", database_config=fake_db)
-    await gateway.setup_member_servers()
+    """Composer should return an empty list when no servers are mounted."""
+    composer = MCPComposer("composer", database_config=fake_db)
+    await composer.setup_member_servers()
 
-    members = gateway._server_manager.list_member_servers()
+    members = composer._server_manager.list_member_servers()
     assert members == [], "Expected no mounted servers on fresh start"
 
 
 @pytest.mark.asyncio
 async def test_list_member_servers_populated(fake_db, server_config):
     """After mounting a server, it must appear in list_member_servers()."""
-    gateway = MCPGateway("gateway", config=[server_config], database_config=fake_db)
-    await gateway.setup_member_servers()
+    composer = MCPComposer("composer", config=[server_config], database_config=fake_db)
+    await composer.setup_member_servers()
 
-    members = gateway._server_manager.list_member_servers()
+    members = composer._server_manager.list_member_servers()
 
     # basic shape checks
     assert isinstance(members, list)

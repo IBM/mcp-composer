@@ -1,8 +1,8 @@
 import json
 from pathlib import Path
 from typing import List, Dict
-from mcp_gateway.utils import LoggerFactory, check_duplicate_tool
-from mcp_gateway.exceptions import ToolDuplicateError
+from mcp_composer.utils import LoggerFactory, check_duplicate_tool
+from mcp_composer.exceptions import ToolDuplicateError
 from .database import DatabaseInterface
 
 logger = LoggerFactory.get_logger()

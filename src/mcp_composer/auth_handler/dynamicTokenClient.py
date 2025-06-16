@@ -1,22 +1,24 @@
 import time
 import httpx
-from mcp_gateway.utils import LoggerFactory
+from mcp_composer.utils import LoggerFactory
+
 logger = LoggerFactory.get_logger()
+
 
 class DynamicTokenClient(httpx.AsyncClient):
     def __init__(
         self,
         *,
         base_url: str,
-        token_url:str,
-        api_key:str,
+        token_url: str,
+        api_key: str,
         timeout: float = 10.0,
         **kwargs,
     ):
         self._access_token = None
         self._expires_at = 0
-        self.token_url=token_url
-        self.apikey=api_key
+        self.token_url = token_url
+        self.apikey = api_key
 
         # Pass everything to parent class
         super().__init__(
@@ -24,14 +26,15 @@ class DynamicTokenClient(httpx.AsyncClient):
             timeout=timeout,
             **kwargs,
         )
-    
+
     async def _refresh_token(self):
         logger.debug(f"crating access token at {self.token_url}")
         # Expect apikey to be in headers: self.headers["apikey"]
 
-
         if not self.apikey or not self.token_url:
-            raise ValueError("Missing 'apikey' or 'token_url' in headers for token refresh.")
+            raise ValueError(
+                "Missing 'apikey' or 'token_url' in headers for token refresh."
+            )
 
         form_headers = {"Content-Type": "application/x-www-form-urlencoded"}
         data = {
@@ -41,17 +44,18 @@ class DynamicTokenClient(httpx.AsyncClient):
 
         response = await super().post(self.token_url, headers=form_headers, data=data)
         response.raise_for_status()
-        
+
         token_data = response.json()
         self._access_token = token_data["access_token"]
-      
+
         expires_in = token_data.get("expires_in", 3600)
         self._expires_at = time.time() + expires_in - 60  # refresh early
 
-    
-    async def request(self, method: str, url: httpx.URL | str, **kwargs) -> httpx.Response:
+    async def request(
+        self, method: str, url: httpx.URL | str, **kwargs
+    ) -> httpx.Response:
         # Prevent recursion if the token_url is being called
-       
+
         if method.upper() == "POST" and str(url).startswith(str(self.token_url)):
             return await super().request(method, url, **kwargs)
         if not self._access_token or time.time() >= self._expires_at:

@@ -1,8 +1,8 @@
 import asyncio
-from mcp_gateway.gateway import MCPGateway
+from mcp_composer.composer import MCPComposer
 
-gw = MCPGateway(
-    "gateway",
+gw = MCPComposer(
+    "composer",
     config=[
         {
             "id": "mcp-server",

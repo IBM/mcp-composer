@@ -1,5 +1,6 @@
 from typing import Dict
-from mcp_gateway.store.database import DatabaseInterface
+from mcp_composer.store.database import DatabaseInterface
+
 
 
 class FakeDatabase(DatabaseInterface):

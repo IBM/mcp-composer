@@ -1,17 +1,17 @@
+from typing import Tuple
 import httpx
-import json
 import aiohttp
 import asyncio
-
-from typing import List, Tuple
+import json
+from mcp_composer.utils.logger import LoggerFactory
 from enum import Enum
 from aiohttp import ClientConnectorError
 from fastmcp.server.openapi import RouteMap, MCPType
 from fastmcp.tools.tool import Tool
 
-from mcp_gateway.member_servers.member_server import HealthStatus, MemberMCPServer
-from mcp_gateway.utils.logger import LoggerFactory
-from mcp_gateway.exceptions import MemberServerError
+from mcp_composer.member_servers.member_server import HealthStatus, MemberMCPServer
+from mcp_composer.utils.logger import LoggerFactory
+from mcp_composer.exceptions import MemberServerError
 
 
 logger = LoggerFactory.get_logger()
@@ -73,15 +73,9 @@ async def load_json(filepath):
         return data
 
 
-def check_duplicate_tool(existing_tools: List[str], tools: List[str]) -> set:
-    tools_exists = set(existing_tools)
-    new_tools = set(tools)
-    return tools_exists.intersection(new_tools)
-
-
 async def get_member_health(
-    server_config: List[MemberMCPServer],
-) -> dict[str, HealthStatus]:
+    server_config: list[MemberMCPServer],
+) -> list[dict]:
     try:
         async with aiohttp.ClientSession(trust_env=True) as session:
             tasks = {
@@ -92,16 +86,18 @@ async def get_member_health(
 
             results = await asyncio.gather(*tasks.values())
 
-            status = {}
+            status = []
             for (status_code, server), server_id in zip(results, tasks.keys()):
+                server_status = {}
                 health = (
                     HealthStatus.healthy
                     if status_code in {200, 406, 401}
                     else HealthStatus.unhealthy
                 )
                 server.health_status = health
-                status[server_id] = health
-
+                server_status["status"] = health
+                server_status["server_name"] = server_id
+                status.append(server_status)
             return status
 
     except ClientConnectorError as e:
@@ -111,6 +107,12 @@ async def get_member_health(
     except Exception as e:
         logger.exception("Failed to fetch the status of member servers: %s", e)
         raise MemberServerError(f"Failed to fetch the status of member servers: {e}")
+
+
+def check_duplicate_tool(existing_tools: list[str], tools: list[str]) -> set:
+    tools_exists = set(existing_tools)
+    new_tools = set(tools)
+    return tools_exists.intersection(new_tools)
 
 
 def get_server_doc_info(doc: dict) -> tuple[list[str], dict[str, str]]:

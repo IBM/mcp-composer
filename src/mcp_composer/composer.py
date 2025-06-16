@@ -9,18 +9,18 @@ from typing import Any, Dict, Optional, Union
 from fastmcp.tools.tool import Tool
 
 
-from mcp_gateway.tools import MCPToolManager
-from mcp_gateway.utils import (
+from mcp_composer.tools import MCPToolManager
+from mcp_composer.utils import (
     LoggerFactory,
     AllServersValidator,
     ValidationError,
     ServerConfigValidator,
 )
 
-from mcp_gateway.member_servers import ServerManager, MemberMCPServer, MCPServerBuilder
-from mcp_gateway.store.database import DatabaseInterface
-from mcp_gateway.store.cloudant_adapter import CloudantAdapter
-from mcp_gateway.store.local_file_adapter import LocalFileAdapter
+from mcp_composer.member_servers import ServerManager, MemberMCPServer, MCPServerBuilder
+from mcp_composer.store.database import DatabaseInterface
+from mcp_composer.store.cloudant_adapter import CloudantAdapter
+from mcp_composer.store.local_file_adapter import LocalFileAdapter
 
 load_dotenv()
 
@@ -28,14 +28,14 @@ load_dotenv()
 logger = LoggerFactory.get_logger()
 
 
-class MCPGateway(FastMCP):
+class MCPComposer(FastMCP):
     """
     Extended FastMCP server with dynamic runtime server composition.
     """
 
     def __init__(
         self,
-        name: str = "MCPGateway",
+        name: str = "MCPComposer",
         config: Optional[list[dict]] = None,
         database_config: Optional[Union[Dict[str, Any], DatabaseInterface]] = None,
         auth: OAuthProvider | None = None,
@@ -153,10 +153,6 @@ class MCPGateway(FastMCP):
                 logger.error("Skipping corrupt config with no 'id': %s", cfg)
                 continue
 
-            if server_id == "gateway":
-                logger.debug(f"Skipping gateway server '{server_id}'")
-                continue
-
             if server_id in seen_ids:
                 logger.debug(f"Skipping duplicate server '{server_id}'")
                 continue
@@ -168,10 +164,6 @@ class MCPGateway(FastMCP):
 
             await self._mount_member_server(cfg)
             seen_ids.add(server_id)
-
-        # Run this function on every server startup for remove the tools for gateway if it's
-        # already stored in persistant storage
-        self._tool_manager.remove_gateay_tools()
 
     async def register_mcp_server(self, config: dict) -> str:
         """
@@ -212,6 +204,6 @@ class MCPGateway(FastMCP):
             self._cache.set("tools", tools)
         return tools
 
-    async def member_health(self) -> dict:
+    async def member_health(self) -> list[dict]:
         """Get all member server status"""
         return await self._server_manager.member_health(self._server_manager.list())
