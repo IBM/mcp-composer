@@ -12,6 +12,7 @@ dependencies = [
     "ibmcloudant==0.10.2",
     "ibm-cloud-sdk-core==3.23.0",
     "fastapi==0.115.12",
+    "aiohttp==3.12.12",
 ]
 
 [dependency-groups]

@@ -10,7 +10,6 @@ from fastmcp.server.openapi import RouteMap, MCPType
 from fastmcp.tools.tool import Tool
 
 from mcp_composer.member_servers.member_server import HealthStatus, MemberMCPServer
-from mcp_composer.utils.logger import LoggerFactory
 from mcp_composer.exceptions import MemberServerError
 
 

@@ -13,7 +13,7 @@ from mcp.server.auth.middleware.auth_context import get_access_token
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../src")))
 from mcp_composer.utils import LoggerFactory
 from mcp_composer.composer import MCPComposer
-from mcp_composer.auth_handler import ServerSettings, SimpleOAuthProvider
+from mcp_composer.auth_handler.oauth import ServerSettings, SimpleOAuthProvider
 
 logger = LoggerFactory.get_logger()
 

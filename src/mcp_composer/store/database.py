@@ -1,6 +1,6 @@
 # database.py
 from abc import ABC, abstractmethod
-from typing import List, Dict, Any
+from typing import List, Dict
 
 
 class DatabaseInterface(ABC):

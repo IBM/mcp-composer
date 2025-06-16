@@ -1,11 +1,10 @@
 import asyncio
-from typing import Optional, Any
+from typing import Optional
 from fastmcp.tools import ToolManager
 from fastmcp.tools.tool import Tool
 from mcp_composer.member_servers.member_server import HealthStatus, MemberMCPServer
 from fastmcp.exceptions import NotFoundError
 from fastmcp.settings import DuplicateBehavior
-from collections.abc import Callable
 from fastmcp.exceptions import ToolError
 
 from mcp_composer.utils import LoggerFactory, get_server_doc_info, format_tool
