@@ -15,10 +15,9 @@ class LocalFileAdapter(DatabaseInterface):
 
     def _ensure_file_exists(self):
         if not self._file_path.exists():
-            composer_server = {"id": "composer", "type": "http", "_id": "composer"}
             self._file_path.parent.mkdir(parents=True, exist_ok=True)
             with open(self._file_path, "w") as f:
-                json.dump([composer_server], f)
+                json.dump([], f)
 
     def _read_data(self) -> List[Dict]:
         try:
@@ -67,7 +66,8 @@ class LocalFileAdapter(DatabaseInterface):
                 logger.info(
                     f"Retrive server({server_id}) config details from local. Response: {server_cfg}"
                 )
-                return server_cfg
+            return server_cfg
+        return {}
 
     def add_remove_tools(self, tools: list[str], server_id: str) -> None:
         data = self._read_data()

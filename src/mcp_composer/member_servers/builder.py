@@ -14,8 +14,6 @@ from mcp_composer.auth_handler import DynamicTokenClient
 
 logger = LoggerFactory.get_logger()
 
-import sys
-
 
 class MCPServerBuilder:
     """
@@ -30,7 +28,7 @@ class MCPServerBuilder:
         self.mcp_type = config["type"]
 
     async def build(self) -> FastMCP:
-        logger.info(f"Builing new {self.mcp_type} Server")
+        logger.info(f"Building new {self.mcp_type} Server")
 
         if self.mcp_type == "client":
             return await self._build_from_client()
@@ -80,7 +78,7 @@ class MCPServerBuilder:
 
         # Create the client and wrap it with FastMCP
         client = Client(transport, auth=auth)
-        return FastMCP.from_client(client, name=self.mcp_id)
+        return FastMCP.as_proxy(client, name=self.mcp_id)
 
     async def _build_from_client(self) -> FastMCP:
         # auth = build_auth_strategy(self.config["auth_strategy"], self.config.get("auth", {}))
@@ -95,7 +93,7 @@ class MCPServerBuilder:
             )
             client = Client(transport)
         try:
-            return FastMCP.from_client(client, name=self.mcp_id)
+            return FastMCP.as_proxy(client, name=self.mcp_id)
         except Exception as e:
             logger.exception(
                 f"Failed to build member MCP server '{self.config.get('id')}': {e}"

@@ -2,6 +2,7 @@ from typing import Dict
 from mcp_composer.store.database import DatabaseInterface
 
 
+
 class FakeDatabase(DatabaseInterface):
     """A simple in-memory DB stub used for tests."""
 

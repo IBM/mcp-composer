@@ -13,7 +13,7 @@ from mcp.server.auth.middleware.auth_context import get_access_token
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../src")))
 from mcp_composer.utils import LoggerFactory
 from mcp_composer.composer import MCPComposer
-from mcp_composer.auth_handler import ServerSettings, SimpleOAuthProvider
+from mcp_composer.auth_handler.oauth import ServerSettings, SimpleOAuthProvider
 
 logger = LoggerFactory.get_logger()
 
@@ -78,7 +78,7 @@ async def main():
     settings = ServerSettings()
     gw = create_mcp_server(settings)
     await gw.setup_member_servers()
-    await gw.run_http_async(host="0.0.0.0", port=8080, log_level="debug", path="/mcp")
+    await gw.run_http_async(host="0.0.0.0", port=9000, log_level="debug", path="/mcp")
 
 
 if __name__ == "__main__":

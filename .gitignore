@@ -12,3 +12,4 @@ wheels/
 main.py
 .env
 uv.lock
+.env.oauth

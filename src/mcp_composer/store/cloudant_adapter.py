@@ -188,22 +188,10 @@ class CloudantAdapter(DatabaseInterface):
             server_doc = self._client.get_document(
                 db=self._db_name, doc_id=server_id
             ).get_result()
+
             logger.info(
                 f"Retrive server '{server_id}' config details from cloudant. Response: {server_doc}"
             )
         except ApiException as e:
-            # Add server config to db, since it not exist
-            # Only applicable to composer serevr, for others return empty
-            if e.code == 404 and server_id == "composer":
-                server_doc["_id"] = "composer"
-                server_doc["id"] = "composer"
-                response = self._client.post_document(
-                    db=self._db_name,
-                    document=server_doc,
-                ).get_result()
-                logger.info(
-                    f"No composer server found, so adding composer server '{server_id}' to DB. Response: {response}"
-                )
-            else:
-                logger.info("No server details found in  DB")
+            logger.error(f"No server details found in  DB: {e}")
         return server_doc

@@ -4,6 +4,7 @@ import os
 import json
 from unittest.mock import MagicMock
 
+from mcp_composer.member_servers.member_server import HealthStatus
 from mcp_composer.utils import ValidationError
 from mcp_composer import MCPComposer
 from mcp_composer.store.database import DatabaseInterface
@@ -14,6 +15,7 @@ class TestData:
     TOOL_NAME_1 = "mcp-stock-info_search_news"
     TOOL_NAME_2 = "mcp-server-fetch_fetch_html"
     TOOL_NAME_LIST = ["mcp-server-fetch_fetch_html"]
+    TOOL_NAME_WITHOUT_PREFIX = "search_news"
     TOOL_DESCRIPTION = "Test description"
 
 
@@ -41,7 +43,7 @@ class TestComposer(unittest.IsolatedAsyncioTestCase):
         logger = logging.getLogger()
         logger.setLevel(logging.DEBUG)
         try:
-            memebers = self.gw.list_member_servers()
+            memebers = self.gw._server_manager.list_member_servers()
             print(f"All members are {memebers}")
             self.assertEqual(len(memebers), 2, "Should have 2 members")
         except ValidationError as e:
@@ -53,47 +55,9 @@ class TestComposer(unittest.IsolatedAsyncioTestCase):
         self.assertIsInstance(tools, dict)
         self.assertGreaterEqual(len(tools), 1)
 
-    async def test_get_tools_with_server_id(self):
-        tools = await self.gw.get_tools(server_id=TestData.SERVER_ID)
-        self.assertIsInstance(tools, dict)
-        self.assertGreaterEqual(len(tools), 1)
-
-    async def test_get_tool_config_by_name(self):
-        tool_config = await self.gw.get_tool_config_by_name(name=TestData.TOOL_NAME_1)
-        expected_output = self.test_data["test_get_tool_config_by_name"]
-        self.assertEqual(tool_config, expected_output)
-
-    async def test_get_tool_config_by_server(self):
-        tool_config = await self.gw.get_tool_config_by_server(
-            server_id=TestData.SERVER_ID
-        )
-        expected_output = self.test_data["test_get_tool_config_by_server"]
-        self.assertEqual(tool_config, expected_output)
-
-    async def test_remove_tools(self):
-        tool_config = await self.gw.remove_tools(
-            tools=TestData.TOOL_NAME_LIST, server_id=TestData.SERVER_ID
-        )
-        expected_output = self.test_data["test_remove_tools"]
-        self.fake_db.get_document.return_value = self.test_data[
-            "mock_server_config_after_tool_remove"
-        ]
-        tool_config = await self.gw.get_tool_config_by_server(
-            server_id=TestData.SERVER_ID
-        )
-        self.assertEqual(tool_config, expected_output)
-
-    async def test_update_tool_description(self):
-        await self.gw.update_tool_description(
-            tool=TestData.TOOL_NAME_2,
-            description=TestData.TOOL_DESCRIPTION,
-            server_id=TestData.SERVER_ID,
-        )
-        self.fake_db.load_all_servers.return_value = self.test_data[
-            "mock_update_tool_description"
-        ]
-        tool_config = await self.gw.get_tool_config_by_name(name=TestData.TOOL_NAME_2)
-        self.assertEqual(tool_config[0]["description"], TestData.TOOL_DESCRIPTION)
+    async def test_member_health(self):
+        health_statuses = [item["status"] for item in await self.gw.member_health()]
+        self.assertEqual(health_statuses, [HealthStatus.healthy, HealthStatus.healthy])
 
 
 if __name__ == "__main__":

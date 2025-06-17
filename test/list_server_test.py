@@ -33,7 +33,7 @@ async def test_list_member_servers_empty(fake_db):
     composer = MCPComposer("composer", database_config=fake_db)
     await composer.setup_member_servers()
 
-    members = composer.list_member_servers()
+    members = composer._server_manager.list_member_servers()
     assert members == [], "Expected no mounted servers on fresh start"
 
 
@@ -43,7 +43,7 @@ async def test_list_member_servers_populated(fake_db, server_config):
     composer = MCPComposer("composer", config=[server_config], database_config=fake_db)
     await composer.setup_member_servers()
 
-    members = composer.list_member_servers()
+    members = composer._server_manager.list_member_servers()
 
     # basic shape checks
     assert isinstance(members, list)

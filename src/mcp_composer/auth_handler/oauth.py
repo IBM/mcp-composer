@@ -254,9 +254,7 @@ class SimpleOAuthProvider(OAuthProvider):
         """Exchange refresh token"""
         raise NotImplementedError("Not supported")
 
-    async def revoke_token(
-        self, token: str, token_type_hint: str | None = None
-    ) -> None:
+    async def revoke_token(self, token: str) -> None:
         """Revoke a token."""
         if token in self.tokens:
             del self.tokens[token]
