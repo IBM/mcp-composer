@@ -2,7 +2,7 @@ from typing import Dict, List, Any, Optional
 from collections.abc import Callable
 
 from fastmcp.settings import DuplicateBehavior
-from fastmcp.exceptions import NotFoundError
+from fastmcp.exceptions import NotFoundError, ToolError
 
 from mcp_composer.utils import LoggerFactory, get_member_health, check_duplicate_tool
 from mcp_composer.member_servers.member_server import HealthStatus, MemberMCPServer
@@ -59,9 +59,22 @@ class ServerManager:
         return health_status
 
     def list_member_servers(self) -> list[dict]:
-        """Listing member servers"""
+        """
+        List status of all member servers (active or deactivated).
+        """
         logger.info("Listing member servers")
-        return [{"id": m.id, "server_name": m.get_server().name} for m in self.list()]
+        configs = self.load_all_servers_db()
+
+        return [
+            {
+                "id": cfg["id"],
+                "server_name": self.get(cfg["id"]).get_server().name
+                if self.has_member_server(cfg["id"])
+                else "N/A",
+                "status": self.get_server_status(cfg["id"])
+            }
+            for cfg in configs
+        ]
 
     def check_server_exist(self, server_id) -> None:
         if not self.has_member_server(server_id):
@@ -155,3 +168,47 @@ class ServerManager:
         if self._database is None:
             return {}
         return self._database.get_document(server_id)
+    
+    def get_member(self, server_id: str) -> MemberMCPServer | None:
+        return self._member_servers.get(server_id)
+    
+    def prepare_activation(self, server_id: str) -> dict:
+        """
+        Validates and returns updated config for reactivating a server.
+        Raises error if not found or not deactivated.
+        """
+        all_configs = self.load_all_servers_db()
+        config = next((cfg for cfg in all_configs if cfg["id"] == server_id), None)
+
+        if not config:
+            raise NotFoundError(f"No configuration found for server '{server_id}'.")
+
+        if config.get("status") != "deactivated":
+            raise ToolError(f"Server '{server_id}' is not deactivated.")
+
+        config["status"] = "active"
+        self.add_server_db(config)
+        return config
+    
+    def prepare_deactivation(self, server_id: str) -> None:
+        """
+        Validates and updates DB to mark the server as deactivated.
+        Raises appropriate exceptions if validation fails.
+        """
+        status = self.get_server_status(server_id)
+        if status == "unknown":
+            raise NotFoundError(f"Server '{server_id}' not found in DB.")
+
+        if status == "deactivated":
+            raise ToolError(f"Server '{server_id}' is already deactivated.")
+        
+        self.check_server_exist(server_id)
+
+        self.mark_deactivated(server_id)
+        self.remove_member(server_id)
+
+    def mark_deactivated(self, server_id: str) -> None:
+        self._database.mark_deactivated(server_id)
+
+    def get_server_status(self, server_id: str) -> str:
+        return self._database.get_server_status(server_id)

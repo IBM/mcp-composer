@@ -37,16 +37,19 @@ class LocalFileAdapter(DatabaseInterface):
         data = self._read_data()
         server_id = config["id"]
 
-        # Check if server already exists
-        if any(server.get("id") == server_id for server in data):
-            logger.info(
-                "Server '%s' already exists in local file. Skipping add.", server_id
-            )
-            return
+        updated = False
+        for i, server in enumerate(data):
+            if server.get("id") == server_id:
+                data[i] = config  # Overwrite with new config
+                updated = True
+                logger.info("Updated server '%s' in local file", server_id)
+                break
 
-        data.append(config)
+        if not updated:
+            data.append(config)
+            logger.info("Added new server '%s' to local file", server_id)
+
         self._write_data(data)
-        logger.info("Saved server '%s' to local file", server_id)
 
     def remove_server(self, server_id: str) -> None:
         data = self._read_data()
@@ -127,3 +130,19 @@ class LocalFileAdapter(DatabaseInterface):
                     )
 
         self._write_data(data)
+
+    def mark_deactivated(self, server_id: str) -> None:
+        data = self._read_data()
+        for server in data:
+            if server.get("id") == server_id:
+                server["status"] = "deactivated"
+                logger.info(f"Marked server '{server_id}' as deactivated.")
+                break
+        self._write_data(data)
+
+    def get_server_status(self, server_id: str) -> str:
+        data = self._read_data()
+        for server in data:
+            if server.get("id") == server_id:
+                return server.get("status", "active")
+        return "unknown"

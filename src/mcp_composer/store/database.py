@@ -29,3 +29,13 @@ class DatabaseInterface(ABC):
         self, tool: str, description: str, server_id: str
     ) -> None:
         pass
+
+    @abstractmethod
+    def mark_deactivated(self, server_id: str) -> None:
+        """Marks the given server as deactivated (sets status='deactivated')"""
+        pass
+
+    @abstractmethod
+    def get_server_status(self, server_id: str) -> str:
+        """Returns the status of the given server (e.g., 'active' or 'deactivated')"""
+        pass

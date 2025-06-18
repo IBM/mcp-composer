@@ -21,7 +21,7 @@ def server_config():
     return {
         "id": "test-server",
         "type": "sse",
-        "endpoint": "https://dummy.example.com/sse",
+        "endpoint": "https://mcp-server-fetch.1vgzmntiwjzl.eu-es.codeengine.appdomain.cloud/sse",
     }
 
 
@@ -93,7 +93,7 @@ async def test_corrupt_entry_does_not_crash_composer(fake_db):
 async def test_empty_database_loads_no_servers(fake_db):
     composer = MCPComposer("composer", database_config=fake_db)
     await composer.setup_member_servers()
-    mounted_servers = composer.list_member_servers()
+    mounted_servers = composer._server_manager.list_member_servers()
     assert mounted_servers == [], "Composer should start cleanly with empty DB"
 
 

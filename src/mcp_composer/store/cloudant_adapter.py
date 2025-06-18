@@ -45,8 +45,15 @@ class CloudantAdapter(DatabaseInterface):
     def add_server(self, config: Dict) -> None:
         doc_id = config["id"]
         try:
-            self._client.get_document(db=self._db_name, doc_id=doc_id).get_result()
-            logger.info("Server '%s' already exists in Cloudant. Skipping add.", doc_id)
+            existing = self._client.get_document(db=self._db_name, doc_id=doc_id).get_result()
+            config["_rev"] = existing["_rev"]  # Set revision ID for update
+
+            # Update existing document
+            self._client.post_document(
+                db=self._db_name,
+                document=Document(**config)
+            ).get_result()
+            logger.info("Updated server '%s' in Cloudant", doc_id)
         except ApiException as e:
             if e.code == 404:
                 try:
@@ -195,3 +202,38 @@ class CloudantAdapter(DatabaseInterface):
         except ApiException as e:
             logger.error(f"No server details found in  DB: {e}")
         return server_doc
+
+    def mark_deactivated(self, server_id: str) -> None:
+        try:
+            # Get the document first
+            doc = self._client.get_document(db=self._db_name, doc_id=server_id).get_result()
+            doc["status"] = "deactivated"
+
+            # Update the document with new status
+            response = self._client.post_document(
+                db=self._db_name,
+                document=doc,
+            ).get_result()
+            logger.info(f"Marked server '{server_id}' as deactivated. Response: {response}")
+        except ApiException as e:
+            if e.code == 404:
+                logger.error(f"Server '{server_id}' not found. Cannot deactivate.")
+            else:
+                logger.error(f"Error deactivating server '{server_id}': {e}")
+        except Exception as e:
+            logger.error(f"Unexpected error while deactivating server '{server_id}': {e}")
+
+    def get_server_status(self, server_id: str) -> str:
+        try:
+            doc = self._client.get_document(db=self._db_name, doc_id=server_id).get_result()
+            status = doc.get("status", "active")  # default to 'active' if not set
+            logger.info(f"Server '{server_id}' has status: {status}")
+            return status
+        except ApiException as e:
+            if e.code == 404:
+                logger.warning(f"Server '{server_id}' not found when fetching status.")
+            else:
+                logger.error(f"Error retrieving server status for '{server_id}': {e}")
+        except Exception as e:
+            logger.error(f"Unexpected error retrieving status for '{server_id}': {e}")
+        return "unknown"

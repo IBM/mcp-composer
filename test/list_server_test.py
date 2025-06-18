@@ -18,7 +18,7 @@ def server_config():
     return {
         "id": "list-test-server",
         "type": "sse",
-        "endpoint": "https://dummy/path/sse",
+        "endpoint": "https://mcp-server-fetch.1vgzmntiwjzl.eu-es.codeengine.appdomain.cloud/sse",
     }
 
 
@@ -47,8 +47,8 @@ async def test_list_member_servers_populated(fake_db, server_config):
 
     # basic shape checks
     assert isinstance(members, list)
-    assert all("id" in m and "server_name" in m for m in members), (
-        "List items must expose id and server_name"
+    assert all("id" in m and "server_name" in m and "status" in m for m in members), (
+    "List items must expose 'id', 'server_name', and 'status'"
     )
 
     # ensure our test server is present exactly once

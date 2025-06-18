@@ -7,6 +7,7 @@ from fastmcp.server.auth.auth import OAuthProvider
 
 from typing import Any, Dict, Optional, Union
 from fastmcp.tools.tool import Tool
+from fastmcp.exceptions import NotFoundError, ToolError
 
 
 from mcp_composer.tools import MCPToolManager
@@ -85,8 +86,10 @@ class MCPComposer(FastMCP):
                 sys.exit(1)
 
         self.add_tool(Tool.from_function(self.register_mcp_server))
-        self.add_tool(Tool.from_function(self.remove_mcp_server))
+        self.add_tool(Tool.from_function(self.delete_mcp_server))
         self.add_tool(Tool.from_function(self.member_health))
+        self.add_tool(Tool.from_function(self.activate_mcp_server))
+        self.add_tool(Tool.from_function(self.deactivate_mcp_server))
         self.add_tool(Tool.from_function(self._server_manager.list_member_servers))
         self.add_tool(Tool.from_function(self._tool_manager.get_tool_config_by_name))
         self.add_tool(Tool.from_function(self._tool_manager.get_tool_config_by_server))
@@ -152,6 +155,10 @@ class MCPComposer(FastMCP):
             if not server_id:
                 logger.error("Skipping corrupt config with no 'id': %s", cfg)
                 continue
+            
+            if cfg.get("status") == "deactivated":
+                logger.info(f"Server '{server_id}' is marked deactivated, skipping mount.")
+                continue
 
             if server_id in seen_ids:
                 logger.debug(f"Skipping duplicate server '{server_id}'")
@@ -179,9 +186,9 @@ class MCPComposer(FastMCP):
             logger.exception(f"Failed to register member server '{config}': {e}")
             return f"Failed to register member server '{config}'"
 
-    async def remove_mcp_server(self, server_id: str) -> str:
+    async def delete_mcp_server(self, server_id: str) -> str:
         """
-        Remove a single server dynamically from config.
+        Delete a single server dynamically from config.
         """
         try:
             return await self.unmount_server(server_id)
@@ -207,3 +214,39 @@ class MCPComposer(FastMCP):
     async def member_health(self) -> list[dict]:
         """Get all member server status"""
         return await self._server_manager.member_health(self._server_manager.list())
+
+    async def activate_mcp_server(self, server_id: str) -> str:
+        """
+        Reactivates a previously deactivated member server by loading its config,
+        updating status in DB, and mounting it.
+        """
+        try:
+            config = self._server_manager.prepare_activation(server_id)
+
+            result = await self._mount_member_server(config)
+            logger.info(f"Server '{server_id}' activated.")
+            return f"Server '{server_id}' activated: {result}"
+
+        except Exception as e:
+            logger.exception(f"Failed to activate server '{server_id}': {e}")
+            raise ToolError(f"Failed to activate server '{server_id}': {e}")
+
+    async def deactivate_mcp_server(self, server_id: str) -> str:
+        """
+        Deactivates a member server by unmounting it and marking it as deactivated in DB.
+        """
+        try:
+            self._server_manager.prepare_deactivation(server_id)
+
+            self.unmount(server_id)
+
+            logger.info(f"Server '{server_id}' deactivated.")
+            return f"Server '{server_id}' deactivated."
+
+        except NotFoundError as e:
+            logger.warning(f"Deactivation failed: {e}")
+            raise ToolError(str(e))
+
+        except Exception as e:
+            logger.exception(f"Unexpected error during deactivation of '{server_id}': {e}")
+            raise ToolError(f"Failed to deactivate server '{server_id}': {e}")
