@@ -2,6 +2,7 @@ import asyncio
 import jwt
 
 from typing import Any
+from urllib.parse import urlparse
 from starlette.exceptions import HTTPException
 from starlette.requests import Request
 from starlette.responses import JSONResponse, RedirectResponse, Response
@@ -16,8 +17,9 @@ logger = LoggerFactory.get_logger()
 def create_mcp_server(settings: ServerSettings) -> MCPComposer:
     oauth_provider = SimpleOAuthProvider(settings)
     gw = MCPComposer("composer", auth=oauth_provider)
+    callback_path = urlparse(settings.callback_path).path
 
-    @gw.custom_route(f"/{settings.callback_path}", methods=["GET"])
+    @gw.custom_route(f"{callback_path}", methods=["GET"])
     async def callback_handler(request: Request) -> Response:
         """Handle OAuth callback."""
         code = request.query_params.get("code")

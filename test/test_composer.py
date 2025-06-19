@@ -5,13 +5,8 @@ import asyncio
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../src")))
 from mcp_composer import MCPComposer
 
-database_config = {
-    "type": "cloudant",
-    "api_key": "omU9J_FSMmFzW0ZPsQ42jSLlffBKywwkWNCrai-aHXrA",
-    "service_url": "https://83e97bb1-7630-4394-82cc-f212049ba1ae-bluemix.cloudantnosqldb.appdomain.cloud/",
-}
 
-gw = MCPComposer("composer", database_config=database_config)
+gw = MCPComposer("composer")
 
 
 async def main():

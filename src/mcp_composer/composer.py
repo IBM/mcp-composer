@@ -125,11 +125,6 @@ class MCPComposer(FastMCP):
             self._server_manager.add_server_db(config)
             self._server_manager.add_member(server_id, member)
 
-            member_info = self._server_manager.get(server_id)
-            server_health = await self._server_manager.member_health(
-                config=[member_info]
-            )
-            logger.info(f"Servers status: {server_health}")
             return f"Server '{server_id}' mounted."
 
         except Exception as exc:
@@ -155,9 +150,11 @@ class MCPComposer(FastMCP):
             if not server_id:
                 logger.error("Skipping corrupt config with no 'id': %s", cfg)
                 continue
-            
+
             if cfg.get("status") == "deactivated":
-                logger.info(f"Server '{server_id}' is marked deactivated, skipping mount.")
+                logger.info(
+                    f"Server '{server_id}' is marked deactivated, skipping mount."
+                )
                 continue
 
             if server_id in seen_ids:
@@ -248,5 +245,7 @@ class MCPComposer(FastMCP):
             raise ToolError(str(e))
 
         except Exception as e:
-            logger.exception(f"Unexpected error during deactivation of '{server_id}': {e}")
+            logger.exception(
+                f"Unexpected error during deactivation of '{server_id}': {e}"
+            )
             raise ToolError(f"Failed to deactivate server '{server_id}': {e}")
