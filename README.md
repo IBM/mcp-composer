@@ -1,12 +1,15 @@
 <div align="center">
 
 <!-- omit in toc -->
+
 # MCP Composer
+
 </div>
 
 ---
 
 <!-- omit in toc -->
+
 ## Table of Contents
 
 - [Overview](#overview)
@@ -31,57 +34,64 @@ The MCP Composer supports multiple tool types, such as OpenAPI (REST), GraphQL, 
 ## Purpose
 
 The goal of the MCP Composer is to handle dynamic tool registration, authentication, invocation dispatching, and health monitoring.
-It abstracts underlying protocol, authentication and routing complexities, 
+It abstracts underlying protocol, authentication and routing complexities,
 and allows tools to be called through a single, unified interface. The MCP Composer exposes a set of MCP-compliant functions that allow listing tools, invoking them, updating credentials, and removing them.
 
 The goal is to provide a single unified MCP Composer that:
 
-* Discovers and registers new MCP tools on startup or via API.
-* Mounts and unmounts member servers dynamically.
-* Exposes all tools across registered servers.
+- Discovers and registers new MCP tools on startup or via API.
+- Mounts and unmounts member servers dynamically.
+- Exposes all tools across registered servers.
 
 ## Installation
 
 ### Prerequisites
 
-*   Python 3.10+
-*   [uv](https://docs.astral.sh/uv/) (Recommended for environment management)
+- Python 3.10+
+- [uv](https://docs.astral.sh/uv/) (Recommended for environment management)
 
 ### Setup
 
 1. Clone the repository
-    ```bash
-    git clone https://github.ibm.com/ai-elite/mcp-composer.git
-    cd mcp-composer
-    ```
-2. Create and sync the environment: 
    ```bash
-   uv sync
+   git clone https://github.ibm.com/ai-elite/mcp-composer.git
+   cd mcp-composer
    ```
+2. Create and sync the environment:
+
+   ```bash
+   uv sync --frozen        # Strict install (uses lock file exactly) - recommended as ensuring consistency across different environments
+   # uv sync               # Install (update lock file) - incremental refresh, commit uv.lock
+   # rm uv.lock && uv sync # Refresh child dependencies, commit uv.lock
+   ```
+
    This installs all dependencies.
-   
+
 3. Activate the virtual environment.
+
    ```bash
    source .venv/bin/activate
    ```
 
+   > If you want to use `pip` tool, run it as `uv pip <params>`, do not run explicitly (`pip <params>)`
 
 ## Key Features
-* Register or remove tools at runtime using structured JSON configurations.
-* Support a range of tool types (openapi, graphql, client, mcp, etc.)
-* Handles multiple authentication strategies.
-* Automatically forwards each request to the correct upstream server or tool.
-* List tools and metadata by name or server.
+
+- Register or remove tools at runtime using structured JSON configurations.
+- Support a range of tool types (openapi, graphql, client, mcp, etc.)
+- Handles multiple authentication strategies.
+- Automatically forwards each request to the correct upstream server or tool.
+- List tools and metadata by name or server.
 
 ### MCP Composer Tools
 
-* register_mcp_server: Register a single server dynamically from config.
-* remove_mcp_server: Remove a single server dynamically from config.
-* get_tool_config_by_name: Get a tool configuration details
-* get_tool_config_by_server: Get all tool configuration details of a specific member server 
-* remove_tools: Remove a tool or multiple from the servers and Composer 
-* list_member_servers: List all registered member servers
-* update_tool_description: Update tool description of member servers
+- register_mcp_server: Register a single server dynamically from config.
+- remove_mcp_server: Remove a single server dynamically from config.
+- get_tool_config_by_name: Get a tool configuration details
+- get_tool_config_by_server: Get all tool configuration details of a specific member server
+- remove_tools: Remove a tool or multiple from the servers and Composer
+- list_member_servers: List all registered member servers
+- update_tool_description: Update tool description of member servers
 
 ### Demo using MCP Inspector
 
@@ -126,18 +136,23 @@ The goal is to provide a single unified MCP Composer that:
    > <img width="1670" alt="image" src="https://github.ibm.com/ai-elite/mcp-composer/assets/3014/f6678d13-99d3-4367-93ad-ab58d6431532">
 
 # Demo: OAuth
+
 #### 1. Create the environment file
-Navigate to src/mcp_composer and create a .env.oauth file by copying the contents of .env.oauth.example:
+
+Navigate to `src/mcp_composer` and create a `.env.oauth` file by copying the contents of `.env.oauth.example`:
+
 ```bash
 cp src/mcp_composer/.env.oauth.example src/mcp_composer/.env.oauth
-
 ```
 
 #### 2. Configure OAuth credentials
-Open .env.oauth and replace the placeholder values with your actual OAuth provider details (e.g., client ID, client secret, redirect URI, etc.).
+
+Open `.env.oauth` and replace the placeholder values with your actual OAuth provider details (e.g., client ID, client secret, redirect URI, etc.).
 
 #### 3. Run the MCP Composer server
+
 Execute the following command to start the server and test the OAuth integration:
+
 ```bash
 uv run test/test_gw_oauth.py
 ```

@@ -11,5 +11,4 @@ wheels/
 .python-version
 main.py
 .env
-uv.lock
 .env.oauth
