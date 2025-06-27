@@ -1,0 +1,20 @@
+### ignore all ###
+/*
+
+# (re)include core files:
+!/uv.lock
+!/pyproject.toml
+!/src/
+!/test/
+# !/example
+# !/spec
+
+### ignore final ###
+__pycache__
+*.egg-info
+/src/mcp_composer/.*.example
+/src/mcp_composer/Dockerfile
+
+### metafiles ###
+.DS_Store
+__MACOSX
