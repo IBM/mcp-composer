@@ -85,25 +85,28 @@ The goal is to provide a single unified MCP Composer that:
 
 ### MCP Composer Tools
 
-- register_mcp_server: Register a single server dynamically from config.
-- remove_mcp_server: Remove a single server dynamically from config.
+- register_mcp_server: Register a single server.
+- delete_mcp_server: Delete a single server.
+- member_health: Get status for all member servers.
+- activate_mcp_server: Reactivates a previously deactivated member server by loading its config, updating status in DB, and mounting it.
+- deactivate_mcp_server: Deactivates a member server by unmounting it and marking it as deactivated in DB.
 - get_tool_config_by_name: Get a tool configuration details
 - get_tool_config_by_server: Get all tool configuration details of a specific member server
 - remove_tools: Remove a tool or multiple from the servers and Composer
-- list_member_servers: List all registered member servers
+- list_member_servers: List status of all member servers (active or deactivated).
 - update_tool_description: Update tool description of member servers
 
 ### Demo using MCP Inspector
 
-1. Run the MCP Inspector
+1. Run the MCP Inspector as a background process
    ```bash
-   npx -y @modelcontextprotocol/inspector@0.13.0
+   npx -y @modelcontextprotocol/inspector@0.13.0 &
    ```
 1. Run the following command
    ```bash
-   uv run test/test_gw.py
+   uv run test/test_composer.py
    ```
-1. Open the MCP Inspector in a browser; set _transport type_ and _URL_ from the previous step above and press `Connect`:
+1. Open the MCP Inspector in a browser (usually  http://127.0.0.1:6274); set _transport type_ and _URL_ from the previous step above and press `Connect`:
 
    > <img width="388" alt="image" src="https://github.ibm.com/ai-elite/mcp-composer/assets/3014/4931cf7c-5a0b-4c18-b405-42df30bcac27">
 
@@ -127,7 +130,7 @@ The goal is to provide a single unified MCP Composer that:
 
    > <img width="1684" alt="image" src="https://github.ibm.com/ai-elite/mcp-composer/assets/3014/67f628fc-7773-496d-b9da-c44341f6d2d9">
 
-1. Clear Tool and List Tool again - This is where it might take long time or throw time out error based on the configuration of the MCP Inspector. In case you have time out error disconnect the server and connect again and run the List Tool, it will show 2 tools from composer and all tools from `mcp-stockinfo`:
+1. Clear Tool and List Tool again - This is where it might take long time or throw time out error based on the configuration of the MCP Inspector. In case you have time out error disconnect the server and connect again and run the List Tool, it will show all the tools from composer and all tools from `mcp-stockinfo`:
 
    > <img width="1661" alt="image" src="https://github.ibm.com/ai-elite/mcp-composer/assets/3014/caefc2d8-7528-4231-a81f-5885cc0deab8">
 
@@ -154,5 +157,5 @@ Open `.env.oauth` and replace the placeholder values with your actual OAuth prov
 Execute the following command to start the server and test the OAuth integration:
 
 ```bash
-uv run test/test_gw_oauth.py
+uv run test/test_composer_oauth.py
 ```

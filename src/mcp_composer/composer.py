@@ -171,9 +171,9 @@ class MCPComposer(FastMCP):
 
     async def register_mcp_server(self, config: dict) -> str:
         """
-        Register a single server dynamically from config.
+        Register a single server.
         """
-        logger.info(f" Register a single server dynamically from config :{config}")
+        logger.info(f" Register a single server :{config}")
 
         try:
             ServerConfigValidator(config).validate()
@@ -185,13 +185,13 @@ class MCPComposer(FastMCP):
 
     async def delete_mcp_server(self, server_id: str) -> str:
         """
-        Delete a single server dynamically from config.
+        Delete a single server.
         """
         try:
             return await self.unmount_server(server_id)
         except Exception as e:
-            logger.exception(f"Failed to remove member server '{server_id}': {e}")
-            return f"Failed to remove member server '{server_id}'"
+            logger.exception(f"Failed to delete member server '{server_id}': {e}")
+            return f"Failed to delete member server '{server_id}'"
 
     async def unmount_server(self, server_id: str) -> str:
         self._server_manager.check_server_exist(server_id)
@@ -209,7 +209,7 @@ class MCPComposer(FastMCP):
         return tools
 
     async def member_health(self) -> list[dict]:
-        """Get all member server status"""
+        """Get status for all member servers."""
         return await self._server_manager.member_health(self._server_manager.list())
 
     async def activate_mcp_server(self, server_id: str) -> str:

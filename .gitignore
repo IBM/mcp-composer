@@ -12,3 +12,6 @@ wheels/
 main.py
 .env
 .env.oauth
+
+# runtime generated file
+/mcp_servers.json
