@@ -1,14 +1,17 @@
-from typing import Tuple
+import subprocess
+import re
+import importlib.util
 import httpx
 import aiohttp
 import asyncio
 import json
-from mcp_composer.utils.logger import LoggerFactory
+from typing import Tuple
 from enum import Enum
 from aiohttp import ClientConnectorError
 from fastmcp.server.openapi import RouteMap, MCPType
 from fastmcp.tools.tool import Tool
 
+from mcp_composer.utils.logger import LoggerFactory
 from mcp_composer.member_servers.member_server import HealthStatus, MemberMCPServer
 from mcp_composer.exceptions import MemberServerError
 
@@ -129,3 +132,36 @@ def format_tool(tool: Tool) -> dict:
         "description": tool.description,
         "parameters": tool.parameters,
     }
+
+
+def extract_imported_modules(script: str):
+    # Naive regex for finding `import` and `from ... import`
+    pattern = r"^\s*(?:import|from)\s+([\w_]+)"
+    return list(set(re.findall(pattern, script, re.MULTILINE)))
+
+
+def ensure_dependencies_installed(dependencies):
+    for package in dependencies:
+        if importlib.util.find_spec(package) is None:
+            print(f"Installing missing package: {package}")
+            subprocess.check_call(["uv", "pip", "install", package])
+
+
+def create_api_request(tool):
+    logger.info(f"Generate tool from API request on the fly:{tool}")
+
+    async def api_tool():
+        data = tool.get("data")
+        headers = tool["headers"]
+        method = tool["method"]
+        body = data if data else None
+        url = tool["url"]
+
+        async with httpx.AsyncClient() as client:
+            req = client.build_request(method.upper(), url, headers=headers, json=body)
+            res = await client.send(req)
+            return {"status_code": res.status_code, "body": res.text}
+
+    api_tool.__name__ = tool["id"]
+    api_tool.__doc__ = tool["description"]
+    return api_tool

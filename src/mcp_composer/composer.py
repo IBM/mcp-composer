@@ -1,5 +1,5 @@
 import sys
-
+import inspect
 from dotenv import load_dotenv
 
 from fastmcp import FastMCP
@@ -8,6 +8,7 @@ from fastmcp.server.auth.auth import OAuthProvider
 from typing import Any, Dict, Optional, Union
 from fastmcp.tools.tool import Tool
 from fastmcp.exceptions import NotFoundError, ToolError
+import httpx
 
 
 from mcp_composer.tools import MCPToolManager
@@ -22,6 +23,11 @@ from mcp_composer.member_servers import ServerManager, MemberMCPServer, MCPServe
 from mcp_composer.store.database import DatabaseInterface
 from mcp_composer.store.cloudant_adapter import CloudantAdapter
 from mcp_composer.store.local_file_adapter import LocalFileAdapter
+
+try:
+    from mcp_composer.custom_tool import tools
+except ImportError:
+    tools = None
 
 load_dotenv()
 
@@ -71,7 +77,9 @@ class MCPComposer(FastMCP):
             logger.info("No database config provided, using local file storage")
 
         self._server_manager = ServerManager(database=database)
-        self._tool_manager = MCPToolManager(server_manager=self._server_manager)
+        self._tool_manager = MCPToolManager(
+            server_manager=self._server_manager, database=database
+        )
         self._db_configs: list[dict] = self._server_manager.load_all_servers_db()
         self._config: list[dict] = []
         self._server_manager._mounted_servers = self._mounted_servers
@@ -85,6 +93,7 @@ class MCPComposer(FastMCP):
                 logger.error("Validation error: %s", e)
                 sys.exit(1)
 
+        self._load_custom_tools()
         self.add_tool(Tool.from_function(self.register_mcp_server))
         self.add_tool(Tool.from_function(self.delete_mcp_server))
         self.add_tool(Tool.from_function(self.member_health))
@@ -95,6 +104,16 @@ class MCPComposer(FastMCP):
         self.add_tool(Tool.from_function(self._tool_manager.get_tool_config_by_server))
         self.add_tool(Tool.from_function(self._tool_manager.remove_tools))
         self.add_tool(Tool.from_function(self._tool_manager.update_tool_description))
+        self.add_tool(Tool.from_function(self.generate_tool_from_script))
+
+    def _load_custom_tools(self):
+        for tool_fn in self._tool_manager.fetch_dynamic_tool():
+            self.add_tool(Tool.from_function(tool_fn))
+
+        if tools:
+            for name, func in inspect.getmembers(tools, (inspect.isfunction)):
+                logger.info(f"Adding tool from custom tool folder: {name}")
+                self.add_tool(Tool.from_function(func))
 
     async def _mount_member_server(self, config: dict) -> str:
         try:
@@ -249,3 +268,10 @@ class MCPComposer(FastMCP):
                 f"Unexpected error during deactivation of '{server_id}': {e}"
             )
             raise ToolError(f"Failed to deactivate server '{server_id}': {e}")
+
+    async def generate_tool_from_script(self, tool_config: dict) -> str:
+        """Create a tool from python script"""
+        fn = await self._tool_manager.tool_from_script(tool_config)
+        if fn:
+            self.add_tool(Tool.from_function(fn))
+        return "Successfully added tools"

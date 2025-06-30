@@ -6,6 +6,10 @@ class ToolDuplicateError(MCPComposerError):
     """Tool duplicate error"""
 
 
+class ToolGenerateError(MCPComposerError):
+    """Tool Generate error"""
+
+
 class ToolRemoveError(MCPComposerError):
     """Tool Remove error"""
 

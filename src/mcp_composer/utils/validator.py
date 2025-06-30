@@ -10,37 +10,38 @@ class ConfigKey(str, Enum):
     AUTH_STRATEGY = "auth_strategy"
     AUTH = "auth"
     APIKEY = "apikey"
-    ID= "id"
-    OPEN_API="open_api"
-    CUSTOM_ROUTES="custom_routes"
-    Token_URL="token_url"
-    AUTH_HEADER ="Authorization"
-    TOKEN ="token"
-    AUTH_PREFIX ="auth_prefix"
-    HEADERS="headers"
-    JSESSIONID ="JSESSIONID"
-    USERNAME ="username"
-    PASSWORD="password"
-    LOGIN_URL ="login_url"
-    TOKEN_TYPE ="token_type"
+    ID = "id"
+    OPEN_API = "open_api"
+    CUSTOM_ROUTES = "custom_routes"
+    Token_URL = "token_url"
+    AUTH_HEADER = "Authorization"
+    TOKEN = "token"
+    AUTH_PREFIX = "auth_prefix"
+    HEADERS = "headers"
+    JSESSIONID = "JSESSIONID"
+    USERNAME = "username"
+    PASSWORD = "password"
+    LOGIN_URL = "login_url"
+    TOKEN_TYPE = "token_type"
+
 
 class MemberServerType(str, Enum):
-    OpenAPI="openapi"
-    Client="client"
+    OpenAPI = "openapi"
+    Client = "client"
+
 
 class AuthStrategy(str, Enum):
-    OAUTH="oauth2"
-    APIKEY="apikey"
-    BEARER ="bearer"
-    DYNAMIC_BEARER="dynamic_bearer"
-    APITOKEN="apiToken"
-    JSESSIONID ="jessionid"
-
-
+    OAUTH = "oauth2"
+    APIKEY = "apikey"
+    BEARER = "bearer"
+    DYNAMIC_BEARER = "dynamic_bearer"
+    APITOKEN = "apiToken"
+    JSESSIONID = "jessionid"
 
 
 class ValidationError(Exception):
     """Custom exception for validation errors."""
+
     pass
 
 
@@ -55,7 +56,7 @@ class ServerConfigValidator:
             self._validate_auth_dependency()
         if self.config.get(ConfigKey.TYPE) == MemberServerType.OpenAPI:
             self._validate_openapi_requirements()
-        self._validate_client_requirements()  
+        self._validate_client_requirements()
 
     def _validate_auth_dependency(self) -> None:
         """Ensure 'auth' exists if 'auth_strategy' is defined."""
@@ -75,7 +76,9 @@ class ServerConfigValidator:
 
         # Check if strategy is supported
         if strategy not in required_auth_keys:
-            raise ValidationError(f"Unsupported {ConfigKey.AUTH_STRATEGY} '{strategy}' for server '{self.server_id}'")
+            raise ValidationError(
+                f"Unsupported {ConfigKey.AUTH_STRATEGY} '{strategy}' for server '{self.server_id}'"
+            )
 
         # Find missing keys
         missing = [key for key in required_auth_keys[strategy] if not auth.get(key)]
@@ -91,24 +94,33 @@ class ServerConfigValidator:
 
         openapi_config = self.config.get(ConfigKey.OPEN_API, {})
         if not openapi_config:
-            raise ValueError(f"Missing required {ConfigKey.OPEN_API} section in config.")
+            raise ValueError(
+                f"Missing required {ConfigKey.OPEN_API} section in config."
+            )
 
         # Required field: endpoint
         if not openapi_config.get(ConfigKey.ENDPOINT):
-            raise ValueError(f"Missing required field: {ConfigKey.ENDPOINT} in {ConfigKey.OPEN_API}'")
+            raise ValueError(
+                f"Missing required field: {ConfigKey.ENDPOINT} in {ConfigKey.OPEN_API}'"
+            )
 
         # Must have exactly one of 'spec_url' or 'spec_filepath'
         spec_keys = [ConfigKey.SPEC_URL, ConfigKey.SPEC_FILEPATH]
         present_specs = [k for k in spec_keys if openapi_config.get(k)]
         if len(present_specs) != 1:
-            raise ValueError(f"Exactly one of {ConfigKey.SPEC_URL} or {ConfigKey.SPEC_FILEPATH} must be provided in {ConfigKey.OPEN_API}.")
-
+            raise ValueError(
+                f"Exactly one of {ConfigKey.SPEC_URL} or {ConfigKey.SPEC_FILEPATH} must be provided in {ConfigKey.OPEN_API}."
+            )
 
     def _validate_client_requirements(self) -> None:
-        if self.config.get(ConfigKey.TYPE) == MemberServerType.Client and ConfigKey.ENDPOINT not in self.config:
+        if (
+            self.config.get(ConfigKey.TYPE) == MemberServerType.Client
+            and ConfigKey.ENDPOINT not in self.config
+        ):
             raise ValidationError(
                 f"Missing {ConfigKey.ENDPOINT} for {MemberServerType.Client} type in server '{self.server_id}'"
             )
+
 
 class AllServersValidator:
     def __init__(self, server: List[Dict[str, Any]]):

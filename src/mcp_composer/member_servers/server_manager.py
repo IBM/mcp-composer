@@ -71,7 +71,7 @@ class ServerManager:
                 "server_name": self.get(cfg["id"]).get_server().name
                 if self.has_member_server(cfg["id"])
                 else "N/A",
-                "status": self.get_server_status(cfg["id"])
+                "status": self.get_server_status(cfg["id"]),
             }
             for cfg in configs
         ]
@@ -168,10 +168,10 @@ class ServerManager:
         if self._database is None:
             return {}
         return self._database.get_document(server_id)
-    
+
     def get_member(self, server_id: str) -> MemberMCPServer | None:
         return self._member_servers.get(server_id)
-    
+
     def prepare_activation(self, server_id: str) -> dict:
         """
         Validates and returns updated config for reactivating a server.
@@ -189,7 +189,7 @@ class ServerManager:
         config["status"] = "active"
         self.add_server_db(config)
         return config
-    
+
     def prepare_deactivation(self, server_id: str) -> None:
         """
         Validates and updates DB to mark the server as deactivated.
@@ -201,7 +201,7 @@ class ServerManager:
 
         if status == "deactivated":
             raise ToolError(f"Server '{server_id}' is already deactivated.")
-        
+
         self.check_server_exist(server_id)
 
         self.mark_deactivated(server_id)

@@ -6,14 +6,23 @@ from mcp_composer.exceptions import ToolDuplicateError
 from .database import DatabaseInterface
 import os
 from dotenv import load_dotenv, find_dotenv
+
 load_dotenv(find_dotenv(".env"))
 
 logger = LoggerFactory.get_logger()
 
 MEMBER_SERVER_CONFIG_FILE_PATH = os.environ["SERVER_CONFIG_FILE_PATH"]
+TOOLS_CONFIG_FILE_PATH = os.environ["TOOLS_CONFIG_FILE_PATH"]
+
+
 class LocalFileAdapter(DatabaseInterface):
-    def __init__(self, file_path: str = MEMBER_SERVER_CONFIG_FILE_PATH):
+    def __init__(
+        self,
+        file_path: str = MEMBER_SERVER_CONFIG_FILE_PATH,
+        tool_file_path: str = TOOLS_CONFIG_FILE_PATH,
+    ):
         self._file_path = Path(file_path)
+        self._tool_path = Path(tool_file_path)
         self._ensure_file_exists()
 
     def _ensure_file_exists(self):
@@ -22,19 +31,25 @@ class LocalFileAdapter(DatabaseInterface):
             with open(self._file_path, "w") as f:
                 json.dump([], f)
 
-    def _read_data(self) -> List[Dict]:
+    def _read_data(self, file_type="server") -> List[Dict]:
+        path = self._tool_path if file_type == "tool" else self._file_path
+
         try:
-            with open(self._file_path, "r") as f:
+            with open(path, "r") as f:
                 return json.load(f)
         except (json.JSONDecodeError, FileNotFoundError):
             return []
 
-    def _write_data(self, data: List[Dict]):
-        with open(self._file_path, "w") as f:
+    def _write_data(self, data: List[Dict], file_type="server"):
+        path = self._tool_path if file_type == "tool" else self._file_path
+        with open(path, "w") as f:
             json.dump(data, f, indent=2)
 
     def load_all_servers(self) -> List[Dict]:
         return self._read_data()
+
+    def load_tools(self) -> List[Dict]:
+        return self._read_data(file_type="tool")
 
     def add_server(self, config: Dict) -> None:
         data = self._read_data()
@@ -149,3 +164,20 @@ class LocalFileAdapter(DatabaseInterface):
             if server.get("id") == server_id:
                 return server.get("status", "active")
         return "unknown"
+
+    def add_tool(self, tool_config: dict) -> None:
+        data = self._read_data(file_type="tool")
+        tool_id = tool_config.get("id")
+        updated = False
+        for i, tool in enumerate(data):
+            if tool.get("id") == tool_id:
+                data[i] = tool_config  # Overwrite with new config
+                updated = True
+                logger.info("Updated tool '%s' in local file", tool_id)
+                break
+
+        if not updated:
+            data.append(tool_config)
+            logger.info("Added new tool '%s' to local file", tool_id)
+
+        self._write_data(data, file_type="tool")

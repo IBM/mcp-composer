@@ -2,13 +2,22 @@ import asyncio
 from typing import Optional
 from fastmcp.tools import ToolManager
 from fastmcp.tools.tool import Tool
+from pydantic import ValidationError
+import uncurl
+from mcp_composer.exceptions import ToolGenerateError
 from mcp_composer.member_servers.member_server import HealthStatus, MemberMCPServer
 from fastmcp.exceptions import NotFoundError
 from fastmcp.settings import DuplicateBehavior
 from fastmcp.exceptions import ToolError
 
+
+from mcp_composer.settings.tool_setting import ToolSettings
+from mcp_composer.store.database import DatabaseInterface
 from mcp_composer.utils import LoggerFactory, get_server_doc_info, format_tool
 from mcp_composer.member_servers import ServerManager
+from mcp_composer.utils.custom_tool import DynamicToolGenerator
+from mcp_composer.utils.utils import create_api_request
+
 
 logger = LoggerFactory.get_logger()
 
@@ -20,23 +29,11 @@ class MCPToolManager(ToolManager):
         self,
         server_manager: ServerManager,
         duplicate_behavior: DuplicateBehavior | None = None,
+        database: Optional[DatabaseInterface] = None,
     ):
         super().__init__(duplicate_behavior)
         self.server_manager = server_manager
-
-    def fetch_composer_tools(
-        self,
-        remove: Optional[list[str]] = None,
-        description: Optional[dict[str, str]] = None,
-    ) -> dict[str, Tool]:
-        result = {
-            k: v for k, v in self.get_tools().items() if not remove or k not in remove
-        }
-        if description:
-            for name, desc in description.items():
-                if name in result:
-                    result[name].description = desc
-        return result
+        self.database = database
 
     def tool_config(
         self, server_tools: dict[str, Tool], key: Optional[str] = None
@@ -51,6 +48,16 @@ class MCPToolManager(ToolManager):
             return [format_tool(tool)]
 
         return [format_tool(tool) for tool in server_tools.values()]
+
+    def fetch_dynamic_tool(self):
+        if self.database:
+            tools = self.database.load_tools()
+            logger.info(f"Tools fetched from database:{tools}")
+            tools_list = []
+            for tool in tools:
+                tools_list.append(create_api_request(tool))
+            return tools_list
+        return []
 
     async def tool_exist(
         self, tools: list[str] | str, all_tools: dict[str, Tool]
@@ -173,3 +180,41 @@ class MCPToolManager(ToolManager):
             f"Updated Tool: {tool} with description: {description} for the server: {server_id}"
         )
         return f"Updated {tool} with description: {description}"
+
+    async def tool_from_script(self, tool_config: dict):
+        """Create Tool dynamically from the config script"""
+        try:
+            # Validate and parse input
+            script_model = ToolSettings(**tool_config)
+            if script_model.script_config:
+                logger.info("Generate tool from python script")
+                return DynamicToolGenerator().create_from_script(script_model)
+            elif script_model.curl_config:
+                parsed = uncurl.parse_context(script_model.curl_config["value"])
+                tool_data = {
+                    "_id": script_model.name,
+                    "id": script_model.name,
+                    "description": script_model.description,
+                    "headers": parsed.headers,
+                    "method": parsed.method,
+                    "body": parsed.data,
+                    "url": parsed.url,
+                }
+                logger.info(
+                    f"Generate tool from curl command, parsed details:{tool_data}"
+                )
+                if self.database:
+                    self.database.add_tool(tool_data)
+                    return create_api_request(tool_data)
+
+            else:
+                raise ToolGenerateError(
+                    "Either 'curl_config' or 'script_config' must be provided."
+                )
+        except ValidationError as e:
+            logger.exception("Invalid input: %s", e.errors())
+            raise ToolGenerateError(f"Invalid input:{e.errors()}")
+
+        except Exception as e:
+            logger.exception(f"Failed to generate tool from config: {e}")
+            raise ToolGenerateError(str(e))

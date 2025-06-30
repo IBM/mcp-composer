@@ -710,6 +710,7 @@ dependencies = [
     { name = "ibm-cloud-sdk-core" },
     { name = "ibmcloudant" },
     { name = "requests" },
+    { name = "uncurl" },
 ]
 
 [package.dev-dependencies]
@@ -734,6 +735,7 @@ requires-dist = [
     { name = "ibm-cloud-sdk-core", specifier = "==3.23.0" },
     { name = "ibmcloudant", specifier = "==0.10.2" },
     { name = "requests", specifier = "==2.32.3" },
+    { name = "uncurl", specifier = "==0.0.11" },
 ]
 
 [package.metadata.requires-dev]
@@ -1079,6 +1081,12 @@ wheels = [
 ]
 
 [[package]]
+name = "pyperclip"
+version = "1.9.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/30/23/2f0a3efc4d6a32f3b63cdff36cd398d9701d26cda58e3ab97ac79fb5e60d/pyperclip-1.9.0.tar.gz", hash = "sha256:b7de0142ddc81bfc5c7507eea19da920b92252b548b96186caf94a5e2527d310", size = 20961, upload-time = "2024-06-18T20:38:48.401Z" }
+
+[[package]]
 name = "pytest"
 version = "8.3.3"
 source = { registry = "https://pypi.org/simple" }
@@ -1346,6 +1354,19 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/f8/b1/0c11f5058406b3af7609f121aaa6b609744687f1d158b3c3a5bf4cc94238/typing_inspection-0.4.1.tar.gz", hash = "sha256:6ae134cc0203c33377d43188d4064e9b357dba58cff3185f22924610e70a9d28", size = 75726, upload-time = "2025-05-21T18:55:23.885Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/17/69/cd203477f944c353c31bade965f880aa1061fd6bf05ded0726ca845b6ff7/typing_inspection-0.4.1-py3-none-any.whl", hash = "sha256:389055682238f53b04f7badcb49b989835495a96700ced5dab2d8feae4b26f51", size = 14552, upload-time = "2025-05-21T18:55:22.152Z" },
+]
+
+[[package]]
+name = "uncurl"
+version = "0.0.11"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "pyperclip" },
+    { name = "six" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/e2/90/95297af714749e5f6dedb8677bd3b6087dc3e31a212633f90c92bbda24c0/uncurl-0.0.11.tar.gz", hash = "sha256:530c9bbd4d118f4cde6194165ff484cc25b0661cd256f19e9d5fcb53fc077790", size = 3288, upload-time = "2021-03-21T18:49:10.2Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/7f/f4/20f213a91ef5a09f53d24333e002a71fbb53b38d5eaa9e49d39f7ce1941e/uncurl-0.0.11-py3-none-any.whl", hash = "sha256:5961e93f07a5c9f2ef8ae4245bd92b0a6ce503c851de980f5b70080ae74cdc59", size = 7367, upload-time = "2021-03-21T18:49:11.554Z" },
 ]
 
 [[package]]

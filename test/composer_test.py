@@ -2,12 +2,14 @@ import unittest
 import logging
 import os
 import json
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
+from fastmcp.tools.tool import Tool
 
 from mcp_composer.member_servers.member_server import HealthStatus
 from mcp_composer.utils import ValidationError
 from mcp_composer import MCPComposer
 from mcp_composer.store.database import DatabaseInterface
+from mcp_composer.utils.custom_tool import DynamicToolGenerator
 
 
 class TestData:
@@ -58,6 +60,39 @@ class TestComposer(unittest.IsolatedAsyncioTestCase):
     async def test_member_health(self):
         health_statuses = [item["status"] for item in await self.gw.member_health()]
         self.assertEqual(health_statuses, [HealthStatus.healthy, HealthStatus.healthy])
+
+    @patch.object(DynamicToolGenerator, "_ensure_base_file")
+    @patch.object(DynamicToolGenerator, "write_function_to_file")
+    async def test_generate_tool_from_script(
+        self, mock_write_function, mock_ensure_base_file
+    ):
+        script_input = {
+            "name": "sum",
+            "tool_type": "script",
+            "script_config": {"value": "def sum(a, b): return a + b"},
+            "description": "sample sum",
+            "permission": {"role 1": "permission 1 "},
+        }
+        curl_input = {
+            "name": "event_test",
+            "tool_type": "curl",
+            "curl_config": {
+                "value": "curl 'https://www.eventbriteapi.com/v3/users/me/organizations/' --header 'Authorization: Bearer xxxxxxx'"
+            },
+            "description": "sample test",
+            "permission": {"role 1": "permission 1 "},
+        }
+
+        await self.gw.generate_tool_from_script(script_input)
+        mock_ensure_base_file._ensure_base_file()
+        mock_write_function.assert_called_with(
+            script_input["name"], script_input["script_config"]["value"]
+        )
+
+        await self.gw.generate_tool_from_script(curl_input)
+        tools = await self.gw.get_tools()
+        self.assertIsInstance(tools.get("sum"), Tool)
+        self.assertIsInstance(tools.get("event_test"), Tool)
 
 
 if __name__ == "__main__":

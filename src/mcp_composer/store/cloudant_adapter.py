@@ -32,39 +32,52 @@ class CloudantAdapter(DatabaseInterface):
 
         return client
 
-    def load_all_servers(self) -> List[Dict]:
+    def _add_record(self, record: dict):
+        doc_id = record["id"]
         try:
-            result = self._client.post_all_docs(
-                db=self._db_name, include_docs=True
+            existing = self._client.get_document(
+                db=self._db_name, doc_id=doc_id
             ).get_result()
-            return [row["doc"] for row in result.get("rows", []) if "doc" in row]
-        except Exception as exc:
-            logger.error("Cloudant read failed: %s", exc)
-            return []
-
-    def add_server(self, config: Dict) -> None:
-        doc_id = config["id"]
-        try:
-            existing = self._client.get_document(db=self._db_name, doc_id=doc_id).get_result()
-            config["_rev"] = existing["_rev"]  # Set revision ID for update
+            record["_rev"] = existing["_rev"]  # Set revision ID for update
 
             # Update existing document
             self._client.post_document(
-                db=self._db_name,
-                document=Document(**config)
+                db=self._db_name, document=Document(**record)
             ).get_result()
-            logger.info("Updated server '%s' in Cloudant", doc_id)
+            logger.info("Updated record '%s' in Cloudant", doc_id)
         except ApiException as e:
             if e.code == 404:
                 try:
                     self._client.post_document(
-                        db=self._db_name, document=Document(**config)
+                        db=self._db_name, document=Document(**record)
                     ).get_result()
-                    logger.info("Saved server '%s' to Cloudant", doc_id)
+                    logger.info("Saved record '%s' to Cloudant", doc_id)
                 except Exception as post_err:
-                    logger.error("Failed to save server '%s': %s", doc_id, post_err)
+                    logger.error("Failed to save record '%s': %s", doc_id, post_err)
             else:
-                logger.error("Error checking server '%s': %s", doc_id, e)
+                logger.error("Error checking record '%s': %s", doc_id, e)
+
+    def _get_record_qurey(self, qurey_selector):
+        try:
+            result = self._client.post_find(
+                db=self._db_name,
+                selector=qurey_selector,
+            ).get_result()
+            return result.get("docs", [])  # type: ignore
+        except Exception as exc:
+            logger.error("Cloudant read failed: %s", exc)
+            return []
+
+    def load_all_servers(self) -> List[Dict]:
+        query = {"selector": {"type": {"$nin": ["tool"]}}}
+        return self._get_record_qurey(query["selector"])
+
+    def load_tools(self) -> List[Dict]:
+        query = {"selector": {"type": "tool"}}
+        return self._get_record_qurey(query["selector"])
+
+    def add_server(self, config: Dict) -> None:
+        self._add_record(config)
 
     def remove_server(self, server_id: str) -> None:
         try:
@@ -206,7 +219,9 @@ class CloudantAdapter(DatabaseInterface):
     def mark_deactivated(self, server_id: str) -> None:
         try:
             # Get the document first
-            doc = self._client.get_document(db=self._db_name, doc_id=server_id).get_result()
+            doc = self._client.get_document(
+                db=self._db_name, doc_id=server_id
+            ).get_result()
             doc["status"] = "deactivated"
 
             # Update the document with new status
@@ -214,18 +229,24 @@ class CloudantAdapter(DatabaseInterface):
                 db=self._db_name,
                 document=doc,
             ).get_result()
-            logger.info(f"Marked server '{server_id}' as deactivated. Response: {response}")
+            logger.info(
+                f"Marked server '{server_id}' as deactivated. Response: {response}"
+            )
         except ApiException as e:
             if e.code == 404:
                 logger.error(f"Server '{server_id}' not found. Cannot deactivate.")
             else:
                 logger.error(f"Error deactivating server '{server_id}': {e}")
         except Exception as e:
-            logger.error(f"Unexpected error while deactivating server '{server_id}': {e}")
+            logger.error(
+                f"Unexpected error while deactivating server '{server_id}': {e}"
+            )
 
     def get_server_status(self, server_id: str) -> str:
         try:
-            doc = self._client.get_document(db=self._db_name, doc_id=server_id).get_result()
+            doc = self._client.get_document(
+                db=self._db_name, doc_id=server_id
+            ).get_result()
             status = doc.get("status", "active")  # default to 'active' if not set
             logger.info(f"Server '{server_id}' has status: {status}")
             return status
@@ -237,3 +258,8 @@ class CloudantAdapter(DatabaseInterface):
         except Exception as e:
             logger.error(f"Unexpected error retrieving status for '{server_id}': {e}")
         return "unknown"
+
+    def add_tool(self, tool_config: Dict) -> None:
+        tool_config["type"] = "tool"
+        logger.info(f"Adding tool to database: {tool_config}")
+        self._add_record(tool_config)

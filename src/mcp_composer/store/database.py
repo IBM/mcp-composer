@@ -9,6 +9,10 @@ class DatabaseInterface(ABC):
         pass
 
     @abstractmethod
+    def load_tools(self) -> List[Dict]:
+        pass
+
+    @abstractmethod
     def add_server(self, config: Dict) -> None:
         pass
 
@@ -38,4 +42,8 @@ class DatabaseInterface(ABC):
     @abstractmethod
     def get_server_status(self, server_id: str) -> str:
         """Returns the status of the given server (e.g., 'active' or 'deactivated')"""
+        pass
+
+    @abstractmethod
+    def add_tool(self, tool_config: dict) -> None:
         pass
