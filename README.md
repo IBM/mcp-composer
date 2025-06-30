@@ -98,15 +98,17 @@ The goal is to provide a single unified MCP Composer that:
 
 ### Demo using MCP Inspector
 
-1. Run the MCP Inspector as a background process
+1. Run the MCP Inspector as a background process, and take note of the session token/url with token pre-filled:
    ```bash
-   npx -y @modelcontextprotocol/inspector@0.13.0 &
+   npx -y @modelcontextprotocol/inspector@0.14.3 &
    ```
 1. Run the following command
    ```bash
    uv run test/test_composer.py
    ```
-1. Open the MCP Inspector in a browser (usually  http://127.0.0.1:6274); set _transport type_ and _URL_ from the previous step above and press `Connect`:
+1. Open the MCP Inspector in a browser with token pre-filled from the first step above.  You can also open on `localhost:6274` and provide the `token` from the first step as the `Proxy Session Token`.
+
+1. set _transport type_ and _URL_ from the previous step above and press `Connect`:
 
    > <img width="388" alt="image" src="https://github.ibm.com/ai-elite/mcp-composer/assets/3014/4931cf7c-5a0b-4c18-b405-42df30bcac27">
 
