@@ -14,8 +14,15 @@ class ConfigKey(str, Enum):
     OPEN_API="open_api"
     CUSTOM_ROUTES="custom_routes"
     Token_URL="token_url"
-    AUTH_HEADRR ="Authorization"
+    AUTH_HEADER ="Authorization"
     TOKEN ="token"
+    AUTH_PREFIX ="auth_prefix"
+    HEADERS="headers"
+    JSESSIONID ="JSESSIONID"
+    USERNAME ="username"
+    PASSWORD="password"
+    LOGIN_URL ="login_url"
+    TOKEN_TYPE ="token_type"
 
 class MemberServerType(str, Enum):
     OpenAPI="openapi"
@@ -26,6 +33,8 @@ class AuthStrategy(str, Enum):
     APIKEY="apikey"
     BEARER ="bearer"
     DYNAMIC_BEARER="dynamic_bearer"
+    APITOKEN="apiToken"
+    JSESSIONID ="jessionid"
 
 
 

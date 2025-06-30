@@ -9,7 +9,7 @@ from fastmcp.client.auth.oauth import FileTokenStorage
 import httpx
 from mcp_composer.utils.logger import LoggerFactory
 from mcp_composer.utils import *
-from mcp_composer.auth_handler import DynamicTokenClient
+from mcp_composer.auth_handler import DynamicTokenClient, DynamicTokenManager
 
 
 logger = LoggerFactory.get_logger()
@@ -30,13 +30,13 @@ class MCPServerBuilder:
     async def build(self) -> FastMCP:
         logger.info(f"Building new {self.mcp_type} Server")
 
-        if self.mcp_type == "client":
+        if self.mcp_type == MemberServerType.Client:
             return await self._build_from_client()
 
         elif self.mcp_type in {"http", "sse"}:
             return await self._build_from_transport(transport_type=self.mcp_type)
 
-        elif self.mcp_type == "openapi":
+        elif self.mcp_type == MemberServerType.OpenAPI:
             return await self._build_from_openapi()
 
         elif self.mcp_type == "fastapi":
@@ -53,9 +53,9 @@ class MCPServerBuilder:
         # headers = await auth.get_headers()
 
         config = self.config
-        endpoint = config["endpoint"]
-        headers = config.get("headers")
-        oauth = config.get("auth")
+        endpoint = config[ConfigKey.ENDPOINT]
+        headers = config.get(ConfigKey.HEADERS)
+        oauth = config.get(ConfigKey.AUTH)
 
         # Set up authentication if provided
         auth = None
@@ -70,7 +70,7 @@ class MCPServerBuilder:
         }
 
         # Choose and instantiate the appropriate transport
-        TransportClass = transport_classes.get(transport_type)
+        TransportClass = transport_classes.get(transport_type) # type: ignore
         if not TransportClass:
             raise ValueError(f"Unsupported MCP type: {transport_type}")
 
@@ -84,12 +84,12 @@ class MCPServerBuilder:
         # auth = build_auth_strategy(self.config["auth_strategy"], self.config.get("auth", {}))
         # headers = await auth.get_headers()
 
-        client = Client(self.config["endpoint"])
+        client = Client(self.config[ConfigKey.ENDPOINT])
 
-        headers = self.config.get("headers")
+        headers = self.config.get(ConfigKey.HEADERS)
         if headers:
             transport = StreamableHttpTransport(
-                url=self.config["endpoint"], headers=headers
+                url=self.config[ConfigKey.ENDPOINT], headers=headers
             )
             client = Client(transport)
         try:
@@ -119,24 +119,65 @@ class MCPServerBuilder:
         else:
             raise NotImplementedError("Spec is missing")
 
-        headers = {}
-        http_client = httpx.AsyncClient(base_url=openapi_config[ConfigKey.ENDPOINT])
+        
+        headers = self.config.get(ConfigKey.HEADERS, {})
+        logger.info(f"the headers are {headers}")
+        auth_strategy = self.config[ConfigKey.AUTH_STRATEGY]
+        auth_config = self.config.get(ConfigKey.AUTH, {})
+        base_url = openapi_config[ConfigKey.ENDPOINT]
+        http_client = httpx.AsyncClient(base_url=base_url)
 
-        if self.config[ConfigKey.AUTH_STRATEGY] == AuthStrategy.DYNAMIC_BEARER:
-            http_client = DynamicTokenClient(
-                base_url=openapi_config[ConfigKey.ENDPOINT],
-                token_url=self.config[ConfigKey.AUTH][ConfigKey.Token_URL],
-                api_key=self.config[ConfigKey.AUTH][ConfigKey.APIKEY],
-            )
+        match auth_strategy:
+            case AuthStrategy.DYNAMIC_BEARER:
+                http_client = DynamicTokenClient(
+                    base_url=base_url,
+                    token_url=auth_config.get(ConfigKey.Token_URL),
+                    api_key=auth_config.get(ConfigKey.APIKEY),
+                )
 
-        if self.config[ConfigKey.AUTH_STRATEGY] == AuthStrategy.BEARER:
-            logger.info("Setting up header and client for bearer")
-            headers[ConfigKey.AUTH_HEADRR] = (
-                f"Bearer {self.config[ConfigKey.AUTH][ConfigKey.TOKEN]}"
-            )
-            http_client = httpx.AsyncClient(
-                base_url=openapi_config[ConfigKey.ENDPOINT], headers=headers
-            )
+            case AuthStrategy.BEARER:
+                logger.info("Setting up header and client for bearer")
+                headers[ConfigKey.AUTH_HEADER.value] = f"Bearer {auth_config.get(ConfigKey.TOKEN)}"
+                http_client = httpx.AsyncClient(base_url=base_url, headers=headers)
+
+            case AuthStrategy.APITOKEN:
+                logger.info("Setting up header and client for apiToken")
+                headers[ConfigKey.AUTH_HEADER.value] = (
+                    f"{auth_config.get(ConfigKey.AUTH_PREFIX)} {auth_config.get(ConfigKey.TOKEN)}"
+                )
+                logger.info(f"the headers are updated {headers} and the url is {base_url}")
+                http_client = httpx.AsyncClient(base_url=base_url, headers=headers)
+                # concert
+                response = await http_client.get("/core/api/v1/applications/")
+                print(f"the response is {response}")
+
+            case AuthStrategy.JSESSIONID:
+                logger.info("Setting up header and client for jessionid")
+                try:
+                    token_manager = DynamicTokenManager(base_url=base_url,auth_strategy=self.config[ConfigKey.AUTH_STRATEGY],
+                                                        login_url=auth_config.get(ConfigKey.LOGIN_URL),
+                                                        username=auth_config.get(ConfigKey.USERNAME), 
+                                                        password=auth_config.get(ConfigKey.PASSWORD))
+                    
+                    http_client = await token_manager.get_authenticated_http_client_for_jessonid()
+                except KeyError as e:
+                    # Required config missing
+                    logger.error(f"Missing configuration key: {e}")
+                
+
+                except httpx.HTTPError as e:
+                    # Any HTTP-related error from httpx
+                    logger.error(f"HTTP error during authentication: {e}")
+                 
+
+                except Exception as e:
+                    # Catch-all for unexpected errors
+                    logger.error(f"Unexpected error: {e}")
+                         
+            case _:
+                # Default/fallback client
+                http_client = httpx.AsyncClient(base_url=base_url)
+
 
         mcp = FastMCP.from_openapi(spec, client=http_client, route_maps=custom_mappings)
 

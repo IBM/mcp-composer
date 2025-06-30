@@ -4,12 +4,15 @@ from typing import List, Dict
 from mcp_composer.utils import LoggerFactory, check_duplicate_tool
 from mcp_composer.exceptions import ToolDuplicateError
 from .database import DatabaseInterface
+import os
+from dotenv import load_dotenv, find_dotenv
+load_dotenv(find_dotenv(".env"))
 
 logger = LoggerFactory.get_logger()
 
-
+MEMBER_SERVER_CONFIG_FILE_PATH = os.environ["SERVER_CONFIG_FILE_PATH"]
 class LocalFileAdapter(DatabaseInterface):
-    def __init__(self, file_path: str = "mcp_servers.json"):
+    def __init__(self, file_path: str = MEMBER_SERVER_CONFIG_FILE_PATH):
         self._file_path = Path(file_path)
         self._ensure_file_exists()
 
