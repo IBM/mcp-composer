@@ -11,18 +11,11 @@ load_dotenv(find_dotenv(".env"))
 
 logger = LoggerFactory.get_logger()
 
-MEMBER_SERVER_CONFIG_FILE_PATH = os.environ["SERVER_CONFIG_FILE_PATH"]
-TOOLS_CONFIG_FILE_PATH = os.environ["TOOLS_CONFIG_FILE_PATH"]
-
 
 class LocalFileAdapter(DatabaseInterface):
-    def __init__(
-        self,
-        file_path: str = MEMBER_SERVER_CONFIG_FILE_PATH,
-        tool_file_path: str = TOOLS_CONFIG_FILE_PATH,
-    ):
-        self._file_path = Path(file_path)
-        self._tool_path = Path(tool_file_path)
+    def __init__(self):
+        self._file_path = Path(os.environ["SERVER_CONFIG_FILE_PATH"])
+        self._tool_path = Path(os.environ["TOOLS_CONFIG_FILE_PATH"])
         self._ensure_file_exists()
 
     def _ensure_file_exists(self):

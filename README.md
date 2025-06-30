@@ -100,7 +100,12 @@ The goal is to provide a single unified MCP Composer that:
 
 1. Run the MCP Inspector as a background process, and take note of the session token/url with token pre-filled:
    ```bash
-   npx -y @modelcontextprotocol/inspector@0.14.3 &
+   npx @modelcontextprotocol/inspector
+   ```
+1. Navigate to `src/` and create a `.env` file by copying the contents of `.env.example`.Then, set the Server and Tool config path in env file accordingly:
+
+   ```bash
+   cp src/.env.example src/.env
    ```
 1. Run the following command
    ```bash
