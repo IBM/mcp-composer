@@ -1,5 +1,7 @@
 import sys
 import inspect
+import jwt
+
 from dotenv import load_dotenv
 
 from fastmcp import FastMCP
@@ -23,6 +25,9 @@ from mcp_composer.member_servers import ServerManager, MemberMCPServer, MCPServe
 from mcp_composer.store.database import DatabaseInterface
 from mcp_composer.store.cloudant_adapter import CloudantAdapter
 from mcp_composer.store.local_file_adapter import LocalFileAdapter
+from mcp_composer.auth_handler.oauth import ServerSettings, SimpleOAuthProvider
+from mcp_composer.auth_handler.oauth_callback import register_oauth_callback
+from mcp.server.auth.middleware.auth_context import get_access_token
 
 try:
     from mcp_composer.custom_tool import tools
@@ -46,8 +51,20 @@ class MCPComposer(FastMCP):
         config: Optional[list[dict]] = None,
         database_config: Optional[Union[Dict[str, Any], DatabaseInterface]] = None,
         auth: OAuthProvider | None = None,
+        oauth_settings: Optional[ServerSettings] = None
     ):
         super().__init__(name=name, auth=auth)
+        if auth is None:
+            try:
+                settings = oauth_settings or ServerSettings()
+                self.auth = SimpleOAuthProvider(settings)
+                register_oauth_callback(self, settings, self.auth)
+            except Exception as e:
+                logger.error(f"Failed to initialize OAuth: {e}")
+                raise
+        elif not isinstance(auth, SimpleOAuthProvider):
+            logger.warning("Custom auth provider may not support all OAuth features")
+
         database = None
         if database_config:
             try:
@@ -99,12 +116,13 @@ class MCPComposer(FastMCP):
         self.add_tool(Tool.from_function(self.member_health))
         self.add_tool(Tool.from_function(self.activate_mcp_server))
         self.add_tool(Tool.from_function(self.deactivate_mcp_server))
+        self.add_tool(Tool.from_function(self.get_user_profile))
+        self.add_tool(Tool.from_function(self.generate_tool_from_script))
         self.add_tool(Tool.from_function(self._server_manager.list_member_servers))
         self.add_tool(Tool.from_function(self._tool_manager.get_tool_config_by_name))
         self.add_tool(Tool.from_function(self._tool_manager.get_tool_config_by_server))
         self.add_tool(Tool.from_function(self._tool_manager.remove_tools))
         self.add_tool(Tool.from_function(self._tool_manager.update_tool_description))
-        self.add_tool(Tool.from_function(self.generate_tool_from_script))
 
     def _load_custom_tools(self):
         for tool_fn in self._tool_manager.fetch_dynamic_tool():
@@ -275,3 +293,19 @@ class MCPComposer(FastMCP):
         if fn:
             self.add_tool(Tool.from_function(fn))
         return "Successfully added tools"
+
+    async def get_user_profile(self) -> dict:
+        """
+        Returns the decoded JWT token for the current authenticated user.
+        """
+        token = self._get_token().replace("auth_", "")
+        return jwt.decode(token, options={"verify_signature": False})
+
+    def _get_token(self) -> str:
+        access_token = get_access_token()
+        if not access_token:
+            raise ValueError("Not authenticated")
+        token = self.auth.token_mapping.get(access_token.token)
+        if not token:
+            raise ValueError("No token found for authenticated user")
+        return token

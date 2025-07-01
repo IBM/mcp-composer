@@ -4,7 +4,7 @@ import time
 from dotenv import load_dotenv, find_dotenv
 from fastmcp.server.auth.auth import OAuthProvider
 from fastmcp.exceptions import NotFoundError
-from pydantic import AnyHttpUrl
+from pydantic import AnyHttpUrl, AnyUrl
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from starlette.exceptions import HTTPException
 from mcp.server.auth.provider import (
@@ -160,7 +160,7 @@ class SimpleOAuthProvider(OAuthProvider):
             auth_code = AuthorizationCode(
                 code=new_code,
                 client_id=client_id,
-                redirect_uri=AnyHttpUrl(redirect_uri),
+                redirect_uri=AnyUrl(redirect_uri),
                 redirect_uri_provided_explicitly=redirect_uri_provided_explicitly,
                 expires_at=time.time() + 300,
                 scopes=[self.settings.mcp_scope],
