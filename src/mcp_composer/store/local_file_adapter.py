@@ -14,8 +14,10 @@ logger = LoggerFactory.get_logger()
 
 class LocalFileAdapter(DatabaseInterface):
     def __init__(self):
-        self._file_path = Path(os.environ["SERVER_CONFIG_FILE_PATH"])
-        self._tool_path = Path(os.environ["TOOLS_CONFIG_FILE_PATH"])
+        self._file_path = Path(
+            os.environ.get("SERVER_CONFIG_FILE_PATH", "mcp_server.json")
+        )
+        self._tool_path = Path(os.environ.get("TOOLS_CONFIG_FILE_PATH", "tools.json"))
         self._ensure_file_exists()
 
     def _ensure_file_exists(self):
