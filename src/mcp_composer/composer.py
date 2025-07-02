@@ -54,16 +54,16 @@ class MCPComposer(FastMCP):
         oauth_settings: Optional[ServerSettings] = None
     ):
         super().__init__(name=name, auth=auth)
-        if auth is None:
-            try:
-                settings = oauth_settings or ServerSettings()
-                self.auth = SimpleOAuthProvider(settings)
-                register_oauth_callback(self, settings, self.auth)
-            except Exception as e:
-                logger.error(f"Failed to initialize OAuth: {e}")
-                raise
-        elif not isinstance(auth, SimpleOAuthProvider):
-            logger.warning("Custom auth provider may not support all OAuth features")
+        # if auth is None:
+        #     try:
+        #         settings = oauth_settings or ServerSettings()
+        #         self.auth = SimpleOAuthProvider(settings)
+        #         register_oauth_callback(self, settings, self.auth)
+        #     except Exception as e:
+        #         logger.error(f"Failed to initialize OAuth: {e}")
+        #         raise
+        # elif not isinstance(auth, SimpleOAuthProvider):
+        #     logger.warning("Custom auth provider may not support all OAuth features")
 
         database = None
         if database_config:
@@ -116,7 +116,7 @@ class MCPComposer(FastMCP):
         self.add_tool(Tool.from_function(self.member_health))
         self.add_tool(Tool.from_function(self.activate_mcp_server))
         self.add_tool(Tool.from_function(self.deactivate_mcp_server))
-        self.add_tool(Tool.from_function(self.get_user_profile))
+        # self.add_tool(Tool.from_function(self.get_user_profile))
         self.add_tool(Tool.from_function(self.generate_tool_from_script))
         self.add_tool(Tool.from_function(self._server_manager.list_member_servers))
         self.add_tool(Tool.from_function(self._tool_manager.get_tool_config_by_name))
@@ -294,18 +294,18 @@ class MCPComposer(FastMCP):
             self.add_tool(Tool.from_function(fn))
         return "Successfully added tools"
 
-    async def get_user_profile(self) -> dict:
-        """
-        Returns the decoded JWT token for the current authenticated user.
-        """
-        token = self._get_token().replace("auth_", "")
-        return jwt.decode(token, options={"verify_signature": False})
+    # async def get_user_profile(self) -> dict:
+    #     """
+    #     Returns the decoded JWT token for the current authenticated user.
+    #     """
+    #     token = self._get_token().replace("auth_", "")
+    #     return jwt.decode(token, options={"verify_signature": False})
 
-    def _get_token(self) -> str:
-        access_token = get_access_token()
-        if not access_token:
-            raise ValueError("Not authenticated")
-        token = self.auth.token_mapping.get(access_token.token)
-        if not token:
-            raise ValueError("No token found for authenticated user")
-        return token
+    # def _get_token(self) -> str:
+    #     access_token = get_access_token()
+    #     if not access_token:
+    #         raise ValueError("Not authenticated")
+    #     token = self.auth.token_mapping.get(access_token.token)
+    #     if not token:
+    #         raise ValueError("No token found for authenticated user")
+    #     return token
