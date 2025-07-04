@@ -25,9 +25,9 @@ from mcp_composer.member_servers import ServerManager, MemberMCPServer, MCPServe
 from mcp_composer.store.database import DatabaseInterface
 from mcp_composer.store.cloudant_adapter import CloudantAdapter
 from mcp_composer.store.local_file_adapter import LocalFileAdapter
-from mcp_composer.auth_handler.oauth import ServerSettings, SimpleOAuthProvider
-from mcp_composer.auth_handler.oauth_callback import register_oauth_callback
-from mcp.server.auth.middleware.auth_context import get_access_token
+# from mcp_composer.auth_handler.oauth import ServerSettings, SimpleOAuthProvider
+# from mcp_composer.auth_handler.oauth_callback import register_oauth_callback
+# from mcp.server.auth.middleware.auth_context import get_access_token
 
 try:
     from mcp_composer.custom_tool import tools
@@ -51,7 +51,7 @@ class MCPComposer(FastMCP):
         config: Optional[list[dict]] = None,
         database_config: Optional[Union[Dict[str, Any], DatabaseInterface]] = None,
         auth: OAuthProvider | None = None,
-        oauth_settings: Optional[ServerSettings] = None
+        # oauth_settings: Optional[ServerSettings] = None
     ):
         super().__init__(name=name, auth=auth)
         # if auth is None:
