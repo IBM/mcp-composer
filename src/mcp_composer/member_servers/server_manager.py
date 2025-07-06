@@ -1,9 +1,15 @@
+"""
+ServerManager module handles the lifecycle of MCP member servers,
+including mounting, registration, persistence, tool management, and health checks.
+"""
+
 from typing import Dict, List, Any, Optional
 from collections.abc import Callable
 
 from fastmcp.settings import DuplicateBehavior
 from fastmcp.exceptions import NotFoundError, ToolError
 
+from mcp_composer.member_servers.builder import MCPServerBuilder
 from mcp_composer.utils import LoggerFactory, get_member_health, check_duplicate_tool
 from mcp_composer.member_servers.member_server import HealthStatus, MemberMCPServer
 from mcp_composer.exceptions import (
@@ -12,6 +18,7 @@ from mcp_composer.exceptions import (
     ToolRemoveError,
 )
 from mcp_composer.store.database import DatabaseInterface
+from mcp_composer.utils.validator import ServerConfigValidator, ValidationError
 
 logger = LoggerFactory.get_logger()
 
@@ -53,6 +60,130 @@ class ServerManager:
     def default_serializer(server_id: str, member: MemberMCPServer):
         return member.to_dict()
 
+    async def _mount_and_register_server(
+        self,
+        config: dict,
+        mount_callback: Callable[[str, Any], None],
+        save_to_db: bool = True,
+    ) -> str:
+        server_id = config["id"]
+        config["_id"] = server_id
+
+        builder = MCPServerBuilder(config)
+        sub_mcp = await builder.build()
+
+        mount_callback(server_id, sub_mcp)
+
+        member = MemberMCPServer(
+            id=server_id,
+            type=config["type"],
+            config=config,
+            label=config.get("label"),
+            tags=config.get("tags", []),
+            tool_count=None,
+        )
+        member.set_server(sub_mcp)
+
+        if save_to_db:
+            self.add_server_db(config)
+
+        self.add_member(server_id, member)
+
+        return f"Server '{server_id}' mounted successfully."
+
+    async def register_server(
+        self,
+        config: dict,
+        mount_callback: Callable[[str, Any], None],
+    ) -> str:
+        """Register a new member server."""
+        try:
+            ServerConfigValidator(config).validate()
+
+            server_id = config.get("id", "")
+            if self.has_member_server(server_id):
+                logger.warning("Server '%s' already mounted.", server_id)
+                return f"Server '{server_id}' already mounted."
+
+            return await self._mount_and_register_server(config, mount_callback)
+
+        except Exception as e:
+            logger.exception("Failed to register server: %s", e)
+            raise ToolError(f"Failed to register server: {e}") from e
+
+    async def update_server_config(
+        self,
+        server_id: str,
+        new_config: dict,
+        unmount_callback: Callable[[str], Any],
+        mount_callback: Callable[[str, Any], None],
+    ) -> str:
+        """Update an existing server's configuration."""
+        try:
+            logger.info("Updating server '%s' with new config: %s", server_id, new_config)
+
+            if new_config.get("id") and new_config["id"] != server_id:
+                raise ValidationError("Server ID in config does not match the target server ID.")
+            new_config["id"] = server_id
+
+            ServerConfigValidator(new_config).validate()
+
+            if not self.has_member_server(server_id):
+                raise NotFoundError(f"Server '{server_id}' not found.")
+
+            unmount_callback(server_id)
+            self.remove_member(server_id)
+
+            self.update_server_db(new_config)
+
+            return await self._mount_and_register_server(
+                new_config, mount_callback, save_to_db=False
+            )
+
+        except (ValidationError, NotFoundError) as err:
+            logger.error("Error updating server '%s': %s", server_id, err)
+            raise ToolError(f"Failed to update server '{server_id}': {err}") from err
+
+        except Exception as e:
+            logger.exception("Unexpected error while updating server '%s': %s", server_id, e)
+            raise ToolError(f"Failed to update server '{server_id}': {e}") from e
+
+    async def activate_server(
+        self,
+        server_id: str,
+        mount_callback: Callable[[str, Any], None],
+    ) -> str:
+        """Activate a previously deactivated server."""
+        try:
+            config = self.prepare_activation(server_id)
+
+            if self.has_member_server(server_id):
+                logger.warning("Server '%s' already mounted.", server_id)
+                return f"Server '{server_id}' already mounted."
+
+            return await self._mount_and_register_server(config, mount_callback, save_to_db=False)
+
+        except Exception as e:
+            logger.exception("Failed to activate server '%s': %s", server_id, e)
+            raise ToolError(f"Failed to activate server '{server_id}': {e}") from e
+
+    def deactivate_server(
+        self,
+        server_id: str,
+        unmount_callback: Callable[[str], None]
+    ) -> str:
+        """Deactivate a mounted server."""
+        try:
+            self.prepare_deactivation(server_id)
+            unmount_callback(server_id)
+            return f"Server '{server_id}' deactivated."
+        except NotFoundError as e:
+            logger.warning("Deactivation failed: %s", e)
+            raise ToolError(str(e)) from e
+        except Exception as e:
+            logger.exception("Error deactivating server '%s': %s", server_id, e)
+            raise ToolError(f"Failed to deactivate server '{server_id}': {e}") from e
+
     async def member_health(self, config: list[MemberMCPServer]) -> list[dict]:
         server_config = config if config else self.list()
         health_status = await get_member_health(server_config)
@@ -89,6 +220,14 @@ class ServerManager:
             logger.warning(f"Overwriting existing MCP server: {server_id}")
         self._member_servers[server_id] = server
         logger.info(f"Mounted MCP server: {server_id}")
+
+    def update_server_db(self, config: dict) -> None:
+        """Update the server config in the database."""
+        server_id = config.get("id")
+        if not server_id:
+            raise ValueError("Config must include 'id' to update.")
+        self._database.update_server_config(config)
+        return
 
     def remove_member(self, server_id: str):
         if server_id not in self._member_servers:

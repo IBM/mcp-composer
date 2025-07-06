@@ -1,6 +1,7 @@
 import pytest
 from mcp_composer import MCPComposer
 from mcp_composer.store.fake_database import FakeDatabase
+from mcp_composer.member_servers.member_server import MemberMCPServer
 
 
 ###############################################################################
@@ -56,3 +57,32 @@ async def test_list_member_servers_populated(fake_db, server_config):
     assert len(hits) == 1, (
         "Mounted server should appear exactly once in list_member_servers()"
     )
+
+@pytest.mark.asyncio
+async def test_update_server_config_successfully(fake_db, server_config):
+    # Setup
+    composer = MCPComposer(database_config=fake_db)
+
+    # Register original config
+    original_config = {
+        **server_config,  # Use Python unpacking
+        "label": "Initial Label",
+        "tags": ["v1"]
+    }
+    await composer.register_mcp_server(original_config)
+
+    # Update config
+    updated_config = {
+        **server_config,
+        "label": "Updated Label",
+        "tags": ["v2", "v3"]
+    }
+
+    result = await composer.update_mcp_server_config("list-test-server", updated_config)
+
+    assert "successfully" in result
+
+    member: MemberMCPServer | None = composer._server_manager.get_member("list-test-server")
+    assert member.config["label"] == "Updated Label"
+    assert "v2" in member.config["tags"]
+    assert "v3" in member.config["tags"]

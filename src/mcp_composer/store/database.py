@@ -47,3 +47,7 @@ class DatabaseInterface(ABC):
     @abstractmethod
     def add_tool(self, tool_config: dict) -> None:
         pass
+    
+    @abstractmethod
+    def update_server_config(self, config: dict) -> None:
+        pass

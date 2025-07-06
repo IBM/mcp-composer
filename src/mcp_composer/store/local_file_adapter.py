@@ -176,3 +176,26 @@ class LocalFileAdapter(DatabaseInterface):
             logger.info("Added new tool '%s' to local file", tool_id)
 
         self._write_data(data, file_type="tool")
+
+    def update_server_config(self, config: dict) -> None:
+        """
+        Update local JSON file with new server config.
+        """
+        server_id = config.get("id")
+        if not server_id:
+            raise ValueError("Server config must contain an 'id' field")
+
+        data = self._read_data()
+
+        updated = False
+        for i, entry in enumerate(data):
+            if entry.get("id") == server_id:
+                data[i] = config
+                updated = True
+                break
+
+        if not updated:
+            raise ValueError(f"Server '{server_id}' not found in local database")
+
+        self._write_data(data)
+        logger.info(f"Updated local config for server '{server_id}'")

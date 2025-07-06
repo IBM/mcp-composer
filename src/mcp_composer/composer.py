@@ -1,44 +1,37 @@
+"""
+MCP Composer: A dynamic orchestrator for mounting and managing member MCP servers.
+Extends FastMCP with runtime composition, tool management, and database-backed config.
+"""
+
 import sys
 import inspect
-import jwt
-
-from dotenv import load_dotenv
-
-from fastmcp import FastMCP
-from fastmcp.server.auth.auth import OAuthProvider
 
 from typing import Any, Dict, Optional, Union
-from fastmcp.tools.tool import Tool
-from fastmcp.exceptions import NotFoundError, ToolError
-import httpx
 
+from dotenv import load_dotenv
+from fastmcp import FastMCP
+from fastmcp.server.auth.auth import OAuthProvider
+from fastmcp.tools.tool import Tool
 
 from mcp_composer.tools import MCPToolManager
 from mcp_composer.utils import (
     LoggerFactory,
     AllServersValidator,
     ValidationError,
-    ServerConfigValidator,
 )
-
 from mcp_composer.member_servers import ServerManager, MemberMCPServer, MCPServerBuilder
 from mcp_composer.store.database import DatabaseInterface
 from mcp_composer.store.cloudant_adapter import CloudantAdapter
 from mcp_composer.store.local_file_adapter import LocalFileAdapter
-# from mcp_composer.auth_handler.oauth import ServerSettings, SimpleOAuthProvider
-# from mcp_composer.auth_handler.oauth_callback import register_oauth_callback
-# from mcp.server.auth.middleware.auth_context import get_access_token
 
 try:
-    from mcp_composer.custom_tool import tools
+    from mcp_composer.custom_tool import tools as custom_tools
 except ImportError:
-    tools = None
+    custom_tools = None
 
 load_dotenv()
 
-
 logger = LoggerFactory.get_logger()
-
 
 class MCPComposer(FastMCP):
     """
@@ -51,19 +44,8 @@ class MCPComposer(FastMCP):
         config: Optional[list[dict]] = None,
         database_config: Optional[Union[Dict[str, Any], DatabaseInterface]] = None,
         auth: OAuthProvider | None = None,
-        # oauth_settings: Optional[ServerSettings] = None
     ):
         super().__init__(name=name, auth=auth)
-        # if auth is None:
-        #     try:
-        #         settings = oauth_settings or ServerSettings()
-        #         self.auth = SimpleOAuthProvider(settings)
-        #         register_oauth_callback(self, settings, self.auth)
-        #     except Exception as e:
-        #         logger.error(f"Failed to initialize OAuth: {e}")
-        #         raise
-        # elif not isinstance(auth, SimpleOAuthProvider):
-        #     logger.warning("Custom auth provider may not support all OAuth features")
 
         database = None
         if database_config:
@@ -83,20 +65,16 @@ class MCPComposer(FastMCP):
                         db_name=database_config.get("db_name", "mcp_servers"),
                     )
                 else:
-                    logger.warning(
-                        f"Unsupported database type: {database_config.get('type')}"
-                    )
+                    logger.warning("Unsupported database type: %s", database_config.get("type"))
             except Exception as e:
-                logger.error(f"Failed to initialize database: {e}")
+                logger.error("Failed to initialize database: %s", e)
                 raise
         else:
             database = LocalFileAdapter()
             logger.info("No database config provided, using local file storage")
 
         self._server_manager = ServerManager(database=database)
-        self._tool_manager = MCPToolManager(
-            server_manager=self._server_manager, database=database
-        )
+        self._tool_manager = MCPToolManager(server_manager=self._server_manager, database=database)
         self._db_configs: list[dict] = self._server_manager.load_all_servers_db()
         self._config: list[dict] = []
         self._server_manager._mounted_servers = self._mounted_servers
@@ -112,11 +90,11 @@ class MCPComposer(FastMCP):
 
         self._load_custom_tools()
         self.add_tool(Tool.from_function(self.register_mcp_server))
+        self.add_tool(Tool.from_function(self.update_mcp_server_config))
         self.add_tool(Tool.from_function(self.delete_mcp_server))
         self.add_tool(Tool.from_function(self.member_health))
         self.add_tool(Tool.from_function(self.activate_mcp_server))
         self.add_tool(Tool.from_function(self.deactivate_mcp_server))
-        # self.add_tool(Tool.from_function(self.get_user_profile))
         self.add_tool(Tool.from_function(self.generate_tool_from_script))
         self.add_tool(Tool.from_function(self._server_manager.list_member_servers))
         self.add_tool(Tool.from_function(self._tool_manager.get_tool_config_by_name))
@@ -125,12 +103,13 @@ class MCPComposer(FastMCP):
         self.add_tool(Tool.from_function(self._tool_manager.update_tool_description))
 
     def _load_custom_tools(self):
+        """Load tools from dynamic tool manager and optional custom tool module."""
         for tool_fn in self._tool_manager.fetch_dynamic_tool():
             self.add_tool(Tool.from_function(tool_fn))
 
-        if tools:
-            for name, func in inspect.getmembers(tools, (inspect.isfunction)):
-                logger.info(f"Adding tool from custom tool folder: {name}")
+        if custom_tools:
+            for name, func in inspect.getmembers(custom_tools, inspect.isfunction):
+                logger.info("Adding tool from custom tool folder: %s", name)
                 self.add_tool(Tool.from_function(func))
 
     async def _mount_member_server(self, config: dict) -> str:
@@ -141,10 +120,6 @@ class MCPComposer(FastMCP):
 
             server_id = config["id"]
             config["_id"] = server_id
-
-            if self._server_manager.has_member_server(server_id):
-                logger.warning(f"Server '{server_id}' already mounted.")
-                return f"Server '{server_id}' already mounted."
 
             builder = MCPServerBuilder(config)
             sub_mcp = await builder.build()
@@ -162,12 +137,10 @@ class MCPComposer(FastMCP):
             self._server_manager.add_server_db(config)
             self._server_manager.add_member(server_id, member)
 
-            return f"Server '{server_id}' mounted."
+            return f"Server {server_id} mounted."
 
         except Exception as exc:
-            logger.error(
-                "Failed to mount server '%s': %s", config.get("id", "<missing‑id>"), exc
-            )
+            logger.error("Failed to mount server '%s': %s", config.get("id", "<missing‑id>"), exc)
             return f"Failed to mount server {config.get('id', '<missing‑id>')}"
 
     async def setup_member_servers(self):
@@ -179,7 +152,9 @@ class MCPComposer(FastMCP):
 
         seen_ids = set()
         logger.info(
-            f"Setting up {len(self._config)} CLI servers and {len(self._db_configs)} DB servers..."
+            "Setting up %d CLI servers and %d DB servers...",
+            len(self._config),
+            len(self._db_configs)
         )
 
         for cfg in all_configs:
@@ -189,17 +164,15 @@ class MCPComposer(FastMCP):
                 continue
 
             if cfg.get("status") == "deactivated":
-                logger.info(
-                    f"Server '{server_id}' is marked deactivated, skipping mount."
-                )
+                logger.info("Server '%s' is marked deactivated, skipping mount.", server_id)
                 continue
 
             if server_id in seen_ids:
-                logger.debug(f"Skipping duplicate server '{server_id}'")
+                logger.debug("Skipping duplicate server '%s'", server_id)
                 continue
 
             if self._server_manager.has_member_server(server_id):
-                logger.debug(f"Server '{server_id}' already mounted, skipping.")
+                logger.debug("Server '%s' already mounted, skipping.", server_id)
                 seen_ids.add(server_id)
                 continue
 
@@ -207,40 +180,39 @@ class MCPComposer(FastMCP):
             seen_ids.add(server_id)
 
     async def register_mcp_server(self, config: dict) -> str:
-        """
-        Register a single server.
-        """
-        logger.info(f" Register a single server :{config}")
+        """Register a single server."""
+        logger.info("Registering single server: %s", config)
+        return await self._server_manager.register_server(config=config, mount_callback=self.mount)
 
-        try:
-            ServerConfigValidator(config).validate()
-            result = await self._mount_member_server(config)
-            return result
-        except Exception as e:
-            logger.exception(f"Failed to register member server '{config}': {e}")
-            return f"Failed to register member server '{config}'"
+    async def update_mcp_server_config(self, server_id: str, new_config: dict) -> str:
+        """Update the configuration of an existing member server."""
+        return await self._server_manager.update_server_config(
+            server_id=server_id,
+            new_config=new_config,
+            unmount_callback=self.unmount,
+            mount_callback=self.mount,
+        )
 
     async def delete_mcp_server(self, server_id: str) -> str:
-        """
-        Delete a single server.
-        """
+        """Delete a single server."""
         try:
             return await self.unmount_server(server_id)
         except Exception as e:
-            logger.exception(f"Failed to delete member server '{server_id}': {e}")
+            logger.exception("Failed to delete member server '%s': %s", server_id, e)
             return f"Failed to delete member server '{server_id}'"
 
     async def unmount_server(self, server_id: str) -> str:
+        """Unmount a member server and remove it from the DB."""
         self._server_manager.check_server_exist(server_id)
         self.unmount(server_id)
         self._server_manager.remove_mcp_server(server_id)
         self._server_manager.remove_member(server_id)
-        logger.info(f"Server {server_id} unmounted")
+        logger.info("Server %s unmounted", server_id)
         return f"Server '{server_id}' unmounted."
 
     async def get_tools(self, server_id: str | None = None) -> dict[str, Tool]:
+        """Return tools for a specific server or all servers."""
         if (tools := self._cache.get("tools")) is self._cache.NOT_FOUND:
-            tools: dict[str, Tool] = {}
             tools = await self._tool_manager.get_all_tools(server_id=server_id)
             self._cache.set("tools", tools)
         return tools
@@ -249,63 +221,23 @@ class MCPComposer(FastMCP):
         """Get status for all member servers."""
         return await self._server_manager.member_health(self._server_manager.list())
 
-    async def activate_mcp_server(self, server_id: str) -> str:
-        """
-        Reactivates a previously deactivated member server by loading its config,
-        updating status in DB, and mounting it.
-        """
-        try:
-            config = self._server_manager.prepare_activation(server_id)
-
-            result = await self._mount_member_server(config)
-            logger.info(f"Server '{server_id}' activated.")
-            return f"Server '{server_id}' activated: {result}"
-
-        except Exception as e:
-            logger.exception(f"Failed to activate server '{server_id}': {e}")
-            raise ToolError(f"Failed to activate server '{server_id}': {e}")
+    async def activate_mcp_server(
+            self, server_id: str
+        ) -> str:
+        """Reactivates a previously deactivated member server."""
+        return await self._server_manager.activate_server(
+            server_id=server_id, mount_callback=self.mount
+        )
 
     async def deactivate_mcp_server(self, server_id: str) -> str:
-        """
-        Deactivates a member server by unmounting it and marking it as deactivated in DB.
-        """
-        try:
-            self._server_manager.prepare_deactivation(server_id)
-
-            self.unmount(server_id)
-
-            logger.info(f"Server '{server_id}' deactivated.")
-            return f"Server '{server_id}' deactivated."
-
-        except NotFoundError as e:
-            logger.warning(f"Deactivation failed: {e}")
-            raise ToolError(str(e))
-
-        except Exception as e:
-            logger.exception(
-                f"Unexpected error during deactivation of '{server_id}': {e}"
-            )
-            raise ToolError(f"Failed to deactivate server '{server_id}': {e}")
+        """Deactivates a member server by unmounting it and marking it as deactivated."""
+        return self._server_manager.deactivate_server(
+            server_id=server_id, unmount_callback=self.unmount
+        )
 
     async def generate_tool_from_script(self, tool_config: dict) -> str:
-        """Create a tool from python script"""
+        """Create a tool from a python script."""
         fn = await self._tool_manager.tool_from_script(tool_config)
         if fn:
             self.add_tool(Tool.from_function(fn))
         return "Successfully added tools"
-
-    # async def get_user_profile(self) -> dict:
-    #     """
-    #     Returns the decoded JWT token for the current authenticated user.
-    #     """
-    #     token = self._get_token().replace("auth_", "")
-    #     return jwt.decode(token, options={"verify_signature": False})
-
-    # def _get_token(self) -> str:
-    #     access_token = get_access_token()
-    #     if not access_token:
-    #         raise ValueError("Not authenticated")
-    #     token = self.auth.token_mapping.get(access_token.token)
-    #     if not token:
-    #         raise ValueError("No token found for authenticated user")
-    #     return token

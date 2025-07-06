@@ -263,3 +263,33 @@ class CloudantAdapter(DatabaseInterface):
         tool_config["type"] = "tool"
         logger.info(f"Adding tool to database: {tool_config}")
         self._add_record(tool_config)
+
+    def update_server_config(self, config: dict) -> None:
+        """
+        Update the configuration of an existing server.
+        If the document does not exist, raise an error.
+        """
+        server_id = config.get("id")
+        if not server_id:
+            raise ValueError("Config must include 'id' to update.")
+
+        try:
+            existing = self._client.get_document(
+                db=self._db_name, doc_id=server_id
+            ).get_result()
+
+            config["_rev"] = existing["_rev"]
+
+            self._client.post_document(
+                db=self._db_name, document=Document(**config)
+            ).get_result()
+
+            logger.info(f"Updated configuration for server '{server_id}'")
+
+        except ApiException as e:
+            if e.code == 404:
+                logger.error(f"Server '{server_id}' not found in Cloudant.")
+                raise ValueError(f"Server '{server_id}' not found in Cloudant.")
+            else:
+                logger.error(f"Failed to update server '{server_id}': {e}")
+                raise
