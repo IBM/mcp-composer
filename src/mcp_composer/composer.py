@@ -196,12 +196,12 @@ class MCPComposer(FastMCP):
         logger.info("Server %s unmounted", server_id)
         return f"Server '{server_id}' unmounted."
 
-    async def get_tools(self, server_id: str | None = None) -> dict[str, Tool]:
-        """Return tools for a specific server or all servers."""
-        if (tools := self._cache.get("tools")) is self._cache.NOT_FOUND:
-            tools = await self._tool_manager.get_all_tools(server_id=server_id)
-            self._cache.set("tools", tools)
-        return tools
+    # async def get_tools(self, server_id: str | None = None) -> dict[str, Tool]:
+    #     """Return tools for a specific server or all servers."""
+    #     if (tools := self._cache.get("tools")) is self._cache.NOT_FOUND:
+    #         tools = await self._tool_manager.get_all_tools(server_id=server_id)
+    #         self._cache.set("tools", tools)
+    #     return tools
 
     async def member_health(self) -> list[dict]:
         """Get status for all member servers."""
