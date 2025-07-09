@@ -1,0 +1,159 @@
+type Query {
+  getAbility(ability: String!): Ability
+  getFuzzyAbility(ability: String!): [Ability]
+  getPokemonByDexNumber(number: Int!): Pokemon
+  getPokemon(pokemon: String!): Pokemon
+  getFuzzyPokemon(pokemon: String!): [Pokemon]
+  getAllPokemon: [Pokemon]
+  getItem(item: String!): Item
+  getFuzzyItem(item: String!): [Item]
+  getLearnset(pokemon: String!, moves: [String!]!): Learnset
+  getFuzzyLearnset(pokemon: String!, moves: [String!]!): Learnset
+  getMove(move: String!): Move
+  getFuzzyMove(move: String!): [Move]
+  getTypeMatchup(primaryType: String!): TypeMatchup
+  getNature(nature: String!): Nature
+  getAllNatures: [Nature]
+}
+
+type Ability {
+  key: String
+  name: String
+  desc: String
+  shortDesc: String
+  bulbapediaPage: String
+  serebiiPage: String
+  smogonPage: String
+  isNonstandard: Boolean
+  isFieldAbility: Boolean
+  pokemonThatHaveThisAbility: [Pokemon]
+}
+
+type Pokemon {
+  key: String
+  species: String
+  baseStatsTotal: Int
+  height: Float
+  weight: Float
+  color: String
+  classification: String
+  sprite: String
+  shinySprite: String
+  backSprite: String
+  shinyBackSprite: String
+  abilities: PokemonAbilities
+  types: [PokemonType]
+  evolutions: [Pokemon]
+  preevolutions: [Pokemon]
+  evYields: Stats
+  baseStats: Stats
+  gender: Gender
+  cry: String
+  flavorTexts: [FlavorText]
+  serebiiPage: String
+  smogonPage: String
+  bulbapediaPage: String
+  mythical: Boolean
+  legendary: Boolean
+}
+
+type PokemonAbilities {
+  first: Ability
+  second: Ability
+  hidden: Ability
+  special: Ability
+}
+
+type Stats {
+  hp: Int
+  attack: Int
+  defense: Int
+  specialattack: Int
+  specialdefense: Int
+  speed: Int
+}
+
+type PokemonType {
+  name: String
+  matchup: TypeMatchup
+}
+
+type TypeMatchup {
+  attacking: Matchup
+  defending: Matchup
+}
+
+type Matchup {
+  doubleEffectiveTypes: [String]
+  effectiveTypes: [String]
+  normalTypes: [String]
+  resistedTypes: [String]
+  doubleResistedTypes: [String]
+  effectlessTypes: [String]
+}
+
+type Item {
+  key: String
+  name: String
+  desc: String
+  shortDesc: String
+  bulbapediaPage: String
+  serebiiPage: String
+  smogonPage: String
+  isNonstandard: Boolean
+  generationIntroduced: Int
+  sprite: String
+}
+
+type Move {
+  key: String
+  name: String
+  type: String
+  category: String
+  basePower: Int
+  accuracy: Int
+  pp: Int
+  priority: Int
+  desc: String
+  shortDesc: String
+  zMovePower: Int
+  maxMovePower: Int
+  target: String
+  contestType: String
+  bulbapediaPage: String
+  serebiiPage: String
+  smogonPage: String
+  isNonstandard: Boolean
+  isFieldMove: Boolean
+  isZ: Boolean
+  isGMax: Boolean
+}
+
+type Learnset {
+  pokemonKey: String
+  species: String
+  sprite: String
+  shinySprite: String
+  backSprite: String
+  shinyBackSprite: String
+  color: String
+}
+
+type Gender {
+  male: Float
+  female: Float
+}
+
+type FlavorText {
+  game: String
+  flavor: String
+}
+
+type Nature {
+  key: String
+  name: String
+  increasedStat: String
+  decreasedStat: String
+  preferredFlavor: String
+  dislikedFlavor: String
+}

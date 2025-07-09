@@ -22,15 +22,21 @@ class ConfigKey(str, Enum):
     USERNAME = "username"
     PASSWORD = "password"
     LOGIN_URL = "login_url"
-    TOKEN_TYPE = "token_type"
+    TOKEN_TYPE = "token_type",
+    MEDIA_TYPE = "media_type"
+    MEDIA_TYPE_JSON = "json"
+    GRAPHQL = "graphql"
+    SCHEMA_FILEPATH = "schema_filepath"
 
 
 class MemberServerType(str, Enum):
-    OpenAPI = "openapi"
-    Client = "client"
+    OPENAPI = "openapi"
+    CLIENT = "client"
+    GRAPHQL = "graphql"
 
 
 class AuthStrategy(str, Enum):
+    BASIC = "basic"
     OAUTH = "oauth2"
     APIKEY = "apikey"
     BEARER = "bearer"
@@ -54,7 +60,7 @@ class ServerConfigValidator:
         """Run all validation checks."""
         if ConfigKey.AUTH_STRATEGY in self.config:
             self._validate_auth_dependency()
-        if self.config.get(ConfigKey.TYPE) == MemberServerType.OpenAPI:
+        if self.config.get(ConfigKey.TYPE) == MemberServerType.OPENAPI:
             self._validate_openapi_requirements()
         self._validate_client_requirements()
 
@@ -89,7 +95,7 @@ class ServerConfigValidator:
 
     def _validate_openapi_requirements(self) -> None:
         """Ensure 'endpoint' and 'openapi_url' exist if type is 'openapi'."""
-        if self.config.get(ConfigKey.TYPE) != MemberServerType.OpenAPI:
+        if self.config.get(ConfigKey.TYPE) != MemberServerType.OPENAPI:
             return  # nothing to validate
 
         openapi_config = self.config.get(ConfigKey.OPEN_API, {})
@@ -114,13 +120,28 @@ class ServerConfigValidator:
 
     def _validate_client_requirements(self) -> None:
         if (
-            self.config.get(ConfigKey.TYPE) == MemberServerType.Client
+            self.config.get(ConfigKey.TYPE) == MemberServerType.CLIENT
             and ConfigKey.ENDPOINT not in self.config
         ):
             raise ValidationError(
-                f"Missing {ConfigKey.ENDPOINT} for {MemberServerType.Client} type in server '{self.server_id}'"
+                f"Missing {ConfigKey.ENDPOINT} for {MemberServerType.CLIENT} type in server '{self.server_id}'"
             )
 
+    def validate_graphql_config(self) -> None:
+        """Ensure required fields exist if type is 'graphql'."""
+        if self.config.get(ConfigKey.TYPE) != MemberServerType.GRAPHQL:
+            return
+
+        graphql_config = self.config.get(ConfigKey.GRAPHQL)
+        if not graphql_config:
+            raise ValidationError(f"Missing required {ConfigKey.GRAPHQL} section in config.")
+
+        required_fields = [ConfigKey.ENDPOINT, ConfigKey.SCHEMA_FILEPATH]
+        missing = [field for field in required_fields if not graphql_config.get(field)]
+        if missing:
+            raise ValidationError(
+                f"Missing required field(s) in {ConfigKey.GRAPHQL}: {', '.join(missing)}"
+            )
 
 class AllServersValidator:
     def __init__(self, server: List[Dict[str, Any]]):

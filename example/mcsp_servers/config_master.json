@@ -1,0 +1,105 @@
+[
+  {
+    "id": "mcp-wxok",
+    "type": "openapi",
+    "open_api": {
+      "endpoint": "https://api.dl.watson-orchestrate.ibm.com/instances/20250501-1716-1901-7080-b12e0caed5d6/v1/orchestrate/",
+      "spec_filepath": "/Users/xx/mcp-composer/spec/wxo-openapi-spec.json",
+      "custom_routes": [
+        {
+          "methods": [
+            "GET"
+          ],
+          "pattern": ".*/.*",
+          "mcp_type": "TOOL"
+        },
+        {
+          "methods": [
+            "POST",
+            "DELETE",
+            "PUT",
+            "PATCH"
+          ],
+          "pattern": ".*",
+          "mcp_type": "EXCLUDE"
+        }
+      ]
+    },
+    "auth_strategy": "dynamic_bearer",
+    "auth": {
+      "apikey": "xxx",
+      "token_url": "https://iam.platform.saas.ibm.com/siusermgr/api/1.0/apikeys/token",
+      "media_type": "json"
+    },
+    "_id": "mcp-wxok"
+  },
+  {
+    "id": "mcp-eventbrite",
+    "type": "openapi",
+    "open_api": {
+      "endpoint": "https://www.eventbriteapi.com/v3",
+      "spec_filepath": "/Users/mansurah/GitHub/mcp-composer/spec/eventbrite-openapi.json",
+      "custom_routes": [
+        {
+          "methods": [
+            "GET"
+          ],
+          "pattern": ".*/users/.*",
+          "mcp_type": "RESOURCE_TEMPLATE"
+        },
+        {
+          "methods": [
+            "GET"
+          ],
+          "pattern": ".*/events/.*",
+          "mcp_type": "TOOL"
+        },
+        {
+          "methods": [
+            "POST"
+          ],
+          "pattern": ".*/",
+          "mcp_type": "EXCLUDE"
+        }
+      ]
+    },
+    "auth_strategy": "bearer",
+    "auth": {
+      "token": "xxx"
+    }
+  },
+  {
+  "id": "mcp-stock-info",
+  "type": "http",
+  "endpoint": "https://mcp-stock-info.1vgzmntiwjzl.eu-es.codeengine.appdomain.cloud/mcp"
+  },
+  {
+    "id": "mcp-countries",
+    "type": "graphql",
+    "graphql": {
+      "endpoint": "https://countries.trevorblades.com/",
+      "schema_filepath": "/Users/mansurah/GitHub/mcp-composer/example/graphql-to-mcp/countries.graphql"
+    },
+    "_id": "mcp-countries"
+  },
+  {
+    "id": "mcp-pokemon",
+    "type": "graphql",
+    "graphql": {
+      "endpoint": "https://graphqlpokemon.favware.tech/v8",
+      "schema_filepath": "/Users/mansurah/GitHub/mcp-composer/example/graphql-to-mcp/pokemon.graphql"
+    },
+    "_id": "mcp-pokemon"
+  },
+  {
+  "id": "mcp-server-fetch",
+  "type": "sse",
+  "endpoint": "https://mcp-server-fetch.1vgzmntiwjzl.eu-es.codeengine.appdomain.cloud/sse"
+ }
+
+
+
+  
+
+
+]

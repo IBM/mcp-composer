@@ -8,9 +8,10 @@ from fastmcp.client.auth.oauth import FileTokenStorage
 
 import httpx
 from mcp_composer.utils.logger import LoggerFactory
-from mcp_composer.utils import *
+from mcp_composer.utils import ConfigKey, MemberServerType, AuthStrategy
+from mcp_composer.utils import load_custom_mappings_from_json, load_json, load_spec_from_url
 from mcp_composer.auth_handler import DynamicTokenClient, DynamicTokenManager
-
+from mcp_composer.tools.graphql_tool import GraphQLTool
 
 logger = LoggerFactory.get_logger()
 
@@ -26,25 +27,30 @@ class MCPServerBuilder:
         self.config = config
         self.mcp_id = config["id"]
         self.mcp_type = config["type"]
+      
 
     async def build(self) -> FastMCP:
         logger.info(f"Building new {self.mcp_type} Server")
 
-        if self.mcp_type == MemberServerType.Client:
+        if self.mcp_type == MemberServerType.CLIENT:
             return await self._build_from_client()
 
         elif self.mcp_type in {"http", "sse"}:
             return await self._build_from_transport(transport_type=self.mcp_type)
 
-        elif self.mcp_type == MemberServerType.OpenAPI:
+        elif self.mcp_type == MemberServerType.OPENAPI:
             return await self._build_from_openapi()
 
+        elif self.mcp_type == MemberServerType.GRAPHQL:
+            return await self._build_from_graphql()
+        
         elif self.mcp_type == "fastapi":
             return self._build_from_fastapi()
 
         elif self.mcp_type == "local":
             return self._build_from_local_file()
 
+        
         else:
             raise ValueError(f"Unsupported MCP type: {self.mcp_type}")
 
@@ -133,6 +139,7 @@ class MCPServerBuilder:
                     base_url=base_url,
                     token_url=auth_config.get(ConfigKey.Token_URL),
                     api_key=auth_config.get(ConfigKey.APIKEY),
+                    media_type=auth_config.get(ConfigKey.MEDIA_TYPE, "")
                 )
 
             case AuthStrategy.BEARER:
@@ -162,26 +169,32 @@ class MCPServerBuilder:
                     http_client = await token_manager.get_authenticated_http_client_for_jessonid()
                 except KeyError as e:
                     # Required config missing
-                    logger.error(f"Missing configuration key: {e}")
+                    logger.error("Missing configuration key: %s", e)
                 
 
                 except httpx.HTTPError as e:
                     # Any HTTP-related error from httpx
-                    logger.error(f"HTTP error during authentication: {e}")
+                    logger.error("HTTP error during authentication: %s", e)
                  
 
                 except Exception as e:
                     # Catch-all for unexpected errors
-                    logger.error(f"Unexpected error: {e}")
+                    logger.error("Unexpected error: %s", e)
                          
             case _:
                 # Default/fallback client
                 http_client = httpx.AsyncClient(base_url=base_url)
-
-
-        mcp = FastMCP.from_openapi(spec, client=http_client, route_maps=custom_mappings)
-
+        mcp = FastMCP.from_openapi(spec, client=http_client, route_maps=custom_mappings) # type: ignore
         return mcp
+        
+    async def _build_from_graphql(self) -> FastMCP:
+        logger.info("Setting up Graphql MCP Server %s", self.config)
+        tool = GraphQLTool(self.config)
+        mcp = FastMCP(self.config.get(ConfigKey.ID,""))
+        mcp.add_tool(tool)
+        return mcp
+        
+            
 
     def _build_from_fastapi(self) -> FastMCP:
         raise NotImplementedError("Local file loading not yet supported.")

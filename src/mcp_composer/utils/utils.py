@@ -6,7 +6,6 @@ import aiohttp
 import asyncio
 import json
 from typing import Tuple
-from enum import Enum
 from aiohttp import ClientConnectorError
 from fastmcp.server.openapi import RouteMap, MCPType
 from fastmcp.tools.tool import Tool
@@ -17,11 +16,6 @@ from mcp_composer.exceptions import MemberServerError
 
 
 logger = LoggerFactory.get_logger()
-
-
-class MemberServerType(str, Enum):
-    OpenAPI = "openapi"
-    Client = "client"
 
 
 async def _get_status(session, server: MemberMCPServer) -> Tuple[int, MemberMCPServer]:

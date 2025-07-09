@@ -17,3 +17,5 @@ main.py
 # runtime generated file
 /mcp_servers.json
 
+example/mcsp_servers/config.json
+example/.DS_Store

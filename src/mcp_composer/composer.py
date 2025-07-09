@@ -4,7 +4,6 @@ Extends FastMCP with runtime composition, tool management, and database-backed c
 """
 
 import sys
-import inspect
 
 from typing import Any, Dict, Optional, Union
 
@@ -24,10 +23,6 @@ from mcp_composer.store.database import DatabaseInterface
 from mcp_composer.store.cloudant_adapter import CloudantAdapter
 from mcp_composer.store.local_file_adapter import LocalFileAdapter
 
-try:
-    from mcp_composer.custom_tool import tools as custom_tools
-except ImportError:
-    custom_tools = None
 
 load_dotenv()
 
@@ -88,7 +83,7 @@ class MCPComposer(FastMCP):
                 logger.error("Validation error: %s", e)
                 sys.exit(1)
 
-        self._load_custom_tools()
+
         self.add_tool(Tool.from_function(self.register_mcp_server))
         self.add_tool(Tool.from_function(self.update_mcp_server_config))
         self.add_tool(Tool.from_function(self.delete_mcp_server))
@@ -102,15 +97,6 @@ class MCPComposer(FastMCP):
         self.add_tool(Tool.from_function(self._tool_manager.remove_tools))
         self.add_tool(Tool.from_function(self._tool_manager.update_tool_description))
 
-    def _load_custom_tools(self):
-        """Load tools from dynamic tool manager and optional custom tool module."""
-        for tool_fn in self._tool_manager.fetch_dynamic_tool():
-            self.add_tool(Tool.from_function(tool_fn))
-
-        if custom_tools:
-            for name, func in inspect.getmembers(custom_tools, inspect.isfunction):
-                logger.info("Adding tool from custom tool folder: %s", name)
-                self.add_tool(Tool.from_function(func))
 
     async def _mount_member_server(self, config: dict) -> str:
         try:
@@ -140,7 +126,7 @@ class MCPComposer(FastMCP):
             return f"Server {server_id} mounted."
 
         except Exception as exc:
-            logger.error("Failed to mount server '%s': %s", config.get("id", "<missing‑id>"), exc)
+            logger.error("Failed to mount server '%s': %s", str(config.get("id", "<missing‑id>")), exc)
             return f"Failed to mount server {config.get('id', '<missing‑id>')}"
 
     async def setup_member_servers(self):
