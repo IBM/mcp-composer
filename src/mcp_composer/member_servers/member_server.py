@@ -37,7 +37,7 @@ class MemberMCPServer(BaseModel):
         ..., description="Original config used to build the server"
     )
     tool_count: Optional[int] = Field(None, description="Number of tools registered")
-    remove_tools: list[str] = Field(default_factory=list, description="Removed tools")
+    disabled_tools: list[str] = Field(default_factory=list, description="Removed tools")
     tools_description: dict[str, str] = Field(
         default_factory=dict, description="Removed tools"
     )

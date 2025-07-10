@@ -1,14 +1,18 @@
-import unittest
+"""MCP Composer tool management test"""
+
 import os
+import unittest
 import json
 from unittest.mock import MagicMock
 
+from test.composer_test import TestData
 from mcp_composer import MCPComposer
 from mcp_composer.store.database import DatabaseInterface
-from test.composer_test import TestData
 
 
 class TestTool(unittest.IsolatedAsyncioTestCase):
+    """MCP Composer tool management test cases"""
+
     async def asyncSetUp(self):
         current_dir = os.path.dirname(__file__)
         path = os.path.join(current_dir, "data/member_servers.json")
@@ -25,24 +29,28 @@ class TestTool(unittest.IsolatedAsyncioTestCase):
             self.test_data = json.load(f)
 
     async def test_get_tools_with_server_id(self):
-        tools = await self.gw.get_tools(server_id=TestData.SERVER_ID)
+        """Verify the tools associated with the member server."""
+        tools = await self.gw._tool_manager.get_all_tools(server_id=TestData.SERVER_ID)
         self.assertIsInstance(tools, dict)
         self.assertGreaterEqual(len(tools), 1)
 
     async def test_get_tool_config_by_name(self):
+        """Ensure tool config can be retrieved using tool name"""
         tool_config = await self.gw._tool_manager.get_tool_config_by_name(
             name=TestData.TOOL_NAME_1
         )
         self.assertEqual(tool_config[0]["name"], TestData.TOOL_NAME_WITHOUT_PREFIX)
 
     async def test_get_tool_config_by_server(self):
+        """Ensure tool config can be retrieved using server id"""
         tool_config = await self.gw._tool_manager.get_tool_config_by_server(
             server_id=TestData.SERVER_ID
         )
         self.assertEqual(len(tool_config), 4)
 
-    async def test_remove_tools(self):
-        tool_config = await self.gw._tool_manager.remove_tools(
+    async def test_disable_tools(self):
+        """Ensure tool disabled for the member server"""
+        tool_config = await self.gw._tool_manager.disable_tools(
             tools=TestData.TOOL_NAME_LIST, server_id=TestData.SERVER_ID
         )
         self.fake_db.get_document.return_value = self.test_data[
@@ -53,7 +61,22 @@ class TestTool(unittest.IsolatedAsyncioTestCase):
         )
         self.assertEqual(len(tool_config), 3)
 
+    async def test_enable_tools(self):
+        """Ensure tool enabled for the member server"""
+        tool_config = await self.gw._tool_manager.disable_tools(
+            tools=TestData.TOOL_NAME_LIST, server_id=TestData.SERVER_ID
+        )
+        tool_config = await self.gw._tool_manager.enable_tools(
+            tools=TestData.TOOL_NAME_LIST, server_id=TestData.SERVER_ID
+        )
+
+        tool_config = await self.gw._tool_manager.get_tool_config_by_server(
+            server_id=TestData.SERVER_ID
+        )
+        self.assertEqual(len(tool_config), 4)
+
     async def test_update_tool_description(self):
+        """Ensure that the tool description for the member server has been updated."""
         await self.gw._tool_manager.update_tool_description(
             tool=TestData.TOOL_NAME_2,
             description=TestData.TOOL_DESCRIPTION,

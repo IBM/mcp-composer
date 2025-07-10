@@ -9,10 +9,6 @@ class DatabaseInterface(ABC):
         pass
 
     @abstractmethod
-    def load_tools(self) -> List[Dict]:
-        pass
-
-    @abstractmethod
     def add_server(self, config: Dict) -> None:
         pass
 
@@ -25,7 +21,11 @@ class DatabaseInterface(ABC):
         pass
 
     @abstractmethod
-    def add_remove_tools(self, tools: list[str], server_id: str) -> None:
+    def enable_tools(self, tools: list[str], server_id: str) -> None:
+        pass
+
+    @abstractmethod
+    def disable_tools(self, tools: list[str], server_id: str) -> None:
         pass
 
     @abstractmethod
@@ -44,10 +44,6 @@ class DatabaseInterface(ABC):
         """Returns the status of the given server (e.g., 'active' or 'deactivated')"""
         pass
 
-    @abstractmethod
-    def add_tool(self, tool_config: dict) -> None:
-        pass
-    
     @abstractmethod
     def update_server_config(self, config: dict) -> None:
         pass

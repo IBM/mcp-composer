@@ -1,13 +1,17 @@
-# cloudant_adapter.py
-from typing import List, Dict
-from ibmcloudant import CloudantV1
+"""cloudant_adapter.py"""
+
+from typing import Dict, List
+
 from ibm_cloud_sdk_core import ApiException
 from ibm_cloud_sdk_core.authenticators import IAMAuthenticator
+from ibmcloudant import CloudantV1
 from ibmcloudant.cloudant_v1 import Document
-from mcp_composer.utils import LoggerFactory, check_duplicate_tool
-from mcp_composer.exceptions import ToolDuplicateError
-from .database import DatabaseInterface
 
+from mcp_composer.exceptions import ToolDuplicateError
+from mcp_composer.utils import LoggerFactory
+from mcp_composer.utils.tools import check_duplicate_tool
+
+from .database import DatabaseInterface
 
 logger = LoggerFactory.get_logger()
 
@@ -32,52 +36,40 @@ class CloudantAdapter(DatabaseInterface):
 
         return client
 
-    def _add_record(self, record: dict):
-        doc_id = record["id"]
+    def load_all_servers(self) -> List[Dict]:
         try:
-            existing = self._client.get_document(
-                db=self._db_name, doc_id=doc_id
+            result = self._client.post_all_docs(
+                db=self._db_name, include_docs=True
             ).get_result()
-            record["_rev"] = existing["_rev"]  # Set revision ID for update
-
-            # Update existing document
-            self._client.post_document(
-                db=self._db_name, document=Document(**record)
-            ).get_result()
-            logger.info("Updated record '%s' in Cloudant", doc_id)
-        except ApiException as e:
-            if e.code == 404:
-                try:
-                    self._client.post_document(
-                        db=self._db_name, document=Document(**record)
-                    ).get_result()
-                    logger.info("Saved record '%s' to Cloudant", doc_id)
-                except Exception as post_err:
-                    logger.error("Failed to save record '%s': %s", doc_id, post_err)
-            else:
-                logger.error("Error checking record '%s': %s", doc_id, e)
-
-    def _get_record_qurey(self, qurey_selector):
-        try:
-            result = self._client.post_find(
-                db=self._db_name,
-                selector=qurey_selector,
-            ).get_result()
-            return result.get("docs", [])  # type: ignore
+            return [row["doc"] for row in result.get("rows", []) if "doc" in row]
         except Exception as exc:
             logger.error("Cloudant read failed: %s", exc)
             return []
 
-    def load_all_servers(self) -> List[Dict]:
-        query = {"selector": {"type": {"$nin": ["tool"]}}}
-        return self._get_record_qurey(query["selector"])
-
-    def load_tools(self) -> List[Dict]:
-        query = {"selector": {"type": "tool"}}
-        return self._get_record_qurey(query["selector"])
-
     def add_server(self, config: Dict) -> None:
-        self._add_record(config)
+        doc_id = config["id"]
+        try:
+            existing = self._client.get_document(
+                db=self._db_name, doc_id=doc_id
+            ).get_result()
+            config["_rev"] = existing["_rev"]  # Set revision ID for update
+
+            # Update existing document
+            self._client.post_document(
+                db=self._db_name, document=Document(**config)
+            ).get_result()
+            logger.info("Updated server '%s' in Cloudant", doc_id)
+        except ApiException as e:
+            if e.code == 404:
+                try:
+                    self._client.post_document(
+                        db=self._db_name, document=Document(**config)
+                    ).get_result()
+                    logger.info("Saved server '%s' to Cloudant", doc_id)
+                except Exception as post_err:
+                    logger.error("Failed to save server '%s': %s", doc_id, post_err)
+            else:
+                logger.error("Error checking server '%s': %s", doc_id, e)
 
     def remove_server(self, server_id: str) -> None:
         try:
@@ -93,24 +85,27 @@ class CloudantAdapter(DatabaseInterface):
         except Exception as exc:
             logger.error("Cloudant operation failed: %s", exc)
 
-    def add_remove_tools(self, tools: list[str], server_id: str) -> None:
+    def disable_tools(self, tools: list[str], server_id: str) -> None:
         try:
             # check if server config already present in db
             existing_doc = self._client.get_document(
                 db=self._db_name, doc_id=server_id
             ).get_result()
             tools = list(set(tools))
-            existing_tools = existing_doc.get("remove_tools", [])
+            existing_tools = existing_doc.get("disabled_tools", [])
             tools_description = existing_doc.get("tools_description", {})
 
             # check the tool already present in remove tools list
             # if yes raise error, else update the remove tools list
             if existing_tools:
                 logger.info(
-                    f"""Remove tool list is already  
-                        {existing_tools} present in cloudant for server_id {server_id}. 
+                    """Remove tool list is already  
+                        %s present in cloudant for server_id %s. 
                         So, update the remove tool list.
-                        Response: {existing_doc}"""
+                        Response: %s""",
+                    existing_tools,
+                    server_id,
+                    existing_doc,
                 )
 
                 duplicate_tool = check_duplicate_tool(existing_tools, tools)
@@ -118,15 +113,14 @@ class CloudantAdapter(DatabaseInterface):
                     raise ToolDuplicateError(
                         f"Tool {duplicate_tool} is already removed"
                     )
-                else:
-                    existing_doc["remove_tools"].extend(tools)
+                existing_doc["disabled_tools"].extend(tools)
             else:
                 # if no remove tools list present add it
-                existing_doc["remove_tools"] = tools
+                existing_doc["disabled_tools"] = tools
 
             # Remove tool descriptions if they exist
-            if existing_doc["remove_tools"] and tools_description:
-                for tool in existing_doc["remove_tools"]:
+            if existing_doc["disabled_tools"] and tools_description:
+                for tool in existing_doc["disabled_tools"]:
                     tools_description.pop(tool, None)
 
             response = self._client.post_document(
@@ -135,7 +129,12 @@ class CloudantAdapter(DatabaseInterface):
             ).get_result()
 
             logger.info(
-                f"Saved remove tool list {existing_doc['remove_tools']} for server {server_id}. Response: {response}"
+                """Saved disabled tool list '%s'
+                    for server '%s'. 
+                    Response: '%s'""",
+                existing_doc["disabled_tools"],
+                server_id,
+                response,
             )
 
         except ApiException as e:
@@ -144,16 +143,46 @@ class CloudantAdapter(DatabaseInterface):
                 logger.info(
                     f"Server {server_id} is not exist in database. Adding the server with remove tool list"
                 )
-                tool_doc = Document(_id=server_id, id=server_id, remove_tools=tools)
+                tool_doc = Document(_id=server_id, id=server_id, disabled_tools=tools)
                 response = self._client.post_document(
                     db=self._db_name,
                     document=tool_doc,
                 ).get_result()
                 logger.info(
-                    f"Saved remove tool list {tools} for server {server_id}. Response: {response}"
+                    """Saved disabled tool list '%s'
+                    for server '%s'. 
+                    Response: '%s'""",
+                    tools,
+                    server_id,
+                    response,
                 )
             else:
-                logger.error(f"Failed to save remove tool list: {str(e)}")
+                logger.error("Failed to save disabled tool list:%s", str(e))
+
+    def enable_tools(self, tools: list[str], server_id: str) -> None:
+        """Enable tools which already disabled"""
+        try:
+            # check if server config already present in db
+            existing_doc = self._client.get_document(
+                db=self._db_name, doc_id=server_id
+            ).get_result()
+            existing_doc["disabled_tools"] = tools
+
+            response = self._client.post_document(
+                db=self._db_name,
+                document=existing_doc,
+            ).get_result()
+
+            logger.info(
+                """Saved disabled tool list '%s'
+                    for server '%s'. 
+                    Response: '%s'""",
+                existing_doc["disabled_tools"],
+                server_id,
+                response,
+            )
+        except Exception as e:
+            logger.error("Failed to save disabled tool list:%s", str(e))
 
     def update_tool_description(
         self, tool: str, description: str, server_id: str
@@ -258,11 +287,6 @@ class CloudantAdapter(DatabaseInterface):
         except Exception as e:
             logger.error(f"Unexpected error retrieving status for '{server_id}': {e}")
         return "unknown"
-
-    def add_tool(self, tool_config: Dict) -> None:
-        tool_config["type"] = "tool"
-        logger.info(f"Adding tool to database: {tool_config}")
-        self._add_record(tool_config)
 
     def update_server_config(self, config: dict) -> None:
         """

@@ -1,3 +1,5 @@
+"""Utility functions"""
+
 import subprocess
 import re
 import importlib.util
@@ -46,8 +48,8 @@ async def load_custom_mappings_from_json(json_data: str | list[dict]) -> list[Ro
 
         try:
             mcp_type = MCPType[mcp_type_str]
-        except KeyError:
-            raise ValueError(f"Invalid MCP type: {mcp_type_str}")
+        except KeyError as e:
+            raise ValueError(f"Invalid MCP type: {mcp_type_str}") from e
 
         route_maps.append(RouteMap(methods=methods, pattern=pattern, mcp_type=mcp_type))
 
@@ -98,34 +100,20 @@ async def get_member_health(
 
     except ClientConnectorError as e:
         logger.exception("Connection Error: Failed to connect to MCP server. %s", e)
-        raise MemberServerError(f"Failed to fetch the status of member servers: {e}")
+        raise MemberServerError("Failed to fetch the status of member servers: %s", e)
 
     except Exception as e:
         logger.exception("Failed to fetch the status of member servers: %s", e)
-        raise MemberServerError(f"Failed to fetch the status of member servers: {e}")
-
-
-def check_duplicate_tool(existing_tools: list[str], tools: list[str]) -> set:
-    tools_exists = set(existing_tools)
-    new_tools = set(tools)
-    return tools_exists.intersection(new_tools)
+        raise MemberServerError("Failed to fetch the status of member servers: %s", e)
 
 
 def get_server_doc_info(doc: dict) -> tuple[list[str], dict[str, str]]:
-    remove_tools = []
+    disabled_tools = []
     tools_description = {}
     if doc:
-        remove_tools = doc.get("remove_tools", [])
+        disabled_tools = doc.get("disabled_tools", [])
         tools_description = doc.get("tools_description", {})
-    return remove_tools, tools_description
-
-
-def format_tool(tool: Tool) -> dict:
-    return {
-        "name": tool.name,
-        "description": tool.description,
-        "parameters": tool.parameters,
-    }
+    return disabled_tools, tools_description
 
 
 def extract_imported_modules(script: str):
@@ -139,23 +127,3 @@ def ensure_dependencies_installed(dependencies):
         if importlib.util.find_spec(package) is None:
             print(f"Installing missing package: {package}")
             subprocess.check_call(["uv", "pip", "install", package])
-
-
-def create_api_request(tool):
-    logger.info(f"Generate tool from API request on the fly:{tool}")
-
-    async def api_tool():
-        data = tool.get("data")
-        headers = tool["headers"]
-        method = tool["method"]
-        body = data if data else None
-        url = tool["url"]
-
-        async with httpx.AsyncClient() as client:
-            req = client.build_request(method.upper(), url, headers=headers, json=body)
-            res = await client.send(req)
-            return {"status_code": res.status_code, "body": res.text}
-
-    api_tool.__name__ = tool["id"]
-    api_tool.__doc__ = tool["description"]
-    return api_tool

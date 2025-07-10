@@ -1,22 +1,27 @@
-import asyncio
+"""Tool Manager"""
+
 from typing import Optional
+import uncurl
+from pydantic import ValidationError
+
 from fastmcp.tools import ToolManager
 from fastmcp.tools.tool import Tool
-from pydantic import ValidationError
-import uncurl
+from fastmcp.settings import DuplicateBehavior
+
+
 from mcp_composer.exceptions import ToolGenerateError
 from mcp_composer.member_servers.member_server import HealthStatus, MemberMCPServer
-from fastmcp.exceptions import NotFoundError
-from fastmcp.settings import DuplicateBehavior
-from fastmcp.exceptions import ToolError
-
-
 from mcp_composer.settings.tool_setting import ToolSettings
 from mcp_composer.store.database import DatabaseInterface
-from mcp_composer.utils import LoggerFactory, get_server_doc_info, format_tool
+from mcp_composer.tools.model import OpenApiToolAuthConfig
+from mcp_composer.utils import LoggerFactory, get_server_doc_info
 from mcp_composer.member_servers import ServerManager
-from mcp_composer.utils.custom_tool import DynamicToolGenerator
-from mcp_composer.utils.utils import create_api_request
+from mcp_composer.utils.auth_strategy import get_client
+from mcp_composer.utils.custom_tool import (
+    DynamicToolGenerator,
+    OpenApiTool,
+)
+from mcp_composer.utils.tools import tool_exist, tool_config
 
 
 logger = LoggerFactory.get_logger()
@@ -35,40 +40,71 @@ class MCPToolManager(ToolManager):
         self.server_manager = server_manager
         self.database = database
 
-    def tool_config(
-        self, server_tools: dict[str, Tool], key: Optional[str] = None
-    ) -> list[dict]:
+    def unmount(self, server_id):
+        """Unmount a member server"""
+        # Find the matching mounted server and get its tools
+        for idx, mounted_server in enumerate(self._mounted_servers):
+            if mounted_server.prefix == server_id:
+                del self._mounted_servers[idx]
+
+    def filter_tools(self, tools: dict[str, Tool]) -> dict[str, Tool]:
+        """Filter tools by performing the following actions for a member server,
+        if it exists
+        1. Remove tools
+        2. Update description
         """
-        Get tool configuration details by tool name or server
-        """
-        if key:
-            tool = server_tools.get(key)
-            if not tool:
-                raise NotFoundError(f"Unknown tool: {key}")
-            return [format_tool(tool)]
+        try:
+            server_config = self.server_manager.list()
+            if not server_config:
+                return tools
 
-        return [format_tool(tool) for tool in server_tools.values()]
+            remove_set = set()
+            description_updates = {}
 
-    def fetch_dynamic_tool(self):
-        if self.database:
-            tools = self.database.load_tools()
-            logger.info(f"Tools fetched from database:{tools}")
-            tools_list = []
-            for tool in tools:
-                tools_list.append(create_api_request(tool))
-            return tools_list
-        return []
+            for member in server_config:
+                if member.health_status == HealthStatus.unhealthy:
+                    continue
 
-    async def tool_exist(
-        self, tools: list[str] | str, all_tools: dict[str, Tool]
-    ) -> None:
-        tools_to_check = [tools] if isinstance(tools, str) else tools
-        unknown_tools = [
-            tool for tool in tools_to_check if tool not in all_tools.keys()
-        ]
+                if member.disabled_tools:
+                    remove_set.update(member.disabled_tools)
+                if member.tools_description:
+                    description_updates.update(member.tools_description)
 
-        if unknown_tools:
-            raise NotFoundError(f"Unknown tool(s): {', '.join(unknown_tools)}")
+            filtered_tools = {}
+            for name, tool in tools.items():
+                if name in remove_set:
+                    continue
+                if name in description_updates:
+                    tool.description = description_updates[name]
+                filtered_tools[name] = tool
+            return filtered_tools
+        except Exception as e:
+            logger.exception("Tools filtering failed: %s", e)
+            raise
+
+    async def generate_tool_from_curl(self):
+        """Create tool from curl command"""
+        try:
+            return DynamicToolGenerator.read_curl_from_file()
+        except ToolGenerateError as e:
+            logger.exception(
+                "Failed to generate tool from saved curl config details: %s", e
+            )
+            raise ToolGenerateError(
+                "Failed to generate tool from saved curl config details"
+            ) from e
+
+    async def generate_tool_from_open_api(self):
+        """Create tool from OpenAPI specification"""
+        try:
+            return await OpenApiTool.read_openapi_from_file()
+        except Exception as e:
+            logger.exception(
+                "Failed to generate tool from saved OpenAPI specification: %s", e
+            )
+            raise ToolGenerateError(
+                "Failed to generate tool from saved OpenAPI specification"
+            ) from e
 
     async def fetch_server_tools(
         self,
@@ -76,12 +112,22 @@ class MCPToolManager(ToolManager):
         remove: Optional[list[str]] = None,
         description: Optional[dict[str, str]] = None,
     ) -> dict[str, Tool]:
-        remote_server = self.server_manager._mounted_servers.get(server.id)
-        result = {
-            k: v
-            for k, v in (await remote_server.get_tools()).items()  # type: ignore
-            if not remove or k not in remove
-        }
+        """Fetch member server tools"""
+        result = {}
+
+        # Find the matching mounted server and get its tools
+        for mounted_server in self._mounted_servers:
+            if mounted_server.prefix == server.id:
+                tools = await mounted_server.server.get_tools()
+                server_tools = {f"{server.id}_{k}": v for k, v in tools.items()}
+                result = {
+                    k: v
+                    for k, v in server_tools.items()
+                    if not remove or k not in remove
+                }
+                break  # Stop after finding the matching server
+
+        # Update tool descriptions if provided
         if description:
             for name, desc in description.items():
                 if name in result:
@@ -95,41 +141,22 @@ class MCPToolManager(ToolManager):
         """Get all tools by key."""
         tools: dict[str, Tool] = {}
 
-        # Case 2: Specific server
+        # Case 1: Specific server
         if server_id:
             server = self.server_manager.get(server_id)
             doc = self.server_manager.get_document(server_id)
             remove, description = get_server_doc_info(doc)
             logger.info(
-                f"Case 2: Fetch tools for server '{server_id}'. Removed: {remove}. Descriptions: {description}"
+                """Case 2: Fetch tools for server '%s'.
+                Removed: '%s'. Descriptions: '%s'""",
+                server_id,
+                remove,
+                description,
             )
             return await self.fetch_server_tools(server, remove, description)
 
-        server_config = self.server_manager.list()
-
-        # Case 3: Config-driven
-        if server_config:
-            for member in server_config:
-                if member.health_status == HealthStatus.unhealthy:
-                    continue
-                sid = member.id
-                remove = member.remove_tools
-                description = member.tools_description
-                server = self.server_manager.get(sid)
-                logger.info(
-                    f"Case 3: Fetch tools for server '{sid}'. Remove: {remove}. Descriptions: {description}"
-                )
-                tools.update(await self.fetch_server_tools(server, remove, description))
-                tools.update(self.get_tools())
-            return tools
-
-        # Default Case: All servers + composer
-        results = await asyncio.gather(
-            *[self.fetch_server_tools(server) for server in server_config]
-        )
-        for result in results:
-            tools.update(result)
-        tools.update(self.get_tools())
+        # Default Case: All tools
+        tools.update(await self.get_tools())
         logger.info("Default Case: Fetch all tools from member servers and composer")
         return tools
 
@@ -137,10 +164,10 @@ class MCPToolManager(ToolManager):
         """
         Get a tool configuration details
         """
-        all_tools = await self.get_all_tools()
-        tool_config = self.tool_config(all_tools, name)
-        logger.info(f"Tool configuration details by tool name: {tool_config}")
-        return tool_config
+        tools = self.filter_tools(await self.get_tools())
+        tool_configs = tool_config(tools, name)
+        logger.info("Tool configuration details by tool name:%s", tool_configs)
+        return tool_configs
 
     async def get_tool_config_by_server(self, server_id: str) -> list[dict]:
         """
@@ -148,23 +175,29 @@ class MCPToolManager(ToolManager):
         """
         self.server_manager.check_server_exist(server_id)
         server_tools = await self.get_all_tools(server_id)
-        tool_config = self.tool_config(server_tools)
-        logger.info(f"Tool configuration details by server name: {tool_config}")
-        return tool_config
+        tool_configs = tool_config(server_tools)
+        logger.info("Tool configuration details by server name: %s", tool_configs)
+        return tool_configs
 
-    async def remove_tools(self, tools: list[str], server_id: str) -> str:
+    async def disable_tools(self, tools: list[str], server_id: str) -> str:
         """
-        Remove a tool or multiple from the servers and composer
+        disable a tool or multiple tools from the member server
         """
         self.server_manager.check_server_exist(server_id)
-        if "remove_tools" in tools:
-            raise ToolError("Tool: remove_tools can't be removed")
-
         server_tools = await self.get_all_tools(server_id)
-        await self.tool_exist(tools, server_tools)
-        self.server_manager.add_remove_tools(tools, server_id)
-        logger.info(f"Removed {tools} tools from server")
-        return f"Removed {tools} tool from server"
+        await tool_exist(tools, server_tools)
+        self.server_manager.disable_tools(tools, server_id)
+        logger.info("Disabled %s tools from server", tools)
+        return f"Disabled {tools} tools from server {server_id}"
+
+    async def enable_tools(self, tools: list[str], server_id: str) -> str:
+        """
+        enable a tool or multiple tools from the member server
+        """
+        self.server_manager.check_server_exist(server_id)
+        self.server_manager.enable_tools(tools, server_id)
+        logger.info("Enabled %s tools from server", tools)
+        return f"Enabled {tools} tools from server {server_id}"
 
     async def update_tool_description(
         self, tool: str, description: str, server_id: str
@@ -174,22 +207,26 @@ class MCPToolManager(ToolManager):
         """
         self.server_manager.check_server_exist(server_id)
         server_tools = await self.get_all_tools(server_id)
-        await self.tool_exist(tool, server_tools)
+        await tool_exist(tool, server_tools)
         self.server_manager.update_tool_description(tool, description, server_id)
         logger.info(
-            f"Updated Tool: {tool} with description: {description} for the server: {server_id}"
+            "Updated tool '%s' with description '%s' for server '%s'",
+            tool,
+            description,
+            server_id,
         )
         return f"Updated {tool} with description: {description}"
 
-    async def tool_from_script(self, tool_config: dict):
+    async def tool_from_script(self, config: dict):
         """Create Tool dynamically from the config script"""
         try:
             # Validate and parse input
-            script_model = ToolSettings(**tool_config)
+            script_model = ToolSettings(**config)
             if script_model.script_config:
                 logger.info("Generate tool from python script")
                 return DynamicToolGenerator().create_from_script(script_model)
-            elif script_model.curl_config:
+
+            if script_model.curl_config:
                 parsed = uncurl.parse_context(script_model.curl_config["value"])
                 tool_data = {
                     "_id": script_model.name,
@@ -201,20 +238,36 @@ class MCPToolManager(ToolManager):
                     "url": parsed.url,
                 }
                 logger.info(
-                    f"Generate tool from curl command, parsed details:{tool_data}"
+                    "Generate tool from curl command, parsed details:%s", tool_data
                 )
-                if self.database:
-                    self.database.add_tool(tool_data)
-                    return create_api_request(tool_data)
+                DynamicToolGenerator.write_curl_to_file(tool_data)
+                return DynamicToolGenerator.create_api_request(tool_data)
 
-            else:
-                raise ToolGenerateError(
-                    "Either 'curl_config' or 'script_config' must be provided."
-                )
         except ValidationError as e:
             logger.exception("Invalid input: %s", e.errors())
-            raise ToolGenerateError(f"Invalid input:{e.errors()}")
+            raise ToolGenerateError(f"Invalid input: {e.errors()}") from e
 
         except Exception as e:
-            logger.exception(f"Failed to generate tool from config: {e}")
-            raise ToolGenerateError(str(e))
+            logger.exception("Failed to generate tool from config:%s", e)
+            raise ToolGenerateError(str(e)) from e
+
+    async def tool_from_open_api(self, open_api: dict, auth_config: dict | None = None):
+        """Create tool from OpenAPI specification"""
+        try:
+            # for now, considering only one server
+            server_url = open_api["servers"][0]["url"]
+            server_name = open_api["info"]["title"].replace(" ", "_")
+            if auth_config:
+                OpenApiToolAuthConfig(**auth_config)
+            OpenApiTool(server_name, open_api, auth_config).write_openapi()
+            return server_name, await get_client(server_url, auth_config)
+
+        except KeyError as e:
+            logger.exception("Failed to generate tool from openapi:%s", e)
+            raise ToolGenerateError(
+                "Failed to generate tool from openapi: server url or title is missing"
+            ) from e
+
+        except Exception as e:
+            logger.exception("Failed to generate tool from openapi:%s", e)
+            raise ToolGenerateError(f"Failed to generate tool from openapi:{e}") from e

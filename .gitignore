@@ -13,7 +13,8 @@ custom_tool/
 main.py
 .env
 .env.oauth
-
+.DS_Store
+.vscode
 # runtime generated file
 /mcp_servers.json
 

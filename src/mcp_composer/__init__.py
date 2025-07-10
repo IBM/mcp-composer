@@ -1,5 +1,3 @@
-from importlib.metadata import version
-
 from mcp_composer.composer import MCPComposer
 from .utils import (
     LoggerFactory,

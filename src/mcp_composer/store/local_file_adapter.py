@@ -1,23 +1,31 @@
+"""Local File adapter"""
+
+import os
 import json
 from pathlib import Path
 from typing import List, Dict
-from mcp_composer.utils import LoggerFactory, check_duplicate_tool
-from mcp_composer.exceptions import ToolDuplicateError
-from .database import DatabaseInterface
-import os
 from dotenv import load_dotenv, find_dotenv
+
+from mcp_composer.utils import LoggerFactory
+from mcp_composer.exceptions import ToolDuplicateError
+from mcp_composer.utils.tools import check_duplicate_tool
+from .database import DatabaseInterface
 
 load_dotenv(find_dotenv(".env"))
 
 logger = LoggerFactory.get_logger()
 
+MEMBER_SERVER_CONFIG_FILE_PATH = os.environ["SERVER_CONFIG_FILE_PATH"]
+
 
 class LocalFileAdapter(DatabaseInterface):
-    def __init__(self):
-        self._file_path = Path(
-            os.environ.get("SERVER_CONFIG_FILE_PATH", "mcp_server.json")
-        )
-        self._tool_path = Path(os.environ.get("TOOLS_CONFIG_FILE_PATH", "tools.json"))
+    """Local file storage"""
+
+    def __init__(
+        self,
+        file_path: str = MEMBER_SERVER_CONFIG_FILE_PATH,
+    ):
+        self._file_path = Path(file_path)
         self._ensure_file_exists()
 
     def _ensure_file_exists(self):
@@ -26,27 +34,23 @@ class LocalFileAdapter(DatabaseInterface):
             with open(self._file_path, "w") as f:
                 json.dump([], f)
 
-    def _read_data(self, file_type="server") -> List[Dict]:
-        path = self._tool_path if file_type == "tool" else self._file_path
-
+    def _read_data(self) -> List[Dict]:
         try:
-            with open(path, "r") as f:
+            with open(self._file_path, "r") as f:
                 return json.load(f)
         except (json.JSONDecodeError, FileNotFoundError):
             return []
 
-    def _write_data(self, data: List[Dict], file_type="server"):
-        path = self._tool_path if file_type == "tool" else self._file_path
-        with open(path, "w") as f:
+    def _write_data(self, data: List[Dict]):
+        with open(self._file_path, "w") as f:
             json.dump(data, f, indent=2)
 
     def load_all_servers(self) -> List[Dict]:
+        """Fetch all member server from file storage"""
         return self._read_data()
 
-    def load_tools(self) -> List[Dict]:
-        return self._read_data(file_type="tool")
-
     def add_server(self, config: Dict) -> None:
+        """Add members server"""
         data = self._read_data()
         server_id = config["id"]
 
@@ -65,6 +69,7 @@ class LocalFileAdapter(DatabaseInterface):
         self._write_data(data)
 
     def remove_server(self, server_id: str) -> None:
+        """Remove members server"""
         data = self._read_data()
         updated_data = [server for server in data if server.get("id") != server_id]
 
@@ -75,17 +80,20 @@ class LocalFileAdapter(DatabaseInterface):
             logger.info("Server '%s' not found in local file", server_id)
 
     def get_document(self, server_id: str) -> Dict:
-        # get the server config details of a single server
+        """get the server config details of a single server"""
         data = self._read_data()
         for server_cfg in data:
             if server_cfg["id"] == server_id:
                 logger.info(
-                    f"Retrive server({server_id}) config details from local. Response: {server_cfg}"
+                    "Retrieve server(%s) config details from local. Response: %s",
+                    server_id,
+                    server_cfg,
                 )
             return server_cfg
         return {}
 
-    def add_remove_tools(self, tools: list[str], server_id: str) -> None:
+    def disable_tools(self, tools: list[str], server_id: str) -> None:
+        """Add or Update disabled tools in file for the member server"""
         data = self._read_data()
         tools = list(set(tools))
 
@@ -93,38 +101,55 @@ class LocalFileAdapter(DatabaseInterface):
             if server.get("id") != server_id:
                 continue
 
-            existing_tools = server.get("remove_tools", [])
+            existing_tools = server.get("disabled_tools", [])
             tools_description = server.get("tools_description", {})
 
             duplicate_tool = check_duplicate_tool(existing_tools, tools)
             if duplicate_tool:
                 raise ToolDuplicateError(f"Tool {duplicate_tool} is already removed")
 
-            # Update remove_tools
+            # Update disabled_tools
             if existing_tools:
-                server["remove_tools"].extend(tools)
-                logger.info(
-                    f"Updated remove tool list for server {server_id}. "
-                    f"Previous tools: {existing_tools}"
-                )
+                server["disabled_tools"].extend(tools)
+                logger.info("Updated remove tool list for server:%s", server_id)
+                logger.info("Previous tools:%s", existing_tools)
             else:
-                server["remove_tools"] = tools
+                server["disabled_tools"] = tools
                 logger.info(
-                    f"Added new remove tool list {tools} for server {server_id}."
+                    "Added new remove tool list: %s  for server %s", tools, server_id
                 )
 
             # Remove tool descriptions if they exist
-            if server["remove_tools"] and tools_description:
-                for tool in server["remove_tools"]:
+            if server["disabled_tools"] and tools_description:
+                for tool in server["disabled_tools"]:
                     tools_description.pop(tool, None)
 
             break
 
         self._write_data(data)
 
+    def enable_tools(self, tools: list[str], server_id: str) -> None:
+        """Enable tools which already disabled"""
+        data = self._read_data()
+        tools = list(set(tools))
+        for server in data:
+            if server.get("id") != server_id:
+                continue
+
+            server["disabled_tools"] = tools = tools
+            logger.info(
+                "Updated disabled tool list for server:%s, disabled tools:%s",
+                server_id,
+                server["disabled_tools"],
+            )
+
+            break
+        self._write_data(data)
+
     def update_tool_description(
         self, tool: str, description: str, server_id: str
     ) -> None:
+        """store tool description of member server in file storage"""
         data = self._read_data()
         for server in data:
             if server.get("id") == server_id:
@@ -134,48 +159,37 @@ class LocalFileAdapter(DatabaseInterface):
                 if tools_description:
                     tools_description.update({tool: description})
                     logger.info(
-                        f"Tool description: {tools_description} is updated for server: {server_id}"
+                        "Tool description:%s is updated for server: %s",
+                        tools_description,
+                        server_id,
                     )
                 else:
                     server["tools_description"] = {tool: description}
                     logger.info(
-                        f"Tool description: {tools_description} is added for server: {server_id}"
+                        "Tool description: %s is added for server: %s",
+                        tools_description,
+                        server_id,
                     )
 
         self._write_data(data)
 
     def mark_deactivated(self, server_id: str) -> None:
+        """Save deactivated member server"""
         data = self._read_data()
         for server in data:
             if server.get("id") == server_id:
                 server["status"] = "deactivated"
-                logger.info(f"Marked server '{server_id}' as deactivated.")
+                logger.info("Marked server %s  as deactivated.", server_id)
                 break
         self._write_data(data)
 
     def get_server_status(self, server_id: str) -> str:
+        """Get server status"""
         data = self._read_data()
         for server in data:
             if server.get("id") == server_id:
                 return server.get("status", "active")
         return "unknown"
-
-    def add_tool(self, tool_config: dict) -> None:
-        data = self._read_data(file_type="tool")
-        tool_id = tool_config.get("id")
-        updated = False
-        for i, tool in enumerate(data):
-            if tool.get("id") == tool_id:
-                data[i] = tool_config  # Overwrite with new config
-                updated = True
-                logger.info("Updated tool '%s' in local file", tool_id)
-                break
-
-        if not updated:
-            data.append(tool_config)
-            logger.info("Added new tool '%s' to local file", tool_id)
-
-        self._write_data(data, file_type="tool")
 
     def update_server_config(self, config: dict) -> None:
         """
@@ -198,4 +212,4 @@ class LocalFileAdapter(DatabaseInterface):
             raise ValueError(f"Server '{server_id}' not found in local database")
 
         self._write_data(data)
-        logger.info(f"Updated local config for server '{server_id}'")
+        logger.info("Updated local config for server %s", server_id)

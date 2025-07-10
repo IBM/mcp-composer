@@ -10,14 +10,15 @@ from fastmcp.settings import DuplicateBehavior
 from fastmcp.exceptions import NotFoundError, ToolError
 
 from mcp_composer.member_servers.builder import MCPServerBuilder
-from mcp_composer.utils import LoggerFactory, get_member_health, check_duplicate_tool
+from mcp_composer.utils import LoggerFactory, get_member_health
 from mcp_composer.member_servers.member_server import HealthStatus, MemberMCPServer
 from mcp_composer.exceptions import (
     MemberServerError,
     ToolDuplicateError,
-    ToolRemoveError,
+    ToolDisableError,
 )
 from mcp_composer.store.database import DatabaseInterface
+from mcp_composer.utils.tools import check_duplicate_tool
 from mcp_composer.utils.validator import ServerConfigValidator, ValidationError
 
 logger = LoggerFactory.get_logger()
@@ -43,7 +44,6 @@ class ServerManager:
             serializer or self.default_serializer
         )
         self._database = database
-        self._mounted_servers = {}
 
         if duplicate_behavior is None:
             duplicate_behavior = "warn"
@@ -58,12 +58,13 @@ class ServerManager:
 
     @staticmethod
     def default_serializer(server_id: str, member: MemberMCPServer):
+        """serializer convert to dict"""
         return member.to_dict()
 
     async def _mount_and_register_server(
         self,
         config: dict,
-        mount_callback: Callable[[str, Any], None],
+        mount_callback: Callable[[Any, str], None],
         save_to_db: bool = True,
     ) -> str:
         server_id = config["id"]
@@ -72,7 +73,7 @@ class ServerManager:
         builder = MCPServerBuilder(config)
         sub_mcp = await builder.build()
 
-        mount_callback(server_id, sub_mcp)
+        mount_callback(sub_mcp, server_id)
 
         member = MemberMCPServer(
             id=server_id,
@@ -94,7 +95,7 @@ class ServerManager:
     async def register_server(
         self,
         config: dict,
-        mount_callback: Callable[[str, Any], None],
+        mount_callback: Callable[[Any, str], None],
     ) -> str:
         """Register a new member server."""
         try:
@@ -116,14 +117,18 @@ class ServerManager:
         server_id: str,
         new_config: dict,
         unmount_callback: Callable[[str], Any],
-        mount_callback: Callable[[str, Any], None],
+        mount_callback: Callable[[Any, str], None],
     ) -> str:
         """Update an existing server's configuration."""
         try:
-            logger.info("Updating server '%s' with new config: %s", server_id, new_config)
+            logger.info(
+                "Updating server '%s' with new config: %s", server_id, new_config
+            )
 
             if new_config.get("id") and new_config["id"] != server_id:
-                raise ValidationError("Server ID in config does not match the target server ID.")
+                raise ValidationError(
+                    "Server ID in config does not match the target server ID."
+                )
             new_config["id"] = server_id
 
             ServerConfigValidator(new_config).validate()
@@ -145,13 +150,15 @@ class ServerManager:
             raise ToolError(f"Failed to update server '{server_id}': {err}") from err
 
         except Exception as e:
-            logger.exception("Unexpected error while updating server '%s': %s", server_id, e)
+            logger.exception(
+                "Unexpected error while updating server '%s': %s", server_id, e
+            )
             raise ToolError(f"Failed to update server '{server_id}': {e}") from e
 
     async def activate_server(
         self,
         server_id: str,
-        mount_callback: Callable[[str, Any], None],
+        mount_callback: Callable[[Any, str], None],
     ) -> str:
         """Activate a previously deactivated server."""
         try:
@@ -161,16 +168,16 @@ class ServerManager:
                 logger.warning("Server '%s' already mounted.", server_id)
                 return f"Server '{server_id}' already mounted."
 
-            return await self._mount_and_register_server(config, mount_callback, save_to_db=False)
+            return await self._mount_and_register_server(
+                config, mount_callback, save_to_db=False
+            )
 
         except Exception as e:
             logger.exception("Failed to activate server '%s': %s", server_id, e)
             raise ToolError(f"Failed to activate server '{server_id}': {e}") from e
 
     def deactivate_server(
-        self,
-        server_id: str,
-        unmount_callback: Callable[[str], None]
+        self, server_id: str, unmount_callback: Callable[[str], None]
     ) -> str:
         """Deactivate a mounted server."""
         try:
@@ -185,6 +192,7 @@ class ServerManager:
             raise ToolError(f"Failed to deactivate server '{server_id}': {e}") from e
 
     async def member_health(self, config: list[MemberMCPServer]) -> list[dict]:
+        """Return member server's health status"""
         server_config = config if config else self.list()
         health_status = await get_member_health(server_config)
         return health_status
@@ -208,35 +216,39 @@ class ServerManager:
         ]
 
     def check_server_exist(self, server_id) -> None:
+        """Check member server is mounted or not"""
         if not self.has_member_server(server_id):
             raise NotFoundError(f"Server '{server_id}' not mounted.")
 
     def has_member_server(self, key: str) -> bool:
-        """Check if a memeber server exists."""
+        """Check if a member server exists."""
         return key in self._member_servers
 
     def add_member(self, server_id: str, server: MemberMCPServer):
+        """Add member server in-memory"""
         if server_id in self._member_servers:
-            logger.warning(f"Overwriting existing MCP server: {server_id}")
+            logger.warning("Overwriting existing MCP server: %s", server_id)
         self._member_servers[server_id] = server
-        logger.info(f"Mounted MCP server: {server_id}")
+        logger.info("Mounted MCP server:%s", server_id)
 
     def update_server_db(self, config: dict) -> None:
         """Update the server config in the database."""
         server_id = config.get("id")
         if not server_id:
             raise ValueError("Config must include 'id' to update.")
-        self._database.update_server_config(config)
-        return
+        if self._database:
+            self._database.update_server_config(config)
 
     def remove_member(self, server_id: str):
+        """Remove a member server"""
         if server_id not in self._member_servers:
-            logger.warning(f"MCP server '{server_id}' not found.")
+            logger.warning("MCP server '%s' not found.", server_id)
             return
         del self._member_servers[server_id]
-        logger.info(f"Unmounted MCP server: {server_id}")
+        logger.info("Unmounted MCP server: %s", server_id)
 
     def get(self, server_id: str) -> MemberMCPServer:
+        """Return member server details"""
         if server_id not in self._member_servers:
             raise NotFoundError(f"MCP Server '{server_id}' not mounted.")
         if self._member_servers[server_id].health_status == HealthStatus.unhealthy:
@@ -244,71 +256,104 @@ class ServerManager:
         return self._member_servers[server_id]
 
     def list(self) -> list[MemberMCPServer]:
+        """List all member server"""
         return list(self._member_servers.values())
 
     def list_serialized(self) -> Dict[str, Any]:
+        """List all member server"""
         return {
             server_id: self._serializer(server_id, member)
             for server_id, member in self._member_servers.items()
         }
 
     def add_server_db(self, config: dict) -> None:
+        """Add member server to database"""
         if self._database:
             self._database.add_server(config)
 
     def remove_mcp_server(self, server_id: str) -> None:
+        """Remove member server from database"""
         if self._database:
             self._database.remove_server(server_id)
 
     def load_all_servers_db(self) -> List[dict]:
+        """fetch all member server from database"""
         if self._database is None:
             return []
         return self._database.load_all_servers()
 
-    def add_remove_tools(self, tools: List[str], server_id: str) -> None:
+    def disable_tools(self, tools: List[str], server_id: str) -> None:
+        """Disable tools of member server"""
         try:
             tools = list(set(tools))
             member = self.get(server_id)
-            existing_tools = member.remove_tools
+            existing_tools = member.disabled_tools
             tools_description = member.tools_description
             duplicate_tool = check_duplicate_tool(existing_tools, tools)
 
             if duplicate_tool:
-                raise ToolDuplicateError(f"Tool {duplicate_tool} is already removed")
+                raise ToolDuplicateError(f"Tool {duplicate_tool} is already disabled")
 
             existing_tools.extend(tools)
-            logger.info(f"Added new remove tool list {tools} for server {server_id}.")
+            logger.info(
+                "Added new disabled tool list %s for server %s.", tools, server_id
+            )
 
             # Remove tool descriptions if they exist
             if existing_tools and tools_description:
                 for tool in existing_tools:
                     tools_description.pop(tool, None)
         except Exception as e:
-            raise ToolRemoveError(f"Failed to remove tool: {e}")
+            raise ToolDisableError(f"Failed to disable tool: {e}") from e
 
         if self._database:
-            self._database.add_remove_tools(tools, server_id)
+            self._database.disable_tools(tools, server_id)
+
+    def enable_tools(self, tools: List[str], server_id: str) -> None:
+        """Enable tools of member server and add to database"""
+        try:
+            tools = list(set(tools))
+            member = self.get(server_id)
+            disabled_tools = member.disabled_tools
+            tools_to_remove = [tool for tool in tools if tool in disabled_tools]
+            if not tools_to_remove:
+                raise ValueError("No tools disabled")
+
+            # Remove matching tools from disabled_tools
+            member.disabled_tools = [
+                tool for tool in disabled_tools if tool not in tools_to_remove
+            ]
+            if self._database:
+                self._database.enable_tools(member.disabled_tools, server_id)
+
+        except Exception as e:
+            raise ToolDisableError(f"Failed to disable tool: {e}") from e
 
     def update_tool_description(
         self, tool: str, description: str, server_id: str
     ) -> None:
+        """Update member server's tool description"""
         member = self.get(server_id)
         # if tools description already found, update it
         # if not add the tools description
         member.tools_description.update({tool: description})
         logger.info(
-            f"Tool description: {member.tools_description} is added for server: {server_id}"
+            "Tool description:%s  is added for server:%s ",
+            member.tools_description,
+            server_id,
         )
 
         if self._database:
             self._database.update_tool_description(tool, description, server_id)
 
     def get_document(self, server_id: str) -> Dict:
+        """Get a member server details from database"""
         if self._database is None:
             return {}
         return self._database.get_document(server_id)
 
     def get_member(self, server_id: str) -> MemberMCPServer | None:
+        """Get a member server details from in-memory"""
         return self._member_servers.get(server_id)
 
     def prepare_activation(self, server_id: str) -> dict:
@@ -347,7 +392,14 @@ class ServerManager:
         self.remove_member(server_id)
 
     def mark_deactivated(self, server_id: str) -> None:
-        self._database.mark_deactivated(server_id)
+        """Deactivate the member server"""
+        if self._database:
+            return self._database.mark_deactivated(server_id)
+        return None
 
     def get_server_status(self, server_id: str) -> str:
-        return self._database.get_server_status(server_id)
+        """Activate the member server"""
+        if self._database:
+            return self._database.get_server_status(server_id)
+
+        return "unknown"

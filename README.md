@@ -90,11 +90,14 @@ The goal is to provide a single unified MCP Composer that:
 - member_health: Get status for all member servers.
 - activate_mcp_server: Reactivates a previously deactivated member server by loading its config, updating status in DB, and mounting it.
 - deactivate_mcp_server: Deactivates a member server by unmounting it and marking it as deactivated in DB.
+- list_member_servers: List status of all member servers (active or deactivated).
 - get_tool_config_by_name: Get a tool configuration details
 - get_tool_config_by_server: Get all tool configuration details of a specific member server
-- remove_tools: Remove a tool or multiple from the servers and Composer
-- list_member_servers: List status of all member servers (active or deactivated).
+- disable_tools: Disable a tool or multiple from the servers and Composer
+- enable_tools: Enable a tool or multiple from the servers and Composer
 - update_tool_description: Update tool description of member servers
+- add_tools: Add tool using curl command or Python script
+- add_tools_from_openapi: Add tool using the OpenAPI specifications
 
 ### Demo using MCP Inspector
 

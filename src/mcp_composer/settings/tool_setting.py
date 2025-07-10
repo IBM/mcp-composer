@@ -1,9 +1,13 @@
+"""Tool settings for tool creation using curl command or Python script"""
+
 from typing import Optional, Dict
 from pydantic_settings import BaseSettings
 from pydantic import Field, field_validator, model_validator
 
 
 class ToolSettings(BaseSettings):
+    """Tool settings for tool creation using curl command or Python script"""
+
     name: str = Field(..., description="Name of the tool")
     tool_type: str = Field(
         ..., description="Type of tool: either from a Python script or a curl command"
@@ -27,14 +31,16 @@ class ToolSettings(BaseSettings):
 
     @model_validator(mode="after")
     def validate_config_sources(self) -> "ToolSettings":
+        """Validate config value is present or not"""
         if not self.curl_config and not self.script_config:
             raise ValueError(
                 "Either 'curl_config' or 'script_config' must be provided."
             )
         return self
 
-    @field_validator("script_config")
+    @field_validator("curl_config")
     def validate_curl_config(cls, curl_config):
+        """validate curl config is not empty"""
         if curl_config:
             for k, v in curl_config.items():
                 if not k.strip() and k.strip() == "value":
@@ -47,6 +53,7 @@ class ToolSettings(BaseSettings):
 
     @field_validator("script_config")
     def validate_script_config(cls, script_config):
+        """validate python script config is not empty"""
         if script_config:
             for k, v in script_config.items():
                 if not k.strip() and k.strip() == "value":

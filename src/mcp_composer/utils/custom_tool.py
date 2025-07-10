@@ -1,10 +1,19 @@
+"""Custom tool utility functions"""
+
+from copy import deepcopy
+import json
 import os
 import ast
+from pathlib import Path
 import textwrap
+from typing import Dict
+
+import httpx
 
 
 from mcp_composer.exceptions import ToolGenerateError
 from mcp_composer.settings.tool_setting import ToolSettings
+from mcp_composer.utils.auth_strategy import get_client
 from mcp_composer.utils.logger import LoggerFactory
 from mcp_composer.utils.utils import (
     ensure_dependencies_installed,
@@ -14,10 +23,21 @@ from mcp_composer.utils.utils import (
 logger = LoggerFactory.get_logger()
 
 
+class ToolPaths:
+    "Custom tool paths"
+
+    OUTPUT_DIR_NAME = "custom_tool"
+    TOOLS_FILE_NAME = "tools.py"
+    CURL_TOOLS_FILE_NAME = "tools.json"
+    CURL_DIR_NAME = "curl"
+
+
 class DynamicToolGenerator:
+    """Custom Tool generator class"""
+
     def __init__(self):
-        self.output_dir = "custom_tool"
-        self.file_name = "tools.py"
+        self.output_dir = ToolPaths.OUTPUT_DIR_NAME
+        self.file_name = ToolPaths.TOOLS_FILE_NAME
 
         current_file = os.path.abspath(__file__)
         current_dir = os.path.dirname(current_file)
@@ -25,6 +45,88 @@ class DynamicToolGenerator:
         self.folder_path = os.path.join(parent_dir, self.output_dir)
         self.filepath = os.path.join(self.folder_path, self.file_name)
         self._ensure_base_file()
+
+    @staticmethod
+    def _get_curl_folder_and_file_path():
+        """return folder and filepath for writing tools"""
+        current_file = os.path.abspath(__file__)
+        current_dir = os.path.dirname(current_file)
+        parent_dir = os.path.dirname(current_dir)
+        folder_path = os.path.join(
+            parent_dir, f"{ToolPaths.OUTPUT_DIR_NAME}/{ToolPaths.CURL_DIR_NAME}"
+        )
+        filepath = os.path.join(folder_path, ToolPaths.CURL_TOOLS_FILE_NAME)
+        return folder_path, filepath
+
+    @staticmethod
+    def create_api_request(tool):
+        """Create API tool"""
+        logger.info("Generate tool from API request on the fly:%s", tool)
+
+        async def api_tool():
+            data = tool.get("data")
+            headers = tool["headers"]
+            method = tool["method"]
+            body = data if data else None
+            url = tool["url"]
+
+            async with httpx.AsyncClient() as client:
+                req = client.build_request(
+                    method.upper(), url, headers=headers, json=body
+                )
+                res = await client.send(req)
+                return {"status_code": res.status_code, "body": res.text}
+
+        api_tool.__name__ = tool["id"]
+        api_tool.__doc__ = tool["description"]
+        return api_tool
+
+    @staticmethod
+    def write_curl_to_file(tool_data: dict):
+        """Write the converted cURL command as a Python function into a file."""
+        try:
+            folder_path, filepath = (
+                DynamicToolGenerator._get_curl_folder_and_file_path()
+            )
+            os.makedirs(folder_path, exist_ok=True)
+
+            if os.path.exists(filepath):
+                existing = json.loads(Path(filepath).read_text())
+                if existing:
+                    # Deep copy to avoid modifying originals
+                    result = deepcopy(existing)
+                    tool_id = tool_data.get("id")
+                    updated = False
+                    for i, tool in enumerate(result):
+                        if tool.get("id") == tool_id:
+                            result[i] = tool_data  # Overwrite with new config
+                            updated = True
+                            logger.info("Updated tool '%s' in local file", tool_id)
+                            break
+                    if not updated:
+                        result.append(tool_data)
+                    Path(filepath).write_text(json.dumps(result, indent=2))
+            else:
+                Path(filepath).write_text(json.dumps([tool_data], indent=2))
+
+        except Exception as e:
+            logger.exception(f"Failed to write curl config to file: {e}")
+            raise
+
+    @staticmethod
+    def read_curl_from_file():
+        """Read curl command python function from file"""
+        try:
+            _, filepath = DynamicToolGenerator._get_curl_folder_and_file_path()
+            tools_list = []
+            if os.path.exists(filepath):
+                tools = json.loads(Path(filepath).read_text())
+                for tool in tools:
+                    tools_list.append(DynamicToolGenerator.create_api_request(tool))
+            return tools_list
+        except Exception as e:
+            logger.exception("Failed to read  curl config from file: %s", e)
+            raise
 
     def _ensure_base_file(self):
         """Create folder and Create the file with shared imports if not exists"""
@@ -36,6 +138,7 @@ class DynamicToolGenerator:
                 f.write("# --- Generated tool functions below ---\n\n")
 
     def _parse_script_to_ast(self, script: str):
+        """validate python script"""
         try:
             tree = ast.parse(script, mode="exec")
             func_defs = [
@@ -49,7 +152,43 @@ class DynamicToolGenerator:
         except SyntaxError as e:
             raise e
 
+    def _write_function_to_file(self, func_name: str, function_code: str):
+        """Write parsed python script to file"""
+        # Check for duplicate function if file exists
+        if os.path.exists(self.filepath):
+            try:
+                with open(self.filepath, "r") as f:
+                    existing_code = f.read()
+
+                tree = ast.parse(existing_code, mode="exec")
+                defined_funcs = {
+                    node.name
+                    for node in ast.walk(tree)
+                    if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+                }
+                if func_name in defined_funcs:
+                    raise ValueError("Function '%s' already exists in.", func_name)
+
+            except ValueError as e:
+                logger.exception("Python script writing to file failed: %s", str(e))
+                raise e
+
+            except SyntaxError as e:
+                logger.exception("Failed to parse the file: %s", e)
+                raise RuntimeError("Failed to parse the file: %s", e)
+
+        # Clean and append function code
+        try:
+            cleaned_code = textwrap.dedent(function_code).strip()
+
+            with open(self.filepath, "a") as f:
+                f.write(f"\n# --- MCP Tool function: {func_name} ---\n")
+                f.write(cleaned_code + "\n")
+        except Exception as e:
+            raise RuntimeError("Failed to write function to file:%s", e)
+
     def create_from_script(self, script_model: ToolSettings):
+        """Create a Python function from a Python script string"""
         try:
             if script_model.script_config:
                 script = script_model.script_config["value"]
@@ -70,7 +209,7 @@ class DynamicToolGenerator:
                 # find function defined in the script
                 for fn in local_namespace.values():
                     if callable(fn):
-                        self.write_function_to_file(fn.__name__, script)
+                        self._write_function_to_file(fn.__name__, script)
                         return fn
                     else:
                         raise ToolGenerateError("Invalid script provided.")
@@ -87,36 +226,116 @@ class DynamicToolGenerator:
             logger.exception("Script error: %s", str(e))
             raise
 
-    def write_function_to_file(self, func_name: str, function_code: str):
-        # Check for duplicate function if file exists
-        if os.path.exists(self.filepath):
-            try:
-                with open(self.filepath, "r") as f:
-                    existing_code = f.read()
 
-                tree = ast.parse(existing_code, mode="exec")
-                defined_funcs = {
-                    node.name
-                    for node in ast.walk(tree)
-                    if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
-                }
-                if func_name in defined_funcs:
-                    raise ValueError(f"Function '{func_name}' already exists in.")
+class OpenApiTool:
+    """Custom tool generator for OpenAPI specification"""
 
-            except ValueError as e:
-                logger.exception("Python script eriting to file failed: %s", str(e))
-                raise e
+    def __init__(self, file_name: str, open_api: Dict, auth_config: Dict | None = None):
+        self.output_dir = "custom_tool"
+        self.file_name = f"{file_name}.json"
+        self.auth_file_name = f"{file_name}_auth.json"
+        self.open_api = open_api
+        self.auth_config = auth_config
 
-            except SyntaxError as e:
-                logger.exception(f"Failed to parse the file: {e}")
-                raise RuntimeError(f"Failed to parse the file: {e}")
+        current_file = os.path.abspath(__file__)
+        current_dir = os.path.dirname(current_file)
+        parent_dir = os.path.dirname(current_dir)
+        self.folder_path = os.path.join(parent_dir, self.output_dir)
+        self.filepath = os.path.join(self.folder_path, self.file_name)
+        self.auth_filepath = os.path.join(self.folder_path, self.auth_file_name)
+        self._ensure_base_file()
 
-        # Clean and append function code
+    @staticmethod
+    async def read_openapi_from_file():
         try:
-            cleaned_code = textwrap.dedent(function_code).strip()
+            current_file = os.path.abspath(__file__)
+            current_dir = os.path.dirname(current_file)
+            parent_dir = os.path.dirname(current_dir)
+            folder_path = os.path.join(parent_dir, ToolPaths.OUTPUT_DIR_NAME)
+            file_pairs = {}
+            server_data = {}
+            if os.path.exists(folder_path):
+                for file in Path(folder_path).glob("*.json"):
+                    name = file.stem
+                    if name.endswith("_auth"):
+                        base = name.replace("_auth", "")
+                        file_pairs.setdefault(base, {})["auth"] = file
+                    else:
+                        file_pairs.setdefault(name, {})["open_api"] = file
+                # Read both files together
+                for base_name, files in file_pairs.items():
+                    open_api = {}
+                    auth_config = {}
 
-            with open(self.filepath, "a") as f:
-                f.write(f"\n# --- MCP Tool function: {func_name} ---\n")
-                f.write(cleaned_code + "\n")
+                    if "open_api" in files:
+                        with files["open_api"].open() as f:
+                            open_api = json.load(f)
+                    if "auth" in files:
+                        with files["auth"].open() as f:
+                            auth_config = json.load(f)
+                    server_url = open_api["servers"][0]["url"]
+                    server_name = open_api["info"]["title"].replace(" ", "_")
+
+                    server_data[server_name] = (
+                        open_api,
+                        await get_client(server_url, auth_config),
+                    )
+            return server_data
         except Exception as e:
-            raise RuntimeError(f"Failed to write function to file: {e}")
+            logger.exception("Failed to read  curl config from file:%s", e)
+            raise
+
+    def _ensure_base_file(self):
+        """Create folder and Create the file"""
+        os.makedirs(self.folder_path, exist_ok=True)
+        for path in [self.filepath, self.auth_filepath]:
+            if not os.path.exists(path):
+                with open(path, "w") as f:
+                    json.dump({}, f)
+
+    def write_openapi(self):
+        """write OpenAPI specification to file"""
+        try:
+            existing = json.loads(Path(self.filepath).read_text())
+            if existing:
+                # Deep copy to avoid modifying originals
+                result = deepcopy(existing)
+
+                # Merge paths
+                for path, methods in self.open_api.get("paths", {}).items():
+                    if path not in result["paths"]:
+                        result["paths"][path] = methods
+                    else:
+                        # Merge methods under the same path (e.g., get/post)
+                        result["paths"][path].update(methods)
+
+                # Merge components
+                new_components = self.open_api.get("components", {})
+                result_components = result.setdefault("components", {})
+                for section, items in new_components.items():
+                    section_dict = result_components.setdefault(section, {})
+                    for k, v in items.items():
+                        if k in section_dict:
+                            logger.info("Skipping duplicate component:%s", section)
+                        else:
+                            section_dict[k] = v
+
+                # Merge tags (avoid duplicates by name)
+                existing_tags = {tag["name"] for tag in result.get("tags", [])}
+                new_tags = self.open_api.get("tags", [])
+                for tag in new_tags:
+                    if tag["name"] not in existing_tags:
+                        result.setdefault("tags", []).append(tag)
+
+                Path(self.filepath).write_text(json.dumps(result, indent=2))
+            else:
+                Path(self.filepath).write_text(json.dumps(self.open_api, indent=2))
+
+            if self.auth_config:
+                Path(self.auth_filepath).write_text(
+                    json.dumps(self.auth_config, indent=2)
+                )
+
+        except Exception as e:
+            logger.exception("Failed to write OpenAPI spec to file: %s", e)
+            raise
