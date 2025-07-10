@@ -17,7 +17,6 @@ logger = LoggerFactory.get_logger()
 
 MEMBER_SERVER_CONFIG_FILE_PATH = os.environ["SERVER_CONFIG_FILE_PATH"]
 
-
 class LocalFileAdapter(DatabaseInterface):
     """Local file storage"""
 

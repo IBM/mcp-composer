@@ -8,14 +8,14 @@
       "custom_routes": [
         {
           "methods": [
-            "GET"
+            "GET", "POST"
           ],
           "pattern": ".*/application-monitoring/.*",
           "mcp_type": "TOOL"
         },
         {
           "methods": [
-            "POST"
+            "PATCH", "PUT", "DELETE"
           ],
           "pattern": ".*/",
           "mcp_type": "EXCLUDE"

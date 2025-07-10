@@ -2,6 +2,7 @@
 __pycache__/
 *.py[oc]
 build/
+main.py
 dist/
 wheels/
 *.egg-info
@@ -10,13 +11,14 @@ custom_tool/
 # Virtual environments
 .venv
 .python-version
-main.py
 .env
 .env.oauth
 .DS_Store
 .vscode
 # runtime generated file
 /mcp_servers.json
-
+example/mcsp_trio_server/config.json
 example/mcsp_servers/config.json
 example/.DS_Store
+
+model_vs_model_testing.md
