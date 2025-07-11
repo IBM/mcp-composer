@@ -10,12 +10,13 @@ from dotenv import load_dotenv
 from fastmcp import FastMCP
 from fastmcp.server.auth.auth import OAuthProvider
 from fastmcp.tools.tool import Tool
-
+from fastmcp.prompts import PromptManager
 from mcp_composer.tools import MCPToolManager
 from mcp_composer.utils import (
     LoggerFactory,
     AllServersValidator,
     ValidationError,
+    build_prompt_from_dict
 )
 from mcp_composer.member_servers import ServerManager, MemberMCPServer, MCPServerBuilder
 from mcp_composer.store.database import DatabaseInterface
@@ -92,6 +93,9 @@ class MCPComposer(FastMCP):
                 logger.error("Validation error: %s", e)
                 sys.exit(1)
 
+        self._prompt_manager = PromptManager()
+
+        # Add Server management tools
         self.add_tool(Tool.from_function(self.register_mcp_server))
         self.add_tool(Tool.from_function(self.update_mcp_server_config))
         self.add_tool(Tool.from_function(self.delete_mcp_server))
@@ -100,13 +104,18 @@ class MCPComposer(FastMCP):
         self.add_tool(Tool.from_function(self.deactivate_mcp_server))
         self.add_tool(Tool.from_function(self.add_tools))
         self.add_tool(Tool.from_function(self.add_tools_from_openapi))
-
         self.add_tool(Tool.from_function(self._server_manager.list_member_servers))
+        # Add Tool management tools
         self.add_tool(Tool.from_function(self._tool_manager.get_tool_config_by_name))
         self.add_tool(Tool.from_function(self._tool_manager.get_tool_config_by_server))
         self.add_tool(Tool.from_function(self._tool_manager.disable_tools))
         self.add_tool(Tool.from_function(self._tool_manager.enable_tools))
         self.add_tool(Tool.from_function(self._tool_manager.update_tool_description))
+        # Add Prompt management tools
+
+        self.add_tool(Tool.from_function(self.add_prompts))
+        self.add_tool(Tool.from_function(self.get_all_prompts))
+        
 
     async def _load_custom_tools(self):
         """Load tools from dynamic tool manager and optional custom tool module."""
@@ -272,3 +281,23 @@ class MCPComposer(FastMCP):
             self.from_openapi(openapi_spec, client),  # type: ignore
         )
         return "Successfully added tools"
+   
+    async def add_prompts(self, prompt_config: Union[dict, list[dict]]) -> list[str]:
+        """
+        Add one or more prompts based on the provided configuration.
+        Returns a list of registered prompt names.
+        """
+        if not isinstance(prompt_config, list):
+            raise TypeError("Prompt config must be a dict or a list of dicts")
+
+        added = []
+        for entry in prompt_config:
+            prompt = await build_prompt_from_dict(entry)
+            super().add_prompt(prompt)
+            added.append(prompt.name)
+        return added
+    
+    async def get_all_prompts(self) -> list[str]:
+        """Get all registered prompts mapped to their textual form."""
+        prompts_dict = await self.get_prompts()
+        return [str(prompt) for prompt in prompts_dict.values()]

@@ -1,0 +1,241 @@
+[
+    {
+        "name": "app_top_errors_yesterday",
+        "description": "Show top erroneous calls handled by an application since yesterday",
+        "template": "Show top erroneous calls handled by '{{ application }}' application since yesterday",
+        "arguments": [
+            {
+                "name": "application",
+                "type": "string",
+                "required": true,
+                "description": "The name of the application"
+            }
+        ]
+    },
+    {
+        "name": "hup_calls_perf_2h",
+        "description": "Show performance overview of all hup calls in the past 2 hours grouped by call name",
+        "template": "Show performance overview of all hup calls in the past 2 hours group by call name"
+    },
+    {
+        "name": "promo_http_avg_response",
+        "description": "Average response time of promo HTTP calls handled by a cluster",
+        "template": "What is the average response time of promo HTTP calls handled by Kubernetes cluster {{ cluster }}?",
+        "arguments": [
+            {
+                "name": "cluster",
+                "type": "string",
+                "required": true,
+                "description": "The name of the Kubernetes cluster"
+            }
+        ]
+    },
+    {
+        "name": "app_errorcode_count",
+        "description": "Count of erroneous HTTP calls by call.tag.Errorcode handled by an application",
+        "template": "Show count of erroneous HTTP calls by call.tag.Errorcode handled by '{{ application }}' application.",
+        "arguments": [
+            {
+                "name": "application",
+                "type": "string",
+                "required": true,
+                "description": "The name of the application"
+            }
+        ]
+    },
+    {
+        "name": "app_top_errors_10min",
+        "description": "Top erroneous calls handled by an application in last 10 minutes",
+        "template": "Show top erroneous calls handled by '{{ application }}' service since last 10 minutes.",
+        "arguments": [
+            {
+                "name": "application",
+                "type": "string",
+                "required": true,
+                "description": "The name of the application"
+            }
+        ]
+    },
+    {
+        "name": "cluster_outbound_http_perf",
+        "description": "Performance overview of outbound HTTP calls from a Kubernetes cluster to an application",
+        "template": "Show performance overview of outbound HTTP calls from kubernetes cluster {{ cluster }} to {{ destination_application }} application order by calls",
+        "arguments": [
+            {
+                "name": "cluster",
+                "type": "string",
+                "required": true,
+                "description": "Source Kubernetes cluster name"
+            },
+            {
+                "name": "destination_application",
+                "type": "string",
+                "required": true,
+                "description": "Target application name"
+            }
+        ]
+    },
+    {
+        "name": "queue_depth_check",
+        "description": "Current queue depth of a given AMQ queue",
+        "template": "What is the current queue depth of {{ queue_name }} from the queue manager running on namespace {{ namespace }}?",
+        "arguments": [
+            {
+                "name": "queue_name",
+                "type": "string",
+                "required": true,
+                "description": "The name of the AMQ queue"
+            },
+            {
+                "name": "namespace",
+                "type": "string",
+                "required": true,
+                "description": "The namespace of the queue manager"
+            }
+        ]
+    },
+    {
+        "name": "jvm_threadpool_usage",
+        "description": "Active thread usage of JVMs in a given namespace",
+        "template": "Show active thread (threadPooL.activeThreads) usage of all JVMs belonging to deployment matching label component={{ component }} running within namespace {{ namespace }}?",
+        "arguments": [
+            {
+                "name": "component",
+                "type": "string",
+                "required": true,
+                "description": "Component label"
+            },
+            {
+                "name": "namespace",
+                "type": "string",
+                "description": "Kubernetes namespace"
+            }
+        ]
+    },
+    {
+        "name": "container_limits_by_label",
+        "description": "CPU and memory limits for containers in pods by label",
+        "template": "Show me cpu and memory limits of all containers running inside pod with deployment label matching component={{ component_label }}.",
+        "arguments": [
+            {
+                "name": "component_label",
+                "type": "string",
+                "required": true,
+                "description": "Deployment component label"
+            }
+        ]
+    },
+    {
+        "name": "jvm_memory_pool_usage",
+        "description": "Memory pool usage for JVM in a specific container and namespace",
+        "template": "Show me memory pool usage of JVM running inside appserver container of pod with kubernetes deployment label matching component={{ component_label }} and kubernetes namespace {{ namespace }}",
+        "arguments": [
+            {
+                "name": "component_label",
+                "type": "string",
+                "required": true,
+                "description": "Deployment component label"
+            },
+            {
+                "name": "namespace",
+                "type": "string",
+                "required": true,
+                "description": "Kubernetes namespace"
+            }
+        ]
+    },
+    {
+        "name": "replica_count_by_label",
+        "description": "Replica count for deployments in a specific namespace by label",
+        "template": "How many replicas do we have for deployments matching label service={{ service_label }} inside Kubernetes namespace {{ namespace }}?",
+        "arguments": [
+            {
+                "name": "service_label",
+                "type": "string",
+                "required": true,
+                "description": "Service label"
+            },
+            {
+                "name": "namespace",
+                "type": "string",
+             
+                "description": "Kubernetes namespace"
+            }
+        ]
+    },
+    {
+        "name": "heap_util_by_service_namespace",
+        "description": "Average heap utilization of JVMs in a service and filtered namespaces",
+        "template": "What is the average heap utilization of all JVMs having deployment label matching service={{ service_name }} and Kubernetes namespace name containing '{{ namespace_keyword }}'. Group the result by Kubernetes namespace value.",
+        "arguments": [
+            {
+                "name": "service_name",
+                "type": "string",
+           
+                "description": "Service label"
+            },
+            {
+                "name": "namespace_keyword",
+                "type": "string",
+    
+                "description": "Keyword to filter Kubernetes namespaces"
+            }
+        ]
+    },
+    {
+        "name": "app_cve_latency_risks",
+        "description": "Recommended actions or CVE risks causing latency in an application",
+        "template": "Are there any recommended actions or CVE risks you can find for the '{{ application }}' application in my environment that might be causing poor latency on my endpoints for this application? Please use my tools",
+        "arguments": [
+            {
+                "name": "application",
+                "type": "string",
+             
+                "description": "The name of the application"
+            }
+        ]
+    },
+    {
+        "name": "app_top_errors_yesterday_local",
+        "description": "Top erroneous calls for an application since yesterday using local tool",
+        "template": "Show top erroneous calls handled by '{{ application }}' application in my environment since yesterday using local tool",
+        "arguments": [
+            {
+                "name": "application",
+                "type": "string",
+                "required": true,
+                "description": "The name of the application"
+            }
+        ]
+    },
+    {
+        "name": "slowest_apis_local_tool",
+        "description": "Slowest API endpoints and their contributing factors using local tool only",
+        "template": "What are the slowest API endpoints in my environment and their contributing factors (CPU, memory, dependencies) - use local tool only"
+    },
+    {
+        "name": "compare_app_perf_cost_cve",
+        "description": "Compare performance and cost efficiency of multiple apps with CVE checks",
+        "template": "Compare the performance and cost efficiency of the {{ app1 }}, {{ app2 }}, and {{ app3 }} applications running across different clusters. Identify which app has the worst latency-to-cost ratio, and check if there are any known CVEs associated with their public endpoints or container images.",
+        "arguments": [
+            {
+                "name": "app1",
+                "type": "string",
+             
+                "description": "First application name"
+            },
+            {
+                "name": "app2",
+                "type": "string",
+                
+                "description": "Second application name"
+            },
+            {
+                "name": "app3",
+                "type": "string",
+               
+                "description": "Third application name"
+            }
+        ]
+    }
+]

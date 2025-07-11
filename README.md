@@ -18,7 +18,10 @@
   - [Prerequisites](#prerequisites)
   - [Setup](#setup)
 - [Key Features](#key-features)
+  - [MCP Composer Servers](#mcp-composer-servers)
   - [MCP Composer Tools](#mcp-composer-tools)
+  - [MCP Composer Prompts](#mcp-composer-prompts)
+  
 - [Demo using MCP Inspector](#demo-using-mcp-inspector)
 - [MCP Composer Client with Chatbot UI](#mcp-composer-client-with-chatbot-ui)
 ---
@@ -83,6 +86,55 @@ The goal is to provide a single unified MCP Composer that:
 - Automatically forwards each request to the correct upstream server or tool.
 - List tools and metadata by name or server.
 
+### MCP Composer Servers
+
+#### Add MCP Server from OpenAPI Specification
+
+To add an MCP server from an OpenAPI spec, use the builder with a configuration containing the OpenAPI details:
+
+**Example:**
+```python
+from mcp_composer.member_servers.builder import MCPServerBuilder
+
+config = {
+    "id": "my-openapi-server",
+    "type": "openapi",
+    "open_api": {
+        "endpoint": "https://api.example.com",
+        "spec_url": "https://api.example.com/openapi.json",
+        # Optional: "custom_routes": "path/to/custom_routes.json"
+    },
+    "auth_strategy": "bearer",
+    "auth": {
+        "token": "your-token"
+    }
+}
+builder = MCPServerBuilder(config)
+mcp_server = await builder.build()
+```
+This will create a FastMCP server instance using the OpenAPI specification and authentication details provided.
+
+---
+
+#### Add MCP Server from GraphQL Schema
+
+To add an MCP server from a GraphQL schema, use the builder with a configuration containing the GraphQL endpoint:
+
+**Example:**
+```python
+from mcp_composer.member_servers.builder import MCPServerBuilder
+
+config = {
+    "id": "my-graphql-server",
+    "type": "graphql",
+    "endpoint": "https://graphql.example.com/graphql",
+    # Add any other required config options
+}
+builder = MCPServerBuilder(config)
+mcp_server = await builder.build()
+```
+This will create a FastMCP server instance with a GraphQL tool registered, allowing you to interact with the GraphQL API through MCP Composer.
+
 ### MCP Composer Tools
 
 - register_mcp_server: Register a single server.
@@ -98,6 +150,49 @@ The goal is to provide a single unified MCP Composer that:
 - update_tool_description: Update tool description of member servers
 - add_tools: Add tool using curl command or Python script
 - add_tools_from_openapi: Add tool using the OpenAPI specifications
+
+### MCP Composer Prompts
+
+#### Adding one or more prompts
+- `add_prompts(prompt_config: list[dict]) -> list[str]`
+Registers one or more prompts with the composer.
+
+- **Arguments**:
+  - `prompt_config`: A list of dictionaries, each describing a prompt. Each dictionary should contain at least a `name`, `description`, and `template` field.
+- **Returns**: A list of registered prompt names.
+
+**Example:**
+```python
+prompt_config = [
+    {
+        "name": "promo_http_avg_response",
+        "description": "Average response time of promo HTTP calls handled by a cluster",
+        "template": "What is the average response time of promo HTTP calls handled by Kubernetes cluster {{ cluster }}?",
+        "arguments": [
+            {
+                "name": "cluster",
+                "type": "string",
+                "required": true,
+                "description": "The name of the Kubernetes cluster"
+            }
+        ]
+    }
+]
+added = await composer.add_prompts(prompt_config)
+```
+
+### Get all Prompts 
+- `get_all_prompts() -> list[str]`
+Retrieves all registered prompts as JSON strings, with internal function references stripped.
+
+- **Returns**: A list of JSON strings, each representing a prompt (excluding the `fn` field).
+
+**Example:**
+```python
+prompts = await composer.get_all_prompts()
+for prompt_json in prompts:
+    print(prompt_json)
+```
 
 ### Demo using MCP Inspector
 

@@ -93,4 +93,4 @@ class GraphQLTool(Tool):
             result = response.json()
             return [TextContent(type="text", text=str(result))]
         except HTTPException as e:
-            print("error  %s", e)
+            logger.error("error  %s", e)

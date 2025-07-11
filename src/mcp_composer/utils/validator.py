@@ -27,12 +27,13 @@ class ConfigKey(str, Enum):
     MEDIA_TYPE_JSON = "json"
     GRAPHQL = "graphql"
     SCHEMA_FILEPATH = "schema_filepath"
-
+    PROMPT_PATH = "prompt_path"
 
 class MemberServerType(str, Enum):
     OPENAPI = "openapi"
     CLIENT = "client"
     GRAPHQL = "graphql"
+    LOCAL = "local"
 
 
 class AuthStrategy(str, Enum):

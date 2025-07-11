@@ -3,15 +3,13 @@
 import subprocess
 import re
 import importlib.util
-import httpx
-import aiohttp
 import asyncio
 import json
 from typing import Tuple
+import httpx
 from aiohttp import ClientConnectorError
 from fastmcp.server.openapi import RouteMap, MCPType
-from fastmcp.tools.tool import Tool
-
+from fastmcp.prompts import Prompt
 from mcp_composer.utils.logger import LoggerFactory
 from mcp_composer.member_servers.member_server import HealthStatus, MemberMCPServer
 from mcp_composer.exceptions import MemberServerError
@@ -70,7 +68,6 @@ async def load_json(filepath):
         data = json.load(file)
         return data
 
-
 async def get_member_health(
     server_config: list[MemberMCPServer],
 ) -> list[dict]:
@@ -125,5 +122,34 @@ def extract_imported_modules(script: str):
 def ensure_dependencies_installed(dependencies):
     for package in dependencies:
         if importlib.util.find_spec(package) is None:
-            print(f"Installing missing package: {package}")
+            logger.info("Installing missing package: %s", package)
             subprocess.check_call(["uv", "pip", "install", package])
+
+
+async def build_prompt_from_dict(entry: dict) -> Prompt:
+    name = entry["name"]
+    template = entry["template"]
+    description = entry.get("description", "")
+    arguments = entry.get("arguments", [])
+
+    def fn() -> str:
+        """
+        Replaces placeholders in the template string with values from arguments.
+
+        Example:
+            template = "Hello, {name}! You are {age} years old."
+            arguments = {"name": "Alice", "age": 30}
+            → "Hello, Alice! You are 30 years old."
+        """
+        try:
+            str = template.format(**arguments)
+            print(str)
+            return str
+        except KeyError as e:
+            raise ValueError(f"Missing required argument: {e.args[0]}")
+
+    # Wrap into a FastMCP Prompt
+    prompt = Prompt.from_function(fn, name=name, description=description)
+    prompt.arguments = arguments
+
+    return prompt

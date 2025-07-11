@@ -10,7 +10,9 @@ from fastmcp.client.auth.oauth import FileTokenStorage
 import httpx
 from mcp_composer.utils.logger import LoggerFactory
 from mcp_composer.utils import ConfigKey, MemberServerType, AuthStrategy
-from mcp_composer.utils import load_custom_mappings_from_json, load_json, load_spec_from_url
+from mcp_composer.utils import (
+    load_custom_mappings_from_json, load_json, 
+    build_prompt_from_dict,load_spec_from_url)
 from mcp_composer.auth_handler import DynamicTokenClient, DynamicTokenManager
 from mcp_composer.tools.graphql_tool import GraphQLTool
 
@@ -47,8 +49,8 @@ class MCPServerBuilder:
         elif self.mcp_type == "fastapi":
             return self._build_from_fastapi()
 
-        elif self.mcp_type == "local":
-            return self._build_from_local_file()
+        elif self.mcp_type == MemberServerType.LOCAL:
+            return await self._build_from_local_file()
         
         else:
             raise ValueError(f"Unsupported MCP type: {self.mcp_type}")
@@ -203,5 +205,11 @@ class MCPServerBuilder:
     def _build_from_fastapi(self) -> FastMCP:
         raise NotImplementedError("Local file loading not yet supported.")
 
-    def _build_from_local_file(self) -> FastMCP:
-        raise NotImplementedError("Local file loading not yet supported.")
+    async def _build_from_local_file(self) -> FastMCP:
+        mcp = FastMCP(self.config.get(ConfigKey.ID,""))
+        data = await load_json(self.config[ConfigKey.PROMPT_PATH])
+        for entry in data:
+            prompt = await build_prompt_from_dict(entry)
+            logger.info("Prompt: %s", prompt)
+            mcp.add_prompt(prompt)
+        return mcp

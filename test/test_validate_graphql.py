@@ -25,7 +25,6 @@ class TestGraphQLConfigValidation:
         validator = ServerConfigValidator(config)
         with pytest.raises(ValidationError) as exc:
             validator.validate_graphql_config()
-            print(exc.value)
             assert ConfigKey.GRAPHQL in str(exc.value)
 
     def test_missing_endpoint_raises(self):

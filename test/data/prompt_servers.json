@@ -1,0 +1,8 @@
+[
+  {
+    "id": "mcp-prompt",
+    "type": "local",
+    "prompt_path": "/Users/mansurah/GitHub/mcp-composer/test/data/prompts.json",
+    "_id": "mcp-prompt"
+  }
+]

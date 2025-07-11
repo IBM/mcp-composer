@@ -54,10 +54,10 @@ class TestComposer(unittest.IsolatedAsyncioTestCase):
         logger.setLevel(logging.DEBUG)
         try:
             members = self.gw._server_manager.list_member_servers()
-            print(f"All members are {members}")
+            logger.info(f"All members are {members}")
             self.assertEqual(len(members), 2, "Should have 2 members")
         except ValidationError as e:
-            print(f"Actual error message: {e}")
+            logger.info(f"Actual error message: {e}")
             raise  # re-raise to keep test failing for now
 
     async def test_get_tools(self):
