@@ -1,6 +1,6 @@
 import base64
 import httpx
-from mcp_composer.auth_handler.dynamicTokenClient import DynamicTokenClient
+from mcp_composer.auth_handler.dynamic_token_client import DynamicTokenClient
 from mcp_composer.auth_handler.dynamic_token_manager import DynamicTokenManager
 from mcp_composer.utils.logger import LoggerFactory
 from mcp_composer.utils.validator import AuthStrategy, ConfigKey
@@ -71,9 +71,7 @@ async def get_client(base_url: str, auth_config: dict | None = None):
 
         case AuthStrategy.BASIC:
             logger.info("Setting up header and client for basic")
-            basic_auth = f"{auth_values[ConfigKey.AUTH][ConfigKey.USERNAME]}:{
-                auth_values[ConfigKey.AUTH][ConfigKey.PASSWORD]
-            }"
+            basic_auth = f"{auth_values[ConfigKey.AUTH][ConfigKey.USERNAME]}:{auth_values[ConfigKey.AUTH][ConfigKey.PASSWORD]}"
             headers[ConfigKey.AUTH_HEADER] = (
                 f"Basic {base64.b64encode(basic_auth.encode('utf-8')).decode('ascii')}"
             )

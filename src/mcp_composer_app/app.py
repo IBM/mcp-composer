@@ -57,6 +57,7 @@ async def lifespan(app: FastAPI):
     """
     FastAPI lifespan hook to load tools and dynamically register endpoints.
     """
+    await COMPOSER.setup_member_servers()
     tools = await COMPOSER._tool_manager.get_all_tools()  # pylint: disable=protected-access
     logger.info("Loaded composer tools: %s", list(tools.keys()))
 
