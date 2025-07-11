@@ -4,16 +4,14 @@ import os
 import re
 import sys
 import traceback
-from typing import Any
 from dotenv import load_dotenv, find_dotenv
 from collections.abc import AsyncGenerator
 from beeai_framework.agents.react.agent import ReActAgent
 from beeai_framework.agents.react.events import ReActAgentUpdateEvent
-from beeai_framework.agents.tool_calling import ToolCallingAgent
 from beeai_framework.agents.types import AgentExecutionConfig
 from beeai_framework.backend.chat import ChatModel
+from beeai_framework.backend import Message, AssistantMessage, UserMessage, SystemMessage
 from beeai_framework.backend.types import ChatModelParameters
-from beeai_framework.emitter.emitter import Emitter, EventMeta
 from beeai_framework.errors import FrameworkError
 from beeai_framework.logger import Logger
 from beeai_framework.backend.message import UserMessage
@@ -22,7 +20,7 @@ from beeai_framework.memory.unconstrained_memory import UnconstrainedMemory
 from beeai_framework.tools.mcp  import MCPTool
 from beeai_framework.tools.tool import AnyTool
 from mcp_composer_client.mcptools import Tools
-import yaml
+from acp_sdk.server import Context
 
 
 # Load environment variables
@@ -34,8 +32,9 @@ logger = Logger("app", level=logging.DEBUG)
 prompt_system = """You are an AI Agent equipped with a set of tools. 
 For user query, select and call the most relevant tools by providing accurate arguments based on the tool schemas. 
 Return the result or answer to the user using the tool outputs, outputs in markdown format for readability, but remove ```markdown tag and don't use "#" for heading.
-If the query cannot be fulfilled using available tools, clearly explain the limitation.
-User query: {}"""
+If the query cannot be fulfilled using available tools, clearly explain the limitation. """
+
+prompt_user = "User query: {}"
 
 agent_tools = Tools()
 
@@ -54,6 +53,16 @@ memory = UnconstrainedMemory()
 
 def clear_memory():
     memory.reset()
+
+
+def to_framework_message(role: str, content: str) -> Message:
+    match role:
+        case "user":
+            return UserMessage(content)
+        case role if role == "agent" or (role.startswith("agent/")):
+            return AssistantMessage(content)
+        case _:
+            raise ValueError(f"Unsupported role {role}")
 
 
 def parse_llm_name(llm_name: str) -> tuple[str, str]:
@@ -93,7 +102,7 @@ def parse_llm_name(llm_name: str) -> tuple[str, str]:
 		return llm_name, ""
 
 
-async def create_agent_from_tools(tools: list[AnyTool], llm_name: str | None = None) -> ReActAgent:
+async def create_agent_from_tools(tools: list[AnyTool], messages: list[Message], llm_name: str | None = None) -> ReActAgent:
     """Create and configure the agent with tools and LLM"""
     llm_use = llm
 
@@ -106,6 +115,8 @@ async def create_agent_from_tools(tools: list[AnyTool], llm_name: str | None = N
         
     # Create agent with memory and tools
     agent = ReActAgent(llm=llm_use, tools=tools, memory=memory)
+    await agent.memory.add_many(messages)
+    logger.info(f"Chat history messages count: {len(messages)}")
     # agent = ToolCallingAgent(llm=llm_use, tools=tools, memory=memory)
     return agent
 
@@ -122,16 +133,17 @@ async def auto_filter_tools(user_input: str) -> list[str]:
     
     result = await run_llm(user_input=prompt_filter_tools.format(tool_descriptions=tool_description_str,user_input=user_input))
     
-    lines = result.strip().split("\n")
+    selected_tool_names = [line for line in result.strip().split("\n") if " " not in line and len(line)>0]
 
-    return lines
+    return selected_tool_names
 
 
 async def run_agent_multimcp(
         user_input: str, 
         llm_name: str | None = None, 
         streaming: bool = False,
-        auto_filter_tools: list[str] | None = None
+        auto_filter_tools: list[str] | None = None,
+        context: Context | None = None
     ) -> AsyncGenerator[str]:
 
     if len(agent_tools.tools) == 0:
@@ -147,8 +159,21 @@ async def run_agent_multimcp(
                 sel_tools.append(t)
         logger.info(f"auto selected tools:  {len(sel_tools)}")
 
+    # get historical messages from context
+    if context is not None:
+        logger.info(f"session id = {context.session.id}")
+        history = [message async for message in context.session.load_history()]
+        chat_messages: list[Message] = [to_framework_message(message.role, str(message)) for message in history]
+    else:
+        chat_messages: list[Message]  = [SystemMessage(content=prompt_system)]
+    chat_messages.append(UserMessage(content=prompt_user.format(user_input)))
+
     # Create agent
-    agent = await create_agent_from_tools(agent_tools.tools if len(sel_tools)==0 else sel_tools, llm_name)
+    agent = await create_agent_from_tools(
+        tools=agent_tools.tools if len(sel_tools)==0 else sel_tools, 
+        messages=chat_messages,
+        llm_name=llm_name
+    )
 
     try:  
         if streaming:

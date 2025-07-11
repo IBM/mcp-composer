@@ -1,5 +1,4 @@
 import os
-import asyncio
 from collections.abc import AsyncGenerator
 from acp_sdk import Message, MessagePart
 from acp_sdk.models import Metadata, Annotations
@@ -29,7 +28,7 @@ async def mcp_composer_chatbot(inputs: list[Message], context: Context) -> Async
     """AI agent that calls Platform APIs to fulfill a user query"""
 
     response = ""
-    async for message in run_agent_multimcp(user_input=str(inputs[-1])):
+    async for message in run_agent_multimcp(user_input=str(inputs[-1]), context=context):
         response += message
 
     yield MessagePart(content=response)
@@ -48,12 +47,12 @@ async def mcp_composer_chatbot(inputs: list[Message], context: Context) -> Async
 )
 async def mcp_composer_chatbot_sel_tools(inputs: list[Message], context: Context) -> AsyncGenerator:
     """AI agent that calls Platform APIs to fulfill a user query"""
-
+    print("acp-serversession id", context.session.id)
     selected_tools = await auto_filter_tools(str(inputs[-1]))
     print("auto-selected tools:\n", selected_tools)
 
     response = ""
-    async for message in run_agent_multimcp(user_input=str(inputs[-1]), auto_filter_tools=selected_tools):
+    async for message in run_agent_multimcp(user_input=str(inputs[-1]), auto_filter_tools=selected_tools, context=context):
         response += message
 
     yield MessagePart(content=response)
