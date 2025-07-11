@@ -13,11 +13,12 @@ dependencies = [
     "ibm-cloud-sdk-core==3.23.0",
     "fastapi==0.115.12",
     "aiohttp==3.12.12",
-    "beeai-framework>=0.1.26",
+    "beeai-framework==0.1.29",
     "dotenv>=0.9.9",
     "jsonschema>=4.24.0",
     "uncurl==0.0.11",
     "chromadb>=1.0.15",
+    "acp-sdk==1.0.0",
 ]
 
 [dependency-groups]

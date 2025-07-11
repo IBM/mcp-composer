@@ -20,7 +20,7 @@
 - [Key Features](#key-features)
   - [MCP Composer Tools](#mcp-composer-tools)
 - [Demo using MCP Inspector](#demo-using-mcp-inspector)
-
+- [MCP Composer Client with Chatbot UI](#mcp-composer-client-with-chatbot-ui)
 ---
 
 ## Overview
@@ -169,3 +169,46 @@ Execute the following command to start the server and test the OAuth integration
 ```bash
 uv run test/test_composer_oauth.py
 ```
+
+### MCP Composer Client with Chatbot UI
+
+MCP composer client provides an agent backend service to provide chatbot service that talks with all the tools from MCP Composer server.
+
+A chatbot UI demo is also provided just for testing purpose ([Demo-Chatbot-UI](https://github.ibm.com/ai-elite/mcp-composer-chatbot-ui)).
+
+#### 1. Setup env variables and configuration
+
+In the same `.env` (copied from `src/.env.example`), setup the following variables:
+ - `CHAT_MODEL_NAME`: watsonx or ollama
+ - `WATSONX_CHAT_MODEL`: meta-llama/llama-4-maverick-17b-128e-instruct-fp8, ibm/granite-3-3-8b-instruct, etc
+ - `WATSONX_URL`: Watsonx Instance URL
+ - `WATSONX_API_KEY`: API-Key of Watsonx instance
+ - `WATSONX_PROJECT_ID`: Watsonx Project ID
+ - `CHAT_MODEL_NAME`: local ollama model (if `CHAT_MODEL_NAME=ollama`)
+
+Config file `config/mcp_composer_client.yaml` defines what MCP servers are connected, at current stage, it supports:
+ - Remote MCP-Composer Server
+ - Remote SSE/Http MCP-Server (testing purpose)
+ - Stdio MCP-Server (testing purpose)
+
+Each server config has a boolean field `enabled` to enable the server or disable it.
+
+#### 2. Launch chatbot agent service
+
+Launch agent service:
+```bash
+uv run src/mcp_composer_client/acp_server.py
+```
+
+It should output agent server URL in terminal:
+```bash
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://localhost:8000 (Press CTRL+C to quit)
+```
+
+#### 3. Launch chatbot UI (Optional)
+
+Follow instruction in [Demo-Chatbot-UI](https://github.ibm.com/ai-elite/mcp-composer-chatbot-ui), open browser and input chatbot UI URL. Interact with the chatbot.
+
+
