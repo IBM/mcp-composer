@@ -8,7 +8,7 @@ for example
  {
   "id": "mcp-instana",
   ... ...  
-  "spec_filepath": "/Users/<USERNAME>/mcp-composer/spec/instana-openapi.json",
+  "spec_filepath": "/mcp-composer/spec/instana-openapi.json",
 
   .. ...
  }

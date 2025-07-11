@@ -20,5 +20,5 @@ custom_tool/
 example/mcsp_trio_server/config.json
 example/mcsp_servers/config.json
 example/.DS_Store
-
 model_vs_model_testing.md
+config/config_local.json

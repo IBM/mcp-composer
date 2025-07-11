@@ -1,5 +1,6 @@
 # loaders/builder.py
-import jsonref, json
+import jsonref
+import json
 
 from typing import Dict
 from fastmcp import FastMCP, Client
@@ -135,11 +136,23 @@ class MCPServerBuilder:
         http_client = httpx.AsyncClient(base_url=base_url)
 
         match auth_strategy:
+
+            case AuthStrategy.BASIC:
+                logger.info("Setting up client for basic auth")
+                username = auth_config.get(ConfigKey.USERNAME)
+                password = auth_config.get(ConfigKey.PASSWORD)
+                http_client = httpx.AsyncClient(
+                    base_url=base_url,
+                    auth=httpx.BasicAuth(username, password),
+                    headers=headers
+                )
+
             case AuthStrategy.DYNAMIC_BEARER:
                 http_client = DynamicTokenClient(
                     base_url=base_url,
                     token_url=auth_config.get(ConfigKey.Token_URL),
                     api_key=auth_config.get(ConfigKey.APIKEY),
+                    media_type=auth_config.get(ConfigKey.MEDIA_TYPE, "")
                 )
             case AuthStrategy.BEARER:
                 logger.info("Setting up header and client for bearer")

@@ -88,7 +88,7 @@ class TestComposer(unittest.IsolatedAsyncioTestCase):
             "name": "event_test",
             "tool_type": "curl",
             "curl_config": {
-                "value": "curl 'https://www.eventbriteapi.com/v3/users/me/organizations/' --header 'Authorization: Bearer xxxxxxx'"
+                "value": "curl 'https://www.eventbriteapi.com/v3/users/me/organizations/' --header 'Authorization: Bearer <edit-me>'"
             },
             "description": "sample test",
             "permission": {"role 1": "permission 1 "},

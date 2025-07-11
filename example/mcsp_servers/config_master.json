@@ -3,8 +3,8 @@
     "id": "mcp-wxok",
     "type": "openapi",
     "open_api": {
-      "endpoint": "https://api.dl.watson-orchestrate.ibm.com/instances/20250501-1716-1901-7080-b12e0caed5d6/v1/orchestrate/",
-      "spec_filepath": "/Users/xx/mcp-composer/spec/wxo-openapi-spec.json",
+      "endpoint": "https://api.dl.watson-orchestrate.ibm.com/instances/<instance-id>/v1/orchestrate/",
+      "spec_filepath": "./src/mcp-composer/spec/wxo-openapi-spec.json",
       "custom_routes": [
         {
           "methods": [
@@ -27,7 +27,7 @@
     },
     "auth_strategy": "dynamic_bearer",
     "auth": {
-      "apikey": "xxx",
+      "apikey": "<edit-me>",
       "token_url": "https://iam.platform.saas.ibm.com/siusermgr/api/1.0/apikeys/token",
       "media_type": "json"
     },
@@ -38,7 +38,7 @@
     "type": "openapi",
     "open_api": {
       "endpoint": "https://www.eventbriteapi.com/v3",
-      "spec_filepath": "/Users/mansurah/GitHub/mcp-composer/spec/eventbrite-openapi.json",
+      "spec_filepath": "./src/mcp-composer/spec/eventbrite-openapi.json",
       "custom_routes": [
         {
           "methods": [
@@ -65,20 +65,20 @@
     },
     "auth_strategy": "bearer",
     "auth": {
-      "token": "xxx"
+      "token": "<edit-me>"
     }
   },
   {
-  "id": "mcp-stock-info",
-  "type": "http",
-  "endpoint": "https://mcp-stock-info.1vgzmntiwjzl.eu-es.codeengine.appdomain.cloud/mcp"
+    "id": "mcp-stock-info",
+    "type": "http",
+    "endpoint": "https://mcp-stock-info.<ce-subdomain>.<ce-region>.codeengine.appdomain.cloud/mcp"
   },
   {
     "id": "mcp-countries",
     "type": "graphql",
     "graphql": {
       "endpoint": "https://countries.trevorblades.com/",
-      "schema_filepath": "/Users/mansurah/GitHub/mcp-composer/example/graphql-to-mcp/countries.graphql"
+      "schema_filepath": "./src/mcp-composer/example/graphql-to-mcp/countries.graphql"
     },
     "_id": "mcp-countries"
   },
@@ -87,19 +87,48 @@
     "type": "graphql",
     "graphql": {
       "endpoint": "https://graphqlpokemon.favware.tech/v8",
-      "schema_filepath": "/Users/mansurah/GitHub/mcp-composer/example/graphql-to-mcp/pokemon.graphql"
+      "schema_filepath": "./src/mcp-composer/example/graphql-to-mcp/pokemon.graphql"
     },
     "_id": "mcp-pokemon"
   },
   {
   "id": "mcp-server-fetch",
   "type": "sse",
-  "endpoint": "https://mcp-server-fetch.1vgzmntiwjzl.eu-es.codeengine.appdomain.cloud/sse"
- }
+  "endpoint": "https://mcp-server-fetch.<edit-me>.eu-es.codeengine.appdomain.cloud/sse"
+ },
 
-
-
-  
-
+{
+    "id": "snow-search",
+    "type": "openapi",
+    "open_api": {
+      "endpoint": "https://<edit-me>.service-now.com/",
+      "spec_filepath": "./src/mcp-composer/spec/snow/snow_table_api_latest_spec.json",
+      "custom_routes": [
+        {
+          "methods": [
+            "GET"
+          ],
+          "pattern": ".*/.*",
+          "mcp_type": "TOOL"
+        },
+        {
+          "methods": [
+            "POST",
+            "PUT",
+            "PATCH",
+            "DELETE"
+          ],
+          "pattern": ".*/",
+          "mcp_type": "EXCLUDE"
+        }
+      ]
+    },
+    "auth_strategy": "basic",
+    "auth": {
+      "username": "<edit-me>",
+      "password": "<edit-me>"
+    },
+    "_id": "snow-search"
+  }
 
 ]

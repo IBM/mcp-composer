@@ -200,6 +200,12 @@ for prompt_json in prompts:
    ```bash
    npx @modelcontextprotocol/inspector
    ```
+   To run a specific version use the following command 
+
+   ```bash
+   npx @modelcontextprotocol/inspector@0.14.3
+   ```
+
 1. Navigate to `src/` and create a `.env` file by copying the contents of `.env.example`.Then, set the Server and Tool config path in env file accordingly:
 
    ```bash

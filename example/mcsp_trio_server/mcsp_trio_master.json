@@ -4,7 +4,7 @@
     "type": "openapi",
     "open_api": {
       "endpoint": "https://demous-instana.instana.io",
-      "spec_filepath": "/Users/advait/Desktop/GitHub/mcp-composer/spec/instana-openapi.json",
+      "spec_filepath": "/mcp-composer/spec/instana-openapi.json",
       "custom_routes": [
         {
           "methods": [
@@ -34,8 +34,8 @@
     "id": "mcp-concert",
     "type": "openapi",
     "open_api": {
-      "endpoint": "https://65879.us-south-8.concert.saas.ibm.com/",
-      "spec_filepath": "/Users/advait/Desktop/GitHub/mcp-composer/spec/ibm-concert-short.json",
+      "endpoint": "https://<name>.<region>.ibm.com/",
+      "spec_filepath": "GitHub/mcp-composer/spec/ibm-concert-short.json",
       "custom_routes": [
         {
           "methods": [

@@ -4,7 +4,7 @@
     "type": "graphql",
     "graphql": {
       "endpoint": "https://countries.trevorblades.com/",
-      "schema_filepath": "/Users/mansurah/GitHub/mcp-composer/example/graphql-to-mcp/countries.graphql"
+      "schema_filepath": "./src/mcp-composer/example/graphql-to-mcp/countries.graphql"
     },
     "_id": "mcp-countries"
   },
@@ -13,7 +13,7 @@
     "type": "graphql",
     "graphql": {
       "endpoint": "https://graphqlpokemon.favware.tech/v8",
-      "schema_filepath": "/Users/mansurah/GitHub/mcp-composer/example/graphql-to-mcp/pokemon.graphql"
+      "schema_filepath": "./src/mcp-composer/example/graphql-to-mcp/pokemon.graphql"
     },
     "_id": "mcp-pokemon"
   }
