@@ -3,15 +3,31 @@
 remote_servers:
   MCP_composer:
     description: default MCP composer server
-    enabled: false
+    enabled: true
     mcp_composer_url: http://localhost:9000/mcp
     type: streamable_http
     filters: 
     excludes: 
+      - register_mcp_server
+      - update_mcp_server_config
+      - delete_mcp_server
+      - member_health
+      - activate_mcp_server
+      - deactivate_mcp_server
+      - add_tools
+      - add_tools_from_openapi
+      - list_member_servers
+      - get_tool_config_by_name
+      - get_tool_config_by_server
+      - disable_tools
+      - enable_tools
+      - update_tool_description
+      - add_prompts
+      - get_all_prompts
 
   Fetch_SSE:
     description: remote server of fetch
-    enabled: true
+    enabled: false
     mcp_composer_url: https://mcp-server-fetch.1vgzmntiwjzl.eu-es.codeengine.appdomain.cloud/sse
     type: sse
     filters: 
@@ -42,7 +58,7 @@ oas_servers:
     base_url: "https://ibmdevsandbox-instanaibm.instana.io"
     auth_header: "Authorization:apiToken {}"
     token_env: INSTANA_API_TOKEN
-    spec_path: "data/instana_openapi.json"
+    spec_path: "spec/instana-openapi.json"
     filters:
     excludes:
       - alert
