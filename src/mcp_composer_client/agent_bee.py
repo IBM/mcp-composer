@@ -9,9 +9,7 @@ from collections.abc import AsyncGenerator
 from beeai_framework.agents.react.agent import ReActAgent
 from beeai_framework.agents.react.events import ReActAgentUpdateEvent
 from beeai_framework.agents.types import AgentExecutionConfig
-from beeai_framework.backend.chat import ChatModel
 from beeai_framework.backend import Message, AssistantMessage, UserMessage, SystemMessage
-from beeai_framework.backend.types import ChatModelParameters
 from beeai_framework.errors import FrameworkError
 from beeai_framework.logger import Logger
 from beeai_framework.backend.message import UserMessage
@@ -19,8 +17,10 @@ from beeai_framework.memory.token_memory import TokenMemory
 from beeai_framework.memory.unconstrained_memory import UnconstrainedMemory
 from beeai_framework.tools.mcp  import MCPTool
 from beeai_framework.tools.tool import AnyTool
-from mcp_composer_client.mcptools import Tools
 from acp_sdk.server import Context
+from mcp_composer_client.mcptools import Tools
+from mcp_composer_client.llm import get_llm
+from mcp_composer_client.tool_select import auto_filter_tools
 
 
 # Load environment variables
@@ -39,22 +39,6 @@ prompt_user = "User query: {}"
 agent_tools = Tools()
 
 
-llm = ChatModel.from_name(
-    os.getenv('CHAT_MODEL_NAME', 'watsonx'), 
-    ChatModelParameters(
-        temperature=0.01, 
-        max_tokens=1000
-    )
-)
-
-# memory = TokenMemory(llm)
-memory = UnconstrainedMemory()
-
-
-def clear_memory():
-    memory.reset()
-
-
 def to_framework_message(role: str, content: str) -> Message:
     match role:
         case "user":
@@ -65,99 +49,42 @@ def to_framework_message(role: str, content: str) -> Message:
             raise ValueError(f"Unsupported role {role}")
 
 
-def parse_llm_name(llm_name: str) -> tuple[str, str]:
-	"""LLM name mapping to provider and chat model name"""
-	if not llm_name:
-		return "", ""
-	
-	pattern = r'(\w+)\(([^)]+)\)'
-	matches = re.findall(pattern, llm_name)
-	if len(matches)>=1:
-		provider, chat_model = matches[0]
-		provider = provider.lower()
-		match provider:
-			case "openai":
-				chat_model = 'gpt-' + chat_model
-				os.environ["OPENAI_CHAT_MODEL"] = chat_model
-			case "watsonx":
-				if "llama-4" in chat_model:
-					chat_model = "meta-llama/llama-4-maverick-17b-128e-instruct-fp8"
-				elif "llama-3" in chat_model:
-					chat_model =  "meta-llama/llama-3-3-70b-instruct"
-				elif "granite-3" in chat_model:
-					chat_model =  "ibm/granite-3-3-8b-instruct"
-				elif "mistral-large" in chat_model:
-					chat_model =  "mistralai/mistral-large"
-				elif "mistral-medium-2505" in chat_model:
-					chat_model =  "mistralai/mistral-medium-2505"
-
-				if chat_model != "":
-					os.environ["WATSONX_CHAT_MODEL"] = chat_model
-			case "ollama":        
-				os.environ["OLLAMA_CHAT_MODE"] = chat_model
-
-		print("select model:", provider, chat_model)
-		return provider, chat_model
-	else:
-		return llm_name, ""
-
-
 async def create_agent_from_tools(tools: list[AnyTool], messages: list[Message], llm_name: str | None = None) -> ReActAgent:
     """Create and configure the agent with tools and LLM"""
-    llm_use = llm
 
-    if llm_name:
-        provider, chat_model = parse_llm_name(llm_name)
-        if chat_model != "":
-            llm_use = ChatModel.from_name(
-                provider, ChatModelParameters(temperature=0.01, max_tokens=1000)
-            )
+    llm_use = get_llm(llm_name)
         
     # Create agent with memory and tools
-    agent = ReActAgent(llm=llm_use, tools=tools, memory=memory)
+    agent = ReActAgent(llm=llm_use, tools=tools, memory=TokenMemory(llm_use))
     await agent.memory.add_many(messages)
     logger.info(f"Chat history messages count: {len(messages)}")
     # agent = ToolCallingAgent(llm=llm_use, tools=tools, memory=memory)
     return agent
 
 
-async def auto_filter_tools(user_input: str) -> list[str]:
-    """Get list of tools what are relevant to user input from LLM calling"""
-
-    tools_all = agent_tools.tools
-    tools_descriptions = {t.name:t.description for t in tools_all}
-    
-    tool_description_str = "\n".join([f"{k}: {v}\n" for k, v in tools_descriptions.items()])
-    prompt_filter_tools = """Based on the tools descriptions list and user query, select which tools are relevant to user query, list only relevant tools line by line without number, without any explanation, output in plain text format.
-\nTool list: {tool_descriptions}\n\nUser query:\n {user_input}"""
-    
-    result = await run_llm(user_input=prompt_filter_tools.format(tool_descriptions=tool_description_str,user_input=user_input))
-    
-    selected_tool_names = [line for line in result.strip().split("\n") if " " not in line and len(line)>0]
-
-    return selected_tool_names
-
-
 async def run_agent_multimcp(
         user_input: str, 
-        llm_name: str | None = None, 
+        llm_name: str | None = None,         
+        tool_select_method: str | None = None,
         streaming: bool = False,
-        auto_filter_tools: list[str] | None = None,
         context: Context | None = None
     ) -> AsyncGenerator[str]:
 
     if len(agent_tools.tools) == 0:
         await agent_tools.create_mcp_tools()
 
-    logger.info(f"Call Agent: \nuser-input={user_input}\nllm={llm_name}\nstream={streaming}\nfilter-tools={auto_filter_tools}")
+    logger.info(f"Call Agent: \nuser-input={user_input}\nllm={llm_name}\nstream={streaming}\ntool_select_method={tool_select_method}")
 
     sel_tools = []
+    if tool_select_method:        
+        selected_tools = await auto_filter_tools(user_input, tools_all=agent_tools.tools, select_method=tool_select_method)
+        print("auto-selected tools:\n", selected_tools)
+        if selected_tools:
+            for t in agent_tools.tools:
+                if t.name in selected_tools:
+                    sel_tools.append(t)
+            logger.info(f"auto selected tools:  {len(sel_tools)}")
 
-    if auto_filter_tools:
-        for t in agent_tools.tools:
-            if t.name in auto_filter_tools:
-                sel_tools.append(t)
-        logger.info(f"auto selected tools:  {len(sel_tools)}")
 
     # get historical messages from context
     if context is not None:
@@ -190,7 +117,7 @@ async def run_agent_multimcp(
             
             logger.info("calling agent is finished.")
         else:
-            logger.info("calling agent ...")
+            logger.info("calling agent in sync ...")
             response = await agent.run(
                 prompt=prompt_system.format(user_input),
                 execution=AgentExecutionConfig(max_retries_per_step=3, total_max_retries=6, max_iterations=10),
@@ -203,11 +130,6 @@ async def run_agent_multimcp(
         yield "(error orrcurred)"
 
     await agent_tools.clean_exits()
-
-
-async def run_llm(user_input: str) -> str:
-    response = await llm.create(messages=[UserMessage(content=user_input)])
-    return response.get_text_content()
 
 
 async def call_agent(prompt):
