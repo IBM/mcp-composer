@@ -48,6 +48,21 @@ The goal is to provide a single unified MCP Composer that:
 
 ## Installation
 
+Update the pyproject.toml if you need to install both `mcp_composer` and `mcp_composer_app`
+
+```
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["mcp_composer", "mcp_composer_app"]
+```
+If we only want to install `mcp_composer` 
+
+```
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["mcp_composer"]
+```
+
 ### Prerequisites
 
 - Python 3.10+
@@ -60,15 +75,10 @@ The goal is to provide a single unified MCP Composer that:
    git clone https://github.ibm.com/ai-elite/mcp-composer.git
    cd mcp-composer
    ```
-2. Create and sync the environment:
-
+2. Create virtual Environment:
    ```bash
-   uv sync --frozen        # Strict install (uses lock file exactly) - recommended as ensuring consistency across different environments
-   # uv sync               # Install (update lock file) - incremental refresh, commit uv.lock
-   # rm uv.lock && uv sync # Refresh child dependencies, commit uv.lock
+   uv venv 
    ```
-
-   This installs all dependencies.
 
 3. Activate the virtual environment.
 
@@ -76,7 +86,72 @@ The goal is to provide a single unified MCP Composer that:
    source .venv/bin/activate
    ```
 
-   > If you want to use `pip` tool, run it as `uv pip <params>`, do not run explicitly (`pip <params>)`
+4. Synchronize the environment.
+
+  
+   ```bash
+   uv sync --frozen        # Strict install (uses lock file exactly) - recommended as ensuring consistency across different environments
+   uv sync               # Install (update lock file) - incremental refresh, commit uv.lock
+   rm uv.lock && uv sync # Refresh child dependencies, commit uv.lock
+   ```
+5. Add a new dependency; automatically creates a virtual environment if necessary
+
+   ```bash
+   uv add <my-package>   
+   ```
+6. Leverage the project's virtual environment:
+   ```
+   uv run <command&args> 
+   ```
+7. Test if MCP Composer is installed successfully or not
+
+   ```bash
+   uv run python -c "import mcp_composer; print(mcp_composer.__version__)"
+   ```
+
+
+### Add MCP Composer as local dependency
+
+1. Update the `pyproject.toml` with the following:
+
+```toml
+[tool.hatch.metadata]
+allow-direct-references = true
+```
+Then you can run the command:
+
+```bash
+uv add <path to mcp-composer folder>
+```
+Then, the pyproject.toml file is updated with the below lines:
+
+```toml
+[tool.uv.sources]
+mcp-composer = { path = "mcp-composer" }
+```
+Add mcp-composer to the dependencies section, example of the final pyproject.toml file:
+
+```toml  
+[project]
+name = "py_project"
+
+[tool.hatch.metadata]
+allow-direct-references = true
+
+dependencies = [
+    "mcp-composer",
+    ... ...
+]
+
+[tool.uv.sources]
+mcp-composer= { path = "mcp-composer" }
+```
+
+To ensure the package is properly installed and importable in the consumer project, the following command must be run manually:
+
+```bash
+uv pip install -e ../mcp-composer
+```
 
 ## Key Features
 
