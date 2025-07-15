@@ -1,27 +1,28 @@
 """Tool Manager"""
 
+import inspect
 from typing import Optional
-import uncurl
-from pydantic import ValidationError
 
 from fastmcp.tools import ToolManager
 from fastmcp.tools.tool import Tool
 from fastmcp.settings import DuplicateBehavior
 
 
-from mcp_composer.exceptions import ToolGenerateError
 from mcp_composer.member_servers.member_server import HealthStatus, MemberMCPServer
-from mcp_composer.settings.tool_setting import ToolSettings
 from mcp_composer.store.database import DatabaseInterface
-from mcp_composer.tools.model import OpenApiToolAuthConfig
 from mcp_composer.utils import LoggerFactory, get_server_doc_info
 from mcp_composer.member_servers import ServerManager
-from mcp_composer.utils.auth_strategy import get_client
-from mcp_composer.utils.custom_tool import (
-    DynamicToolGenerator,
-    OpenApiTool,
+from mcp_composer.utils.tools import (
+    generate_tool_from_curl,
+    generate_tool_from_open_api,
+    tool_exist,
+    tool_config,
 )
-from mcp_composer.utils.tools import tool_exist, tool_config
+
+try:
+    from mcp_composer.custom_tool import tools as custom_tools
+except ImportError:
+    custom_tools = None
 
 
 logger = LoggerFactory.get_logger()
@@ -82,29 +83,24 @@ class MCPToolManager(ToolManager):
             logger.exception("Tools filtering failed: %s", e)
             raise
 
-    async def generate_tool_from_curl(self):
-        """Create tool from curl command"""
-        try:
-            return DynamicToolGenerator.read_curl_from_file()
-        except ToolGenerateError as e:
-            logger.exception(
-                "Failed to generate tool from saved curl config details: %s", e
-            )
-            raise ToolGenerateError(
-                "Failed to generate tool from saved curl config details"
-            ) from e
+    async def load_custom_tools(self):
+        """Load tools using saved OpenAPI, Curl, and Python script."""
 
-    async def generate_tool_from_open_api(self):
-        """Create tool from OpenAPI specification"""
         try:
-            return await OpenApiTool.read_openapi_from_file()
+            if custom_tools:
+                for name, func in inspect.getmembers(custom_tools, inspect.isfunction):
+                    logger.info("Adding tool from custom tool folder: %s", name)
+                    self.add_tool(Tool.from_function(func))
+
+            # Load tools from curl commands
+            for tool_fn in await generate_tool_from_curl():
+                self.add_tool(Tool.from_function(tool_fn))
+
+            # Load tools from OpenAPI Specifications
+            server_data = await generate_tool_from_open_api()
+            return server_data
         except Exception as e:
-            logger.exception(
-                "Failed to generate tool from saved OpenAPI specification: %s", e
-            )
-            raise ToolGenerateError(
-                "Failed to generate tool from saved OpenAPI specification"
-            ) from e
+            raise e
 
     async def fetch_server_tools(
         self,
@@ -216,58 +212,3 @@ class MCPToolManager(ToolManager):
             server_id,
         )
         return f"Updated {tool} with description: {description}"
-
-    async def tool_from_script(self, config: dict):
-        """Create Tool dynamically from the config script"""
-        try:
-            # Validate and parse input
-            script_model = ToolSettings(**config)
-            if script_model.script_config:
-                logger.info("Generate tool from python script")
-                return DynamicToolGenerator().create_from_script(script_model)
-
-            if script_model.curl_config:
-                parsed = uncurl.parse_context(script_model.curl_config["value"])
-                tool_data = {
-                    "_id": script_model.name,
-                    "id": script_model.name,
-                    "description": script_model.description,
-                    "headers": parsed.headers,
-                    "method": parsed.method,
-                    "body": parsed.data,
-                    "url": parsed.url,
-                }
-                logger.info(
-                    "Generate tool from curl command, parsed details:%s", tool_data
-                )
-                DynamicToolGenerator.write_curl_to_file(tool_data)
-                return DynamicToolGenerator.create_api_request(tool_data)
-
-        except ValidationError as e:
-            logger.exception("Invalid input: %s", e.errors())
-            raise ToolGenerateError(f"Invalid input: {e.errors()}") from e
-
-        except Exception as e:
-            logger.exception("Failed to generate tool from config:%s", e)
-            raise ToolGenerateError(str(e)) from e
-
-    async def tool_from_open_api(self, open_api: dict, auth_config: dict | None = None):
-        """Create tool from OpenAPI specification"""
-        try:
-            # for now, considering only one server
-            server_url = open_api["servers"][0]["url"]
-            server_name = open_api["info"]["title"].replace(" ", "_")
-            if auth_config:
-                OpenApiToolAuthConfig(**auth_config)
-            OpenApiTool(server_name, open_api, auth_config).write_openapi()
-            return server_name, await get_client(server_url, auth_config)
-
-        except KeyError as e:
-            logger.exception("Failed to generate tool from openapi:%s", e)
-            raise ToolGenerateError(
-                "Failed to generate tool from openapi: server url or title is missing"
-            ) from e
-
-        except Exception as e:
-            logger.exception("Failed to generate tool from openapi:%s", e)
-            raise ToolGenerateError(f"Failed to generate tool from openapi:{e}") from e

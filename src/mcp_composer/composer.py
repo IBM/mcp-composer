@@ -4,7 +4,6 @@ Extends FastMCP with runtime composition, tool management, and database-backed c
 """
 
 import sys
-import inspect
 from typing import Any, Dict, Optional, Union
 from dotenv import load_dotenv
 from fastmcp import FastMCP
@@ -16,21 +15,15 @@ from mcp_composer.utils import (
     LoggerFactory,
     AllServersValidator,
     ValidationError,
-    build_prompt_from_dict
+    build_prompt_from_dict,
 )
 from mcp_composer.member_servers import ServerManager, MemberMCPServer, MCPServerBuilder
 from mcp_composer.store.database import DatabaseInterface
 from mcp_composer.store.cloudant_adapter import CloudantAdapter
 from mcp_composer.store.local_file_adapter import LocalFileAdapter
-
-try:
-    from mcp_composer.custom_tool import tools as custom_tools
-except ImportError:
-    custom_tools = None
-
+from mcp_composer.utils.tools import tool_from_open_api, tool_from_script
 
 load_dotenv()
-
 
 logger = LoggerFactory.get_logger()
 
@@ -115,22 +108,10 @@ class MCPComposer(FastMCP):
 
         self.add_tool(Tool.from_function(self.add_prompts))
         self.add_tool(Tool.from_function(self.get_all_prompts))
-        
 
     async def _load_custom_tools(self):
-        """Load tools from dynamic tool manager and optional custom tool module."""
-
-        if custom_tools:
-            for name, func in inspect.getmembers(custom_tools, inspect.isfunction):
-                logger.info("Adding tool from custom tool folder: %s", name)
-                self.add_tool(Tool.from_function(func))
-
-        # Load tools from curl commands
-        for tool_fn in await self._tool_manager.generate_tool_from_curl():
-            self.add_tool(Tool.from_function(tool_fn))
-
-        # Load tools from OpenAPI Specifications
-        server_data = await self._tool_manager.generate_tool_from_open_api()
+        """Load tools using saved OpenAPI, Curl, and Python script."""
+        server_data = await self._tool_manager.load_custom_tools()
         for name, client in server_data.items():
             await self.import_server(
                 self.from_openapi(client[0], client[1]),  # type: ignore
@@ -264,7 +245,7 @@ class MCPComposer(FastMCP):
 
     async def add_tools(self, tool_config: dict) -> str:
         """Create a tool from a python script."""
-        fn = await self._tool_manager.tool_from_script(tool_config)
+        fn = await tool_from_script(tool_config)
         if fn:
             self.add_tool(Tool.from_function(fn))
         return "Successfully added tools"
@@ -273,15 +254,13 @@ class MCPComposer(FastMCP):
         self, openapi_spec: dict, auth_config: dict | None = None
     ) -> str:
         """Create a tool from OpenAPI Specification"""
-        server_name, client = await self._tool_manager.tool_from_open_api(
-            openapi_spec, auth_config
-        )
+        server_name, client = await tool_from_open_api(openapi_spec, auth_config)
         await self.import_server(
             server_name,
             self.from_openapi(openapi_spec, client),  # type: ignore
         )
         return "Successfully added tools"
-   
+
     async def add_prompts(self, prompt_config: Union[dict, list[dict]]) -> list[str]:
         """
         Add one or more prompts based on the provided configuration.
@@ -296,7 +275,7 @@ class MCPComposer(FastMCP):
             super().add_prompt(prompt)
             added.append(prompt.name)
         return added
-    
+
     async def get_all_prompts(self) -> list[str]:
         """Get all registered prompts mapped to their textual form."""
         prompts_dict = await self.get_prompts()

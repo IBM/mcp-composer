@@ -12,7 +12,7 @@ import httpx
 
 
 from mcp_composer.exceptions import ToolGenerateError
-from mcp_composer.settings.tool_setting import ToolSettings
+from mcp_composer.models.tool import ToolBuilderConfig
 from mcp_composer.utils.auth_strategy import get_client
 from mcp_composer.utils.logger import LoggerFactory
 from mcp_composer.utils.utils import (
@@ -24,7 +24,7 @@ logger = LoggerFactory.get_logger()
 
 
 class ToolPaths:
-    "Custom tool paths"
+    """Custom tool paths"""
 
     OUTPUT_DIR_NAME = "custom_tool"
     TOOLS_FILE_NAME = "tools.py"
@@ -110,7 +110,7 @@ class DynamicToolGenerator:
                 Path(filepath).write_text(json.dumps([tool_data], indent=2))
 
         except Exception as e:
-            logger.exception(f"Failed to write curl config to file: {e}")
+            logger.exception("Failed to write curl config to file: %s", e)
             raise
 
     @staticmethod
@@ -167,7 +167,7 @@ class DynamicToolGenerator:
                     if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
                 }
                 if func_name in defined_funcs:
-                    raise ValueError("Function '%s' already exists in.", func_name)
+                    raise ValueError(f"Function {func_name} already exists in.")
 
             except ValueError as e:
                 logger.exception("Python script writing to file failed: %s", str(e))
@@ -175,7 +175,7 @@ class DynamicToolGenerator:
 
             except SyntaxError as e:
                 logger.exception("Failed to parse the file: %s", e)
-                raise RuntimeError("Failed to parse the file: %s", e)
+                raise RuntimeError(f"Failed to parse the file: {e}") from e
 
         # Clean and append function code
         try:
@@ -185,9 +185,9 @@ class DynamicToolGenerator:
                 f.write(f"\n# --- MCP Tool function: {func_name} ---\n")
                 f.write(cleaned_code + "\n")
         except Exception as e:
-            raise RuntimeError("Failed to write function to file:%s", e)
+            raise RuntimeError(f"Failed to write function to file:{e}") from e
 
-    def create_from_script(self, script_model: ToolSettings):
+    def create_from_script(self, script_model: ToolBuilderConfig):
         """Create a Python function from a Python script string"""
         try:
             if script_model.script_config:
@@ -211,8 +211,6 @@ class DynamicToolGenerator:
                     if callable(fn):
                         self._write_function_to_file(fn.__name__, script)
                         return fn
-                    else:
-                        raise ToolGenerateError("Invalid script provided.")
 
         except SyntaxError as e:
             logger.exception("Syntax error in script: %s", e)
@@ -247,6 +245,7 @@ class OpenApiTool:
 
     @staticmethod
     async def read_openapi_from_file():
+        """Read openapi specification"""
         try:
             current_file = os.path.abspath(__file__)
             current_dir = os.path.dirname(current_file)
@@ -263,7 +262,7 @@ class OpenApiTool:
                     else:
                         file_pairs.setdefault(name, {})["open_api"] = file
                 # Read both files together
-                for base_name, files in file_pairs.items():
+                for _, files in file_pairs.items():
                     open_api = {}
                     auth_config = {}
 

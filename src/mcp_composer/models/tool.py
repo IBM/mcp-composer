@@ -1,12 +1,13 @@
-"""Tool settings for tool creation using curl command or Python script"""
+"""Tools pydantic models"""
 
-from typing import Optional, Dict
-from pydantic_settings import BaseSettings
-from pydantic import Field, field_validator, model_validator
+from typing import Union, Literal, Optional, Dict
+from pydantic import Field, field_validator
+from pydantic import BaseModel, model_validator
+from mcp_composer.models.oauth import APIkey, BasicAuth, BearerAuth, DynamicBearerAuth
 
 
-class ToolSettings(BaseSettings):
-    """Tool settings for tool creation using curl command or Python script"""
+class ToolBuilderConfig(BaseModel):
+    """Tool builder config for tool creation using curl command or Python script"""
 
     name: str = Field(..., description="Name of the tool")
     tool_type: str = Field(
@@ -30,7 +31,7 @@ class ToolSettings(BaseSettings):
     )
 
     @model_validator(mode="after")
-    def validate_config_sources(self) -> "ToolSettings":
+    def validate_config_sources(self) -> "ToolBuilderConfig":
         """Validate config value is present or not"""
         if not self.curl_config and not self.script_config:
             raise ValueError(
@@ -63,3 +64,32 @@ class ToolSettings(BaseSettings):
                 if not v.strip():
                     raise ValueError(f"Python script value for '{k}' cannot be empty.")
         return script_config
+
+
+class OpenApiToolAuthConfig(BaseModel):
+    """OpenAPI tool auth config model"""
+
+    auth_strategy: Literal["bearer", "dynamic_bearer", "basic", "api_key"]
+    auth: Union[BearerAuth, DynamicBearerAuth, BasicAuth, APIkey]
+
+    @model_validator(mode="before")
+    @classmethod
+    def validate_and_instantiate_auth(cls, values):
+        """validate auth strategy"""
+        strategy = values.get("auth_strategy")
+        auth = values.get("auth")
+
+        if not strategy or not auth:
+            raise ValueError("Both 'auth_strategy' and 'auth' must be provided.")
+
+        if strategy == "bearer":
+            values["auth"] = BearerAuth(**auth)
+        elif strategy == "dynamic_bearer":
+            values["auth"] = DynamicBearerAuth(**auth)
+        elif strategy == "basic":
+            values["auth"] = BasicAuth(**auth)
+        elif strategy == "api_key":
+            values["auth"] = APIkey(**auth)
+        else:
+            raise ValueError(f"Unsupported auth_strategy: {strategy}")
+        return values
