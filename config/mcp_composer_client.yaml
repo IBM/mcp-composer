@@ -1,13 +1,12 @@
-
 # MCP Composer configuration
 remote_servers:
   MCP_composer:
     description: default MCP composer server
-    enabled: true
+    enabled: false
     mcp_composer_url: http://localhost:9000/mcp
     type: streamable_http
-    filters: 
-    excludes: 
+    filters:
+    excludes:
       - register_mcp_server
       - update_mcp_server_config
       - delete_mcp_server
@@ -30,25 +29,24 @@ remote_servers:
     enabled: false
     mcp_composer_url: https://mcp-server-fetch.1vgzmntiwjzl.eu-es.codeengine.appdomain.cloud/sse
     type: sse
-    filters: 
-    excludes: 
+    filters:
+    excludes:
 
 # Standard MCP Server - testing purpose
 stdio_servers:
   filesystem:
-    enabled: false
+    enabled: true
     description: operations on local file system (like read a file content, list files in a directory, etc)
     command: npx
     args:
       - -y
       - "@modelcontextprotocol/server-filesystem"
-      - ./
-      - ./data
+      - ./config
     env:
-    filters: 
+    filters:
       - read_file
       - list_directory
-    excludes: 
+    excludes:
 
 # OAS-to-MCP Server - temporary/testing purpose
 oas_servers:
@@ -64,7 +62,7 @@ oas_servers:
       - alert
       - config
       - log
-      - alert        
+      - alert
     tags:
       - "Application Analyze"
       - "Application Metrics"
