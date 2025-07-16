@@ -47,36 +47,61 @@ class MCPOASConfig(MCPBaseConfig):
 # Config containing all, structure of config/mcp_composer_client.yaml
 class MCPServersConfig(BaseModel):
     remote_servers: dict[str, MCPRemoteConfig]
-    stdio_servers: dict[str, MCPSTDIOConfig]
-    oas_servers: dict[str, MCPOASConfig]
+    stdio_servers: dict[str, MCPSTDIOConfig] | None
+    oas_servers: dict[str, MCPOASConfig] | None
 
 
-def remove_disenabled_mcp_servers(config: MCPServersConfig):
-    """Remove mcp servers with 'enabled' as false"""
-    for cfg in [config.stdio_servers, config.oas_servers, config.remote_servers]:
-        disenabled: list[str] = [k for k, v in cfg.items() if not v.enabled]
-        for name in disenabled:
-            cfg.pop(name)
+def remove_disenabled_mcp_servers(config: dict[str, Any]):
+    """Remove mcp servers with 'enabled' as false"""    
+    disenabled: list[str] = [k for k, v in config.items() if not v.enabled]
+    logger.info(f"Disenabled MCP: {disenabled}")
+    for name in disenabled:
+        config.pop(name)
 
 
 class Tools:
     def __init__(self, config_path: str = "config/mcp_composer_client.yaml"):        
-        try:
-            with open(config_path, "r") as file:
-                config_dict = yaml.safe_load(file)            
-            # Parse and validate the configuration using Pydantic
-            self._config = MCPServersConfig.model_validate(config_dict)
-        except FileNotFoundError:
-            raise FileNotFoundError(f"Configuration file not found: {config_path}")
-        except yaml.YAMLError as e:
-            raise ValueError(f"Invalid YAML in configuration file: {e}")
-        except Exception as e:
-            raise ValueError(f"Error parsing configuration: {e}")
+        self._config: dict[str, Any] = {}
+        USER_CONFIG_FILE = os.getenv("USER_CONFIG_FILE", "no")
+
+        # read config file if env USER_CONFIG_FILE is missing or False
+        logger.info(f"USER_CONFIG_FILE={USER_CONFIG_FILE}")
+        if USER_CONFIG_FILE == "yes":
+            logger.info(f"Load tools from config file '{config_path}'.")
+            try:
+                with open(config_path, "r") as file:
+                    config_dict = yaml.safe_load(file)            
+                # Parse and validate the configuration using Pydantic
+                configs: MCPServersConfig = MCPServersConfig.model_validate(config_dict)
+                
+                if configs.remote_servers:
+                    self._config.update(configs.remote_servers)
+                if configs.stdio_servers is not None:
+                    self._config.update(configs.stdio_servers)
+                if configs.oas_servers is not None:
+                    self._config.update(configs.oas_servers)                
+            except FileNotFoundError:
+                raise FileNotFoundError(f"Configuration file not found: {config_path}")
+            except yaml.YAMLError as e:
+                raise ValueError(f"Invalid YAML in configuration file: {e}")
+            except Exception as e:
+                raise ValueError(f"Error parsing configuration: {e}")
+        else:
+            base_url = str(os.getenv("MCP_BASE_URL"))
+            logger.info(f"Load tools from MCP Compsoser Base URL '{base_url}'.")
+            self._config["MCP_composer"] = MCPRemoteConfig(
+                description="MCP Composer", 
+                enabled=True, 
+                mcp_composer_url=base_url, 
+                type="streamable_http",
+                filters=None,
+                excludes=None
+            )
         
         remove_disenabled_mcp_servers(self._config)
 
-        self._products: list[str] = list(self._config.remote_servers.keys()) + list(self._config.stdio_servers.keys()) + list(self._config.oas_servers.keys())
-        logger.info(f"Enabled products: {self._products}")
+        self._products: list[str] = list(self._config.keys())
+        logger.info(f"Enabled MCP: {self._products}")
     
         # async context exits for MCP sessions
         self._list_exits: list[AsyncExitStack] = []
@@ -128,7 +153,7 @@ class Tools:
 
         products = []
 
-        for product, cfg in list(self._config.remote_servers.items()) + list(self._config.stdio_servers.items()) + list(self._config.oas_servers.items()):
+        for product, cfg in self._config.items():
             products.append(product)
             
             # create async context mgr
@@ -164,9 +189,9 @@ class Tools:
             mcp_tools = await MCPTool.from_client(session)
             
             # filtering tools based on config
-            logger.info(f"filter [{product}] tools:\noriginal tools = {len(mcp_tools)}\nfilters={cfg.filters}\nexcludes={cfg.excludes}")
+            logger.info(f"filter [{product}] tools: original tools = {len(mcp_tools)}, filters={cfg.filters}, excludes={cfg.excludes}")
             filtered_tools = self.filter_oas_tools(mcp_tools, cfg.filters, cfg.excludes)
-            logger.info(f"filtered OAS tool:\ntools = {len(filtered_tools)}")
+            logger.info(f"filtered tools = {len(filtered_tools)}")
             self._tools += filtered_tools
             tool_count[product] = len(filtered_tools)
             # fill tools details (description, schema)
@@ -184,8 +209,8 @@ class Tools:
                 self._tools_details[product][t.name] = t.description + "\n\n**Schema**\n\n" + tool_schema
             
         for product in products:
-            logger.info(f"{product} \tenabeld tools: {tool_count[product]}")
-        logger.info(f"Total \tenabled tools:  {len(self._tools)}")
+            logger.info(f"Product[{product}] \tenabeld tools: {tool_count[product]}")
+        logger.info(f"Products[All] \t\tenabled tools:  {len(self._tools)}")
 
         if close_context:
             await self.clean_exits()
@@ -221,7 +246,10 @@ class Tools:
 
     def get_product_tags(self, product: str) -> list[str] | None:
         """Get tags of product from config"""
-        return self._config.oas_servers[product].tags
+        if isinstance(self._config[product], MCPOASConfig):
+            return self._config[product].tags
+        else:
+            return None
 
 
     def filter_oas_tools(self, tools: list[MCPTool], filters: list[str] | None = None, excludes: list[str] | None = None) -> list[MCPTool]:
