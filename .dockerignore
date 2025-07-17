@@ -6,8 +6,8 @@
 !/pyproject.toml
 !/src/
 !/test/
-# !/example
-# !/spec
+!/example
+!/spec
 
 ### ignore final ###
 __pycache__
