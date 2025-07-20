@@ -152,10 +152,8 @@ class MCPComposer(FastMCP):
             return f"Server {server_id} mounted."
 
         except Exception as exc:
-            logger.error(
-                "Failed to mount server '%s': %s",
-                str(config.get("id", "<missing‑id>")),
-                exc,
+            logger.exception(
+                "Failed to mount server '%s': %s", str(config.get("id", "<missing-id>")), exc
             )
             return f"Failed to mount server {config.get('id', '<missing‑id>')}"
 
