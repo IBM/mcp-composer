@@ -289,13 +289,13 @@ class OpenApiTool:
         os.makedirs(self.folder_path, exist_ok=True)
         for path in [self.filepath, self.auth_filepath]:
             if not os.path.exists(path):
-                with open(path, "w") as f:
+                with open(path, "w", encoding="utf-8") as f:
                     json.dump({}, f)
 
     def write_openapi(self):
         """write OpenAPI specification to file"""
         try:
-            existing = json.loads(Path(self.filepath).read_text())
+            existing = json.loads(Path(self.filepath).read_text(encoding="utf-8"))
             if existing:
                 # Deep copy to avoid modifying originals
                 result = deepcopy(existing)
@@ -326,13 +326,17 @@ class OpenApiTool:
                     if tag["name"] not in existing_tags:
                         result.setdefault("tags", []).append(tag)
 
-                Path(self.filepath).write_text(json.dumps(result, indent=2))
+                Path(self.filepath).write_text(
+                    json.dumps(result, indent=2), encoding="utf-8"
+                )
             else:
-                Path(self.filepath).write_text(json.dumps(self.open_api, indent=2))
+                Path(self.filepath).write_text(
+                    json.dumps(self.open_api, indent=2), encoding="utf-8"
+                )
 
             if self.auth_config:
                 Path(self.auth_filepath).write_text(
-                    json.dumps(self.auth_config, indent=2)
+                    json.dumps(self.auth_config, indent=2), encoding="utf-8"
                 )
 
         except Exception as e:
