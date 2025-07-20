@@ -39,6 +39,12 @@ class FakeDatabase(DatabaseInterface):
         for tool_name in tools:
             self._tools = [t for t in self._tools if t["name"] != tool_name]
 
+    def enable_tools(self, tools: List[str], server_id: str) -> None:
+        """Adds tools to the tool list if not already present."""
+        for tool_name in tools:
+            if not any(t["name"] == tool_name for t in self._tools):
+                self._tools.append({"name": tool_name, "server_id": server_id, "description": ""})
+
     def update_tool_description(
         self, tool: str, description: str, server_id: str
     ) -> None:

@@ -17,6 +17,7 @@ custom_tool/
 .vscode
 # runtime generated file
 /mcp_servers.json
+/versioned_config.json
 example/mcsp_trio_server/config.json
 example/mcsp_servers/config.json
 example/.DS_Store
