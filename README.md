@@ -19,6 +19,7 @@
   - [Setup](#setup)
 - [Key Features](#key-features)
   - [MCP Composer Servers](#mcp-composer-servers)
+  - [Command Line Interface (CLI)](#command-line-interface-cli)
   - [MCP Composer Tools](#mcp-composer-tools)
   - [MCP Composer Prompts](#mcp-composer-prompts)
 - [Demo using MCP Inspector](#demo-using-mcp-inspector)
@@ -213,6 +214,27 @@ mcp_server = await builder.build()
 ```
 
 This will create a FastMCP server instance with a GraphQL tool registered, allowing you to interact with the GraphQL API through MCP Composer.
+
+### Command Line Interface (CLI)
+
+MCP Composer can now be launched directly via a CLI using the `mcp-composer` entry point. This provides a lightweight and flexible way to spin up the composer using either HTTP or stdio mode.
+
+#### Usage
+
+```bash
+mcp-composer --mode <http|stdio> [--host HOST] [--port PORT] [--log-level LEVEL] [--path PATH] [--config <config.json>]
+```
+
+#### Options
+
+| Flag          | Description                                         | Default      |
+| ------------- | --------------------------------------------------- | ------------ |
+| `--mode`      | Mode to run the Composer in: `http` or `stdio`      | `http`       |
+| `--host`      | Host to bind to (for `http` mode)                   | `0.0.0.0`    |
+| `--port`      | Port to run on (for `http` mode)                    | `9000`       |
+| `--log-level` | Log level (e.g. `debug`, `info`, `warning`)         | `debug`      |
+| `--path`      | URL path to mount the MCP Composer on               | `/mcp`       |
+
 
 ### MCP Composer Tools
 
