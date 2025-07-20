@@ -22,18 +22,22 @@ class ConfigKey(str, Enum):
     USERNAME = "username"
     PASSWORD = "password"
     LOGIN_URL = "login_url"
-    TOKEN_TYPE = "token_type",
+    TOKEN_TYPE = "token_type"
     MEDIA_TYPE = "media_type"
     MEDIA_TYPE_JSON = "json"
     GRAPHQL = "graphql"
     SCHEMA_FILEPATH = "schema_filepath"
     PROMPT_PATH = "prompt_path"
 
+
 class MemberServerType(str, Enum):
     OPENAPI = "openapi"
     CLIENT = "client"
     GRAPHQL = "graphql"
     LOCAL = "local"
+    HTTP = "http"
+    SSE = "sse"
+    STDIO = "stdio"
 
 
 class AuthStrategy(str, Enum):
@@ -136,7 +140,9 @@ class ServerConfigValidator:
 
         graphql_config = self.config.get(ConfigKey.GRAPHQL)
         if not graphql_config:
-            raise ValidationError(f"Missing required {ConfigKey.GRAPHQL} section in config.")
+            raise ValidationError(
+                f"Missing required {ConfigKey.GRAPHQL} section in config."
+            )
 
         required_fields = [ConfigKey.ENDPOINT, ConfigKey.SCHEMA_FILEPATH]
         missing = [field for field in required_fields if not graphql_config.get(field)]
@@ -144,6 +150,7 @@ class ServerConfigValidator:
             raise ValidationError(
                 f"Missing required field(s) in {ConfigKey.GRAPHQL}: {', '.join(missing)}"
             )
+
 
 class AllServersValidator:
     def __init__(self, server: List[Dict[str, Any]]):

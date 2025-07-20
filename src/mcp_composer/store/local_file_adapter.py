@@ -17,6 +17,7 @@ logger = LoggerFactory.get_logger()
 
 MEMBER_SERVER_CONFIG_FILE_PATH = os.environ["SERVER_CONFIG_FILE_PATH"]
 
+
 class LocalFileAdapter(DatabaseInterface):
     """Local file storage"""
 
@@ -30,18 +31,18 @@ class LocalFileAdapter(DatabaseInterface):
     def _ensure_file_exists(self):
         if not self._file_path.exists():
             self._file_path.parent.mkdir(parents=True, exist_ok=True)
-            with open(self._file_path, "w") as f:
+            with open(self._file_path, "w", encoding="utf-8") as f:
                 json.dump([], f)
 
     def _read_data(self) -> List[Dict]:
         try:
-            with open(self._file_path, "r") as f:
+            with open(self._file_path, "r", encoding="utf-8") as f:
                 return json.load(f)
         except (json.JSONDecodeError, FileNotFoundError):
             return []
 
     def _write_data(self, data: List[Dict]):
-        with open(self._file_path, "w") as f:
+        with open(self._file_path, "w", encoding="utf-8") as f:
             json.dump(data, f, indent=2)
 
     def load_all_servers(self) -> List[Dict]:
