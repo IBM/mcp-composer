@@ -249,8 +249,65 @@ mcp-composer --mode <http|stdio> [--host HOST] [--port PORT] [--log-level LEVEL]
 - disable_tools: Disable a tool or multiple from the servers and Composer
 - enable_tools: Enable a tool or multiple from the servers and Composer
 - update_tool_description: Update tool description of member servers
-- add_tools: Add tool using curl command or Python script
-- add_tools_from_openapi: Add tool using the OpenAPI specifications
+- [add_tools](#Add-tool-using-Curl-command-and-Python-script): Add tool using curl command or Python script.
+- [add_tools_from_openapi](#Add-tool-using-OpenAPI-specification): Add tool using the OpenAPI specifications
+
+#### Add tool using Curl command and Python script
+**Curl command:**
+```JSON
+{
+    "name": "event",
+    "tool_type": "curl",
+    "curl_config": {
+        "value": "curl 'https://www.eventbriteapi.com/v3/users/me/organizations/' --header 'Authorization: Bearer XXXXXXXX'"
+    },
+    "description": "sample test",
+    "permission": {
+        "role 1": "permission 1 "
+    }
+}
+```
+
+**Python script:**
+```python
+{
+  "name": "test",
+  "tool_type": "script",
+  "script_config": {
+    "value": "def search_news(keyword: str) -> str:\n    '''Simulate news search using a ticker and return top articles.'''\n    import yfinance as yf\n    import json\n    stock = yf.Ticker(keyword.upper())\n    news = stock.news[:5]\n    result = []\n    for article in news:\n        result.append({\n            'title': article.get('title'),\n            'publisher': article.get('publisher'),\n            'link': article.get('link'),\n            'providerPublishTime': article.get('providerPublishTime'),\n        })\n    return json.dumps(result, indent=2)"
+  },
+  "description": "Search top 5 news articles related to a stock ticker using yfinance.",
+  "permission": {
+    "role 1": "permission 1"
+  }
+}
+```
+
+#### Add tool using OpenAPI specification
+**input: openapi_spec**
+```JSON
+{
+  "openapi": "3.0.1",
+  "info": {
+    "title": "IBM Concert API v1.1.0",
+    "version": "1.1.0",
+    ...
+    ...
+  }
+}
+```
+
+**input: auth_config**
+```JSON
+{
+  "auth_strategy": "basic",
+  "auth": {
+    "username": "user1",
+    "password": "xxxxxxxx"
+  }
+}
+```
+
 
 ### MCP Composer Prompts
 
