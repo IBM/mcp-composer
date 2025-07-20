@@ -30,7 +30,7 @@ def build_config_from_args(args) -> List[Dict]:
         config =  {
             "id": args.id,
             "type": MemberServerType.STDIO,
-            "command": "mcp-composer",
+            "command": "uv",
             "args": [
                 "--directory",
                 args.directory or str(Path(args.script_path).parent),
