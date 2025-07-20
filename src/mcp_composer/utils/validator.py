@@ -115,7 +115,7 @@ class ServerConfigValidator:
             )
         auth = self.config[ConfigKey.AUTH]
         strategy = self.config[ConfigKey.AUTH_STRATEGY].lower()
-        print(strategy)
+ 
 
         required_auth_keys = {
             AuthStrategy.APIKEY: ["apikey"],
