@@ -164,6 +164,36 @@ uv pip install -e ../mcp-composer
 
 ### MCP Composer Servers
 
+#### Add MCP Server from local python file in stdio
+
+To add an MCP server from a local python file, use the builder with a configuration containing the python file path:
+
+**Example:**
+
+```
+[
+  {
+    "id": "mcp-local-news",
+    "type": "stdio",
+    "command": "uv",
+    "args": [
+      "--directory",
+      "/<absolute path of the directory>",
+      "run",
+      "<name of the python file>.py"
+    ],
+    "_id": "mcp-local-news"
+  }
+]
+```
+
+Run   
+```bash
+uv run test/test_composer.py
+```
+test_composer.py can run on either `stdio` or `http` type.
+This will create a FastMCP server instance using the python file and its dependencies and also mount it on mcp-composer. 
+
 #### Add MCP Server from OpenAPI Specification
 
 To add an MCP server from an OpenAPI spec, use the builder with a configuration containing the OpenAPI details:
