@@ -15,7 +15,7 @@ load_dotenv(find_dotenv(".env"))
 
 logger = LoggerFactory.get_logger()
 
-MEMBER_SERVER_CONFIG_FILE_PATH = os.environ["SERVER_CONFIG_FILE_PATH"]
+MEMBER_SERVER_CONFIG_FILE_PATH = os.getenv("SERVER_CONFIG_FILE_PATH")
 
 
 class LocalFileAdapter(DatabaseInterface):
