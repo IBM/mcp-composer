@@ -1,10 +1,10 @@
 # ARG BUILDER_IMAGE=icr.io/ibm-dreadnought-prod-images/ubi9/python312-builder
 # ARG RUNTIME_IMAGE=icr.io/ibm-dreadnought-prod-images/ubi9/python312-runtime
-# ARG DREADNOUGHT_PYTHON312_TAG=v9.6.27
+# ARG DREADNOUGHT_PYTHON312_TAG=SET_VALID_TAG
 
 # FROM ${BUILDER_IMAGE}:${DREADNOUGHT_PYTHON312_TAG} AS builder
 
-# COPY --from=ghcr.io/astral-sh/uv:0.7.20 /uv /uvx /bin/
+# COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
 
 # WORKDIR /app
@@ -31,7 +31,7 @@
 
 
 ARG BUILDER_IMAGE=icr.io/ibm-dreadnought-prod-images/ubi9/python312-builder
-ARG DREADNOUGHT_PYTHON312_TAG=v9.6.27
+ARG DREADNOUGHT_PYTHON312_TAG=SET_VALID_TAG
 
 FROM ${BUILDER_IMAGE}:${DREADNOUGHT_PYTHON312_TAG}
 
