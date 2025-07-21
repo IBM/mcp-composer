@@ -12,22 +12,18 @@ from typing import List, Dict, Any
 from pydantic import AnyUrl, TypeAdapter
 from fastmcp.server.proxy import ProxyClient
 from mcp_composer import MCPComposer
-import jwt
 from urllib.parse import urlparse, urlunparse
-from starlette.exceptions import HTTPException
-from starlette.requests import Request
-from starlette.responses import JSONResponse, RedirectResponse, Response
-from mcp.server.auth.middleware.auth_context import get_access_token
 from mcp_composer.auth_handler.oauth import SimpleOAuthProvider, ServerSettings
 from mcp_composer.utils.logger import LoggerFactory
 from mcp_composer.utils import MemberServerType
-from mcp_composer.middleware.tool_filter import ListFilteredTool
+from mcp.server.auth.middleware.auth_context import get_access_token
 from mcp.shared.auth import OAuthClientInformationFull
 from mcp.server.auth.provider import (
     AuthorizationParams,
 )
 import webbrowser
-
+from aiohttp import web
+import jwt
 load_dotenv()
 logger = LoggerFactory.get_logger()
 
@@ -51,13 +47,43 @@ def sanitize_url(url: str) -> str:
         raise ValueError("Invalid URL")
     return urlunparse(parsed)
 
+async def wait_for_callback(expected_path, listen_port=9000, timeout=120):
+    """Runs a local aiohttp server to listen for the callback, returns code and state."""
+    result = {}
+
+    async def handle_callback(request):
+        params = request.rel_url.query
+        result["code"] = params.get("code")
+        result["state"] = params.get("state")
+        # Simple HTML response for the browser
+        return web.Response(text="Authentication complete. You may close this window.")
+
+    app = web.Application()
+    app.router.add_get(expected_path, handle_callback)
+
+    runner = web.AppRunner(app)
+    await runner.setup()
+    site = web.TCPSite(runner, "localhost", listen_port)
+    await site.start()
+
+    # Wait until callback received or timeout
+    try:
+        for _ in range(timeout * 10):
+            await asyncio.sleep(0.1)
+            if result:
+                break
+        else:
+            raise TimeoutError("Timed out waiting for OAuth callback.")
+    finally:
+        await runner.cleanup()
+
+    return result["code"], result["state"]
 
 
 async def create_mcp_server(settings: ServerSettings) -> MCPComposer:
     logger.info("Creating MCP Composer server with OAuth support...")
     oauth_provider = SimpleOAuthProvider(settings)
-    callback_path = urlparse(settings.callback_path).path
-    logger.info(f"Callback path set to: {callback_path}")
+    
     redirect_uris = [TypeAdapter(AnyUrl).validate_python(settings.callback_path)]
 
     client_info = OAuthClientInformationFull( # fill this as per your app requirements
@@ -76,42 +102,33 @@ async def create_mcp_server(settings: ServerSettings) -> MCPComposer:
     )
 
     auth_url = await oauth_provider.authorize(client_info, params)
-   
     logger.info(f"Generated authorization URL: {auth_url}")
     safe_url = sanitize_url(auth_url)
-    print(f"Browser opened with: {safe_url}")
     webbrowser.open(safe_url)
     print(f"Browser opened with: {safe_url}")
+    callback_path = urlparse(settings.callback_path).path
+    logger.info(f"Callback path set to: {callback_path}")
+    
+ # --- HANDLE CALLBACK ---
+    parsed = urlparse(callback_path)
+    print(f"Parsed callback path: {parsed}")
+    listen_port = parsed.port or 9000
+    expected_path = parsed.path
+    print(f"Listening for callback on {expected_path} at port {listen_port}")
 
+
+    code, state = await wait_for_callback(expected_path, listen_port)
+
+    print(f"Received OAuth code: {code}, state: {state}")
+
+    # --- Complete the token exchange using the callback code/state ---
+    # (You will need an async method for this, e.g., oauth_provider.exchange_token(...))
+    token = await oauth_provider.handle_callback(code, state)
+    print(f"OAuth token received: {token}")
+
+    # Continue with your app, e.g., configure MCPComposer with token
     gw = MCPComposer("composer", auth=oauth_provider)
-    
-    
-    @gw.custom_route(f"{callback_path}", methods=["GET"])
-    async def callback_handler(request: Request) -> Response:
-        """Handle OAuth callback."""
-        logger.info(f"Handling OAuth callback {request}")
-        print(f"Request query params: {request.query_params}")
 
-        code = request.query_params.get("code")
-        state = request.query_params.get("state")
-
-        if not code or not state:
-            raise HTTPException(400, "Missing code or state parameter")
-
-        try:
-            redirect_uri = await oauth_provider.handle_callback(code, state)
-            return RedirectResponse(status_code=302, url=redirect_uri)
-        except HTTPException:
-            raise
-        except Exception as e:
-            logger.error("Unexpected error", exc_info=e)
-            return JSONResponse(
-                status_code=500,
-                content={
-                    "error": "server_error",
-                    "error_description": "Unexpected error",
-                },
-            )
 
     @gw.tool()
     async def get_user_profile() -> dict[str, Any]:
@@ -127,10 +144,10 @@ async def create_mcp_server(settings: ServerSettings) -> MCPComposer:
         """Get the token for the authenticated user."""
         access_token = get_access_token()
         if not access_token:
-            raise ValueError("Not authenticated")
+            auth_token = list(oauth_provider.token_mapping.values())[0]
 
-        # Get token from mapping
-        auth_token = oauth_provider.token_mapping.get(access_token.token)
+        else:
+            auth_token = oauth_provider.token_mapping.get(access_token.token)
 
         if not auth_token:
             raise ValueError("No auth token found for user")
@@ -184,6 +201,7 @@ async def run_dynamic_composer(args, config: list[Dict]) -> None:
         logger.info("Detected --auth_type oauth")
         settings = ServerSettings()
         mcp =  await create_mcp_server(settings)
+        print(f"Created MCP Composer with OAuth: {mcp.custom_route}")
     else:
         logger.info("Running MCP Composer without OAuth")
         mcp = MCPComposer("composer",config=config) # type: ignore
@@ -195,7 +213,7 @@ async def run_dynamic_composer(args, config: list[Dict]) -> None:
         await mcp.import_server(remote_proxy)
 
 
-    mcp.add_middleware(ListFilteredTool(mcp))
+    ##mcp.add_middleware(ListFilteredTool(mcp))
 
     await mcp.setup_member_servers()
     server_config = config[0] if config else {}
