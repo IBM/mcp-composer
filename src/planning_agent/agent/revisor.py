@@ -7,7 +7,7 @@ from beeai_framework.backend.chat import ChatModel
 from beeai_framework.backend.types import ChatModelInput
 from beeai_framework.backend.message import UserMessage, SystemMessage
 
-from core.state import State
+from planning_agent.core.state import State
 def make_revision_step(llm: ChatModel, validate_step_id: str, cancel_step_id: str) -> Callable[[State], str]: 
     async def revise(state: State) -> str: 
         #-----USER HAS NOT PROVIDED FEEDBACK-----

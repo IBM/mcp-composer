@@ -1,4 +1,4 @@
-from core.state import State
+from planning_agent.core.state import State
 from beeai_framework.tools.mcp import MCPTool 
 from beeai_framework.agents.react import ReActAgent
 from beeai_framework.backend.chat import ChatModel
