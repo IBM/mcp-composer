@@ -37,6 +37,7 @@ class ServerManager:
         duplicate_behavior: DuplicateBehavior | None = None,
         serializer: Callable[[str, MemberMCPServer], Any] | None = None,
         database: Optional[DatabaseInterface] = None,
+        config_manager=None,
     ):
         self._member_servers: dict[str, MemberMCPServer] = {}
         # Fix here: explicitly declare non-optional type
@@ -44,6 +45,7 @@ class ServerManager:
             serializer or self.default_serializer
         )
         self._database = database
+        self._config_manager = config_manager
 
         if duplicate_behavior is None:
             duplicate_behavior = "warn"
@@ -138,6 +140,15 @@ class ServerManager:
 
             unmount_callback(server_id)
             self.remove_member(server_id)
+
+            if not self._database:
+                raise NotFoundError("Database not found.")
+
+            existing_config = self._database.get_document(server_id)
+            if self._config_manager is not None and existing_config:
+                version_id = self._config_manager.save_version(server_id, existing_config)
+                new_config["version_id"] = version_id
+                logger.info("Saved config version %s for server '%s'", version_id, server_id)
 
             self.update_server_db(new_config)
 

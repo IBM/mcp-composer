@@ -16,8 +16,10 @@ from mcp_composer.utils import (
     AllServersValidator,
     ValidationError,
     build_prompt_from_dict,
+    get_version_adapter
 )
 from mcp_composer.member_servers import ServerManager, MemberMCPServer, MCPServerBuilder
+from mcp_composer.settings.version_control_manager import ConfigManager
 from mcp_composer.store.database import DatabaseInterface
 from mcp_composer.store.cloudant_adapter import CloudantAdapter
 from mcp_composer.store.local_file_adapter import LocalFileAdapter
@@ -38,9 +40,11 @@ class MCPComposer(FastMCP):
         name: str = "MCPComposer",
         config: Optional[list[dict]] = None,
         database_config: Optional[Union[Dict[str, Any], DatabaseInterface]] = None,
+        version_adapter_config: Optional[Dict[str, Any]] = None,
         auth: OAuthProvider | None = None,
     ):
         super().__init__(name=name, auth=auth)
+        self._config_manager = ConfigManager(get_version_adapter(version_adapter_config))
 
         database = None
         if database_config:
@@ -70,7 +74,7 @@ class MCPComposer(FastMCP):
             database = LocalFileAdapter()
             logger.info("No database config provided, using local file storage")
 
-        self._server_manager = ServerManager(database=database)
+        self._server_manager = ServerManager(database=database, config_manager=self._config_manager)
         self._tool_manager = MCPToolManager(
             server_manager=self._server_manager, database=database
         )

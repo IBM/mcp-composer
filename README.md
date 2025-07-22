@@ -19,11 +19,12 @@
   - [Setup](#setup)
 - [Key Features](#key-features)
   - [MCP Composer Servers](#mcp-composer-servers)
+  - [Command Line Interface (CLI)](#command-line-interface-cli)
   - [MCP Composer Tools](#mcp-composer-tools)
   - [MCP Composer Prompts](#mcp-composer-prompts)
-  
 - [Demo using MCP Inspector](#demo-using-mcp-inspector)
 - [MCP Composer Client with Chatbot UI](#mcp-composer-client-with-chatbot-ui)
+
 ---
 
 ## Overview
@@ -168,6 +169,7 @@ uv pip install -e ../mcp-composer
 To add an MCP server from an OpenAPI spec, use the builder with a configuration containing the OpenAPI details:
 
 **Example:**
+
 ```python
 from mcp_composer.member_servers.builder import MCPServerBuilder
 
@@ -187,6 +189,7 @@ config = {
 builder = MCPServerBuilder(config)
 mcp_server = await builder.build()
 ```
+
 This will create a FastMCP server instance using the OpenAPI specification and authentication details provided.
 
 ---
@@ -196,6 +199,7 @@ This will create a FastMCP server instance using the OpenAPI specification and a
 To add an MCP server from a GraphQL schema, use the builder with a configuration containing the GraphQL endpoint:
 
 **Example:**
+
 ```python
 from mcp_composer.member_servers.builder import MCPServerBuilder
 
@@ -208,7 +212,29 @@ config = {
 builder = MCPServerBuilder(config)
 mcp_server = await builder.build()
 ```
+
 This will create a FastMCP server instance with a GraphQL tool registered, allowing you to interact with the GraphQL API through MCP Composer.
+
+### Command Line Interface (CLI)
+
+MCP Composer can now be launched directly via a CLI using the `mcp-composer` entry point. This provides a lightweight and flexible way to spin up the composer using either HTTP or stdio mode.
+
+#### Usage
+
+```bash
+mcp-composer --mode <http|stdio> [--host HOST] [--port PORT] [--log-level LEVEL] [--path PATH] [--config <config.json>]
+```
+
+#### Options
+
+| Flag          | Description                                         | Default      |
+| ------------- | --------------------------------------------------- | ------------ |
+| `--mode`      | Mode to run the Composer in: `http` or `stdio`      | `http`       |
+| `--host`      | Host to bind to (for `http` mode)                   | `0.0.0.0`    |
+| `--port`      | Port to run on (for `http` mode)                    | `9000`       |
+| `--log-level` | Log level (e.g. `debug`, `info`, `warning`)         | `debug`      |
+| `--path`      | URL path to mount the MCP Composer on               | `/mcp`       |
+
 
 ### MCP Composer Tools
 
@@ -223,20 +249,79 @@ This will create a FastMCP server instance with a GraphQL tool registered, allow
 - disable_tools: Disable a tool or multiple from the servers and Composer
 - enable_tools: Enable a tool or multiple from the servers and Composer
 - update_tool_description: Update tool description of member servers
-- add_tools: Add tool using curl command or Python script
-- add_tools_from_openapi: Add tool using the OpenAPI specifications
+- [add_tools](#Add-tool-using-Curl-command-and-Python-script): Add tool using curl command or Python script.
+- [add_tools_from_openapi](#Add-tool-using-OpenAPI-specification): Add tool using the OpenAPI specifications
+
+#### Add tool using Curl command and Python script
+**Curl command:**
+```JSON
+{
+    "name": "event",
+    "tool_type": "curl",
+    "curl_config": {
+        "value": "curl 'https://www.eventbriteapi.com/v3/users/me/organizations/' --header 'Authorization: Bearer XXXXXXXX'"
+    },
+    "description": "sample test",
+    "permission": {
+        "role 1": "permission 1 "
+    }
+}
+```
+
+**Python script:**
+```python
+{
+  "name": "test",
+  "tool_type": "script",
+  "script_config": {
+    "value": "def search_news(keyword: str) -> str:\n    '''Simulate news search using a ticker and return top articles.'''\n    import yfinance as yf\n    import json\n    stock = yf.Ticker(keyword.upper())\n    news = stock.news[:5]\n    result = []\n    for article in news:\n        result.append({\n            'title': article.get('title'),\n            'publisher': article.get('publisher'),\n            'link': article.get('link'),\n            'providerPublishTime': article.get('providerPublishTime'),\n        })\n    return json.dumps(result, indent=2)"
+  },
+  "description": "Search top 5 news articles related to a stock ticker using yfinance.",
+  "permission": {
+    "role 1": "permission 1"
+  }
+}
+```
+
+#### Add tool using OpenAPI specification
+**input: openapi_spec**
+```JSON
+{
+  "openapi": "3.0.1",
+  "info": {
+    "title": "IBM Concert API v1.1.0",
+    "version": "1.1.0",
+    ...
+    ...
+  }
+}
+```
+
+**input: auth_config**
+```JSON
+{
+  "auth_strategy": "basic",
+  "auth": {
+    "username": "user1",
+    "password": "xxxxxxxx"
+  }
+}
+```
+
 
 ### MCP Composer Prompts
 
 #### Adding one or more prompts
+
 - `add_prompts(prompt_config: list[dict]) -> list[str]`
-Registers one or more prompts with the composer.
+  Registers one or more prompts with the composer.
 
 - **Arguments**:
   - `prompt_config`: A list of dictionaries, each describing a prompt. Each dictionary should contain at least a `name`, `description`, and `template` field.
 - **Returns**: A list of registered prompt names.
 
 **Example:**
+
 ```python
 prompt_config = [
     {
@@ -256,13 +341,15 @@ prompt_config = [
 added = await composer.add_prompts(prompt_config)
 ```
 
-### Get all Prompts 
+### Get all Prompts
+
 - `get_all_prompts() -> list[str]`
-Retrieves all registered prompts as JSON strings, with internal function references stripped.
+  Retrieves all registered prompts as JSON strings, with internal function references stripped.
 
 - **Returns**: A list of JSON strings, each representing a prompt (excluding the `fn` field).
 
 **Example:**
+
 ```python
 prompts = await composer.get_all_prompts()
 for prompt_json in prompts:
@@ -272,10 +359,12 @@ for prompt_json in prompts:
 ### Demo using MCP Inspector
 
 1. Run the MCP Inspector as a background process, and take note of the session token/url with token pre-filled:
+
    ```bash
    npx @modelcontextprotocol/inspector
    ```
-   To run a specific version use the following command 
+
+   To run a specific version use the following command
 
    ```bash
    npx @modelcontextprotocol/inspector@0.14.3
@@ -286,11 +375,12 @@ for prompt_json in prompts:
    ```bash
    cp src/.env.example src/.env
    ```
+
 1. Run the following command
    ```bash
    uv run test/test_composer.py
    ```
-1. Open the MCP Inspector in a browser with token pre-filled from the first step above.  You can also open on `localhost:6274` and provide the `token` from the first step as the `Proxy Session Token`.
+1. Open the MCP Inspector in a browser with token pre-filled from the first step above. You can also open on `localhost:6274` and provide the `token` from the first step as the `Proxy Session Token`.
 
 1. set _transport type_ and _URL_ from the previous step above and press `Connect`:
 
@@ -355,36 +445,62 @@ A chatbot UI demo is also provided just for testing purpose ([Demo-Chatbot-UI](h
 #### 1. Setup env variables and configuration
 
 In the same `.env` (copied from `src/.env.example`), setup the following variables:
- - `CHAT_MODEL_NAME`: watsonx or ollama
- - `WATSONX_CHAT_MODEL`: meta-llama/llama-4-maverick-17b-128e-instruct-fp8, ibm/granite-3-3-8b-instruct, etc
- - `WATSONX_URL`: Watsonx Instance URL
- - `WATSONX_API_KEY`: API-Key of Watsonx instance
- - `WATSONX_PROJECT_ID`: Watsonx Project ID
- - `CHAT_MODEL_NAME`: local ollama model (if `CHAT_MODEL_NAME=ollama`)
+
+- `CHAT_MODEL_NAME`: watsonx or ollama
+- `WATSONX_CHAT_MODEL`: meta-llama/llama-4-maverick-17b-128e-instruct-fp8, ibm/granite-3-3-8b-instruct, etc
+- `WATSONX_URL`: Watsonx Instance URL
+- `WATSONX_API_KEY`: API-Key of Watsonx instance
+- `WATSONX_PROJECT_ID`: Watsonx Project ID
+- `CHAT_MODEL_NAME`: local ollama model (if `CHAT_MODEL_NAME=ollama`)
 
 Config file `config/mcp_composer_client.yaml` defines what MCP servers are connected, at current stage, it supports:
- - Remote MCP-Composer Server
- - Remote SSE/Http MCP-Server (testing purpose)
- - Stdio MCP-Server (testing purpose)
+
+- Remote MCP-Composer Server
+- Remote SSE/Http MCP-Server (testing purpose)
+- Stdio MCP-Server (testing purpose)
 
 Each server config has a boolean field `enabled` to enable the server or disable it.
 
 #### 2. Launch chatbot agent service
 
+(Before running chatbot agent service, make sure all `enabled: true` server in `config/mcp_composer_client.yaml` is properly setup and can be connected.)
+
+- **Option-1. Run agent service in local development environment**
+
 Launch agent service:
+
 ```bash
 uv run src/mcp_composer_client/acp_server.py
 ```
 
 It should output agent server URL in terminal:
+
 ```bash
 INFO:     Waiting for application startup.
 INFO:     Application startup complete.
 INFO:     Uvicorn running on http://localhost:8000 (Press CTRL+C to quit)
 ```
 
+- **Option-2. Build and Run Docker Image**
+
+  Build the image, taking default tag as "chatbot":
+
+  ```bash
+  docker build -t chatbot -f Dockerfile_Client .
+  ```
+
+  Run the image in container interactively (for Windows/Mac), by default, it uses `MCP_BASE_URL` to connect to MCP composer server. 
+ 
+  ```bash
+  docker run -it -e HOST=0.0.0.0 -p 8000:8000 chatbot
+  ```
+  (In Linux, `-e HOST=0.0.0.0` can be removed.) 
+
+  If using `config/mcp_composer_client.yaml` to config multiple MCP servers, set env `USER_CONFIG_FILE` to `yes`:
+  ```bash
+  docker run -it -e USER_CONFIG_FILE=yes -e HOST=0.0.0.0 -p 8000:8000 chatbot
+  ```
+
 #### 3. Launch chatbot UI (Optional)
 
 Follow instruction in [Demo-Chatbot-UI](https://github.ibm.com/ai-elite/mcp-composer-chatbot-ui), open browser and input chatbot UI URL. Interact with the chatbot.
-
-

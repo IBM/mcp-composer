@@ -6,6 +6,7 @@
 !/pyproject.toml
 !/src/
 !/test/
+!/config/
 !/example
 !/spec
 

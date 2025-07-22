@@ -1,18 +1,23 @@
 """Utility functions"""
 
-import subprocess
-import re
-import importlib.util
 import asyncio
-import json
-from typing import Tuple
+import aiohttp
 import httpx
+import importlib.util
+import json
+import os
+import re
+import subprocess
+
+from typing import Any, Dict, Optional, Tuple
 from aiohttp import ClientConnectorError
 from fastmcp.server.openapi import RouteMap, MCPType
 from fastmcp.prompts import Prompt
+from mcp_composer.settings.base_adapter import SecretAdapter
 from mcp_composer.utils.logger import LoggerFactory
 from mcp_composer.member_servers.member_server import HealthStatus, MemberMCPServer
 from mcp_composer.exceptions import MemberServerError
+from mcp_composer.settings.adapters import ADAPTER_REGISTRY
 
 
 logger = LoggerFactory.get_logger()
@@ -153,3 +158,19 @@ async def build_prompt_from_dict(entry: dict) -> Prompt:
     prompt.arguments = arguments
 
     return prompt
+
+def get_version_adapter(config: Optional[Dict[str, Any]] = None) -> SecretAdapter:
+    if config:
+        adapter_type = config.get("type", "file").lower()
+        adapter_args = {k: v for k, v in config.items() if k != "type"}
+    else:
+        adapter_type = os.getenv("VERSION_ADAPTER_TYPE", "file").lower()
+        adapter_args = {
+            "file_path": os.getenv("VERSION_CONFIG_FILE_PATH", "versioned_config.json")
+        } if adapter_type == "file" else {}
+
+    adapter_factory = ADAPTER_REGISTRY.get(adapter_type)
+    if not adapter_factory:
+        raise ValueError(f"Unsupported version adapter type: {adapter_type}")
+
+    return adapter_factory(**adapter_args)

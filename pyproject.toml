@@ -19,6 +19,9 @@ dependencies = [
     "uncurl==0.0.11",
     "chromadb>=1.0.15",
     "acp-sdk==1.0.0",
+    "ibm-secrets-manager-sdk==2.1.10",
+    "pydantic==2.11.7",
+    "pydantic-settings==2.10.1",
 ]
 
 [dependency-groups]
@@ -58,3 +61,6 @@ testpaths = [
 [build-system]
 requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
+
+[project.scripts]
+mcp-composer = "mcp_composer.cli:main"
