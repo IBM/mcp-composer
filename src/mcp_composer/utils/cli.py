@@ -109,7 +109,6 @@ async def run_dynamic_composer(args, config: list[Dict]) -> None:
         logger.info("Detected --auth_type oauth")
         settings = ServerSettings()
         mcp =  await create_mcp_server(settings)
-        print(f"Created MCP Composer with OAuth: {mcp.custom_route}")
     else:
         logger.info("Running MCP Composer without OAuth")
         mcp = MCPComposer("composer",config=config) # type: ignore
@@ -143,7 +142,7 @@ def main() -> None:
     args = parser.parse_args()
 
     base_env: dict[str, str] = {}
-    if args.pass_environment or args.env or args.e:
+    if args.pass_environment or args.env:
         base_env.update(os.environ)
     config = []
     try:
