@@ -17,8 +17,8 @@ from beeai_framework.backend.chat import ChatModel
 from beeai_framework.tools.mcp import MCPTool 
 from beeai_framework.emitter import EventMeta
 
-from planning_agent.utils.create_bee_agent import get_prompt, create_agent
-from planning_agent.core.state import State
+from utils.create_bee_agent import get_prompt, create_agent
+from core.state import State
 
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client

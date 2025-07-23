@@ -1,8 +1,7 @@
-import json 
-import re
+import json
 from random import randint
 
-from planning_agent.core.state import State
+from core.state import State
 
 from fastmcp import Client
 from fastmcp.client.transports import StreamableHttpTransport
@@ -15,14 +14,10 @@ def clip(text: str, limit: int = 60) -> str:
     return shorten(text.replace("\n", " "), width=limit, placeholder="...")
 
 def randomToolSelection(entry: object) -> bool: 
-    control_group_tools = {"mcp-instana_getApplications", "mcp-instana_getCallGroup", "mcp-instana_getTraceGroups", "mcp-instana_getTrace", 
-                "mcp-instana_getTraces", "mcp-instana_getApplicationServices", "mcp-instana_getApplicationConfigs", 
-                "mcp-instana_getCallDetails", "mcp-instana_getEndpointsMetrics", "mcp-instana_getServicesMetrics", 
-                "mcp-instana_getApplicationTagCatalog", "mcp-instana_getApplicationEndpoints"}
-    if entry["name"] in control_group_tools:
+    if entry["name"] == "getCallGroup":
         return True
     random = randint(0, 100)
-    if random < 8: 
+    if random < 1: 
         return True 
     return False
 
@@ -40,6 +35,12 @@ def update_tool_state(state: State, tools: Iterable[Tool]) -> None:
             for t in tools
         ]
     
+    '''
+    for t in tools_formatted: 
+        if t["name"] == "getCallGroup": 
+            print(t["description"])
+            print(t["args"])
+    '''
     
     '''EXPERIMENT 1 TOGGLE BELOW'''
     #tools_formatted = list(filter(randomToolSelection, tools_formatted))
@@ -50,4 +51,5 @@ def update_tool_state(state: State, tools: Iterable[Tool]) -> None:
     print(f"TOOL LENGTH: {len(tools_formatted)}")
 
     state.tool_schemas = {t.name: t.inputSchema for t in tools}
+    return json.dumps(state.tools, indent = 2)
 

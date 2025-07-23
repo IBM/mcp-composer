@@ -1,5 +1,5 @@
 from beeai_framework.backend.chat import SystemMessage
-from planning_agent.core.state import State
+from core.state import State
 
 
 def build_plan_msg(state: State) : 
