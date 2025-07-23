@@ -3,6 +3,7 @@
 import json
 from typing import Dict
 import jsonref
+from mcp_composer.utils import patch_openapi_tool
 from fastmcp import FastMCP, Client
 from fastmcp.client.auth import OAuth
 from fastmcp.client.transports import (
@@ -52,7 +53,6 @@ class MCPServerBuilder:
             MemberServerType.SSE,
             MemberServerType.STDIO,
         }:
-
             # For HTTP/SSE/STDIO, we need to build the transport first
             logger.info("Building MCP server with transport type: %s", self.mcp_type)
             return await self._build_from_transport(transport_type=self.mcp_type)
@@ -78,7 +78,7 @@ class MCPServerBuilder:
         transport_classes = {
             "http": StreamableHttpTransport,
             "sse": SSETransport,
-            "stdio": StdioTransport
+            "stdio": StdioTransport,
         }
 
         # Choose and instantiate the appropriate transport
