@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic_settings import BaseSettings
 from pydantic import Field
 from typing import Any, Dict, List, Optional
 
@@ -8,10 +8,9 @@ class AppConfig(BaseSettings):
     app_name: str = Field("MCP Composer", description="Name of the application.")
     debug: bool = Field(default=False, description="Enable debug mode.")
 
-    model_config = SettingsConfigDict(
-        env_file=".env",
-        env_prefix="APP_"
-    )
+    class Config:
+        env_file = ".env"
+        env_prefix = "APP_"
 
 
 class SecretAdapter(ABC):

@@ -17,8 +17,8 @@ from beeai_framework.backend.chat import ChatModel
 from beeai_framework.tools.mcp import MCPTool 
 from beeai_framework.emitter import EventMeta
 
-from planning_agent.ab_tests.executing_without_plan.bee_agent_without_plan import create_executor_control_agent
-from planning_agent.core.state import State
+from ab_tests.executing_without_plan.bee_agent_without_plan import create_executor_control_agent
+from core.state import State
 
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client

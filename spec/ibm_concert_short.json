@@ -1,0 +1,1976 @@
+{
+  "openapi": "3.0.1",
+  "info": {
+    "title": "IBM Concert API v1.1.0",
+    "version": "1.1.0",
+    "description": "Index of Concert API endpoints and requests for software version v1.1.0 and all Concert SaaS deployments."
+  },
+  "servers": [
+    {
+      "url": "{server}",
+      "variables": {
+        "server": {
+          "default": "https://exampleHost.com"
+        }
+      }
+    }
+  ],
+  "paths": {
+    "/core/api/v1/applications": {
+      "get": {
+        "description": "Returns a list of all application definitions in your Concert instance. Note that you will only see application IDs to which you have view access.",
+        "operationId": "list_all_applications",
+        "parameters": [
+          {
+            "description": "Unique ID of your Concert instance",
+            "in": "header",
+            "name": "InstanceId",
+            "required": true,
+            "schema": {
+              "example": "0000-0000-0000-0000",
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[a-zA-Z0-9\\-]+$",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Maximum number of records or items to return in the response",
+            "in": "query",
+            "name": "page_size",
+            "required": false,
+            "schema": {
+              "description": "Page size",
+              "format": "int32",
+              "maximum": 2000,
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Number of records to skip from the beginning of the data set, indicating the starting index of records to return in the response. For example, if you set the value to 10, the response will begin with the 11th record in the dataset.",
+            "in": "query",
+            "name": "page_number",
+            "required": false,
+            "schema": {
+              "description": "Page number",
+              "format": "int32",
+              "maximum": 2000,
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          {
+            "description": "sort by a column",
+            "in": "query",
+            "name": "sort_by",
+            "required": false,
+            "schema": {
+              "maxLength": 1000,
+              "minLength": 0,
+              "pattern": "^[a-zA-Z0-9\\-]+$",
+              "type": "string"
+            }
+          },
+          {
+            "description": "sorting direction - no value or ascending(asc) or descending (desc)",
+            "in": "query",
+            "name": "sort_direction",
+            "required": false,
+            "schema": {
+              "enum": [
+                "asc",
+                "desc"
+              ],
+              "example": "desc",
+              "maxLength": 5,
+              "minLength": 4,
+              "pattern": "^(asc|desc)$",
+              "type": "string"
+            }
+          },
+          {
+            "description": "filter can consist of multiple values for the same field seprated by comma (treated as OR). filter can also be combination of multiple fields using &( treated as AND). For example - filter=column-name1:value1,value2&filter=column-name2:value1",
+            "in": "query",
+            "name": "filter",
+            "required": false,
+            "schema": {
+              "maxLength": 1000,
+              "minLength": 0,
+              "pattern": "^[a-zA-Z0-9\\-]+$",
+              "type": "string"
+            }
+          },
+          {
+            "description": "search application name",
+            "in": "query",
+            "name": "search",
+            "required": false,
+            "schema": {
+              "maxLength": 250,
+              "minLength": 0,
+              "pattern": "^[a-zA-Z0-9\\-]+$",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApplicationCollection"
+                }
+              }
+            },
+            "description": "Success"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid request"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not found"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "summary": "List all application definitions",
+        "tags": [
+          "Application definitions"
+        ],
+        "x-ibm-events": {
+          "description": "API execution event",
+          "event": [
+            {
+              "name": "coreapi.application.list"
+            },
+            {
+              "description": "Get API call to fetch the application"
+            }
+          ]
+        },
+        "x-ibm-permissions": {
+          "actions": [
+            {
+              "name": "coreapi.application.list"
+            }
+          ]
+        }
+      },
+      "post": {
+        "description": "Creates an new application definition from the ingested components.",
+        "operationId": "create_applications",
+        "parameters": [
+          {
+            "description": "Unique ID of your Concert instance",
+            "in": "header",
+            "name": "InstanceId",
+            "required": true,
+            "schema": {
+              "example": "0000-0000-0000-0000",
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[a-zA-Z0-9\\-]+$",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ApplicationPrototype"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Application"
+                }
+              }
+            },
+            "description": "Success"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid request"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Error. The resource already exists."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "summary": "Define an application",
+        "tags": [
+          "Application definitions"
+        ],
+        "x-ibm-events": {
+          "description": "create applications",
+          "event": [
+            {
+              "name": "coreapi.applications.create"
+            },
+            {
+              "description": "Creates an application definition."
+            }
+          ]
+        },
+        "x-ibm-permissions": {
+          "actions": [
+            {
+              "name": "coreapi.applications.create"
+            }
+          ]
+        }
+      }
+    },
+    "/core/api/v1/applications/{application_id}": {
+      "delete": {
+        "description": "Deletes the application definition specified the URL path by its unique ID or name.",
+        "operationId": "delete_application",
+        "parameters": [
+          {
+            "description": "Unique ID of your Concert instance",
+            "in": "header",
+            "name": "InstanceId",
+            "required": true,
+            "schema": {
+              "example": "0000-0000-0000-0000",
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[a-zA-Z0-9\\-]+$",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Unique identifier of the application definition, can be both ID/name",
+            "in": "path",
+            "name": "application_id",
+            "required": true,
+            "schema": {
+              "example": "f465178a-469b-432f-a6e8-5b638e86c183",
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[a-zA-Z0-9\\-_]+$",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Resets all associations when set to true",
+            "in": "query",
+            "name": "remove_associations",
+            "required": false,
+            "schema": {
+              "description": "resets all associations when set to true",
+              "type": "boolean"
+            }
+          },
+          {
+            "description": "Value should be set to \"true\" if all the release versions of an application must be deleted.",
+            "in": "query",
+            "name": "delete_all_versions",
+            "schema": {
+              "example": true,
+              "type": "boolean"
+            }
+          },
+          {
+            "description": "Value should be set to \"true\" for cascade delete.",
+            "in": "query",
+            "name": "is_cascade_delete",
+            "schema": {
+              "example": true,
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid request"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not found"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "summary": "Delete an application definition",
+        "tags": [
+          "Application definitions"
+        ],
+        "x-ibm-events": {
+          "description": "Application Delete API execution event",
+          "event": [
+            {
+              "name": "coreapi.application.delete"
+            },
+            {
+              "description": "Delete API call to delete the application"
+            }
+          ]
+        },
+        "x-ibm-permissions": {
+          "actions": [
+            {
+              "name": "coreapi.application.delete"
+            }
+          ]
+        }
+      },
+      "get": {
+        "description": "Returns details about the application definition specified in the URL path by its unique ID or name.",
+        "operationId": "get_application_details",
+        "parameters": [
+          {
+            "description": "Unique ID of your Concert instance",
+            "in": "header",
+            "name": "InstanceId",
+            "required": true,
+            "schema": {
+              "example": "0000-0000-0000-0000",
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[a-zA-Z0-9\\-]+$",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Unique identifier of the application definition, can be both ID/name",
+            "in": "path",
+            "name": "application_id",
+            "required": true,
+            "schema": {
+              "example": "f465178a-469b-432f-a6e8-5b638e86c183",
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[a-zA-Z0-9\\-_]+$",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Resets all associations when set to true",
+            "in": "query",
+            "name": "remove_associations",
+            "required": false,
+            "schema": {
+              "description": "resets all associations when set to true",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Application"
+                }
+              }
+            },
+            "description": "Success"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid request"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not found"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "summary": "View application definition details",
+        "tags": [
+          "Application definitions"
+        ],
+        "x-ibm-events": {
+          "description": "API execution event",
+          "event": [
+            {
+              "name": "coreapi.application.get"
+            },
+            {
+              "description": "Get API call to fetch the application"
+            }
+          ]
+        },
+        "x-ibm-permissions": {
+          "actions": [
+            {
+              "name": "coreapi.application.get"
+            }
+          ]
+        }
+      },
+      "patch": {
+        "description": "Modifies the application definition specifieed in the URL path by its unique application ID or name.",
+        "operationId": "update_applications",
+        "parameters": [
+          {
+            "description": "Unique ID of your Concert instance",
+            "in": "header",
+            "name": "InstanceId",
+            "required": true,
+            "schema": {
+              "example": "0000-0000-0000-0000",
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[a-zA-Z0-9\\-]+$",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Unique identifier of the application definition, can be both ID/name",
+            "in": "path",
+            "name": "application_id",
+            "required": true,
+            "schema": {
+              "example": "f465178a-469b-432f-a6e8-5b638e86c183",
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[a-zA-Z0-9\\-_]+$",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Resets all associations when set to true",
+            "in": "query",
+            "name": "remove_associations",
+            "required": false,
+            "schema": {
+              "description": "resets all associations when set to true",
+              "type": "boolean"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/merge-patch+json": {
+              "schema": {
+                "$ref": "#/components/schemas/ApplicationPatch"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Application"
+                }
+              }
+            },
+            "description": "Success"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid request"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Error. The resource already exists."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "summary": "Edit application definition",
+        "tags": [
+          "Application definitions"
+        ],
+        "x-ibm-events": {
+          "description": "patch applications",
+          "event": [
+            {
+              "name": "coreapi.applications.patch"
+            },
+            {
+              "description": "patch API call to patch applications"
+            }
+          ]
+        },
+        "x-ibm-permissions": {
+          "actions": [
+            {
+              "name": "coreapi.applications.patch"
+            }
+          ]
+        }
+      }
+    },
+    "/core/api/v1/applications/{application_id}/vulnerability_details": {
+      "get": {
+        "description": "Returns vulnerabilities impacting the application specified in the URL path by its unique application definition ID or name.",
+        "operationId": "list_applications_vulnerability_details",
+        "parameters": [
+          {
+            "description": "Unique ID of your Concert instance",
+            "in": "header",
+            "name": "InstanceId",
+            "required": true,
+            "schema": {
+              "example": "0000-0000-0000-0000",
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[a-zA-Z0-9\\-]+$",
+              "type": "string"
+            }
+          },
+          {
+            "description": "This can be either the application name or the unique UUID of the application definition.",
+            "in": "path",
+            "name": "application_id",
+            "required": true,
+            "schema": {
+              "example": "f465178a-469b-432f-a6e8-5b638e86c183",
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[a-zA-Z0-9\\-_]+$",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Application release version",
+            "in": "query",
+            "name": "release_version",
+            "required": false,
+            "schema": {
+              "description": "Page size",
+              "example": "f465178a-469b-432f-a6e8-5b638e86c183",
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[a-zA-Z0-9\\-_.]+$",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Maximum number of records or items to return in the response",
+            "in": "query",
+            "name": "page_size",
+            "required": false,
+            "schema": {
+              "description": "Page size",
+              "format": "int32",
+              "maximum": 2000,
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Number of records to skip from the beginning of the data set, indicating the starting index of records to return in the response. For example, if you set the value to 10, the response will begin with the 11th record in the dataset.",
+            "in": "query",
+            "name": "page_number",
+            "required": false,
+            "schema": {
+              "description": "Page number",
+              "format": "int32",
+              "maximum": 2000,
+              "minimum": 0,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VulnerabilityDetailsCollection"
+                }
+              }
+            },
+            "description": "Success"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid request"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not found"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "summary": "View vulnerabilities impacting an application",
+        "tags": [
+          "Application definitions"
+        ],
+        "x-ibm-events": {
+          "description": "API execution event",
+          "event": [
+            {
+              "name": "coreapi.applications_vulnerability_details.list"
+            },
+            {
+              "description": "list API call to fetch the  application vulnerability details"
+            }
+          ]
+        },
+        "x-ibm-permissions": {
+          "actions": [
+            {
+              "name": "coreapi.applications_vulnerability_details.list"
+            }
+          ]
+        }
+      }
+    },
+    "/core/api/v1/applications/{application_id}/package_trends": {
+      "get": {
+        "description": "Returns package trends about the specified application indicated in the URL path.",
+        "operationId": "get_application_package_trends",
+        "parameters": [
+          {
+            "description": "Unique ID of your Concert instance",
+            "in": "header",
+            "name": "InstanceId",
+            "required": true,
+            "schema": {
+              "example": "0000-0000-0000-0000",
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[a-zA-Z0-9\\-]+$",
+              "type": "string"
+            }
+          },
+          {
+            "description": "This can be either the application name or the unique UUID of the application definition.",
+            "in": "path",
+            "name": "application_id",
+            "required": true,
+            "schema": {
+              "example": "f465178a-469b-432f-a6e8-5b638e86c183",
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[a-zA-Z0-9\\-_]+$",
+              "type": "string"
+            }
+          },
+          {
+            "description": "start date of trends",
+            "example": 1690000000,
+            "in": "query",
+            "name": "start_date",
+            "required": true,
+            "schema": {
+              "description": "start date",
+              "format": "int64",
+              "maximum": 2147483647,
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          {
+            "description": "end date of trends",
+            "example": 1690000000,
+            "in": "query",
+            "name": "end_date",
+            "required": true,
+            "schema": {
+              "description": "end date",
+              "format": "int64",
+              "maximum": 2147483647,
+              "minimum": 0,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PackageTrendsResponse"
+                }
+              }
+            },
+            "description": "Success"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Error"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not found"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal server error"
+          }
+        },
+        "summary": "View pacakage trends for application data",
+        "tags": [
+          "Application definitions"
+        ],
+        "x-ibm-events": {
+          "description": "Application API execution event",
+          "event": [
+            {
+              "name": "coreapi.application.package_trends.list"
+            },
+            {
+              "description": "Executing GET package trends for an application"
+            }
+          ]
+        },
+        "x-ibm-permissions": {
+          "actions": [
+            {
+              "name": "coreapi.application.package_trends.list"
+            }
+          ]
+        }
+      }
+    },
+    "/ingestion/api/v1/vulnerability_assessments": {
+      "get": {
+        "description": "Returns a list of all ingested vulnerability scan assessments (i.e., records created by Concert after assessing the risk score associated with a uploaded vulnerability scan). Optionally, you can filter this list by risk score (risk_score) and/or application (application_name). Also, you can set the `page_size` parameter to limit the number of results in each page (response), and then submit subsequent requests to using the `start` parameter to view the next batch of results.",
+        "operationId": "list_vulnerability_assessments",
+        "parameters": [
+          {
+            "description": "Unique ID of the Concert instance",
+            "in": "header",
+            "name": "InstanceId",
+            "required": true,
+            "schema": {
+              "example": "0000-0000-0000-0000",
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[a-zA-Z0-9\\-]+$",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Filter by application name",
+            "in": "query",
+            "name": "application_name",
+            "required": true,
+            "schema": {
+              "example": "application_name",
+              "maxLength": 1000,
+              "minLength": 0,
+              "pattern": "^[a-zA-Z0-9\\-_]+$",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Filter by risk score, valid range [0, 100] (inclusive)",
+            "in": "query",
+            "name": "risk_score",
+            "required": false,
+            "schema": {
+              "example": 9,
+              "format": "float",
+              "maximum": 10,
+              "minimum": 0,
+              "type": "number"
+            }
+          },
+          {
+            "description": "Filter by image name",
+            "in": "query",
+            "name": "image_name",
+            "required": false,
+            "schema": {
+              "example": "image_name",
+              "maxLength": 1000,
+              "minLength": 0,
+              "pattern": "^[a-zA-Z0-9\\-_]+$",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Filter by repository name",
+            "in": "query",
+            "name": "repo_name",
+            "required": false,
+            "schema": {
+              "example": "repo_name",
+              "maxLength": 1000,
+              "minLength": 0,
+              "pattern": "^[a-zA-Z0-9\\-_]+$",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Filter by repo url",
+            "in": "query",
+            "name": "repo_url",
+            "required": false,
+            "schema": {
+              "description": "URL of the repository",
+              "example": "https://example.com/repo/image",
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[a-zA-Z0-9\\-:/.]+",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Filter by resource name",
+            "in": "query",
+            "name": "resource_name",
+            "required": false,
+            "schema": {
+              "example": "resource_name",
+              "maxLength": 1000,
+              "minLength": 0,
+              "pattern": "^[a-zA-Z0-9\\-_]+$",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Filter by resource_ip_address",
+            "in": "query",
+            "name": "resource_ip_address",
+            "required": false,
+            "schema": {
+              "description": "Reference Id  of the resource",
+              "example": "eni-03b89707a62f3546e",
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[a-zA-Z0-9\\-_:]+$",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Page to fetch, default = 1.",
+            "in": "query",
+            "name": "start",
+            "schema": {
+              "maxLength": 1000,
+              "minLength": 0,
+              "pattern": "^[a-zA-Z0-9\\-]+",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Images to fetch in single page, default = 10.",
+            "in": "query",
+            "name": "page_size",
+            "schema": {
+              "example": 10,
+              "maximum": 1000,
+              "minimum": 0,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VulnerabilityAssessmentRecords"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "summary": "List all vulnerability assessments for an application by filters",
+        "tags": [
+          "Vulnerabilities"
+        ]
+      },
+      "patch": {
+        "description": "Updates one or more fields - such as `status`, `history`, `customScore`, and `last_updated_by` - of a vulnerability scan assessment (i.e., a record created by Concert after assessing the risk score associated with a uploaded vulnerability scan). This request also updates any corresponding ticket or issue with the updated status or comments.",
+        "operationId": "update_vulnerability_assessment",
+        "parameters": [
+          {
+            "description": "Unique ID of the Concert instance",
+            "in": "header",
+            "name": "InstanceId",
+            "required": true,
+            "schema": {
+              "example": "0000-0000-0000-0000",
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[a-zA-Z0-9\\-]+$",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json-patch+json": {
+              "schema": {
+                "$ref": "#/components/schemas/VulnerabilityAssessmentDetails"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VulnerabilityAssessmentRecords"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "summary": "Update vulnerability scan assessment",
+        "tags": [
+          "Vulnerabilities"
+        ]
+      }
+    },
+    "/ingestion/api/v1/vulnerability_assessments/details": {
+      "get": {
+        "description": "Returns details about the vulnerability assessement (a record created by Concert upon processing an imported CVE scan) specified in the URL path by its unique assessment ID.",
+        "operationId": "get_vulnerability_assessment_by_id",
+        "parameters": [
+          {
+            "description": "Unique ID of the Concert instance",
+            "in": "header",
+            "name": "InstanceId",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/InstanceId"
+            }
+          },
+          {
+            "description": "Filters results by the name of the given CVE",
+            "in": "query",
+            "name": "cve",
+            "required": false,
+            "schema": {
+              "example": "CVE-2024-2001",
+              "maxLength": 100,
+              "minLength": 1,
+              "pattern": "^[a-zA-Z0-9\\-_\\s]+$",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Filter by vulnerability (CVE) assessment ID",
+            "in": "query",
+            "name": "assessment_id",
+            "required": false,
+            "schema": {
+              "example": "550e8400-e29b-41d4-a716-446655440000",
+              "format": "uuid",
+              "maxLength": 36,
+              "minLength": 36,
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VulnerabilityAssessmentCollection"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not found"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "summary": "View vulnerability assessment details",
+        "tags": [
+          "Vulnerabilities"
+        ]
+      }
+    },
+    "/ingestion/api/v1/vulnerability_assessments/cve/{cve_id}/application/{application_name}": {
+      "patch": {
+        "description": "Updates one or more fields - such as `status`, `history`, `customScore`, and `last_updated_by` - of a vulnerability scan assessment (i.e., a record created by Concert after assessing the risk score associated with a uploaded vulnerability scan). This request also updates any corresponding ticket or issue with the updated status or comments.",
+        "operationId": "update_cve_assessment",
+        "parameters": [
+          {
+            "description": "Unique ID of the Concert instance",
+            "in": "header",
+            "name": "InstanceId",
+            "required": true,
+            "schema": {
+              "example": "0000-0000-0000-0000",
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[a-zA-Z0-9\\-]+$",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Filter by application name",
+            "in": "path",
+            "name": "application_name",
+            "required": true,
+            "schema": {
+              "example": "application_name",
+              "maxLength": 1000,
+              "minLength": 0,
+              "pattern": "^[a-zA-Z0-9\\-_]+$",
+              "type": "string"
+            }
+          },
+          {
+            "description": "The unique ID of the application",
+            "in": "path",
+            "name": "cve_id",
+            "required": true,
+            "schema": {
+              "description": "Vulnerability name",
+              "example": "CVE-2024-2001",
+              "maxLength": 100,
+              "minLength": 1,
+              "pattern": "^[a-zA-Z0-9\\-_\\s]+$",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json-patch+json": {
+              "schema": {
+                "$ref": "#/components/schemas/VulAssessmentPatchDetails"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VulnerabilityAssessment"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not found"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "summary": "Update vulnerability scan assessment",
+        "tags": [
+          "Vulnerabilities"
+        ]
+      }
+    },
+    "/ingestion/api/v1/vulnerability_assessments/list": {
+      "get": {
+        "description": "Returns a list of all ingested vulnerability scan assessments (i.e., records created by Concert after assessing the risk score associated with a uploaded vulnerability scan).  Also, you can set the `page_size` parameter to limit the number of results in each page (response), and then submit subsequent requests to using the `start` parameter to view the next batch of results.",
+        "operationId": "list_all_vulnerability_assessments",
+        "parameters": [
+          {
+            "description": "Unique ID of the Concert instance",
+            "in": "header",
+            "name": "InstanceId",
+            "required": true,
+            "schema": {
+              "example": "0000-0000-0000-0000",
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[a-zA-Z0-9\\-]+$",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Page to fetch, default = 1.",
+            "in": "query",
+            "name": "start",
+            "schema": {
+              "maxLength": 1000,
+              "minLength": 0,
+              "pattern": "^[a-zA-Z0-9\\-]+",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Images to fetch in single page, default = 50.",
+            "in": "query",
+            "name": "page_size",
+            "schema": {
+              "example": 10,
+              "maximum": 1000,
+              "minimum": 0,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VulnerabilityAssessmentsRecords"
+                }
+              }
+            },
+            "description": "Success"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "bad request, invalid query parameters"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No vulnerability assessments found"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "summary": "List all vulnerability scan assessments",
+        "tags": [
+          "Vulnerabilities"
+        ]
+      }
+    },
+    "/ingestion/api/v1/exposure_assessments": {
+      "patch": {
+        "description": "Updates one or more fields - such as `status`, `history`, `customScore`, and `last_updated_by` - of a exposure scan assessment. This request also updates any corresponding ticket or issue with the updated status or comments.",
+        "operationId": "update_exposure_assessment",
+        "parameters": [
+          {
+            "description": "Unique ID of the Concert instance",
+            "in": "header",
+            "name": "InstanceId",
+            "required": true,
+            "schema": {
+              "example": "0000-0000-0000-0000",
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[a-zA-Z0-9\\-]+$",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json-patch+json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExposureAssessmentDetails"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessResponse"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "summary": "Update exposure scan assessment",
+        "tags": [
+          "Vulnerabilities"
+        ]
+      }
+    },
+    "/compliance/api/v1/manual_assessments": {
+      "post": {
+        "description": "Creates a new manual assessments based on data provided in JSON format.",
+        "operationId": "create_manual_assessments",
+        "parameters": [
+          {
+            "description": "Unique ID of your Concert instance",
+            "in": "header",
+            "name": "InstanceId",
+            "required": true,
+            "schema": {
+              "description": "Unique ID of your Concert instance",
+              "maxLength": 50,
+              "minLength": 1,
+              "pattern": "^[a-zA-Z0-9\\-]+$",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "example": {
+                "environment_id": "744877ff-c3f2-441c-a734-b8b578b264a7",
+                "application_id": "289b55fa-36c8-4299-a06b-8dd5da0bea93",
+                "profile_id": "e864bf69-bb75-4f0a-a5d5-f37fb092e7eb",
+                "due_date": 1672531200,
+                "title": "Manual_assessment",
+                "description": "Quarterly security compliance check",
+                "last_updated_on": 1707753600,
+                "last_updated_by": "xyz"
+              },
+              "schema": {
+                "$ref": "#/components/schemas/UploadManualAssessments"
+              }
+            }
+          },
+          "description": "Manual assessments configuration details (JSON)",
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "message": "Manual assessments created"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ResponseMessage"
+                }
+              }
+            },
+            "description": "Success. Manual assessments created successfully."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResponseError"
+                }
+              }
+            },
+            "description": "Invalid JSON"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResponseError"
+                }
+              }
+            },
+            "description": "Internal server error"
+          }
+        },
+        "summary": "Create a manual assessments",
+        "tags": [
+          "Manual assessments"
+        ],
+        "x-codegen-request-body-name": "requestBody"
+      }
+    },
+    "/compliance/api/v1/export/compliance/assessments/{assessment_id}": {
+      "post": {
+        "description": "Export the assessment & evidence files by specifying the ID.",
+        "operationId": "create_export_assessment",
+        "parameters": [
+          {
+            "description": "Unique identifier of your Concert instance",
+            "in": "header",
+            "name": "InstanceId",
+            "required": true,
+            "schema": {
+              "example": "0000-0000-0000-0000",
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[a-zA-Z0-9\\-]+$",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Unique ID for getting a assessment to be exported. This value is used to uniquely identify the compliance assessment within the specified Concert instance.",
+            "in": "path",
+            "name": "assessment_id",
+            "required": true,
+            "schema": {
+              "example": "ededa684-9fce-4fd4-bd85-efa863b4b98d",
+              "maxLength": 1000,
+              "minLength": 1,
+              "pattern": "^[a-zA-Z0-9\\-]+$",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "event_method": "file_export",
+                  "data_type": "export_catalog",
+                  "data_source": "file_export",
+                  "status": "processing_in_progress",
+                  "lz_path": "/0000-0000-0000-0000/roja/export/compliance/2025/2/6/993580466_e95fb23c-57d2-495f-8ab5-2c6b3152bcee_Catalog.tar",
+                  "file_type": "tar",
+                  "file_name": "e95fb23c-57d2-495f-8ab5-2c6b3152bcee_Catalog.tar",
+                  "file_size": 0.1,
+                  "timestamp": "2025-02-06T16:16:09.993614+00:00",
+                  "ingested_by": "ibmconcert",
+                  "event_type": "export",
+                  "toc_id": "8327c5a5-6ced-41c9-8337-593e5809388d",
+                  "processing_starttime": "0001-01-01T00:00:00+00:00",
+                  "processing_endtime": "0001-01-01T00:00:00+00:00",
+                  "archive_timestamp": "0001-01-01T00:00:00+00:00",
+                  "meta_data": [
+                    {
+                      "name": "application_name",
+                      "value": "somevalue123"
+                    }
+                  ]
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/LandingZoneTocRecord"
+                }
+              }
+            },
+            "description": "Success"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error_code": "400",
+                  "error_message": "Bad Request",
+                  "details": [
+                    {
+                      "name": "InvalidParameter",
+                      "message": "The 'id' parameter is missing."
+                    }
+                  ]
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ResponseError"
+                }
+              }
+            },
+            "description": "Error"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error_code": "401",
+                  "error_message": "Unauthorized",
+                  "details": [
+                    {
+                      "name": "MissingAuthToken",
+                      "message": "Authorization token is missing in the request."
+                    }
+                  ]
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ResponseError"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error_code": "404",
+                  "error_message": "Not found",
+                  "details": [
+                    {
+                      "name": "ResourceNotFound",
+                      "message": "The requested resource could not be found."
+                    }
+                  ]
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ResponseError"
+                }
+              }
+            },
+            "description": "Not found"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error_code": "500",
+                  "error_message": "Internal server error",
+                  "details": [
+                    {
+                      "name": "ServerError",
+                      "message": "An unexpected error occurred on the server."
+                    }
+                  ]
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ResponseError"
+                }
+              }
+            },
+            "description": "Internal server error"
+          }
+        },
+        "summary": "Export compliance assessment",
+        "tags": [
+          "Export data"
+        ],
+        "x-ibm-events": {
+          "description": "get API execution event",
+          "event": [
+            {
+              "name": "coreapi.exportposture.post"
+            },
+            {
+              "description": "Executing GET exportsAPI to get export job details"
+            }
+          ]
+        },
+        "x-ibm-permissions": {
+          "actions": [
+            {
+              "name": "coreapi.exportposture.post"
+            }
+          ]
+        }
+      }
+    },
+    "/compliance/api/v1/manual_assessments/evidence": {
+      "post": {
+        "description": "Updates manual assessment details with the data provided in JSON format.",
+        "operationId": "create_manual_assessment_update",
+        "parameters": [
+          {
+            "description": "Unique ID of your Concert instance",
+            "in": "header",
+            "name": "InstanceId",
+            "required": true,
+            "schema": {
+              "description": "Unique ID of your Concert instance",
+              "maxLength": 50,
+              "minLength": 1,
+              "pattern": "^[a-zA-Z0-9\\-]+$",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/create_manual_assessment_update_request"
+              }
+            }
+          },
+          "description": "Details about the updated manual assessment (posture)"
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "message": "Manual assessment not found"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ResponseMessage"
+                }
+              }
+            },
+            "description": "Posture record not found"
+          },
+          "201": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "message": "Manual assessment updated"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ResponseMessage"
+                }
+              }
+            },
+            "description": "Posture result updated successfully"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResponseError"
+                }
+              }
+            },
+            "description": "Invalid JSON"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResponseError"
+                }
+              }
+            },
+            "description": "Internal server error"
+          }
+        },
+        "summary": "Update manual assessment (posture) results",
+        "tags": [
+          "Manual assessments"
+        ],
+        "x-codegen-request-body-name": "requestBody"
+      }
+    }
+  }
+}

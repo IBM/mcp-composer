@@ -19,8 +19,6 @@ dependencies = [
     "uncurl==0.0.11",
     "chromadb>=1.0.15",
     "acp-sdk==1.0.0",
-    "ollama>=0.5.1",
-    "sentence-transformers>=5.0.0",
     "ibm-secrets-manager-sdk==2.1.10",
     "pydantic==2.11.7",
     "pydantic-settings==2.10.1",
@@ -48,9 +46,12 @@ exclude = ["**/node_modules", "**/__pycache__", ".venv", ".git", "dist"]
 venvPath = "."
 venv = ".venv"
 
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["mcp-composer"]
+
 [tool.setuptools]
 package-dir = {"" = "src"}
-packages = ["mcp_composer"]
 
 [tool.pytest.ini_options]
 pythonpath = ["src"]
@@ -63,4 +64,4 @@ requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
 
 [project.scripts]
-mcp-composer = "mcp_composer.utils.cli:main"
+mcp-composer = "mcp_composer.cli:main"

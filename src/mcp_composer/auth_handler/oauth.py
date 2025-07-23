@@ -175,8 +175,6 @@ class SimpleOAuthProvider(OAuthProvider):
                 scopes=[self.settings.scope],
                 expires_at=None,
             )
-            if auth_token:
-                self.token_mapping[new_code] = auth_token
 
         del self.state_mapping[state]
         return construct_redirect_uri(redirect_uri, code=new_code, state=state)

@@ -19,9 +19,7 @@ custom_tool/
 /mcp_servers.json
 /versioned_config.json
 example/mcsp_trio_server/config.json
-example/mcsp_trio_server/config_v2.json
 example/mcsp_servers/config.json
 example/.DS_Store
-
-#binary files 
-src/planning_agent/chroma
+model_vs_model_testing.md
+config/config_local.json

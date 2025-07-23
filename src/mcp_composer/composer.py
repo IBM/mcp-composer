@@ -82,8 +82,6 @@ class MCPComposer(FastMCP):
         self._config: list[dict] = []
 
         if config:
-            if not isinstance(config, list):
-                raise TypeError("Config must be a list of server configurations")
             try:
                 AllServersValidator(config).validate_all()
                 self._config = config
@@ -131,7 +129,7 @@ class MCPComposer(FastMCP):
                 return f"Invalid server config, missing 'id': {config}"
 
             server_id = config["id"]
-            
+            config["_id"] = server_id
 
             builder = MCPServerBuilder(config)
             sub_mcp = await builder.build()
@@ -141,7 +139,7 @@ class MCPComposer(FastMCP):
                 id=server_id,
                 type=config["type"],
                 config=config,
-                label=config.get("label", ""),
+                label=config.get("label"),
                 tags=config.get("tags", []),
                 tool_count=None,
                 disabled_tools=config.get("disabled_tools", []),
@@ -154,8 +152,10 @@ class MCPComposer(FastMCP):
             return f"Server {server_id} mounted."
 
         except Exception as exc:
-            logger.exception(
-                "Failed to mount server '%s': %s", str(config.get("id", "<missing-id>")), exc
+            logger.error(
+                "Failed to mount server '%s': %s",
+                str(config.get("id", "<missing‑id>")),
+                exc,
             )
             return f"Failed to mount server {config.get('id', '<missing‑id>')}"
 
@@ -165,10 +165,7 @@ class MCPComposer(FastMCP):
         This runs at startup or from manual trigger.
         """
         all_configs = self._config + self._db_configs
-        if not all_configs:
-            logger.warning("No server configurations found to mount.")
-            return
-        logger.info("Setting up %d servers from config", len(all_configs))
+
         seen_ids = set()
         logger.info(
             "Setting up %d CLI servers and %d DB servers...",
