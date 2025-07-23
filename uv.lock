@@ -1119,6 +1119,21 @@ wheels = [
 ]
 
 [[package]]
+name = "ibm-secrets-manager-sdk"
+version = "2.1.10"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "ibm-cloud-sdk-core" },
+    { name = "python-dateutil" },
+    { name = "requests" },
+    { name = "urllib3" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/62/96/50baf41b4f868a1a22acf3c968820fe7a16000920a02482b75b8c6e8aebe/ibm_secrets_manager_sdk-2.1.10.tar.gz", hash = "sha256:47017efa140870f096d8eb474f4f06a12bc8271399bf4695a94538a3c24fc912", size = 145570, upload-time = "2025-05-05T07:45:12.283Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/f5/a2/a3f5b9936bbe546e5674b89e00f66a10bdbcc402e4eec62284198c1dcf2e/ibm_secrets_manager_sdk-2.1.10-py3-none-any.whl", hash = "sha256:f6888b0ca484e8bc71e2194110475202f78bc6c3c1b0f8f5b85676160cd11847", size = 148471, upload-time = "2025-05-05T07:45:11.242Z" },
+]
+
+[[package]]
 name = "ibmcloudant"
 version = "0.10.2"
 source = { registry = "https://pypi.org/simple" }
@@ -1511,8 +1526,11 @@ dependencies = [
     { name = "fastmcp" },
     { name = "httpx" },
     { name = "ibm-cloud-sdk-core" },
+    { name = "ibm-secrets-manager-sdk" },
     { name = "ibmcloudant" },
     { name = "jsonschema" },
+    { name = "pydantic" },
+    { name = "pydantic-settings" },
     { name = "requests" },
     { name = "uncurl" },
 ]
@@ -1543,8 +1561,11 @@ requires-dist = [
     { name = "fastmcp", specifier = "==2.10.3" },
     { name = "httpx", specifier = "==0.28.1" },
     { name = "ibm-cloud-sdk-core", specifier = "==3.23.0" },
+    { name = "ibm-secrets-manager-sdk", specifier = "==2.1.10" },
     { name = "ibmcloudant", specifier = "==0.10.2" },
     { name = "jsonschema", specifier = ">=4.24.0" },
+    { name = "pydantic", specifier = "==2.11.7" },
+    { name = "pydantic-settings", specifier = "==2.10.1" },
     { name = "requests", specifier = "==2.32.3" },
     { name = "uncurl", specifier = "==0.0.11" },
 ]
