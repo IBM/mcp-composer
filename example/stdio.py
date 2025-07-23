@@ -12,4 +12,4 @@ def hello(name: str) -> str:
 
 
 if __name__ == "__main__":
-    mcp.run(transport="stdio")  # Default: uses STDIO transport
+    mcp.run()  # Default: uses STDIO transport

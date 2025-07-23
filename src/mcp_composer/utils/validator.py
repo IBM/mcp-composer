@@ -1,12 +1,8 @@
 from typing import Dict, Any, List
 from enum import Enum
-from mcp_composer.utils.logger import LoggerFactory
-
-logger = LoggerFactory.get_logger()
 
 
 class ConfigKey(str, Enum):
-    """Keys used in the server configuration."""
     TYPE = "type"
     ENDPOINT = "endpoint"
     SPEC_URL = "spec_url"
@@ -32,14 +28,9 @@ class ConfigKey(str, Enum):
     GRAPHQL = "graphql"
     SCHEMA_FILEPATH = "schema_filepath"
     PROMPT_PATH = "prompt_path"
-    COMMAND = "command"
-    ARGS = "args"
-    ENV = "env"
-    CWD = "cwd"
 
 
 class MemberServerType(str, Enum):
-    """Types of member servers."""
     OPENAPI = "openapi"
     CLIENT = "client"
     GRAPHQL = "graphql"
@@ -50,7 +41,6 @@ class MemberServerType(str, Enum):
 
 
 class AuthStrategy(str, Enum):
-    """Authentication strategies for member servers."""
     BASIC = "basic"
     OAUTH = "oauth2"
     APIKEY = "apikey"
@@ -67,46 +57,18 @@ class ValidationError(Exception):
 
 
 class ServerConfigValidator:
-    """Validator for individual server configurations."""
     def __init__(self, config: Dict[str, Any]):
         self.config = config
         self.server_id = config.get(ConfigKey.ID, "<unknown>")
 
     def validate(self) -> None:
         """Run all validation checks."""
-        logger.info(f"Validating server '{self.server_id}'")
-
         if ConfigKey.AUTH_STRATEGY in self.config:
             self._validate_auth_dependency()
         if self.config.get(ConfigKey.TYPE) == MemberServerType.OPENAPI:
-            logger.info(f"Validating OpenAPI server '{self.server_id}'")
             self._validate_openapi_requirements()
-        elif self.config.get(ConfigKey.TYPE) in {MemberServerType.HTTP, MemberServerType.SSE}:
-            logger.info(f"Validating HTTP/SSE server '{self.server_id}'")
-            self._validate_client_requirements()
-        elif self.config.get(ConfigKey.TYPE) == MemberServerType.STDIO:  
-            logger.info(f"Validating stdio server '{self.server_id}'")
-            self._validate_stdio_requirements()  
-        else:
-            logger.warning(f"Skipping validation for unsupported type: {self.config.get(ConfigKey.TYPE)}")
-                
-    def _validate_stdio_requirements(self) -> None:
-        """Ensure required fields exist for stdio type."""
+        self._validate_client_requirements()
 
-        if self.config.get(ConfigKey.TYPE) != MemberServerType.STDIO:
-            return
-
-        # Check for required fields: command and args
-        missing = []
-        if not self.config.get(ConfigKey.COMMAND):
-            missing.append(ConfigKey.COMMAND)
-        if not self.config.get(ConfigKey.ARGS):
-            missing.append(ConfigKey.ARGS)
-        if missing:
-            raise ValidationError(
-                f"Missing required field(s) for stdio server '{self.server_id}': {', '.join(missing)}"
-            )
-        
     def _validate_auth_dependency(self) -> None:
         """Ensure 'auth' exists if 'auth_strategy' is defined."""
         if ConfigKey.AUTH_STRATEGY in self.config and ConfigKey.AUTH not in self.config:
@@ -115,7 +77,7 @@ class ServerConfigValidator:
             )
         auth = self.config[ConfigKey.AUTH]
         strategy = self.config[ConfigKey.AUTH_STRATEGY].lower()
- 
+        print(strategy)
 
         required_auth_keys = {
             AuthStrategy.APIKEY: ["apikey"],
@@ -163,8 +125,6 @@ class ServerConfigValidator:
             )
 
     def _validate_client_requirements(self) -> None:
-        """Ensure 'endpoint' exists if type is 'client'."""
-        logger.debug(f"Validating client requirements for server '{self.server_id}'")
         if (
             self.config.get(ConfigKey.TYPE) == MemberServerType.CLIENT
             and ConfigKey.ENDPOINT not in self.config
@@ -193,7 +153,6 @@ class ServerConfigValidator:
 
 
 class AllServersValidator:
-    """Validator for a list of server configurations."""
     def __init__(self, server: List[Dict[str, Any]]):
         self.server = server
 
