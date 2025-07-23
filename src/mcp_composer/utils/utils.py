@@ -148,7 +148,7 @@ async def build_prompt_from_dict(entry: dict) -> Prompt:
         """
         try:
             str = template.format(**arguments)
-            print(str)
+
             return str
         except KeyError as e:
             raise ValueError(f"Missing required argument: {e.args[0]}")

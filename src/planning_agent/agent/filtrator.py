@@ -1,4 +1,4 @@
-from core.state import State
+from planning_agent.core.state import State
 from typing import Dict
 
 from beeai_framework.backend.chat import ChatModel
@@ -6,7 +6,7 @@ from beeai_framework.backend.message import UserMessage, SystemMessage
 from beeai_framework.backend.types import ChatModelInput
 from beeai_framework.workflows import Workflow
 
-from utils.planmsg import build_plan_msg
+from planning_agent.utils.planmsg import build_plan_msg
 
 import json
 
@@ -41,7 +41,6 @@ def make_filter_step(llm: ChatModel):
         build_plan_msg(state)
 
         return Workflow.NEXT
-        #return "execute_two"
         
 
     return filter 

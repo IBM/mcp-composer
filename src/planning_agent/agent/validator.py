@@ -1,5 +1,5 @@
 import jsonschema
-from core.state import State
+from planning_agent.core.state import State
 from beeai_framework.workflows import Workflow
 
 def make_validate_step(): 

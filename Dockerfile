@@ -44,6 +44,9 @@ COPY pyproject.toml uv.lock ./
 RUN uv sync --locked --no-install-project --no-dev
 
 COPY . /app
+# RUN --mount=type=cache,target=/root/.cache/uv \
+#     uv venv && \
+#     uv pip install --no-deps -e .
 
 RUN uv sync --locked --no-dev
 
