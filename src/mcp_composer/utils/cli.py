@@ -77,7 +77,7 @@ def _add_arguments_to_parser(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--enable-composer-tools",
         action=argparse.BooleanOptionalAction,
-        default=False,  # Disabled by default
+        default=True,  # Disabled by default
         help="Enable composer tools (disabled by default).",
     )
     parser.add_argument(
