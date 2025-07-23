@@ -17,6 +17,8 @@
 - [Installation](#installation)
   - [Prerequisites](#prerequisites)
   - [Setup](#setup)
+  - [Use as Tool](#use-as-tool)
+- [Usage](#usage)
 - [Key Features](#key-features)
   - [MCP Composer Servers](#mcp-composer-servers)
   - [Command Line Interface (CLI)](#command-line-interface-cli)
@@ -24,7 +26,7 @@
   - [MCP Composer Prompts](#mcp-composer-prompts)
 - [Demo using MCP Inspector](#demo-using-mcp-inspector)
 - [MCP Composer Client with Chatbot UI](#mcp-composer-client-with-chatbot-ui)
-
+-
 ---
 
 ## Overview
@@ -153,6 +155,45 @@ To ensure the package is properly installed and importable in the consumer proje
 ```bash
 uv pip install -e ../mcp-composer
 ```
+
+
+### Use as Tool
+
+#### Install mcp-composer as a tool
+
+1. Run the following command to install mcp-composer as a tool:
+
+   ```bash:
+   uv tool install -e /<absolute path>/mcp-composer 
+   ```
+2. Add the tool to $PATH:
+   ```bash  
+      export PATH="/<absolute path>/.local/bin:$PATH"
+   ```
+3. Check the instlation:
+   ```bash
+   which mcp-composer
+   ```        
+
+#### Uninstall mcp-composer as a tool
+
+1. Run the following command to uninstall mcp-composer as a tool:
+
+   ```bash:
+   uv tool uninstall mcp-composer
+   ```
+
+## Usage
+
+1. Run MCP Server using MCP Composer Tool with oauth authentication with following command
+
+```bash
+
+uvx mcp-composer -sseurl --sse-url <url to remote sse mcp server> --auth_type oauth --env OAUTH_HOST <host> --env OAUTH_PORT <port> --env OAUTH_SERVER_URL <server url> --env OAUTH_CALLBACK_PATH <callback path> --env OAUTH_CLIENT_ID=<client id> --env OAUTH_CLIENT_SECRET <secret> --env OAUTH_AUTH_URL <auth url> -e-env OAUTH_TOKEN_URL <token url> --env OAUTH_MCP_SCOPE user --env OAUTH_PROVIDER_SCOPE=openid
+```
+
+
+
 
 ## Key Features
 
