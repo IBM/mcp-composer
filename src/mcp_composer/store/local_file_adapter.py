@@ -15,7 +15,7 @@ load_dotenv(find_dotenv(".env"))
 
 logger = LoggerFactory.get_logger()
 
-MEMBER_SERVER_CONFIG_FILE_PATH = os.environ["SERVER_CONFIG_FILE_PATH"]
+SERVER_CONFIG_FILE_PATH = os.getenv("SERVER_CONFIG_FILE_PATH", "member_servers.json")
 
 
 class LocalFileAdapter(DatabaseInterface):
@@ -23,7 +23,7 @@ class LocalFileAdapter(DatabaseInterface):
 
     def __init__(
         self,
-        file_path: str = MEMBER_SERVER_CONFIG_FILE_PATH,
+        file_path: str = SERVER_CONFIG_FILE_PATH,
     ):
         self._file_path = Path(file_path)
         self._ensure_file_exists()
