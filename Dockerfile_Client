@@ -1,39 +1,35 @@
-FROM ghcr.io/astral-sh/uv:python3.12-bookworm-slim
+FROM icr.io/ibm-dreadnought-prod-images/ubi9/nodejs20-builder:v9.6.49 as node-deps
 
-RUN apt-get update && apt-get install -y curl && \
-    curl -fsSL https://deb.nodesource.com/setup_20.x | bash - && \
-    apt-get install -y nodejs && \
-    rm -rf /var/lib/apt/lists/\*
+RUN npm install -g @ivotoby/openapi-mcp-server
 
-RUN node -v && npm -v && npx -v
+FROM icr.io/ibm-dreadnought-prod-images/ubi9/python312-builder:v9.6.27 as builder
 
-# Install the project into `/app`
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
 WORKDIR /app
 
-RUN npm install @ivotoby/openapi-mcp-server
-
-# Copy from the cache instead of linking since it's a mounted volume
-
-ENV UV_LINK_MODE=copy
-
-# Install the project's dependencies using the lockfile and settings
-
+COPY pyproject.toml uv.lock ./
 RUN --mount=type=cache,target=/root/.cache/uv \
-    --mount=type=bind,source=uv.lock,target=uv.lock \
-    --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
     uv sync --locked --no-install-project --no-dev
 
-# Then, add the rest of the project source code and install it
-
-# Installing separately from its dependencies allows optimal layer caching
-
 COPY . /app
+
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --locked --no-dev
 
-# Place executables in the environment at the front of the path
+# =====  Runtime =====
+# FROM icr.io/ibm-dreadnought-prod-images/ubi9/python312-runtime:v9.6.27
+
+# COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
+
+# WORKDIR /app
+
+# COPY --from=builder /app /app
+
+# COPY --from=node-deps /usr/local/bin /usr/local/bin
+# COPY --from=node-deps /usr/local/lib /usr/local/lib
+# COPY --from=node-deps /usr/local/share /usr/local/share
 
 ENV PATH="/app/.venv/bin:$PATH"
-ENTRYPOINT []
+
 CMD ["uv", "run", "src/mcp_composer_client/acp_server.py"]

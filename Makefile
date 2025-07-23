@@ -6,19 +6,22 @@ REGISTRY_IMAGE_TAG_SHORT ?= $(shell git rev-parse --abbrev-ref HEAD | sed 's/[^a
 
 ROOT_IMAGE_NAME = mcp-composer-root
 SRC_APP_IMAGE_NAME = mcp-composer-app
+SRC_CLIENT_IMAGE_NAME = mcp-composer-client
 
 ROOT_IMAGE_URI = $(REGISTRY_URL)/$(REGISTRY_NAMESPACE)/$(ROOT_IMAGE_NAME):$(REGISTRY_IMAGE_TAG_SHORT)
 SRC_APP_IMAGE_URI = $(REGISTRY_URL)/$(REGISTRY_NAMESPACE)/$(SRC_APP_IMAGE_NAME):$(REGISTRY_IMAGE_TAG_SHORT)
+SRC_CLIENT_IMAGE_URI = $(REGISTRY_URL)/$(REGISTRY_NAMESPACE)/$(SRC_CLIENT_IMAGE_NAME):$(REGISTRY_IMAGE_TAG_SHORT)
 
 BUILD_ENGINE ?= docker
 BUILD_ENGINE_ARGS ?= --platform linux/amd64
 
 
-docker-build: docker-build-root docker-build-app
+docker-build: docker-build-root docker-build-app docker-build-client
 
 # docker-push:
 # 	$(BUILD_ENGINE) push $(ROOT_IMAGE_URI)
 # 	$(BUILD_ENGINE) push $(SRC_APP_IMAGE_URI)
+# 	$(BUILD_ENGINE) push $(SRC_CLIENT_IMAGE_URI)
 
 docker-build-root:
 	$(BUILD_ENGINE) build $(BUILD_ENGINE_ARGS) $(BUILD_ARGS) $(DREADNOUGHT_DOCKER_BUILD_ARGS) \
@@ -27,6 +30,10 @@ docker-build-root:
 docker-build-app:
 	$(BUILD_ENGINE) build $(BUILD_ENGINE_ARGS) $(BUILD_ARGS) $(DREADNOUGHT_DOCKER_BUILD_ARGS) \
 		-f Dockerfile-Composer-App -t $(SRC_APP_IMAGE_URI) .
+
+docker-build-client:
+	$(BUILD_ENGINE) build $(BUILD_ENGINE_ARGS) $(BUILD_ARGS) $(DREADNOUGHT_DOCKER_BUILD_ARGS) \
+		-f Dockerfile_Client -t $(SRC_CLIENT_IMAGE_URI) .
 
 help:
 	@awk 'BEGIN {FS = ":.*##"; printf "\nUsage:\n  make \033[36m<target>\033[0m\n"} \

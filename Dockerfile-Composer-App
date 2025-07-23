@@ -27,6 +27,9 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 
 ENV PATH="/app/.venv/bin:$PATH"
 
+ENV SERVER_CONFIG_FILE_PATH=/app/example/mcsp_trio_server/mcsp_trio_master.json
+
+
 ENTRYPOINT []
 
 CMD ["uvicorn", "src.mcp_composer_app.app:app", "--host", "0.0.0.0", "--port", "8000"]
