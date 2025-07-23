@@ -177,7 +177,6 @@ class SimpleOAuthProvider(OAuthProvider):
             )
             if auth_token:
                 self.token_mapping[new_code] = auth_token
-            print(f"Stored auth token: {self.token_mapping}")
 
         del self.state_mapping[state]
         return construct_redirect_uri(redirect_uri, code=new_code, state=state)
