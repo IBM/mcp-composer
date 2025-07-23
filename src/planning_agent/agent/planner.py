@@ -1,4 +1,4 @@
-from core.state import State
+from planning_agent.core.state import State
 from typing import Dict
 
 from beeai_framework.backend.chat import ChatModel
