@@ -1,14 +1,22 @@
-FROM icr.io/ibm-dreadnought-prod-images/ubi9/nodejs20-builder:v9.6.49 as node-deps
+ARG BUILDER_IMAGE=icr.io/ibm-dreadnought-prod-images/ubi9/python312-builder
+ARG NODE_BUILDER_IMAGE=icr.io/ibm-dreadnought-prod-images/ubi9/nodejs20-builder
+# ARG RUNTIME_IMAGE=icr.io/ibm-dreadnought-prod-images/ubi9/python312-runtime
+
+ARG DREADNOUGHT_PYTHON312_TAG=SET_VALID_TAG
+ARG NODE_BUILDER_TAG=v9.6.49
+
+FROM ${NODE_BUILDER_IMAGE}:${NODE_BUILDER_TAG} AS node-deps
 
 RUN npm install -g @ivotoby/openapi-mcp-server
 
-FROM icr.io/ibm-dreadnought-prod-images/ubi9/python312-builder:v9.6.27 as builder
+FROM ${BUILDER_IMAGE}:${DREADNOUGHT_PYTHON312_TAG} AS builder
 
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
 WORKDIR /app
 
 COPY pyproject.toml uv.lock ./
+
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --locked --no-install-project --no-dev
 
@@ -17,19 +25,17 @@ COPY . /app
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --locked --no-dev
 
-# =====  Runtime =====
-# FROM icr.io/ibm-dreadnought-prod-images/ubi9/python312-runtime:v9.6.27
-
+# Runtime stage 
+# FROM ${RUNTIME_IMAGE}:${DREADNOUGHT_PYTHON312_TAG}
 # COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
-
 # WORKDIR /app
-
 # COPY --from=builder /app /app
-
 # COPY --from=node-deps /usr/local/bin /usr/local/bin
 # COPY --from=node-deps /usr/local/lib /usr/local/lib
 # COPY --from=node-deps /usr/local/share /usr/local/share
 
 ENV PATH="/app/.venv/bin:$PATH"
+
+ENTRYPOINT []
 
 CMD ["uv", "run", "src/mcp_composer_client/acp_server.py"]
