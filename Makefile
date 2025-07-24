@@ -18,10 +18,10 @@ BUILD_ENGINE_ARGS ?= --platform linux/amd64
 
 docker-build: docker-build-root docker-build-app docker-build-client
 
-# docker-push:
-# 	$(BUILD_ENGINE) push $(ROOT_IMAGE_URI)
-# 	$(BUILD_ENGINE) push $(SRC_APP_IMAGE_URI)
-# 	$(BUILD_ENGINE) push $(SRC_CLIENT_IMAGE_URI)
+docker-push:
+	$(BUILD_ENGINE) push $(ROOT_IMAGE_URI)
+	$(BUILD_ENGINE) push $(SRC_APP_IMAGE_URI)
+	$(BUILD_ENGINE) push $(SRC_CLIENT_IMAGE_URI)
 
 docker-build-root:
 	$(BUILD_ENGINE) build $(BUILD_ENGINE_ARGS) $(BUILD_ARGS) $(DREADNOUGHT_DOCKER_BUILD_ARGS) \
