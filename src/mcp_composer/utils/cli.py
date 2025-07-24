@@ -77,7 +77,7 @@ def _add_arguments_to_parser(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--enable-composer-tools",
         action=argparse.BooleanOptionalAction,
-        default=True,  # Disabled by default
+        default=False,  # Disabled by default
         help="Enable composer tools (disabled by default).",
     )
     parser.add_argument(
@@ -145,18 +145,19 @@ async def run_dynamic_composer(args, config: list[Dict]) -> None:
         logger.info("Running MCP Composer without OAuth")
         mcp = MCPComposer("composer", config=config)  # type: ignore
 
-    if args.sse_url:
-        remote_proxy = MCPComposer.as_proxy(
-            ProxyClient(args.sse_url), name="local-stdio"
-        )
-        await mcp.import_server(remote_proxy)
-
     # remove composer tools by default
     if not args.enable_composer_tools:
         tools = await mcp.get_tools()
         logger.info("Remove composer tools")
         for name, _ in tools.items():
             mcp.remove_tool(name)
+
+    if args.sse_url:
+        logger.info("mounting SSE server into MCP composer")
+        remote_proxy = MCPComposer.as_proxy(
+            ProxyClient(args.sse_url), name="local-stdio"
+        )
+        await mcp.import_server(remote_proxy)
 
     ##mcp.add_middleware(ListFilteredTool(mcp))
 
