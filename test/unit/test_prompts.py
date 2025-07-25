@@ -3,14 +3,15 @@ import sys
 import os
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../src")))
 from mcp_composer.composer import MCPComposer
-
+from unittest.mock import AsyncMock, patch
 
 
 @pytest.mark.asyncio
 async def test_prompts():
     composer = MCPComposer("composer")
-    await composer.setup_member_servers()
-    config = [ {
+    with patch.object(composer, "setup_member_servers", new=AsyncMock()):
+        await composer.setup_member_servers()
+    config = [{
         "name": "promo_http_avg_response",
         "description": "Average response time of promo HTTP calls handled by a cluster",
         "template": "What is the average response time of promo HTTP calls handled by Kubernetes cluster {{ cluster }}?",
@@ -25,7 +26,7 @@ async def test_prompts():
     }]
     await composer.add_prompts(config)
     prompts = await composer.get_prompts()
-    assert isinstance(prompts, dict), "Composer should return a dictionary of prompts"
+    assert isinstance(prompts, dict)
 
 @pytest.mark.asyncio
 async def test_add_prompts():

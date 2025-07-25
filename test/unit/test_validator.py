@@ -7,8 +7,9 @@ from mcp_composer.utils import ValidationError, AllServersValidator
 
 class TestComposer(unittest.TestCase):
     def test_valid_servers_file(self):
+        """Test that a valid servers file does not raise a ValidationError."""
         current_dir = os.path.dirname(__file__)
-        path = os.path.join(current_dir, "data/member_servers.json")
+        path = os.path.join(current_dir, "./../data/member_servers.json")
         # Assumes file is in the root or test dir
 
         with open(path, "r") as f:
@@ -20,7 +21,8 @@ class TestComposer(unittest.TestCase):
         except ValidationError as e:
             self.fail(f"Validation failed unexpectedly: {e}")
 
-    def test_invalid_missing_auth_strategy(tmp_path):
+    def test_invalid_missing_auth_strategy(self, tmp_path):
+        """Test that a server without an auth_strategy raises a ValidationError."""
         # Arrange
         servers = [
             {
@@ -38,7 +40,8 @@ class TestComposer(unittest.TestCase):
         ):
             AllServersValidator(servers).validate_all()
 
-    def test_invalid_openapi_missing_fields(tmp_path):
+    def test_invalid_openapi_missing_fields(self, tmp_path):
+        """Test that an OpenAPI server without required fields raises a ValidationError."""
         # Arrange
         servers = [
             {
@@ -57,6 +60,7 @@ class TestComposer(unittest.TestCase):
             AllServersValidator(servers).validate_all()
 
     def test_client_type_missing_endpoint(self):
+        """Test that a client type server without an endpoint raises a ValidationError."""
         servers = [
             {
                 "id": "client-no-endpoint",
