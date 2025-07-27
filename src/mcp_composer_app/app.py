@@ -42,7 +42,13 @@ def make_tool_endpoint(tool_model, tool: Tool):
     async def endpoint(body: tool_model):  # pylint: disable=invalid-name
         try:
             result = await tool.run(body.model_dump())
-            return {"result": result}
+            if hasattr(result, "structured_content") and result.structured_content is not None:
+                return result.structured_content
+            elif hasattr(result, "content") and result.content is not None:
+                return result.content
+            elif hasattr(result, "__dict__"):
+                return dict(result.__dict__)
+            return result
         except Exception as exc:
             logger.exception("Tool '%s' failed with error", tool.name)
             raise HTTPException(
