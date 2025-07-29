@@ -1,19 +1,24 @@
 """FastAPI app to expose MCPComposer tools as REST endpoints."""
+import re
 from contextlib import asynccontextmanager
 from typing import Dict, Any
 
 import uvicorn
-from fastapi import FastAPI, HTTPException
-from pydantic import Field, create_model
+from fastapi import FastAPI, HTTPException, Body
+from pydantic import Field, create_model, BaseModel
 
 from fastmcp.tools.tool import Tool
 from mcp_composer.utils import LoggerFactory
 from mcp_composer.composer import MCPComposer
+from mcp_composer.utils.tools import format_tool
 
 logger = LoggerFactory.get_logger()
 
 COMPOSER = MCPComposer()
 TOOLS: Dict[str, Tool] = {}
+
+class ToolsRequest(BaseModel):
+    server_id: str | None = None
 
 def schema_type_to_py_type(field_schema: Dict[str, Any]) -> Any:
     """
@@ -110,12 +115,51 @@ def root():
     """
     return {"message": "MCP Composer Tool API is running."}
 
-@app.get("/tools", summary="List all available tools")
-def list_tools():
+
+@app.post("/tools", summary="List tools with status, optionally filtered by server_id")
+async def list_tools(request: ToolsRequest = Body(...)):
     """
-    Return a list of all loaded tool names.
+    Return a list of tool configs with their status (active/inactive), optionally filtered by server_id.
+    For inactive tools, only include their name and status.
     """
-    return list(TOOLS.keys())
+
+    server_id = request.server_id
+    servers = COMPOSER._server_manager.list()
+    server_disabled = {s.id: set(s.disabled_tools) for s in servers}
+
+    # Get tools (all or by server)
+    if server_id:
+        tools = await COMPOSER._tool_manager.get_all_tools(server_id)
+        relevant_servers = [s for s in servers if s.id == server_id]
+    else:
+        tools = TOOLS  # Already loaded in lifespan
+        relevant_servers = servers
+
+    tool_list = []
+    seen_tool_names = set()
+    for tool_name, tool in tools.items():
+        m = re.match(r"([^_]+)_(.+)", tool_name)
+        if m:
+            t_server_id, _ = m.groups()
+            status = "inactive" if tool_name in server_disabled.get(t_server_id, set()) else "active"
+        else:
+            status = "active"
+        tool_info = format_tool(tool)
+        tool_info["status"] = status
+        tool_list.append(tool_info)
+        seen_tool_names.add(tool_name)
+
+    # Add disabled/inactive tools (only name and status)
+    for s in relevant_servers:
+        for disabled_tool in s.disabled_tools:
+            if disabled_tool not in seen_tool_names:
+                # If name is {server_id}_{tool_name}, display only tool_name
+                m = re.match(r"([^_]+)_(.+)", disabled_tool)
+                display_name = m.group(2) if m else disabled_tool
+                tool_list.append({"name": display_name, "status": "inactive"})
+                seen_tool_names.add(disabled_tool)
+
+    return tool_list
 
 if __name__ == "__main__":
     uvicorn.run("mcp_composer_app.app:app", host="0.0.0.0", port=8000, reload=True)
