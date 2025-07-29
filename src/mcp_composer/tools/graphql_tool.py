@@ -53,9 +53,7 @@ class GraphQLTool(Tool):
             description=f"GraphQL query tool for {self._endpoint}",
             parameters=parameters
         )
-
-    
-     # Set non-model fields
+        # Set non-model fields
         self._endpoint = config[ConfigKey.GRAPHQL][ConfigKey.ENDPOINT]
         auth_strategy = config.get(ConfigKey.AUTH_STRATEGY, "none")
         auth = config.get(ConfigKey.AUTH, {})

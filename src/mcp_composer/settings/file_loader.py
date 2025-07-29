@@ -53,8 +53,7 @@ class FileSecretAdapter(SecretAdapter):
             return {}
         # Ensure a dictionary is always returned
         return {}
-     
-    def save_config(self, server_id: str, versions: List[Dict[str, Any]]) -> None:
+    def save_config(self, server_id: str, versions: list[dict[str, Any]]) -> None:
         self.history[server_id] = versions[-self.history_limit:]
         self._save()
 
@@ -95,8 +94,7 @@ class FileSecretAdapter(SecretAdapter):
             if v["version_id"] == version_id:
                 return v
         return None
-    
-    def rollback(self, server_id: str, version_id: str) -> Dict[str, Any]:
+    def rollback(self, server_id: str, version_id: str) -> dict[str, Any]:
         """
         Roll back to a specific version of a server config.
         Args:

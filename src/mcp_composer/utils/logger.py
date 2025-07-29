@@ -27,8 +27,4 @@ class LoggerFactory:
         logger.setLevel(getattr(logging, level.upper(), logging.INFO))
         logger.addHandler(handler)
 
-        file_handler = logging.FileHandler("mcp_composer.log")
-        file_handler.setFormatter(formatter)
-        logger.addHandler(file_handler)
-
         return logger

@@ -47,13 +47,32 @@ exclude = ["**/node_modules", "**/__pycache__", ".venv", ".git", "dist"]
 venvPath = "."
 venv = ".venv"
 
+
+[tool.pylint.'MAIN']
+# Example options:
+ignore = ["venv", "migrations", "build"]
+max-line-length = 120
+disable = ["C0114", "C0115", "C0116"]  # Example: disables missing docstring warnings
+
+[tool.pylint.messages_control]
+# Enable/disable specific messages
+disable = ["missing-docstring", "invalid-name"]
+
+
+[tool.ruff]
+line-length = 120
+exclude = ["venv", "migrations", "build"]
+select = ["E", "F", "W"]  # Which error codes to check
+ignore = ["E501"]         # Example: ignore line length errors
+
+[tool.ruff.lint]
+ignore = ["E501", "F401"]
+select = ["E", "F", "W"]
+
+
 [tool.setuptools]
 package-dir = {"" = "src"}
-packages = ["mcp_composer", "mcp_composer.settings", 
-            "mcp_composer.auth_handler", "mcp_composer.member_servers",
-            "mcp_composer.utils", "mcp_composer.middleware",
-            "mcp_composer.models", "mcp_composer.store",
-            "mcp_composer.tools"]
+packages = ["mcp_composer"]
 
 [tool.pytest.ini_options]
 pythonpath = ["src"]

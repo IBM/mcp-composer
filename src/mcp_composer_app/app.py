@@ -1,4 +1,5 @@
 """FastAPI app to expose MCPComposer tools as REST endpoints."""
+
 import re
 from contextlib import asynccontextmanager
 from typing import Dict, Any
@@ -17,8 +18,10 @@ logger = LoggerFactory.get_logger()
 COMPOSER = MCPComposer()
 TOOLS: Dict[str, Tool] = {}
 
+
 class ToolsRequest(BaseModel):
     server_id: str | None = None
+
 
 def schema_type_to_py_type(field_schema: Dict[str, Any]) -> Any:
     """
@@ -35,33 +38,27 @@ def schema_type_to_py_type(field_schema: Dict[str, Any]) -> Any:
     if field_type == "number":
         return float
     if field_type == "object":
-        return Dict[str, Any]
+        return dict[str, Any]
     if field_type == "array":
         return list
     return Any
+
 
 def make_tool_endpoint(tool_model, tool: Tool):
     """
     Generate an endpoint function for a given tool using its model.
     """
+
     async def endpoint(body: tool_model):  # pylint: disable=invalid-name
         try:
             result = await tool.run(body.model_dump())
-            if hasattr(result, "structured_content") and result.structured_content is not None:
-                return result.structured_content
-            elif hasattr(result, "content") and result.content is not None:
-                return result.content
-            elif hasattr(result, "__dict__"):
-                return dict(result.__dict__)
-            return result
+            return {"result": result}
         except Exception as exc:
             logger.exception("Tool '%s' failed with error", tool.name)
-            raise HTTPException(
-                status_code=500,
-                detail=str(exc)
-            ) from exc
+            raise HTTPException(status_code=500, detail=str(exc)) from exc
 
     return endpoint
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -93,7 +90,7 @@ async def lifespan(app: FastAPI):
             methods=["POST"],
             response_model=Dict[str, Any],
             name=f"Run {tool_name}",
-            summary=tool.description or tool.name
+            summary=tool.description or tool.name,
         )
 
     # Register tools globally after mounting
@@ -105,8 +102,9 @@ app = FastAPI(
     title="MCP Composer Tool API",
     description="Auto-generated REST API for all registered tools in MCP Composer.",
     version="1.0.0",
-    lifespan=lifespan
+    lifespan=lifespan,
 )
+
 
 @app.get("/", summary="Health check")
 def root():
@@ -160,6 +158,7 @@ async def list_tools(request: ToolsRequest = Body(...)):
                 seen_tool_names.add(disabled_tool)
 
     return tool_list
+
 
 if __name__ == "__main__":
     uvicorn.run("mcp_composer_app.app:app", host="0.0.0.0", port=8000, reload=True)

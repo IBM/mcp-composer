@@ -1,15 +1,15 @@
 """Utility functions"""
 
-import asyncio
-import aiohttp
-import httpx
-import importlib.util
-import json
 import os
 import re
 import subprocess
-
 from typing import Any, Dict, Optional, Tuple
+import importlib.util
+import json
+import asyncio
+import aiohttp
+import httpx
+
 from aiohttp import ClientConnectorError
 from fastmcp.server.openapi import RouteMap, MCPType
 from fastmcp.prompts import Prompt
@@ -73,6 +73,7 @@ async def load_json(filepath):
         data = json.load(file)
         return data
 
+
 async def get_member_health(
     server_config: list[MemberMCPServer],
 ) -> list[dict]:
@@ -89,11 +90,7 @@ async def get_member_health(
             status = []
             for (status_code, server), server_id in zip(results, tasks.keys()):
                 server_status = {}
-                health = (
-                    HealthStatus.healthy
-                    if status_code in {200, 406, 401}
-                    else HealthStatus.unhealthy
-                )
+                health = HealthStatus.healthy if status_code in {200, 406, 401} else HealthStatus.unhealthy
                 server.health_status = health
                 server_status["status"] = health
                 server_status["server_name"] = server_id
@@ -159,15 +156,18 @@ async def build_prompt_from_dict(entry: dict) -> Prompt:
 
     return prompt
 
+
 def get_version_adapter(config: Optional[Dict[str, Any]] = None) -> SecretAdapter:
     if config:
         adapter_type = config.get("type", "file").lower()
         adapter_args = {k: v for k, v in config.items() if k != "type"}
     else:
         adapter_type = os.getenv("VERSION_ADAPTER_TYPE", "file").lower()
-        adapter_args = {
-            "file_path": os.getenv("VERSION_CONFIG_FILE_PATH", "versioned_config.json")
-        } if adapter_type == "file" else {}
+        adapter_args = (
+            {"file_path": os.getenv("VERSION_CONFIG_FILE_PATH", "versioned_config.json")}
+            if adapter_type == "file"
+            else {}
+        )
 
     adapter_factory = ADAPTER_REGISTRY.get(adapter_type)
     if not adapter_factory:

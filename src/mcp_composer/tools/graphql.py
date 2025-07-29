@@ -1,9 +1,6 @@
 """countries_graphql_mcp.py"""
 
-import os
-import asyncio
 import httpx
-from fastmcp import FastMCP
 from fastmcp.tools import Tool
 # from dotenv import load_dotenv
 
@@ -46,9 +43,7 @@ headers = {}
 
 # If auth is required
 if config["auth_strategy"] == "bearer":
-    headers["Authorization"] = (
-        f"{config['auth']['auth_prefix']} {config['auth']['token']}"
-    )
+    headers["Authorization"] = f"{config['auth']['auth_prefix']} {config['auth']['token']}"
 
 http_client = httpx.AsyncClient(base_url=GRAPHQL_ENDPOINT, headers=headers)
 
@@ -64,20 +59,14 @@ async def create_tools(schema):
     """Dynamically Create Tools from Queries"""
     tools = []
     for gql_type in schema["types"]:
-        if (
-            gql_type["kind"] == "OBJECT"
-            and gql_type["name"] == schema["queryType"]["name"]
-        ):
+        if gql_type["kind"] == "OBJECT" and gql_type["name"] == schema["queryType"]["name"]:
             for field in gql_type["fields"]:
                 tool_name = field["name"]
                 arg_defs = field.get("args", [])
 
                 def make_tool(tool_name, arg_defs):
                     async def tool_func(**kwargs):
-                        arg_str = ", ".join(
-                            f'{arg["name"]}: "{kwargs.get(arg["name"], "")}"'
-                            for arg in arg_defs
-                        )
+                        arg_str = ", ".join(f'{arg["name"]}: "{kwargs.get(arg["name"], "")}"' for arg in arg_defs)
                         query_body = (
                             f"""
                         query {{
@@ -88,15 +77,11 @@ async def create_tools(schema):
                             if arg_str
                             else f"query {{ {tool_name} {{ __typename }} }}"
                         )
-                        response = await http_client.post(
-                            "", json={"query": query_body}
-                        )
+                        response = await http_client.post("", json={"query": query_body})
                         response.raise_for_status()
                         return response.json()
 
-                    return Tool.from_function(
-                        tool_func, name=tool_name, description=f"Query {tool_name}"
-                    )
+                    return Tool.from_function(tool_func, name=tool_name, description=f"Query {tool_name}")
 
                 tools.append(make_tool(tool_name, arg_defs))
     return tools

@@ -3,6 +3,7 @@
 import json
 from typing import Dict
 import jsonref
+from mcp_composer.utils import patch_openapi_tool
 from fastmcp import FastMCP, Client
 from fastmcp.client.auth import OAuth
 from fastmcp.client.transports import (
@@ -52,7 +53,6 @@ class MCPServerBuilder:
             MemberServerType.SSE,
             MemberServerType.STDIO,
         }:
-
             # For HTTP/SSE/STDIO, we need to build the transport first
             logger.info("Building MCP server with transport type: %s", self.mcp_type)
             return await self._build_from_transport(transport_type=self.mcp_type)
@@ -75,11 +75,7 @@ class MCPServerBuilder:
     async def _build_from_transport(self, transport_type=None) -> FastMCP:
         logger.info("Building MCP server with transport type: %s", transport_type)
         # Map transport types to their corresponding classes
-        transport_classes = {
-            "http": StreamableHttpTransport,
-            "sse": SSETransport,
-            "stdio": StdioTransport
-        }
+        transport_classes = {"http": StreamableHttpTransport, "sse": SSETransport, "stdio": StdioTransport}
 
         # Choose and instantiate the appropriate transport
         TransportClass = transport_classes.get(transport_type)  # type: ignore
@@ -90,10 +86,7 @@ class MCPServerBuilder:
         headers = config.get(ConfigKey.HEADERS)
         oauth = config.get(ConfigKey.AUTH)
         transport = None
-        if (
-            transport_type == MemberServerType.HTTP
-            or transport_type == MemberServerType.SSE
-        ):
+        if transport_type == MemberServerType.HTTP or transport_type == MemberServerType.SSE:
             endpoint = config[ConfigKey.ENDPOINT]
             auth = None
             if oauth:
@@ -125,32 +118,22 @@ class MCPServerBuilder:
 
         headers = self.config.get(ConfigKey.HEADERS)
         if headers:
-            transport = StreamableHttpTransport(
-                url=self.config[ConfigKey.ENDPOINT], headers=headers
-            )
+            transport = StreamableHttpTransport(url=self.config[ConfigKey.ENDPOINT], headers=headers)
             client = Client(transport)
         try:
             return FastMCP.as_proxy(client, name=self.mcp_id)
         except Exception as e:
-            logger.exception(
-                f"Failed to build member MCP server '{self.config.get('id')}': {e}"
-            )
-            raise RuntimeError(
-                f"Failed to build member MCP server '{self.mcp_id}'"
-            ) from e
+            logger.exception("Failed to build member MCP server '%s': %s", self.config.get("id"), e)
+            raise RuntimeError(f"Failed to build member MCP server '{self.mcp_id}'") from e
 
     async def _build_from_openapi(self) -> FastMCP:
         openapi_config = self.config[ConfigKey.OPEN_API]
         custom_mappings = []
         if ConfigKey.CUSTOM_ROUTES in openapi_config:
-            custom_mappings = await load_custom_mappings_from_json(
-                openapi_config[ConfigKey.CUSTOM_ROUTES]
-            )
+            custom_mappings = await load_custom_mappings_from_json(openapi_config[ConfigKey.CUSTOM_ROUTES])
         spec = {}
         if ConfigKey.SPEC_URL in openapi_config:
-            spec = await load_spec_from_url(
-                openapi_config[ConfigKey.ENDPOINT], openapi_config[ConfigKey.SPEC_URL]
-            )
+            spec = await load_spec_from_url(openapi_config[ConfigKey.ENDPOINT], openapi_config[ConfigKey.SPEC_URL])
         elif ConfigKey.SPEC_FILEPATH in openapi_config:
             spec = await load_json(openapi_config[ConfigKey.SPEC_FILEPATH])
         else:
@@ -183,9 +166,7 @@ class MCPServerBuilder:
                 )
             case AuthStrategy.BEARER:
                 logger.info("Setting up header and client for bearer")
-                headers[ConfigKey.AUTH_HEADER.value] = (
-                    f"Bearer {auth_config.get(ConfigKey.TOKEN)}"
-                )
+                headers[ConfigKey.AUTH_HEADER.value] = f"Bearer {auth_config.get(ConfigKey.TOKEN)}"
                 http_client = httpx.AsyncClient(base_url=base_url, headers=headers)
 
             case AuthStrategy.APITOKEN:
@@ -223,9 +204,7 @@ class MCPServerBuilder:
                         password=auth_config.get(ConfigKey.PASSWORD),
                     )
 
-                    http_client = (
-                        await token_manager.get_authenticated_http_client_for_jessonid()
-                    )
+                    http_client = await token_manager.get_authenticated_http_client_for_jessonid()
                 except KeyError as e:
                     # Required config missing
                     logger.error("Missing configuration key: %s", e)

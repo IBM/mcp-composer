@@ -16,7 +16,6 @@ logging.basicConfig(level=logging.INFO)
 class IBMCloudSecretAdapter(SecretAdapter):
     """
     Adapter for IBM Cloud Secrets Manager v2 to store versioned configurations.
-    
     Required ENV variables:
         - IBM_CLOUD_SM_APIKEY
         - IBM_CLOUD_SM_URL

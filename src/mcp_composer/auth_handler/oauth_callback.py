@@ -1,12 +1,12 @@
 # oauth_callback.py
-
+from urllib.parse import urlparse
 from starlette.requests import Request
 from starlette.responses import JSONResponse, RedirectResponse
 from starlette.exceptions import HTTPException
-from urllib.parse import urlparse
 from mcp_composer.utils.logger import LoggerFactory
 
 logger = LoggerFactory.get_logger()
+
 
 def register_oauth_callback(self, settings, auth_provider):
     """

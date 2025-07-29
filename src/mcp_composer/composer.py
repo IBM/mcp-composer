@@ -131,8 +131,6 @@ class MCPComposer(FastMCP):
                 return f"Invalid server config, missing 'id': {config}"
 
             server_id = config["id"]
-            
-
             builder = MCPServerBuilder(config)
             sub_mcp = await builder.build()
             self.mount(sub_mcp, server_id)
