@@ -19,12 +19,12 @@ custom_tool/
 /mcp_servers.json
 /versioned_config.json
 example/mcsp_trio_server/config.json
-example/mcsp_trio_server/config_v2.json
 example/mcsp_servers/config.json
 example/.DS_Store
 
 #binary files 
-src/planning_agent/chroma
+src/mcp_composer_client/vec_store/hnswlib.bin
+src/mcp_composer_client/vec_store/hnswlib.meta
 
 #log
 mcp_composer.log
@@ -32,4 +32,3 @@ mcp_composer.log
 #docs
 docs/.vitepress/
 docs/node_modules/
-

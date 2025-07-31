@@ -19,8 +19,10 @@ dependencies = [
     "uncurl==0.0.11",
     "chromadb>=1.0.15",
     "acp-sdk==1.0.0",
-    "ollama>=0.5.1",
     "sentence-transformers>=5.0.0",
+    "np>=1.0.2",
+    "hnswlib>=0.8.0",
+    "ollama>=0.5.1",
     "ibm-secrets-manager-sdk==2.1.10",
     "pydantic==2.11.7",
     "pydantic-settings==2.10.1",
@@ -61,7 +63,7 @@ disable = ["missing-docstring", "invalid-name"]
 
 [tool.ruff]
 line-length = 120
-exclude = ["venv", "migrations", "build", "dist" ]
+exclude = ["venv", "migrations", "build", "dist"]
 select = ["E", "F", "W"]  # Which error codes to check
 ignore = ["E501"]         # Example: ignore line length errors
 
@@ -73,7 +75,6 @@ select = ["E", "F", "W"]
 [tool.setuptools]
 package-dir = {"" = "src"}
 packages = ["mcp_composer"]
-
 
 [tool.pytest.ini_options]
 pythonpath = ["src"]
