@@ -46,36 +46,24 @@ def _add_arguments_to_parser(parser: argparse.ArgumentParser) -> None:
         default="stdio",
         help="MCP mode to run (http, sse, or stdio)",
     )
-    parser.add_argument(
-        "--id", default="mcp-local", help="Unique ID for this MCP instance"
-    )
-    parser.add_argument(
-        "--endpoint", help="endpoint for HTTP or SSE server running remotely"
-    )
+    parser.add_argument("--id", default="mcp-local", help="Unique ID for this MCP instance")
+    parser.add_argument("--endpoint", help="endpoint for HTTP or SSE server running remotely")
     parser.add_argument(
         "--config_path",
         default=default_config_path,
         help="Path to JSON config for MCP member servers",
     )
-    parser.add_argument(
-        "--directory", help="Working directory for the uvicorn process (optional)"
-    )
-    parser.add_argument(
-        "--script_path", help="Path to the script to run in 'stdio' mode"
-    )
+    parser.add_argument("--directory", help="Working directory for the uvicorn process (optional)")
+    parser.add_argument("--script_path", help="Path to the script to run in 'stdio' mode")
     parser.add_argument("--host", default="0.0.0.0", help="Host for SSE or HTTP server")
-    parser.add_argument(
-        "--port", type=int, default=9000, help="Port for SSE or HTTP server"
-    )
+    parser.add_argument("--port", type=int, default=9000, help="Port for SSE or HTTP server")
     parser.add_argument(
         "--auth_type",
         help="Optional auth type. If 'oauth', uses test_composer_oauth.create_mcp_server()",
     )
+    parser.add_argument("--sse-url", help="Langflow-compatible SSE URL to convert into stdio")
     parser.add_argument(
-        "--sse-url", help="Langflow-compatible SSE URL to convert into stdio"
-    )
-    parser.add_argument(
-        "--enable-composer-tools",
+        "--disable-composer-tools",
         action=argparse.BooleanOptionalAction,
         default=False,  # Disabled by default
         help="Enable composer tools (disabled by default).",
@@ -145,8 +133,9 @@ async def run_dynamic_composer(args, config: list[Dict]) -> None:
         logger.info("Running MCP Composer without OAuth")
         mcp = MCPComposer("composer", config=config)  # type: ignore
 
-    # remove composer tools by default
-    if not args.enable_composer_tools:
+    # by default expose all composer tools
+    # remove composer tools if disable-composer-tools set to True
+    if args.disable_composer_tools:
         tools = await mcp.get_tools()
         logger.info("Remove composer tools")
         for name, _ in tools.items():
@@ -154,9 +143,7 @@ async def run_dynamic_composer(args, config: list[Dict]) -> None:
 
     if args.sse_url:
         logger.info("mounting SSE server into MCP composer")
-        remote_proxy = MCPComposer.as_proxy(
-            ProxyClient(args.sse_url), name="local-stdio"
-        )
+        remote_proxy = MCPComposer.as_proxy(ProxyClient(args.sse_url), name="local-stdio")
         await mcp.import_server(remote_proxy)
 
     ##mcp.add_middleware(ListFilteredTool(mcp))
@@ -165,13 +152,9 @@ async def run_dynamic_composer(args, config: list[Dict]) -> None:
     if args.mode == MemberServerType.STDIO:
         await mcp.run_stdio_async()
     elif args.mode == MemberServerType.SSE:
-        await mcp.run_sse_async(
-            host=args.host, port=args.port, log_level="debug", path="/sse"
-        )
+        await mcp.run_sse_async(host=args.host, port=args.port, log_level="debug", path="/sse")
     elif args.mode == MemberServerType.HTTP:
-        await mcp.run_http_async(
-            host=args.host, port=args.port, log_level="debug", path="/mcp"
-        )
+        await mcp.run_http_async(host=args.host, port=args.port, log_level="debug", path="/mcp")
     else:
         raise ValueError(f"Unknown config type: {args.mode}")
 

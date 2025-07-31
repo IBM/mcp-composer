@@ -25,3 +25,11 @@ example/.DS_Store
 
 #binary files 
 src/planning_agent/chroma
+
+#log
+mcp_composer.log
+
+#docs
+docs/.vitepress/
+docs/node_modules/
+

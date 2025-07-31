@@ -20,7 +20,7 @@ from mcp.shared.auth import OAuthClientInformationFull, OAuthToken
 from mcp_composer.utils import LoggerFactory
 
 logger = LoggerFactory.get_logger()
-load_dotenv(find_dotenv("../.env.oauth"))
+load_dotenv()
 
 
 class ServerSettings(BaseSettings):
@@ -28,23 +28,23 @@ class ServerSettings(BaseSettings):
 
     try:
         model_config = SettingsConfigDict(env_prefix="OAUTH_")
+        if os.getenv("ENABLE_OAUTH", "False").lower() == "true":
+            # Server settings
+            host: str = os.environ["OAUTH_HOST"]
+            port: str = os.environ["OAUTH_PORT"]
+            server_url: AnyHttpUrl = AnyHttpUrl(os.environ["OAUTH_SERVER_URL"])
 
-        # Server settings
-        host: str = os.environ["OAUTH_HOST"]
-        port: str = os.environ["OAUTH_PORT"]
-        server_url: AnyHttpUrl = AnyHttpUrl(os.environ["OAUTH_SERVER_URL"])
+            # OAuth settings - MUST be provided via environment variables
+            client_id: str = os.environ["OAUTH_CLIENT_ID"]
+            client_secret: str = os.environ["OAUTH_CLIENT_SECRET"]
+            callback_path: str = os.environ["OAUTH_CALLBACK_PATH"]
 
-        # OAuth settings - MUST be provided via environment variables
-        client_id: str = os.environ["OAUTH_CLIENT_ID"]
-        client_secret: str = os.environ["OAUTH_CLIENT_SECRET"]
-        callback_path: str = os.environ["OAUTH_CALLBACK_PATH"]
+            # OAuth URLs
+            auth_url: str = os.environ["OAUTH_AUTH_URL"]
+            token_url: str = os.environ["OAUTH_TOKEN_URL"]
 
-        # OAuth URLs
-        auth_url: str = os.environ["OAUTH_AUTH_URL"]
-        token_url: str = os.environ["OAUTH_TOKEN_URL"]
-
-        mcp_scope: str = os.environ["OAUTH_MCP_SCOPE"]
-        scope: str = os.environ["OAUTH_PROVIDER_SCOPE"]
+            mcp_scope: str = os.environ["OAUTH_MCP_SCOPE"]
+            scope: str = os.environ["OAUTH_PROVIDER_SCOPE"]
 
     except KeyError as err:
         raise NotFoundError("Failed to load settings. Make sure environment variables are set:{err}") from err
