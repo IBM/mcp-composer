@@ -92,14 +92,18 @@ def _add_arguments_to_parser(parser: argparse.ArgumentParser) -> None:
 def build_config_from_args(args) -> List[Dict]:
     """Build configuration dictionary from command line arguments."""
 
-    if args.mode in (MemberServerType.SSE, MemberServerType.HTTP) and args.endpoint:
-        config = {
-            "id": args.id,
-            "type": args.mode,
-            "endpoint": args.endpoint,
-            "_id": args.id,
-        }
-
+    if args.mode in (MemberServerType.SSE, MemberServerType.HTTP):
+        if args.endpoint:
+            config = {
+                "id": args.id,
+                "type": args.mode,
+                "endpoint": args.endpoint,
+                "_id": args.id,
+            }
+        else:
+            # For HTTP/SSE mode without endpoint, return empty config
+            # The server will be started directly without member servers
+            config = {}
     elif args.mode == MemberServerType.STDIO:
         if not args.script_path:
             raise ValueError("--script-path is required for mode 'stdio'")
@@ -165,14 +169,32 @@ def main() -> None:
     parser = _setup_args_parser()
     args = parser.parse_args()
 
+    # Set SERVER_CONFIG_FILE_PATH first so it's available for other env vars
+    if args.config_path:
+        logger.info("Setting SERVER_CONFIG_FILE_PATH to %s", args.config_path)
+        os.environ["SERVER_CONFIG_FILE_PATH"] = args.config_path
+
     base_env: dict[str, str] = {}
-    if args.pass_environment or args.env:
+
+    # Add environment variables from --env arguments
+    if args.env:
+        for key, value in args.env:
+            base_env[key] = value
+            os.environ[key] = value
+            logger.info("Setting environment variable from --env: %s=%s", key, os.environ[key])
         base_env.update(os.environ)
+    # Pass through all environment variables if requested
+    if args.pass_environment:
+        base_env.update(os.environ)
+        logger.info("Passing all environment variables to all servers")
+        for key, value in base_env.items():
+            logger.info("%s=%s", key, value)
+        os.environ.update(base_env)
+
     config = []
     try:
         if args.endpoint or args.script_path:
             config = build_config_from_args(args)
-        os.environ["SERVER_CONFIG_FILE_PATH"] = args.config_path
         asyncio.run(run_dynamic_composer(args, config))
 
     except Exception as e:

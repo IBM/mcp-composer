@@ -15,17 +15,18 @@ load_dotenv(find_dotenv(".env"))
 
 logger = LoggerFactory.get_logger()
 
-SERVER_CONFIG_FILE_PATH = os.getenv("SERVER_CONFIG_FILE_PATH", "member_servers.json")
-
 
 class LocalFileAdapter(DatabaseInterface):
     """Local file storage"""
 
     def __init__(
         self,
-        file_path: str = SERVER_CONFIG_FILE_PATH,
+        file_path: str | None = None,
     ):
+        if file_path is None:
+            file_path = os.getenv("SERVER_CONFIG_FILE_PATH", "member_servers.json")
         self._file_path = Path(file_path)
+        logger.info("Using local file storage: %s", self._file_path)
         self._ensure_file_exists()
 
     def _ensure_file_exists(self):

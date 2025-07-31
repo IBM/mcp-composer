@@ -61,7 +61,7 @@ disable = ["missing-docstring", "invalid-name"]
 
 [tool.ruff]
 line-length = 120
-exclude = ["venv", "migrations", "build"]
+exclude = ["venv", "migrations", "build", "dist" ]
 select = ["E", "F", "W"]  # Which error codes to check
 ignore = ["E501"]         # Example: ignore line length errors
 
@@ -74,6 +74,7 @@ select = ["E", "F", "W"]
 package-dir = {"" = "src"}
 packages = ["mcp_composer"]
 
+
 [tool.pytest.ini_options]
 pythonpath = ["src"]
 testpaths = [
@@ -81,7 +82,7 @@ testpaths = [
 ]
 
 [build-system]
-requires = ["setuptools>=61.0"]
+requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project.scripts]
