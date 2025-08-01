@@ -74,7 +74,11 @@ select = ["E", "F", "W"]
 
 [tool.setuptools]
 package-dir = {"" = "src"}
-packages = ["mcp_composer"]
+packages = ["mcp_composer", "mcp_composer.settings", 
+            "mcp_composer.auth_handler", "mcp_composer.member_servers",
+            "mcp_composer.utils", "mcp_composer.middleware",
+            "mcp_composer.models", "mcp_composer.store",
+            "mcp_composer.tools"]
 
 [tool.pytest.ini_options]
 pythonpath = ["src"]

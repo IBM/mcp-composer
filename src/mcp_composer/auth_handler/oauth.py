@@ -122,7 +122,6 @@ class SimpleOAuthProvider(OAuthProvider):
         code_challenge = state_data["code_challenge"]
         redirect_uri_provided_explicitly = state_data["redirect_uri_provided_explicitly"] == "True"
         client_id = state_data["client_id"]
-
         # Exchange code for token with oauth provider
         async with create_mcp_http_client() as client:
             response = await client.post(
@@ -145,7 +144,10 @@ class SimpleOAuthProvider(OAuthProvider):
             if "error" in data:
                 raise HTTPException(400, data.get("error_description", data["error"]))
 
-            auth_token = data["id_token"]
+            auth_token = data.get("id_token") or data.get("access_token")
+
+            if not auth_token:
+                raise ValueError("No valid authentication token found in response.")
 
             # Create MCP authorization code
             new_code = f"mcp_{secrets.token_hex(16)}"
@@ -167,8 +169,7 @@ class SimpleOAuthProvider(OAuthProvider):
                 scopes=[self.settings.scope],
                 expires_at=None,
             )
-            if auth_token:
-                self.token_mapping[new_code] = auth_token
+            self.token_mapping[new_code] = auth_token
 
         del self.state_mapping[state]
         return construct_redirect_uri(redirect_uri, code=new_code, state=state)
