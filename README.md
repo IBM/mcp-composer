@@ -31,7 +31,7 @@
 
 ## Overview
 
-The MCP Composer is a FastAPI based Composer that manages multiple MCP servers and tools.
+The MCP Composer is a [FastMCP](https://github.com/jlowin/fastmcp) based Composer that manages multiple MCP servers and tools.
 Servers and tools can be registered at runtime using structured JSON configurations.
 The MCP Composer serves as an orchestrator for tool execution and forwards tool requests to the correct upstream MCP server or interface.
 

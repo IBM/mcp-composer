@@ -15,6 +15,10 @@ custom_tool/
 .env.oauth
 .DS_Store
 .vscode
+# Nodejs generated file
+docs/.vitepress/cache
+docs/node_modules
+
 # runtime generated file
 /mcp_servers.json
 /versioned_config.json
