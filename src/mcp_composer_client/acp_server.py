@@ -14,17 +14,9 @@ load_dotenv(find_dotenv(".env"))
 server = Server( )
 
 @server.agent(
-   metadata=Metadata(
-        annotations=Annotations(
-            beeai_ui=PlatformUIAnnotation(
-                ui_type=PlatformUIType.CHAT,
-                user_greeting="Input your query",
-                display_name="MCP Composer Chatbot",
-            )
-        )
-    )
+    metadata=Metadata(ui={"type": "chat"})
 )
-async def mcp_composer_chatbot(inputs: list[Message], context: Context) -> AsyncGenerator:
+async def mcp_composer_chatbot_no_tool_filter(inputs: list[Message], context: Context) -> AsyncGenerator:
     """AI agent that calls Platform APIs to fulfill a user query"""
 
     response = ""
@@ -35,24 +27,13 @@ async def mcp_composer_chatbot(inputs: list[Message], context: Context) -> Async
 
 
 @server.agent(
-   metadata=Metadata(
-        annotations=Annotations(
-            beeai_ui=PlatformUIAnnotation(
-                ui_type=PlatformUIType.CHAT,
-                user_greeting="Input your query",
-                display_name="MCP Composer Chatbot with Auto-selecting Tools",
-            )
-        )
-    )
+    metadata=Metadata(ui={"type": "chat"})
 )
-async def mcp_composer_chatbot_sel_tools(inputs: list[Message], context: Context) -> AsyncGenerator:
+async def mcp_composer_chatbot(inputs: list[Message], context: Context) -> AsyncGenerator:
     """AI agent that calls Platform APIs to fulfill a user query"""
+
     response = ""
-    async for message in run_agent_multimcp(
-        user_input=str(inputs[-1]), 
-        context=context, 
-        tool_select_method=os.getenv("TOOL_SELECT_METHOD", "auto")
-    ):
+    async for message in run_agent_multimcp(user_input=str(inputs[-1]), context=context, tool_select_method=os.getenv("TOOL_SELECT_METHOD")):
         response += message
 
     yield MessagePart(content=response)

@@ -1,0 +1,16 @@
+{
+  "name": "mcp-composer-docs",
+  "version": "1.0.0",
+  "description": "Documentation for MCP Composer",
+  "type": "module",
+  "scripts": {
+    "docs:dev": "vitepress dev",
+    "docs:build": "vitepress build",
+    "docs:preview": "vitepress preview"
+  },
+  "devDependencies": {
+    "mermaid": "11.9.0",
+    "vitepress": "^1.0.0-rc.44",
+    "vitepress-plugin-mermaid": "2.0.17"
+  }
+}

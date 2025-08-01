@@ -20,7 +20,7 @@ from mcp.shared.auth import OAuthClientInformationFull, OAuthToken
 from mcp_composer.utils import LoggerFactory
 
 logger = LoggerFactory.get_logger()
-load_dotenv(find_dotenv("../.env.oauth"))
+load_dotenv()
 
 
 class ServerSettings(BaseSettings):
@@ -28,28 +28,26 @@ class ServerSettings(BaseSettings):
 
     try:
         model_config = SettingsConfigDict(env_prefix="OAUTH_")
+        if os.getenv("ENABLE_OAUTH", "False").lower() == "true":
+            # Server settings
+            host: str = os.environ["OAUTH_HOST"]
+            port: str = os.environ["OAUTH_PORT"]
+            server_url: AnyHttpUrl = AnyHttpUrl(os.environ["OAUTH_SERVER_URL"])
 
-        # Server settings
-        host: str = os.environ["OAUTH_HOST"]
-        port: str = os.environ["OAUTH_PORT"]
-        server_url: AnyHttpUrl = AnyHttpUrl(os.environ["OAUTH_SERVER_URL"])
+            # OAuth settings - MUST be provided via environment variables
+            client_id: str = os.environ["OAUTH_CLIENT_ID"]
+            client_secret: str = os.environ["OAUTH_CLIENT_SECRET"]
+            callback_path: str = os.environ["OAUTH_CALLBACK_PATH"]
 
-        # OAuth settings - MUST be provided via environment variables
-        client_id: str = os.environ["OAUTH_CLIENT_ID"]
-        client_secret: str = os.environ["OAUTH_CLIENT_SECRET"]
-        callback_path: str = os.environ["OAUTH_CALLBACK_PATH"]
+            # OAuth URLs
+            auth_url: str = os.environ["OAUTH_AUTH_URL"]
+            token_url: str = os.environ["OAUTH_TOKEN_URL"]
 
-        # OAuth URLs
-        auth_url: str = os.environ["OAUTH_AUTH_URL"]
-        token_url: str = os.environ["OAUTH_TOKEN_URL"]
-
-        mcp_scope: str = os.environ["OAUTH_MCP_SCOPE"]
-        scope: str = os.environ["OAUTH_PROVIDER_SCOPE"]
+            mcp_scope: str = os.environ["OAUTH_MCP_SCOPE"]
+            scope: str = os.environ["OAUTH_PROVIDER_SCOPE"]
 
     except KeyError as err:
-        raise NotFoundError(
-            f"Failed to load settings. Make sure environment variables are set:{err}"
-        )
+        raise NotFoundError("Failed to load settings. Make sure environment variables are set:{err}") from err
 
     def __init__(self, **data):
         """Initialize settings with values from environment variables.
@@ -91,9 +89,7 @@ class SimpleOAuthProvider(OAuthProvider):
         """Register a new OAuth client."""
         self.clients[client_info.client_id] = client_info
 
-    async def authorize(
-        self, client: OAuthClientInformationFull, params: AuthorizationParams
-    ) -> str:
+    async def authorize(self, client: OAuthClientInformationFull, params: AuthorizationParams) -> str:
         """Generate an authorization URL for OAuth flow."""
         state = params.state or secrets.token_hex(16)
 
@@ -101,9 +97,7 @@ class SimpleOAuthProvider(OAuthProvider):
         self.state_mapping[state] = {
             "redirect_uri": str(params.redirect_uri),
             "code_challenge": params.code_challenge,
-            "redirect_uri_provided_explicitly": str(
-                params.redirect_uri_provided_explicitly
-            ),
+            "redirect_uri_provided_explicitly": str(params.redirect_uri_provided_explicitly),
             "client_id": client.client_id,
         }
 
@@ -126,11 +120,8 @@ class SimpleOAuthProvider(OAuthProvider):
 
         redirect_uri = state_data["redirect_uri"]
         code_challenge = state_data["code_challenge"]
-        redirect_uri_provided_explicitly = (
-            state_data["redirect_uri_provided_explicitly"] == "True"
-        )
+        redirect_uri_provided_explicitly = state_data["redirect_uri_provided_explicitly"] == "True"
         client_id = state_data["client_id"]
-
         # Exchange code for token with oauth provider
         async with create_mcp_http_client() as client:
             response = await client.post(
@@ -153,7 +144,10 @@ class SimpleOAuthProvider(OAuthProvider):
             if "error" in data:
                 raise HTTPException(400, data.get("error_description", data["error"]))
 
-            auth_token = data["id_token"]
+            auth_token = data.get("id_token") or data.get("access_token")
+
+            if not auth_token:
+                raise ValueError("No valid authentication token found in response.")
 
             # Create MCP authorization code
             new_code = f"mcp_{secrets.token_hex(16)}"
@@ -175,6 +169,7 @@ class SimpleOAuthProvider(OAuthProvider):
                 scopes=[self.settings.scope],
                 expires_at=None,
             )
+            self.token_mapping[new_code] = auth_token
 
         del self.state_mapping[state]
         return construct_redirect_uri(redirect_uri, code=new_code, state=state)
@@ -239,9 +234,7 @@ class SimpleOAuthProvider(OAuthProvider):
 
         return access_token
 
-    async def load_refresh_token(
-        self, client: OAuthClientInformationFull, refresh_token: str
-    ) -> RefreshToken | None:
+    async def load_refresh_token(self, client: OAuthClientInformationFull, refresh_token: str) -> RefreshToken | None:
         """Load a refresh token - not supported."""
         return None
 

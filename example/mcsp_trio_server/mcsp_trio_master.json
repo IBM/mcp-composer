@@ -4,15 +4,19 @@
     "type": "openapi",
     "open_api": {
       "endpoint": "https://demous-instana.instana.io",
-      "spec_filepath": "/app/spec/instana-openapi.json",
+      "spec_filepath": "/mcp-composer/spec/instana-openapi.json",
       "custom_routes": [
         {
-          "methods": ["GET", "POST"],
+          "methods": [
+            "GET", "POST"
+          ],
           "pattern": ".*/application-monitoring/.*",
           "mcp_type": "TOOL"
         },
         {
-          "methods": ["PATCH", "PUT", "DELETE"],
+          "methods": [
+            "PATCH", "PUT", "DELETE"
+          ],
           "pattern": ".*/",
           "mcp_type": "EXCLUDE"
         }
@@ -25,5 +29,49 @@
       "auth_header_prefix": "Authorization"
     },
     "_id": "mcp-instana"
+  },
+  {
+    "id": "mcp-concert",
+    "type": "openapi",
+    "open_api": {
+      "endpoint": "https://<name>.<region>.ibm.com/",
+      "spec_filepath": "GitHub/mcp-composer/spec/ibm-concert-short.json",
+      "custom_routes": [
+        {
+          "methods": [
+            "GET"
+          ],
+          "pattern": ".*/.*",
+          "mcp_type": "TOOL"
+        },
+        {
+          "methods": [
+            "GET"
+          ],
+          "pattern": ".*/applications/.*",
+          "mcp_type": "TOOL"
+        },
+        {
+          "methods": [
+            "POST",
+            "DELETE",
+            "PUT",
+            "PATCH"
+          ],
+          "pattern": ".*",
+          "mcp_type": "EXCLUDE"
+        }
+      ]
+    },
+    "auth_strategy": "apikey",
+    "auth": {
+      "auth_prefix": "C_API_KEY",
+      "apikey": ""
+    },
+    "headers": {
+      "InstanceId": "",
+      "Authorization": ""
+    },
+    "_id": "mcp-concert"
   }
 ]

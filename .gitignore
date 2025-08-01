@@ -15,11 +15,22 @@ custom_tool/
 .env.oauth
 .DS_Store
 .vscode
+# Nodejs generated file
+docs/.vitepress/cache
+docs/node_modules
+
 # runtime generated file
 /mcp_servers.json
 /versioned_config.json
 example/mcsp_trio_server/config.json
 example/mcsp_servers/config.json
 example/.DS_Store
-model_vs_model_testing.md
-config/config_local.json
+docs/node_modules/*
+#binary files 
+src/mcp_composer_client/vec_store/hnswlib.bin
+src/mcp_composer_client/vec_store/hnswlib.meta
+
+*.log
+
+docs/.vitepress/cache
+docs/node_modules/

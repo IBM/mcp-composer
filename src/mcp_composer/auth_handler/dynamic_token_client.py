@@ -30,34 +30,24 @@ class DynamicTokenClient(httpx.AsyncClient):
         )
 
     async def _refresh_token(self):
-        logger.debug(f"crating access token at {self.token_url}")
+        logger.debug("crating access token at %s", self.token_url)
         # Expect apikey to be in headers: self.headers["apikey"]
 
         if not self.apikey or not self.token_url:
-            raise ValueError(
-                "Missing 'apikey' or 'token_url' in headers for token refresh."
-            )
+            raise ValueError("Missing 'apikey' or 'token_url' in headers for token refresh.")
 
         if self.media_type == ConfigKey.MEDIA_TYPE_JSON:
-
-            headers = {
-                "Content-Type": "application/json",
-                "Accept": "application/json"
-            }
+            headers = {"Content-Type": "application/json", "Accept": "application/json"}
             data = {"apikey": self.apikey}
             response = await super().post(self.token_url, headers=headers, json=data)
         else:
             # IAM-style
-            headers = {
-                "Content-Type": "application/x-www-form-urlencoded"
-            }
+            headers = {"Content-Type": "application/x-www-form-urlencoded"}
             data = {
                 "grant_type": "urn:ibm:params:oauth:grant-type:apikey",
                 "apikey": self.apikey,
             }
-        
             response = await super().post(self.token_url, headers=headers, data=data)
-
 
         response.raise_for_status()
 
@@ -67,9 +57,7 @@ class DynamicTokenClient(httpx.AsyncClient):
         expires_in = token_data.get("expires_in", 3600)
         self._expires_at = time.time() + expires_in - 60  # refresh early
 
-    async def request(
-        self, method: str, url: httpx.URL | str, **kwargs
-    ) -> httpx.Response:
+    async def request(self, method: str, url: httpx.URL | str, **kwargs) -> httpx.Response:
         # Prevent recursion if the token_url is being called
 
         if method.upper() == "POST" and str(url).startswith(str(self.token_url)):

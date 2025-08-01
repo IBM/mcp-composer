@@ -16,7 +16,6 @@ logging.basicConfig(level=logging.INFO)
 class IBMCloudSecretAdapter(SecretAdapter):
     """
     Adapter for IBM Cloud Secrets Manager v2 to store versioned configurations.
-    
     Required ENV variables:
         - IBM_CLOUD_SM_APIKEY
         - IBM_CLOUD_SM_URL
@@ -53,7 +52,6 @@ class IBMCloudSecretAdapter(SecretAdapter):
         try:
             secret = self.client.get_secret_by_name_type(secret_type="kv" ,name=name, secret_group_name=self.secret_group)
             secret.get_result()
-            print(json.dumps(secret, indent=2))
             return secret
             # secrets = self.client.list_secrets(groups=["default"]).get_result()
             # for secret in secrets.get("secrets", []):

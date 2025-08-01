@@ -1,9 +1,9 @@
 # composer/member_server.py
-import pydantic_core
 from enum import Enum
+from typing import Optional, Dict, Any, Annotated
+import pydantic_core
 from pydantic import BaseModel, Field, BeforeValidator
 from fastmcp import FastMCP
-from typing import Optional, Dict, Any, Annotated
 from fastmcp.utilities.components import (
     _convert_set_default_none,
 )
@@ -33,17 +33,11 @@ class MemberMCPServer(BaseModel):
     tags: Annotated[set[str], BeforeValidator(_convert_set_default_none)] = Field(
         default_factory=set, description="Tags for the tool"
     )
-    config: Dict[str, Any] = Field(
-        ..., description="Original config used to build the server"
-    )
+    config: Dict[str, Any] = Field(..., description="Original config used to build the server")
     tool_count: Optional[int] = Field(None, description="Number of tools registered")
     disabled_tools: list[str] = Field(default_factory=list, description="Removed tools")
-    tools_description: dict[str, str] = Field(
-        default_factory=dict, description="Removed tools"
-    )
-    health_status: HealthStatus = Field(
-        default=HealthStatus.healthy, description="Server health status"
-    )
+    tools_description: dict[str, str] = Field(default_factory=dict, description="Removed tools")
+    health_status: HealthStatus = Field(default=HealthStatus.healthy, description="Server health status")
 
     # Runtime-only field (not serialized)
     server: Optional[FastMCP] = Field(default=None, exclude=True)

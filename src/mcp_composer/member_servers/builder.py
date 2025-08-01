@@ -3,6 +3,7 @@
 import json
 from typing import Dict
 import jsonref
+from mcp_composer.utils import patch_openapi_tool
 from fastmcp import FastMCP, Client
 from fastmcp.client.auth import OAuth
 from fastmcp.client.transports import (
@@ -13,7 +14,7 @@ from fastmcp.client.transports import (
 from fastmcp.client.auth.oauth import FileTokenStorage
 
 import httpx
-from mcp_composer.models.mcp_stdio import MCPServerStdio
+
 from mcp_composer.utils.logger import LoggerFactory
 from mcp_composer.utils import ConfigKey, MemberServerType, AuthStrategy
 from mcp_composer.utils import (
@@ -47,11 +48,14 @@ class MCPServerBuilder:
         if self.mcp_type == MemberServerType.CLIENT:
             return await self._build_from_client()
 
-        elif self.mcp_type in {MemberServerType.HTTP, MemberServerType.SSE}:
+        elif self.mcp_type in {
+            MemberServerType.HTTP,
+            MemberServerType.SSE,
+            MemberServerType.STDIO,
+        }:
+            # For HTTP/SSE/STDIO, we need to build the transport first
+            logger.info("Building MCP server with transport type: %s", self.mcp_type)
             return await self._build_from_transport(transport_type=self.mcp_type)
-
-        elif self.mcp_type == MemberServerType.STDIO:
-            return await self._build_from_stdio()
 
         elif self.mcp_type == MemberServerType.OPENAPI:
             return await self._build_from_openapi()
@@ -69,36 +73,42 @@ class MCPServerBuilder:
             raise ValueError(f"Unsupported MCP type: {self.mcp_type}")
 
     async def _build_from_transport(self, transport_type=None) -> FastMCP:
-        # auth = build_auth_strategy(self.config["auth_strategy"], self.config.get("auth", {}))
-        # headers = await auth.get_headers()
-
-        config = self.config
-        endpoint = config[ConfigKey.ENDPOINT]
-        headers = config.get(ConfigKey.HEADERS)
-        oauth = config.get(ConfigKey.AUTH)
-
-        # Set up authentication if provided
-        auth = None
-        if oauth:
-            FileTokenStorage.clear_all()
-            auth = OAuth(mcp_url=endpoint)
-
+        logger.info("Building MCP server with transport type: %s", transport_type)
         # Map transport types to their corresponding classes
-        transport_classes = {
-            "http": StreamableHttpTransport,
-            "sse": SSETransport,
-        }
+        transport_classes = {"http": StreamableHttpTransport, "sse": SSETransport, "stdio": StdioTransport}
 
         # Choose and instantiate the appropriate transport
         TransportClass = transport_classes.get(transport_type)  # type: ignore
         if not TransportClass:
             raise ValueError(f"Unsupported MCP type: {transport_type}")
 
-        transport = TransportClass(url=endpoint, headers=headers, auth=auth)
+        config = self.config
+        headers = config.get(ConfigKey.HEADERS)
+        oauth = config.get(ConfigKey.AUTH)
+        transport = None
+        if transport_type == MemberServerType.HTTP or transport_type == MemberServerType.SSE:
+            endpoint = config[ConfigKey.ENDPOINT]
+            auth = None
+            if oauth:
+                FileTokenStorage.clear_all()
+                auth = OAuth(mcp_url=endpoint)
+            transport = TransportClass(url=endpoint, headers=headers, auth=auth)
+            # Set up authentication if provided
+            client = Client(transport, auth=auth)
+            return FastMCP.as_proxy(client, name=self.mcp_id)
 
-        # Create the client and wrap it with FastMCP
-        client = Client(transport, auth=auth)
-        return FastMCP.as_proxy(client, name=self.mcp_id)
+        elif transport_type == MemberServerType.STDIO:
+            # For stdio, we need to pass the command and args
+            command = config.get(ConfigKey.COMMAND, "mcp-composer")
+            args = config.get(ConfigKey.ARGS, [])
+            env = config.get(ConfigKey.ENV, None)
+            cwd = config.get(ConfigKey.CWD, None)
+            transport = StdioTransport(command=command, args=args, env=env, cwd=cwd)
+            # Set up authentication if provided
+            client = Client(transport)
+            return FastMCP.as_proxy(client, name=self.mcp_id)
+        else:
+            raise ValueError(f"Unsupported transport type: {transport_type}")
 
     async def _build_from_client(self) -> FastMCP:
         # auth = build_auth_strategy(self.config["auth_strategy"], self.config.get("auth", {}))
@@ -108,32 +118,22 @@ class MCPServerBuilder:
 
         headers = self.config.get(ConfigKey.HEADERS)
         if headers:
-            transport = StreamableHttpTransport(
-                url=self.config[ConfigKey.ENDPOINT], headers=headers
-            )
+            transport = StreamableHttpTransport(url=self.config[ConfigKey.ENDPOINT], headers=headers)
             client = Client(transport)
         try:
             return FastMCP.as_proxy(client, name=self.mcp_id)
         except Exception as e:
-            logger.exception(
-                f"Failed to build member MCP server '{self.config.get('id')}': {e}"
-            )
-            raise RuntimeError(
-                f"Failed to build member MCP server '{self.mcp_id}'"
-            ) from e
+            logger.exception("Failed to build member MCP server '%s': %s", self.config.get("id"), e)
+            raise RuntimeError(f"Failed to build member MCP server '{self.mcp_id}'") from e
 
     async def _build_from_openapi(self) -> FastMCP:
         openapi_config = self.config[ConfigKey.OPEN_API]
         custom_mappings = []
         if ConfigKey.CUSTOM_ROUTES in openapi_config:
-            custom_mappings = await load_custom_mappings_from_json(
-                openapi_config[ConfigKey.CUSTOM_ROUTES]
-            )
+            custom_mappings = await load_custom_mappings_from_json(openapi_config[ConfigKey.CUSTOM_ROUTES])
         spec = {}
         if ConfigKey.SPEC_URL in openapi_config:
-            spec = await load_spec_from_url(
-                openapi_config[ConfigKey.ENDPOINT], openapi_config[ConfigKey.SPEC_URL]
-            )
+            spec = await load_spec_from_url(openapi_config[ConfigKey.ENDPOINT], openapi_config[ConfigKey.SPEC_URL])
         elif ConfigKey.SPEC_FILEPATH in openapi_config:
             spec = await load_json(openapi_config[ConfigKey.SPEC_FILEPATH])
         else:
@@ -166,9 +166,7 @@ class MCPServerBuilder:
                 )
             case AuthStrategy.BEARER:
                 logger.info("Setting up header and client for bearer")
-                headers[ConfigKey.AUTH_HEADER.value] = (
-                    f"Bearer {auth_config.get(ConfigKey.TOKEN)}"
-                )
+                headers[ConfigKey.AUTH_HEADER.value] = f"Bearer {auth_config.get(ConfigKey.TOKEN)}"
                 http_client = httpx.AsyncClient(base_url=base_url, headers=headers)
 
             case AuthStrategy.APITOKEN:
@@ -206,9 +204,7 @@ class MCPServerBuilder:
                         password=auth_config.get(ConfigKey.PASSWORD),
                     )
 
-                    http_client = (
-                        await token_manager.get_authenticated_http_client_for_jessonid()
-                    )
+                    http_client = await token_manager.get_authenticated_http_client_for_jessonid()
                 except KeyError as e:
                     # Required config missing
                     logger.error("Missing configuration key: %s", e)
@@ -227,7 +223,7 @@ class MCPServerBuilder:
 
         # QUICK FIX TO SCHEMA UNRAVELING ISSUE BELOW
         spec = jsonref.loads(json.dumps(spec), load_on_repr=True)
-        mcp = FastMCP.from_openapi(spec, client=http_client, route_maps=custom_mappings)
+        mcp = FastMCP.from_openapi(spec, client=http_client, route_maps=custom_mappings)  # type: ignore
         return mcp
 
     async def _build_from_graphql(self) -> FastMCP:
@@ -248,15 +244,3 @@ class MCPServerBuilder:
 
     def _build_from_fastapi(self) -> FastMCP:
         raise NotImplementedError("Local file loading not yet supported.")
-
-    async def _build_from_stdio(self):
-        """Build MCP server using stdio transport"""
-        config = MCPServerStdio(**self.config)
-        transport = StdioTransport(
-            command="python",
-            args=config.args,
-            env=config.env if config.env else None,
-            cwd=config.cwd if config.cwd else None,
-        )
-        client = Client(transport)
-        return FastMCP.as_proxy(client, name=self.mcp_id)

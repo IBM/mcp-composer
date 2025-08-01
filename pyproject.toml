@@ -19,9 +19,14 @@ dependencies = [
     "uncurl==0.0.11",
     "chromadb>=1.0.15",
     "acp-sdk==1.0.0",
+    "sentence-transformers>=5.0.0",
+    "np>=1.0.2",
+    "hnswlib>=0.8.0",
+    "ollama>=0.5.1",
     "ibm-secrets-manager-sdk==2.1.10",
     "pydantic==2.11.7",
     "pydantic-settings==2.10.1",
+    "hvac==2.3.0",
 ]
 
 [dependency-groups]
@@ -36,7 +41,6 @@ dev = [
     "pytest-timeout==2.4.0",
     "pytest-xdist==3.6.1",
     "ruff",
-    "pre-commit",
 ]
 
 
@@ -46,12 +50,36 @@ exclude = ["**/node_modules", "**/__pycache__", ".venv", ".git", "dist"]
 venvPath = "."
 venv = ".venv"
 
-[tool.setuptools.packages.find]
-where = ["src"]
-include = ["mcp-composer"]
+
+[tool.pylint.'MAIN']
+# Example options:
+ignore = ["venv", "migrations", "build"]
+max-line-length = 120
+disable = ["C0114", "C0115", "C0116"]  # Example: disables missing docstring warnings
+
+[tool.pylint.messages_control]
+# Enable/disable specific messages
+disable = ["missing-docstring", "invalid-name"]
+
+
+[tool.ruff]
+line-length = 120
+exclude = ["venv", "migrations", "build", "dist"]
+select = ["E", "F", "W"]  # Which error codes to check
+ignore = ["E501"]         # Example: ignore line length errors
+
+[tool.ruff.lint]
+ignore = ["E501", "F401"]
+select = ["E", "F", "W"]
+
 
 [tool.setuptools]
 package-dir = {"" = "src"}
+packages = ["mcp_composer", "mcp_composer.settings", 
+            "mcp_composer.auth_handler", "mcp_composer.member_servers",
+            "mcp_composer.utils", "mcp_composer.middleware",
+            "mcp_composer.models", "mcp_composer.store",
+            "mcp_composer.tools"]
 
 [tool.pytest.ini_options]
 pythonpath = ["src"]
@@ -60,8 +88,8 @@ testpaths = [
 ]
 
 [build-system]
-requires = ["setuptools>=61.0"]
+requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project.scripts]
-mcp-composer = "mcp_composer.cli:main"
+mcp-composer = "mcp_composer.utils.cli:main"

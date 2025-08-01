@@ -1,0 +1,8 @@
+************* Module app
+src/mcp_composer_app/app.py:23:0: C0303: Trailing whitespace (trailing-whitespace)
+src/mcp_composer_app/app.py:18:0: R0911: Too many return statements (7/6) (too-many-return-statements)
+src/mcp_composer_app/app.py:56:19: W0621: Redefining name 'app' from outer scope (line 93) (redefined-outer-name)
+
+------------------------------------------------------------------
+Your code has been rated at 9.51/10 (previous run: 9.67/10, -0.16)
+

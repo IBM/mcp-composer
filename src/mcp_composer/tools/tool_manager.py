@@ -116,11 +116,7 @@ class MCPToolManager(ToolManager):
             if mounted_server.prefix == server.id:
                 tools = await mounted_server.server.get_tools()
                 server_tools = {f"{server.id}_{k}": v for k, v in tools.items()}
-                result = {
-                    k: v
-                    for k, v in server_tools.items()
-                    if not remove or k not in remove
-                }
+                result = {k: v for k, v in server_tools.items() if not remove or k not in remove}
                 break  # Stop after finding the matching server
 
         # Update tool descriptions if provided
@@ -195,9 +191,7 @@ class MCPToolManager(ToolManager):
         logger.info("Enabled %s tools from server", tools)
         return f"Enabled {tools} tools from server {server_id}"
 
-    async def update_tool_description(
-        self, tool: str, description: str, server_id: str
-    ) -> str:
+    async def update_tool_description(self, tool: str, description: str, server_id: str) -> str:
         """
         Update tool description of member servers
         """

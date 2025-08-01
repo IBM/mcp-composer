@@ -20,7 +20,7 @@ from beeai_framework.tools.tool import AnyTool
 from acp_sdk.server import Context
 from mcp_composer_client.mcptools import Tools
 from mcp_composer_client.llm import get_llm
-from mcp_composer_client.tool_select import auto_filter_tools
+from mcp_composer_client.tool_select import auto_filter_tools, validate_beeai_tool_schema
 
 
 # Load environment variables
@@ -32,12 +32,14 @@ logger = Logger("app", level=logging.DEBUG)
 prompt_system = """You are an AI Agent equipped with a set of tools. 
 For user query, select and call the most relevant tools by providing accurate arguments based on the tool schemas. 
 Return the result or answer to the user using the tool outputs, outputs in markdown format for readability, but remove ```markdown tag and don't use "#" for heading.
-If the query cannot be fulfilled using available tools, clearly explain the limitation. """
+If the query cannot be fulfilled using available tools, clearly explain the limitation. 
+
+NOTE: In special cases, if you can answer the user questions without calling tools because of the given context you can feel free to do so. 
+"""
 
 prompt_user = "User query: {}"
 
 agent_tools = Tools()
-
 
 def to_framework_message(role: str, content: str) -> Message:
     match role:
@@ -53,7 +55,6 @@ async def create_agent_from_tools(tools: list[AnyTool], messages: list[Message],
     """Create and configure the agent with tools and LLM"""
 
     llm_use = get_llm(llm_name)
-        
     # Create agent with memory and tools
     agent = ReActAgent(llm=llm_use, tools=tools, memory=TokenMemory(llm_use))
     await agent.memory.add_many(messages)
@@ -81,7 +82,7 @@ async def run_agent_multimcp(
         print("auto-selected tools:\n", selected_tools)
         if selected_tools:
             for t in agent_tools.tools:
-                if t.name in selected_tools:
+                if t.name in selected_tools and validate_beeai_tool_schema(t.input_schema):
                     sel_tools.append(t)
             logger.info(f"auto selected tools:  {len(sel_tools)}")
 
@@ -94,7 +95,6 @@ async def run_agent_multimcp(
     else:
         chat_messages: list[Message]  = [SystemMessage(content=prompt_system)]
     chat_messages.append(UserMessage(content=prompt_user.format(user_input)))
-
     # Create agent
     agent = await create_agent_from_tools(
         tools=agent_tools.tools if len(sel_tools)==0 else sel_tools, 
@@ -119,11 +119,10 @@ async def run_agent_multimcp(
         else:
             logger.info("calling agent in sync ...")
             response = await agent.run(
-                prompt=prompt_system.format(user_input),
-                execution=AgentExecutionConfig(max_retries_per_step=3, total_max_retries=6, max_iterations=10),
-            )
+                    prompt=prompt_system.format(user_input),
+                    execution=AgentExecutionConfig(max_retries_per_step=3, total_max_retries=6, max_iterations=10),
+                )
             yield response.result.text
-        
     except:
         logger.info("error occurred.")
         traceback.print_exc()
@@ -138,7 +137,7 @@ async def call_agent(prompt):
             await agent_tools.clean_exits()
 
     text = ""
-    async for message in run_agent_multimcp(user_input=prompt):
+    async for message in run_agent_multimcp(user_input=prompt, tool_select_method = "vec_search"):
         text += message
     
     await agent_tools.clean_exits()
@@ -148,7 +147,7 @@ async def call_agent(prompt):
 
 def test():
     try:
-        prompt = "what tools you have?"
+        prompt = "list the first ten services on instana?"
         response = asyncio.run(call_agent(prompt))
         print(response)
 
