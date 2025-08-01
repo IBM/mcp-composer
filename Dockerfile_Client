@@ -2,7 +2,7 @@ ARG BUILDER_IMAGE=icr.io/ibm-dreadnought-prod-images/ubi9/python312-builder
 ARG NODE_BUILDER_IMAGE=icr.io/ibm-dreadnought-prod-images/ubi9/nodejs20-builder
 # ARG RUNTIME_IMAGE=icr.io/ibm-dreadnought-prod-images/ubi9/python312-runtime
 
-ARG DREADNOUGHT_PYTHON312_TAG=SET_VALID_TAG
+ARG DREADNOUGHT_PYTHON312_TAG=v9.6.27
 ARG NODE_BUILDER_TAG=v9.6.49
 
 FROM ${NODE_BUILDER_IMAGE}:${NODE_BUILDER_TAG} AS node-deps
@@ -15,6 +15,8 @@ COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
 WORKDIR /app
 
+RUN mkdir -p /.cache/uv /app && chmod -R 0777 /.cache /app
+
 COPY pyproject.toml uv.lock ./
 
 RUN --mount=type=cache,target=/root/.cache/uv \
@@ -25,14 +27,7 @@ COPY . /app
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --locked --no-dev
 
-# Runtime stage 
-# FROM ${RUNTIME_IMAGE}:${DREADNOUGHT_PYTHON312_TAG}
-# COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
-# WORKDIR /app
-# COPY --from=builder /app /app
-# COPY --from=node-deps /usr/local/bin /usr/local/bin
-# COPY --from=node-deps /usr/local/lib /usr/local/lib
-# COPY --from=node-deps /usr/local/share /usr/local/share
+RUN chmod -R 0777 /app
 
 ENV PATH="/app/.venv/bin:$PATH"
 
