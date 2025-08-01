@@ -1,4 +1,3 @@
-# Use the specified builder base image and tag
 ARG BUILDER_IMAGE=icr.io/ibm-dreadnought-prod-images/ubi9/python312-builder
 ARG DREADNOUGHT_PYTHON312_TAG=SET_VALID_TAG
 
@@ -21,10 +20,8 @@ COPY . /app
 
 RUN chmod -R 0777 /app
 
-# Set correct env variables
 ENV PATH="/app/.venv/bin:$PATH"
-ENV UV_CACHE_DIR=/tmp/.cache/uv
-ENV XDG_CACHE_HOME=/tmp/.cache        
+ENV UV_CACHE_DIR=/.cache/uv
 ENV SERVER_CONFIG_FILE_PATH=/app/example/mcsp_trio_server/mcsp_trio_master.json
 
 
