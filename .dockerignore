@@ -7,8 +7,8 @@
 !/src/
 !/test/
 !/config/
-# !/example
-# !/spec
+!/example
+!/spec
 
 ### ignore final ###
 __pycache__

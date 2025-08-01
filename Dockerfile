@@ -1,25 +1,57 @@
-# Use a Python image with uv pre-installed
-FROM ghcr.io/astral-sh/uv:python3.12-bookworm-slim
+# ARG BUILDER_IMAGE=icr.io/ibm-dreadnought-prod-images/ubi9/python312-builder
+# ARG RUNTIME_IMAGE=icr.io/ibm-dreadnought-prod-images/ubi9/python312-runtime
+# ARG DREADNOUGHT_PYTHON312_TAG=SET_VALID_TAG
 
-# Install the project into `/app`
+# FROM ${BUILDER_IMAGE}:${DREADNOUGHT_PYTHON312_TAG} AS builder
+
+# COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
+
+
+# WORKDIR /app
+
+# COPY pyproject.toml uv.lock ./
+
+# RUN uv sync --locked --no-install-project --no-dev
+
+# COPY . /app
+# RUN uv sync --locked --no-dev
+
+# # RUNTIME STAGE
+# FROM ${RUNTIME_IMAGE}:${DREADNOUGHT_PYTHON312_TAG}
+
+# WORKDIR /app
+
+# COPY --from=builder /app /app
+
+# ENV PATH="/app/.venv/bin:$PATH"
+# ENV SERVER_CONFIG_FILE_PATH=/app/example/mcsp_trio_server/mcsp_trio_master.json
+
+# ENTRYPOINT []
+# CMD ["uv", "run", "test/test_composer.py"]
+
+
+ARG BUILDER_IMAGE=icr.io/ibm-dreadnought-prod-images/ubi9/python312-builder
+ARG DREADNOUGHT_PYTHON312_TAG=SET_VALID_TAG
+
+FROM ${BUILDER_IMAGE}:${DREADNOUGHT_PYTHON312_TAG}
+
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
+
 WORKDIR /app
 
-# Copy from the cache instead of linking since it's a mounted volume
-ENV UV_LINK_MODE=copy
+COPY pyproject.toml uv.lock ./
 
-# Install the project's dependencies using the lockfile and settings
-RUN --mount=type=cache,target=/root/.cache/uv \
-    --mount=type=bind,source=uv.lock,target=uv.lock \
-    --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
-    uv sync --locked --no-install-project --no-dev
+RUN uv sync --locked --no-install-project --no-dev
 
-# Then, add the rest of the project source code and install it
-# Installing separately from its dependencies allows optimal layer caching
 COPY . /app
-RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync --locked --no-dev
+# RUN --mount=type=cache,target=/root/.cache/uv \
+#     uv venv && \
+#     uv pip install --no-deps -e .
 
-# Place executables in the environment at the front of the path
+RUN uv sync --locked --no-dev
+
 ENV PATH="/app/.venv/bin:$PATH"
-ENTRYPOINT []
+
+ENV SERVER_CONFIG_FILE_PATH=/app/example/mcsp_trio_server/mcsp_trio_master.json
+
 CMD ["uv", "run", "test/test_composer.py"]

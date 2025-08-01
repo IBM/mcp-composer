@@ -1,13 +1,6 @@
 ARG BUILDER_IMAGE=icr.io/ibm-dreadnought-prod-images/ubi9/python312-builder
-ARG NODE_BUILDER_IMAGE=icr.io/ibm-dreadnought-prod-images/ubi9/nodejs20-builder
 # ARG RUNTIME_IMAGE=icr.io/ibm-dreadnought-prod-images/ubi9/python312-runtime
-
 ARG DREADNOUGHT_PYTHON312_TAG=SET_VALID_TAG
-ARG NODE_BUILDER_TAG=v9.6.49
-
-FROM ${NODE_BUILDER_IMAGE}:${NODE_BUILDER_TAG} AS node-deps
-
-RUN npm install -g @ivotoby/openapi-mcp-server
 
 FROM ${BUILDER_IMAGE}:${DREADNOUGHT_PYTHON312_TAG} AS builder
 
@@ -25,17 +18,20 @@ COPY . /app
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --locked --no-dev
 
-# Runtime stage 
+#  RUNTIME STAGE 
 # FROM ${RUNTIME_IMAGE}:${DREADNOUGHT_PYTHON312_TAG}
-# COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
+
 # WORKDIR /app
+
 # COPY --from=builder /app /app
-# COPY --from=node-deps /usr/local/bin /usr/local/bin
-# COPY --from=node-deps /usr/local/lib /usr/local/lib
-# COPY --from=node-deps /usr/local/share /usr/local/share
 
 ENV PATH="/app/.venv/bin:$PATH"
 
+ENV SERVER_CONFIG_FILE_PATH=/app/example/mcsp_trio_server/mcsp_trio_master.json
+
+
 ENTRYPOINT []
 
-CMD ["uv", "run", "src/mcp_composer_client/acp_server.py"]
+CMD ["uvicorn", "src.mcp_composer_app.app:app", "--host", "0.0.0.0", "--port", "8000"]
+
+
