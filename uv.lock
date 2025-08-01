@@ -1134,6 +1134,18 @@ wheels = [
 ]
 
 [[package]]
+name = "hvac"
+version = "2.3.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "requests" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/48/a4/c0b698a7250b7a5c2956427406560701862215c646e079a7907846608f44/hvac-2.3.0.tar.gz", hash = "sha256:1b85e3320e8642dd82f234db63253cda169a817589e823713dc5fca83119b1e2", size = 332660, upload-time = "2024-06-18T14:46:09.748Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/0b/34/56facf52e2ea14ce640f434ccf00311af6f3a1df0019d4682ba28ea09948/hvac-2.3.0-py3-none-any.whl", hash = "sha256:a3afc5710760b6ee9b3571769df87a0333da45da05a5f9f963e1d3925a84be7d", size = 155860, upload-time = "2024-06-18T14:46:05.399Z" },
+]
+
+[[package]]
 name = "ibm-cloud-sdk-core"
 version = "3.23.0"
 source = { registry = "https://pypi.org/simple" }
@@ -1565,6 +1577,7 @@ dependencies = [
     { name = "fastmcp" },
     { name = "hnswlib" },
     { name = "httpx" },
+    { name = "hvac" },
     { name = "ibm-cloud-sdk-core" },
     { name = "ibm-secrets-manager-sdk" },
     { name = "ibmcloudant" },
@@ -1604,6 +1617,7 @@ requires-dist = [
     { name = "fastmcp", specifier = "==2.10.3" },
     { name = "hnswlib", specifier = ">=0.8.0" },
     { name = "httpx", specifier = "==0.28.1" },
+    { name = "hvac", specifier = ">=2.3.0" },
     { name = "ibm-cloud-sdk-core", specifier = "==3.23.0" },
     { name = "ibm-secrets-manager-sdk", specifier = "==2.1.10" },
     { name = "ibmcloudant", specifier = "==0.10.2" },

@@ -26,6 +26,7 @@ dependencies = [
     "ibm-secrets-manager-sdk==2.1.10",
     "pydantic==2.11.7",
     "pydantic-settings==2.10.1",
+    "hvac==2.3.0",
 ]
 
 [dependency-groups]

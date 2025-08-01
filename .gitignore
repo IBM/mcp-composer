@@ -25,14 +25,12 @@ docs/node_modules
 example/mcsp_trio_server/config.json
 example/mcsp_servers/config.json
 example/.DS_Store
-
+docs/node_modules/*
 #binary files 
 src/mcp_composer_client/vec_store/hnswlib.bin
 src/mcp_composer_client/vec_store/hnswlib.meta
 
-#log
-mcp_composer.log
+*.log
 
-#docs
-docs/.vitepress/
+docs/.vitepress/cache
 docs/node_modules/
