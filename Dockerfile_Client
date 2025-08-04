@@ -12,6 +12,18 @@ RUN npm install -g @ivotoby/openapi-mcp-server
 FROM ${BUILDER_IMAGE}:${DREADNOUGHT_PYTHON312_TAG} AS builder
 
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
+# Update package lists and install GCC 13 which is required by hnswlib
+RUN echo "deb http://deb.debian.org/debian testing main" >> /etc/apt/sources.list && \
+    apt-get update && \
+    apt-get install -y gcc-13 g++-13 build-essential && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
+# Set GCC 13 as the default compiler
+RUN update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-13 100 \
+    && update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-13 100
+
+# Install the project into `/app`
 
 WORKDIR /app
 
@@ -25,14 +37,20 @@ COPY . /app
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --locked --no-dev
 
-# Runtime stage 
-# FROM ${RUNTIME_IMAGE}:${DREADNOUGHT_PYTHON312_TAG}
-# COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
-# WORKDIR /app
-# COPY --from=builder /app /app
-# COPY --from=node-deps /usr/local/bin /usr/local/bin
-# COPY --from=node-deps /usr/local/lib /usr/local/lib
-# COPY --from=node-deps /usr/local/share /usr/local/share
+
+## ----- Download emedding model -----
+# Install required packages
+RUN pip install huggingface_hub
+
+# Set model name (change this to your desired model)
+# ARG MODEL_NAME=BAAI/bge-small-en-v1.5
+ARG MODEL_NAME=sentence-transformers/all-mpnet-base-v2
+
+# Download model
+RUN python -c "from huggingface_hub import snapshot_download; snapshot_download('${MODEL_NAME}', local_dir='/app/models')"
+## ----- Download emedding model -----
+    
+# Place executables in the environment at the front of the path
 
 ENV PATH="/app/.venv/bin:$PATH"
 

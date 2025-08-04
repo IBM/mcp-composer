@@ -3,9 +3,9 @@ import hnswlib, numpy as np, pickle, json, os
 from dotenv import load_dotenv; load_dotenv()
 
 # Model 
-MODEL_NAME = "all-mpnet-base-v2"
-encoder = SentenceTransformer(MODEL_NAME)
-INDEX_PATH = os.getenv("VECTOR_STORE_DATABASE")
+MODEL_NAME = os.getenv("EMBEDDING_MODEL", "all-mpnet-base-v2")
+encoder = SentenceTransformer(MODEL_NAME, cache_folder="./models")
+INDEX_PATH = os.getenv("VECTOR_STORE_DATABASE", "hnswlib.bin")
 
 # Build/Rebuild the index 
 def build_index(tool_docs: list[dict], index_path=INDEX_PATH):
