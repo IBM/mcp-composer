@@ -26,8 +26,7 @@
   - [MCP Composer Prompts](#mcp-composer-prompts)
 - [Demo using MCP Inspector](#demo-using-mcp-inspector)
 - [MCP Composer Client with Chatbot UI](#mcp-composer-client-with-chatbot-ui)
--
----
+- ***
 
 ## Overview
 
@@ -58,7 +57,8 @@ Update the pyproject.toml if you need to install both `mcp_composer` and `mcp_co
 where = ["src"]
 include = ["mcp_composer", "mcp_composer_app"]
 ```
-If we only want to install `mcp_composer` 
+
+If we only want to install `mcp_composer`
 
 ```
 [tool.setuptools.packages.find]
@@ -79,8 +79,9 @@ include = ["mcp_composer"]
    cd mcp-composer
    ```
 2. Create virtual Environment:
+
    ```bash
-   uv venv 
+   uv venv
    ```
 
 3. Activate the virtual environment.
@@ -91,27 +92,27 @@ include = ["mcp_composer"]
 
 4. Synchronize the environment.
 
-  
    ```bash
    uv sync --frozen        # Strict install (uses lock file exactly) - recommended as ensuring consistency across different environments
    uv sync               # Install (update lock file) - incremental refresh, commit uv.lock
    rm uv.lock && uv sync # Refresh child dependencies, commit uv.lock
    ```
+
 5. Add a new dependency; automatically creates a virtual environment if necessary
 
    ```bash
-   uv add <my-package>   
+   uv add <my-package>
    ```
+
 6. Leverage the project's virtual environment:
    ```
-   uv run <command&args> 
+   uv run <command&args>
    ```
 7. Test if MCP Composer is installed successfully or not
 
    ```bash
    uv run python -c "import mcp_composer; print(mcp_composer.__version__)"
    ```
-
 
 ### Add MCP Composer as local dependency
 
@@ -121,20 +122,23 @@ include = ["mcp_composer"]
 [tool.hatch.metadata]
 allow-direct-references = true
 ```
+
 Then you can run the command:
 
 ```bash
 uv add <path to mcp-composer folder>
 ```
+
 Then, the pyproject.toml file is updated with the below lines:
 
 ```toml
 [tool.uv.sources]
 mcp-composer = { path = "mcp-composer" }
 ```
+
 Add mcp-composer to the dependencies section, example of the final pyproject.toml file:
 
-```toml  
+```toml
 [project]
 name = "py_project"
 
@@ -156,7 +160,6 @@ To ensure the package is properly installed and importable in the consumer proje
 uv pip install -e ../mcp-composer
 ```
 
-
 ### Use as Tool
 
 #### Install mcp-composer as a tool
@@ -164,16 +167,17 @@ uv pip install -e ../mcp-composer
 1. Run the following command to install mcp-composer as a tool:
 
    ```bash:
-   uv tool install -e /<absolute path>/mcp-composer 
+   uv tool install -e /<absolute path>/mcp-composer
    ```
+
 2. Add the tool to $PATH:
-   ```bash  
+   ```bash
       export PATH="/<absolute path>/.local/bin:$PATH"
    ```
 3. Check the instlation:
    ```bash
    which mcp-composer
-   ```        
+   ```
 
 #### Uninstall mcp-composer as a tool
 
@@ -191,9 +195,6 @@ uv pip install -e ../mcp-composer
 
 uvx mcp-composer -sseurl --sse-url <url to remote sse mcp server> --auth_type oauth --env OAUTH_HOST <host> --env OAUTH_PORT <port> --env OAUTH_SERVER_URL <server url> --env OAUTH_CALLBACK_PATH <callback path> --env OAUTH_CLIENT_ID=<client id> --env OAUTH_CLIENT_SECRET <secret> --env OAUTH_AUTH_URL <auth url> -e-env OAUTH_TOKEN_URL <token url> --env OAUTH_MCP_SCOPE user --env OAUTH_PROVIDER_SCOPE=openid
 ```
-
-
-
 
 ## Key Features
 
@@ -228,12 +229,14 @@ To add an MCP server from a local python file, use the builder with a configurat
 ]
 ```
 
-Run   
+Run
+
 ```bash
 uv run test/test_composer.py
 ```
+
 test_composer.py can run on either `stdio` or `http` type.
-This will create a FastMCP server instance using the python file and its dependencies and also mount it on mcp-composer. 
+This will create a FastMCP server instance using the python file and its dependencies and also mount it on mcp-composer.
 
 #### Add MCP Server from OpenAPI Specification
 
@@ -298,14 +301,13 @@ mcp-composer --mode <http|stdio> [--host HOST] [--port PORT] [--log-level LEVEL]
 
 #### Options
 
-| Flag          | Description                                         | Default      |
-| ------------- | --------------------------------------------------- | ------------ |
-| `--mode`      | Mode to run the Composer in: `http` or `stdio`      | `http`       |
-| `--host`      | Host to bind to (for `http` mode)                   | `0.0.0.0`    |
-| `--port`      | Port to run on (for `http` mode)                    | `9000`       |
-| `--log-level` | Log level (e.g. `debug`, `info`, `warning`)         | `debug`      |
-| `--path`      | URL path to mount the MCP Composer on               | `/mcp`       |
-
+| Flag          | Description                                    | Default   |
+| ------------- | ---------------------------------------------- | --------- |
+| `--mode`      | Mode to run the Composer in: `http` or `stdio` | `http`    |
+| `--host`      | Host to bind to (for `http` mode)              | `0.0.0.0` |
+| `--port`      | Port to run on (for `http` mode)               | `9000`    |
+| `--log-level` | Log level (e.g. `debug`, `info`, `warning`)    | `debug`   |
+| `--path`      | URL path to mount the MCP Composer on          | `/mcp`    |
 
 ### MCP Composer Tools
 
@@ -324,7 +326,9 @@ mcp-composer --mode <http|stdio> [--host HOST] [--port PORT] [--log-level LEVEL]
 - [add_tools_from_openapi](#Add-tool-using-OpenAPI-specification): Add tool using the OpenAPI specifications
 
 #### Add tool using Curl command and Python script
+
 **Curl command:**
+
 ```JSON
 {
     "name": "event",
@@ -340,6 +344,7 @@ mcp-composer --mode <http|stdio> [--host HOST] [--port PORT] [--log-level LEVEL]
 ```
 
 **Python script:**
+
 ```python
 {
   "name": "test",
@@ -355,7 +360,9 @@ mcp-composer --mode <http|stdio> [--host HOST] [--port PORT] [--log-level LEVEL]
 ```
 
 #### Add tool using OpenAPI specification
+
 **input: openapi_spec**
+
 ```JSON
 {
   "openapi": "3.0.1",
@@ -369,6 +376,7 @@ mcp-composer --mode <http|stdio> [--host HOST] [--port PORT] [--log-level LEVEL]
 ```
 
 **input: auth_config**
+
 ```JSON
 {
   "auth_strategy": "basic",
@@ -378,7 +386,6 @@ mcp-composer --mode <http|stdio> [--host HOST] [--port PORT] [--log-level LEVEL]
   }
 }
 ```
-
 
 ### MCP Composer Prompts
 
@@ -560,14 +567,16 @@ INFO:     Uvicorn running on http://localhost:8000 (Press CTRL+C to quit)
   docker build -t chatbot -f Dockerfile_Client .
   ```
 
-  Run the image in container interactively (for Windows/Mac), by default, it uses `MCP_BASE_URL` to connect to MCP composer server. 
- 
+  Run the image in container interactively (for Windows/Mac), by default, it uses `MCP_BASE_URL` to connect to MCP composer server.
+
   ```bash
   docker run -it -e HOST=0.0.0.0 -p 8000:8000 chatbot
   ```
-  (In Linux, `-e HOST=0.0.0.0` can be removed.) 
+
+  (In Linux, `-e HOST=0.0.0.0` can be removed.)
 
   If using `config/mcp_composer_client.yaml` to config multiple MCP servers, set env `USER_CONFIG_FILE` to `yes`:
+
   ```bash
   docker run -it -e USER_CONFIG_FILE=yes -e HOST=0.0.0.0 -p 8000:8000 chatbot
   ```
