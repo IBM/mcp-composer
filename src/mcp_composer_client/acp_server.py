@@ -4,6 +4,7 @@ from acp_sdk import Message, MessagePart
 from acp_sdk.models import Metadata, Annotations
 from acp_sdk.models.platform import PlatformUIAnnotation, PlatformUIType
 from acp_sdk.server import Context, Server, RedisStore
+from acp_sdk.models.platform import PlatformUIAnnotation, PlatformUIType
 from dotenv import load_dotenv, find_dotenv
 from mcp_composer_client.agent_bee import run_agent_multimcp, auto_filter_tools
 
@@ -14,7 +15,15 @@ load_dotenv(find_dotenv(".env"))
 server = Server( )
 
 @server.agent(
-    metadata=Metadata(ui={"type": "chat"})
+    metadata=Metadata(
+        annotations=Annotations(
+            beeai_ui=PlatformUIAnnotation(
+                ui_type=PlatformUIType.CHAT,
+                user_greeting="Input your question",
+                display_name="MCP-Composer-Chatbot-no-tool-filtering",
+            )
+        )
+    )
 )
 async def mcp_composer_chatbot_no_tool_filter(inputs: list[Message], context: Context) -> AsyncGenerator:
     """AI agent that calls Platform APIs to fulfill a user query"""
@@ -27,7 +36,15 @@ async def mcp_composer_chatbot_no_tool_filter(inputs: list[Message], context: Co
 
 
 @server.agent(
-    metadata=Metadata(ui={"type": "chat"})
+    metadata=Metadata(
+        annotations=Annotations(
+            beeai_ui=PlatformUIAnnotation(
+                ui_type=PlatformUIType.CHAT,
+                user_greeting="Input your question",
+                display_name="MCP-Composer-Chatbot",
+            )
+        )
+    )
 )
 async def mcp_composer_chatbot(inputs: list[Message], context: Context) -> AsyncGenerator:
     """AI agent that calls Platform APIs to fulfill a user query"""
