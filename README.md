@@ -387,6 +387,7 @@ mcp-composer --mode <http|stdio> [--host HOST] [--port PORT] [--log-level LEVEL]
 }
 ```
 
+
 ### MCP Composer Prompts
 
 #### Adding one or more prompts
