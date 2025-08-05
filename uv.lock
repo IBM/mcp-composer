@@ -1617,7 +1617,7 @@ requires-dist = [
     { name = "fastmcp", specifier = "==2.10.3" },
     { name = "hnswlib", specifier = ">=0.8.0" },
     { name = "httpx", specifier = "==0.28.1" },
-    { name = "hvac", specifier = ">=2.3.0" },
+    { name = "hvac", specifier = "==2.3.0" },
     { name = "ibm-cloud-sdk-core", specifier = "==3.23.0" },
     { name = "ibm-secrets-manager-sdk", specifier = "==2.1.10" },
     { name = "ibmcloudant", specifier = "==0.10.2" },
