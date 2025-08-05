@@ -78,6 +78,7 @@ include = ["mcp_composer"]
    git clone https://github.ibm.com/ai-elite/mcp-composer.git
    cd mcp-composer
    ```
+
 2. Create virtual Environment:
 
    ```bash
@@ -85,30 +86,51 @@ include = ["mcp_composer"]
    ```
 
 3. Activate the virtual environment.
-
    ```bash
    source .venv/bin/activate
    ```
 
-4. Synchronize the environment.
+4. **Environment Configuration (Required)**
+   
+   The MCP Composer requires environment variables to be set:
+   
+   **Setup**
+   ```bash
+   cp env.example .env
+   ```
+   
+   Edit the `.env` file and set the required environment variables:
+   - `SERVER_CONFIG_FILE_PATH`: Path to the server configuration file (default: `member_servers.json`)
+   
+   **Note**: If you don't set up the `.env` file, you'll get a `KeyError: 'SERVER_CONFIG_FILE_PATH'` error when trying to import the module.
 
+5. Synchronize the environment.
+   
+   **First time setup**: Run this to create the initial `uv.lock` file:
+   ```bash
+   uv sync
+   ```
+   
+   **Subsequent runs**: Use the frozen lock file for consistency:
    ```bash
    uv sync --frozen        # Strict install (uses lock file exactly) - recommended as ensuring consistency across different environments
-   uv sync               # Install (update lock file) - incremental refresh, commit uv.lock
+   ```
+   
+   **Update dependencies**: If you need to update dependencies:
+   ```bash
    rm uv.lock && uv sync # Refresh child dependencies, commit uv.lock
    ```
 
-5. Add a new dependency; automatically creates a virtual environment if necessary
+6. Add a new dependency; automatically creates a virtual environment if necessary
 
    ```bash
    uv add <my-package>
    ```
-
-6. Leverage the project's virtual environment:
+7. Leverage the project's virtual environment:
    ```
    uv run <command&args>
    ```
-7. Test if MCP Composer is installed successfully or not
+8. Test if MCP Composer is installed successfully or not
 
    ```bash
    uv run python -c "import mcp_composer; print(mcp_composer.__version__)"
@@ -585,3 +607,41 @@ INFO:     Uvicorn running on http://localhost:8000 (Press CTRL+C to quit)
 #### 3. Launch chatbot UI (Optional)
 
 Follow instruction in [Demo-Chatbot-UI](https://github.ibm.com/ai-elite/mcp-composer-chatbot-ui), open browser and input chatbot UI URL. Interact with the chatbot.
+
+## Troubleshooting
+
+### Common Issues
+
+1. **`KeyError: 'SERVER_CONFIG_FILE_PATH'`**
+   - **Cause**: Missing environment variable configuration
+   - **Solution**: Copy `env.example` to `.env` and set the required environment variables
+   ```bash
+   cp env.example .env
+   ```
+
+2. **`error: Unable to find lockfile at uv.lock`**
+   - **Cause**: Missing lock file (first-time setup)
+   - **Solution**: Run `uv sync` first to create the initial lock file
+   ```bash
+   uv sync
+   ```
+
+3. **Import errors when testing installation**
+   - **Cause**: Environment variables not loaded
+   - **Solution**: Ensure `.env` file exists and contains required variables
+   ```bash
+   # Check if .env file exists
+   ls -la .env
+   
+   # If not, create it
+   cp env.example .env
+   ```
+
+4. **Package not found when adding as local dependency**
+   - **Cause**: Path issues or missing development install
+   - **Solution**: Use the full path and install in editable mode
+   ```bash
+   uv add /full/path/to/mcp-composer --frozen
+   uv pip install -e /full/path/to/mcp-composer
+   ```
+
