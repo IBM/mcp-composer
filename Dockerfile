@@ -35,20 +35,38 @@ ARG DREADNOUGHT_PYTHON312_TAG=SET_VALID_TAG
 
 FROM ${BUILDER_IMAGE}:${DREADNOUGHT_PYTHON312_TAG}
 
+ENV ENABLE_PACKAGE_MANAGER=true
+
+RUN dnf install -y \
+    gcc-c++ \
+    python3.12 \
+    python3.12-devel \
+    python3-devel \
+    && g++ --version
+
+RUN dnf clean all && rm -rf /var/cache/dnf /tmp/*
+
+RUN find / -name Python.h || true
+
+ENV CXXFLAGS="-std=c++11"
+
+
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
 WORKDIR /app
 
 COPY pyproject.toml uv.lock ./
 
-RUN uv sync --locked --no-install-project --no-dev
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv sync --locked --no-install-project --no-dev
 
 COPY . /app
 # RUN --mount=type=cache,target=/root/.cache/uv \
 #     uv venv && \
 #     uv pip install --no-deps -e .
 
-RUN uv sync --locked --no-dev
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv sync --locked --no-dev
 
 ENV PATH="/app/.venv/bin:$PATH"
 
