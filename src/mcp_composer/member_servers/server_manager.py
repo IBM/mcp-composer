@@ -357,6 +357,53 @@ class ServerManager:
         if self._database:
             self._database.update_tool_description(tool, description, server_id)
 
+    def disable_prompts(self, prompts: List[str], server_id: str) -> None:
+        """Disable prompts of member server"""
+        try:
+            prompts = list(set(prompts))
+            member = self.get(server_id)
+            existing_prompts = member.disabled_prompts
+            prompts_description = member.prompts_description
+            duplicate_prompt = check_duplicate_tool(existing_prompts, prompts)
+
+            if duplicate_prompt:
+                raise ToolDuplicateError(f"Prompt {duplicate_prompt} is already disabled")
+
+            existing_prompts.extend(prompts)
+            logger.info(
+                "Added new disabled prompt list %s for server %s.", prompts, server_id
+            )
+
+            # Remove prompt descriptions if they exist
+            if existing_prompts and prompts_description:
+                for prompt in existing_prompts:
+                    prompts_description.pop(prompt, None)
+        except Exception as e:
+            raise ToolDisableError(f"Failed to disable prompt: {e}") from e
+
+        if self._database:
+            self._database.disable_prompts(prompts, server_id)
+
+    def enable_prompts(self, prompts: List[str], server_id: str) -> None:
+        """Enable prompts of member server and add to database"""
+        try:
+            prompts = list(set(prompts))
+            member = self.get(server_id)
+            disabled_prompts = member.disabled_prompts
+            prompts_to_remove = [prompt for prompt in prompts if prompt in disabled_prompts]
+            if not prompts_to_remove:
+                raise ValueError("No prompts disabled")
+
+            # Remove matching prompts from disabled_prompts
+            member.disabled_prompts = [
+                prompt for prompt in disabled_prompts if prompt not in prompts_to_remove
+            ]
+            if self._database:
+                self._database.enable_prompts(member.disabled_prompts, server_id)
+
+        except Exception as e:
+            raise ToolDisableError(f"Failed to enable prompt: {e}") from e
+
     def get_document(self, server_id: str) -> Dict:
         """Get a member server details from database"""
         if self._database is None:

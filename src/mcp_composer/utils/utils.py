@@ -3,7 +3,7 @@
 import os
 import re
 import subprocess
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Dict, Optional, Tuple, Callable
 import importlib.util
 import json
 import asyncio
@@ -12,7 +12,7 @@ import httpx
 
 from aiohttp import ClientConnectorError
 from fastmcp.server.openapi import RouteMap, MCPType
-from fastmcp.prompts import Prompt
+from fastmcp.prompts.prompt import Prompt, PromptArgument
 from mcp_composer.settings.base_adapter import SecretAdapter
 from mcp_composer.utils.logger import LoggerFactory
 from mcp_composer.member_servers.member_server import HealthStatus, MemberMCPServer
@@ -127,35 +127,103 @@ def ensure_dependencies_installed(dependencies):
             logger.info("Installing missing package: %s", package)
             subprocess.check_call(["uv", "pip", "install", package])
 
+def build_prompt_from_dict(entry: dict) -> Prompt:
+    """
+    Build a FastMCP Prompt from a dictionary configuration.
 
-async def build_prompt_from_dict(entry: dict) -> Prompt:
-    name = entry["name"]
-    template = entry["template"]
+    Args:
+        entry: Dictionary containing prompt configuration
+            - name: Prompt name (required)
+            - template: Prompt template (required)
+            - description: Optional description
+            - arguments: Optional list of argument configurations
+            - tags: Optional set of tags
+
+    Returns:
+        Prompt: Configured FastMCP Prompt object
+    """
+    if not isinstance(entry, dict):
+        raise ValueError("Entry must be a dictionary")
+
+    name = entry.get("name")
+    template = entry.get("template")
+    if not name or not template:
+        raise ValueError("Prompt must include both 'name' and 'template'")
+
     description = entry.get("description", "")
+    tags = set(entry.get("tags", [])) if entry.get("tags") else None
     arguments = entry.get("arguments", [])
 
-    def fn() -> str:
-        """
-        Replaces placeholders in the template string with values from arguments.
+    fn = _create_prompt_function(template, arguments)
+    prompt = Prompt.from_function(fn=fn, name=name, description=description, tags=tags)
 
-        Example:
-            template = "Hello, {name}! You are {age} years old."
-            arguments = {"name": "Alice", "age": 30}
-            → "Hello, Alice! You are 30 years old."
-        """
-        try:
-            str = template.format(**arguments)
-
-            return str
-        except KeyError as e:
-            raise ValueError(f"Missing required argument: {e.args[0]}")
-
-    # Wrap into a FastMCP Prompt
-    prompt = Prompt.from_function(fn, name=name, description=description)
-    prompt.arguments = arguments
+    if arguments:
+        prompt.arguments = _build_prompt_arguments(arguments)
 
     return prompt
 
+
+def _create_prompt_function(template: str, arguments: list[Any]) -> Callable:
+    """
+    Dynamically build a function for the prompt using provided template and arguments.
+    """
+    if not arguments:
+        return lambda: template
+
+    arg_names = _extract_argument_names(arguments)
+    param_list = ", ".join(arg_names)
+    format_args = ", ".join([f"{name}={name}" for name in arg_names])
+
+    func_code = f"""
+def prompt_fn({param_list}):
+    template = \"\"\"{template}\"\"\"
+    try:
+        return template.format({format_args})
+    except KeyError as e:
+        raise ValueError(f"Template references undefined argument: {{e}}")
+    except Exception as e:
+        raise ValueError(f"Error formatting template: {{e}}")
+"""
+
+    namespace = {}
+    exec(func_code, namespace)
+    return namespace["prompt_fn"]
+
+
+def _extract_argument_names(arguments: list[Any]) -> list[str]:
+    """
+    Extract argument names from argument config.
+    """
+    arg_names = []
+    for arg in arguments:
+        if isinstance(arg, dict):
+            if "name" not in arg:
+                raise ValueError("Argument name is required")
+            arg_names.append(arg["name"])
+        elif isinstance(arg, str):
+            arg_names.append(arg)
+        else:
+            raise ValueError(f"Invalid argument format: {arg}")
+    return arg_names
+
+
+def _build_prompt_arguments(arguments: list[Any]) -> list[Any]:
+    """
+    Create PromptArgument objects from argument definitions.
+    """
+    prompt_arguments = []
+
+    for arg in arguments:
+        if isinstance(arg, dict):
+            prompt_arguments.append(PromptArgument(
+                name=arg.get("name", ""),
+                description=arg.get("description", ""),
+                required=arg.get("required", True)
+            ))
+        elif isinstance(arg, str):
+            prompt_arguments.append(PromptArgument(name=arg))
+
+    return prompt_arguments
 
 def get_version_adapter(config: Optional[Dict[str, Any]] = None) -> SecretAdapter:
     if config:

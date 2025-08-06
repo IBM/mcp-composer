@@ -7,7 +7,7 @@ from mcp_composer.composer import MCPComposer
 @patch('mcp_composer.composer.ServerManager')
 @patch('mcp_composer.composer.MCPToolManager')
 @patch('mcp_composer.composer.LocalFileAdapter')
-@patch('mcp_composer.composer.PromptManager')
+@patch('mcp_composer.composer.MCPPromptManager')
 def test_mcpcomposer_init(
     mock_prompt_manager,
     mock_local_file_adapter,
@@ -41,9 +41,9 @@ def test_mcpcomposer_config_validation():
          patch('mcp_composer.composer.ServerManager'), \
          patch('mcp_composer.composer.MCPToolManager'), \
          patch('mcp_composer.composer.LocalFileAdapter'), \
-         patch('mcp_composer.composer.PromptManager'), \
+         patch('mcp_composer.composer.MCPPromptManager'), \
          patch('mcp_composer.composer.AllServersValidator') as mock_validator:
         mock_validator.return_value.validate_all.return_value = True
         config = [{'id': 'server1', 'name': 'TestServer'}]
         composer = MCPComposer(config=config)
-        assert composer._config == config 
+        assert composer._config == config

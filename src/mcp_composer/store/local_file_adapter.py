@@ -175,6 +175,60 @@ class LocalFileAdapter(DatabaseInterface):
 
         self._write_data(data)
 
+    def disable_prompts(self, prompts: list[str], server_id: str) -> None:
+        """Add or Update disabled prompts in file for the member server"""
+        data = self._read_data()
+        prompts = list(set(prompts))
+
+        for server in data:
+            if server.get("id") != server_id:
+                continue
+
+            existing_prompts = server.get("disabled_prompts", [])
+            prompts_description = server.get("prompts_description", {})
+
+            duplicate_prompt = check_duplicate_tool(existing_prompts, prompts)
+            if duplicate_prompt:
+                raise ToolDuplicateError(f"Prompt {duplicate_prompt} is already disabled")
+
+            # Update disabled_prompts
+            if existing_prompts:
+                server["disabled_prompts"].extend(prompts)
+                logger.info("Updated disabled prompt list for server:%s", server_id)
+                logger.info("Previous prompts:%s", existing_prompts)
+            else:
+                server["disabled_prompts"] = prompts
+                logger.info(
+                    "Added new disabled prompt list: %s  for server %s", prompts, server_id
+                )
+
+            # Remove prompt descriptions if they exist
+            if server["disabled_prompts"] and prompts_description:
+                for prompt in server["disabled_prompts"]:
+                    prompts_description.pop(prompt, None)
+
+            break
+
+        self._write_data(data)
+
+    def enable_prompts(self, prompts: list[str], server_id: str) -> None:
+        """Enable prompts which already disabled"""
+        data = self._read_data()
+        prompts = list(set(prompts))
+        for server in data:
+            if server.get("id") != server_id:
+                continue
+
+            server["disabled_prompts"] = prompts
+            logger.info(
+                "Updated disabled prompt list for server:%s, disabled prompts:%s",
+                server_id,
+                server["disabled_prompts"],
+            )
+
+            break
+        self._write_data(data)
+
     def mark_deactivated(self, server_id: str) -> None:
         """Save deactivated member server"""
         data = self._read_data()

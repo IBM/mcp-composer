@@ -9,7 +9,7 @@ from dotenv import load_dotenv
 from fastmcp import FastMCP
 from fastmcp.server.auth.auth import OAuthProvider
 from fastmcp.tools.tool import Tool
-from fastmcp.prompts import PromptManager
+from fastmcp.resources import Resource, ResourceTemplate
 from mcp_composer.tools import MCPToolManager
 from mcp_composer.utils import (
     LoggerFactory,
@@ -24,6 +24,8 @@ from mcp_composer.store.database import DatabaseInterface
 from mcp_composer.store.cloudant_adapter import CloudantAdapter
 from mcp_composer.store.local_file_adapter import LocalFileAdapter
 from mcp_composer.utils.tools import tool_from_open_api, tool_from_script
+from mcp_composer.prompts import MCPPromptManager
+from mcp_composer.resources import MCPResourceManager
 
 load_dotenv()
 
@@ -78,6 +80,15 @@ class MCPComposer(FastMCP):
         self._tool_manager = MCPToolManager(
             server_manager=self._server_manager, database=database
         )
+        self._resource_manager = MCPResourceManager(
+            server_manager=self._server_manager,
+            database=database
+        )
+        self._prompt_manager = MCPPromptManager(
+            server_manager=self._server_manager,
+            database=database
+        )
+
         self._db_configs: list[dict] = self._server_manager.load_all_servers_db()
         self._config: list[dict] = []
 
@@ -92,7 +103,6 @@ class MCPComposer(FastMCP):
                 logger.error("Validation error: %s", e)
                 sys.exit(1)
 
-        self._prompt_manager = PromptManager()
 
         # Add Server management tools
         self.add_tool(Tool.from_function(self.register_mcp_server))
@@ -110,10 +120,23 @@ class MCPComposer(FastMCP):
         self.add_tool(Tool.from_function(self._tool_manager.disable_tools))
         self.add_tool(Tool.from_function(self._tool_manager.enable_tools))
         self.add_tool(Tool.from_function(self._tool_manager.update_tool_description))
-        # Add Prompt management tools
 
+        # Add Prompt management tools
         self.add_tool(Tool.from_function(self.add_prompts))
         self.add_tool(Tool.from_function(self.get_all_prompts))
+        self.add_tool(Tool.from_function(self.list_prompts_per_server))
+        self.add_tool(Tool.from_function(self.filter_prompts))
+        self.add_tool(Tool.from_function(self.disable_prompts))
+        self.add_tool(Tool.from_function(self.enable_prompts))
+
+        # Add Resource management tools
+        self.add_tool(Tool.from_function(self.create_resource))
+        self.add_tool(Tool.from_function(self.create_resource_template))
+        self.add_tool(Tool.from_function(self.remove_resource))
+        self.add_tool(Tool.from_function(self.list_resources))
+        self.add_tool(Tool.from_function(self.list_resource_templates))
+        self.add_tool(Tool.from_function(self.list_resources_per_server))
+        self.add_tool(Tool.from_function(self.filter_resources))
 
     async def _load_custom_tools(self):
         """Load tools using saved OpenAPI, Curl, and Python script."""
@@ -143,6 +166,7 @@ class MCPComposer(FastMCP):
                 tags=config.get("tags", []),
                 tool_count=None,
                 disabled_tools=config.get("disabled_tools", []),
+                disabled_prompts=config.get("disabled_prompts", []),
                 tools_description=config.get("tools_description", {}),
             )
             member.set_server(sub_mcp)
@@ -266,22 +290,82 @@ class MCPComposer(FastMCP):
         )
         return "Successfully added tools"
 
-    async def add_prompts(self, prompt_config: Union[dict, list[dict]]) -> list[str]:
+    def add_prompts(self, prompt_config: Union[dict, list[dict]]) -> list[str]:
         """
         Add one or more prompts based on the provided configuration.
         Returns a list of registered prompt names.
         """
-        if not isinstance(prompt_config, list):
-            raise TypeError("Prompt config must be a dict or a list of dicts")
-
-        added = []
-        for entry in prompt_config:
-            prompt = await build_prompt_from_dict(entry)
-            super().add_prompt(prompt)
-            added.append(prompt.name)
-        return added
+        return self._prompt_manager.add_prompts(prompt_config)
 
     async def get_all_prompts(self) -> list[str]:
-        """Get all registered prompts mapped to their textual form."""
-        prompts_dict = await self.get_prompts()
+        """Get all registered prompts mapped to their textual form from composer and mounted servers."""
+        prompts_dict = await self._prompt_manager.get_prompts()
         return [str(prompt) for prompt in prompts_dict.values()]
+
+    async def list_prompts_per_server(self, server_id: str) -> list[dict]:
+        """List all prompts from a specific server."""
+        return await self._prompt_manager.list_prompts_per_server(server_id)
+
+    async def filter_prompts(self, filter_criteria: dict) -> list[dict]:
+        """Filter prompts based on criteria like name, description, tags, etc."""
+        return await self._prompt_manager.filter_prompts(filter_criteria)
+
+    async def disable_prompts(self, prompts: list[str], server_id: str) -> str:
+        """
+        Disable a prompt or multiple prompts from the member server
+        """
+        return await self._prompt_manager.disable_prompts(prompts, server_id)
+
+    async def enable_prompts(self, prompts: list[str], server_id: str) -> str:
+        """
+        Enable a prompt or multiple prompts from the member server
+        """
+        return await self._prompt_manager.enable_prompts(prompts, server_id)
+
+    async def create_resource_template(self, resource_config: dict) -> str:
+        """Add a resource template to the composer."""
+        return await self._resource_manager.create_resource_template(resource_config)
+
+    async def create_resource(self, resource_config: dict) -> str:
+        """Create a resource in the composer."""
+        return await self._resource_manager.create_resource(resource_config)
+
+    async def list_resource_templates(self) -> list[dict]:
+        """List all available resource templates from composer and mounted servers."""
+        templates = await self._resource_manager.list_resource_templates()
+        return [
+            {
+                "name": template.name,
+                "description": template.description,
+                "uri_template": str(template.uri_template),
+                "mime_type": template.mime_type,
+                "tags": list(template.tags) if template.tags else []
+            }
+            for template in templates
+        ]
+
+    async def list_resources(self) -> list[dict]:
+        """List all available resources from composer and mounted servers."""
+        resources = await self._resource_manager.list_resources()
+        return [
+            {
+                "name": resource.name,
+                "description": resource.description,
+                "uri": str(resource.uri),
+                "mime_type": resource.mime_type,
+                "tags": list(resource.tags) if resource.tags else []
+            }
+            for resource in resources
+        ]
+
+    async def remove_resource(self, resource_name: str) -> str:
+        """Remove a specific resource by name from composer or mounted servers."""
+        return await self._resource_manager.remove_resource(resource_name)
+
+    async def list_resources_per_server(self, server_id: str) -> list[dict]:
+        """List all resources from a specific server."""
+        return await self._resource_manager.list_resources_per_server(server_id)
+
+    async def filter_resources(self, filter_criteria: dict) -> list[dict]:
+        """Filter resources based on criteria like name, description, tags, etc."""
+        return await self._resource_manager.filter_resources(filter_criteria)

@@ -52,5 +52,18 @@ class FakeDatabase(DatabaseInterface):
             if t["name"] == tool:
                 t["description"] = description
 
+    def disable_prompts(self, prompts: list[str], server_id: str) -> None:
+        """Disable prompts in the fake database."""
+        if server_id in self._servers:
+            if "disabled_prompts" not in self._servers[server_id]:
+                self._servers[server_id]["disabled_prompts"] = []
+            self._servers[server_id]["disabled_prompts"].extend(prompts)
+
+    def enable_prompts(self, prompts: list[str], server_id: str) -> None:
+        """Enable prompts in the fake database."""
+        if server_id in self._servers:
+            if "disabled_prompts" in self._servers[server_id]:
+                self._servers[server_id]["disabled_prompts"] = prompts
+
     def update_server_config(self, config: dict) -> None:
         self._servers[config["id"]] = config

@@ -237,7 +237,7 @@ class MCPServerBuilder:
         mcp = FastMCP(self.config.get(ConfigKey.ID, ""))
         data = await load_json(self.config[ConfigKey.PROMPT_PATH])
         for entry in data:
-            prompt = await build_prompt_from_dict(entry)
+            prompt = build_prompt_from_dict(entry)
             logger.info("Prompt: %s", prompt)
             mcp.add_prompt(prompt)
         return mcp

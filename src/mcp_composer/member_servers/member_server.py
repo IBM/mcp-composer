@@ -37,6 +37,8 @@ class MemberMCPServer(BaseModel):
     tool_count: Optional[int] = Field(None, description="Number of tools registered")
     disabled_tools: list[str] = Field(default_factory=list, description="Removed tools")
     tools_description: dict[str, str] = Field(default_factory=dict, description="Removed tools")
+    disabled_prompts: list[str] = Field(default_factory=list, description="Disabled prompts")
+    prompts_description: dict[str, str] = Field(default_factory=dict, description="Prompt descriptions")
     health_status: HealthStatus = Field(default=HealthStatus.healthy, description="Server health status")
 
     # Runtime-only field (not serialized)

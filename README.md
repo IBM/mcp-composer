@@ -333,19 +333,38 @@ mcp-composer --mode <http|stdio> [--host HOST] [--port PORT] [--log-level LEVEL]
 
 ### MCP Composer Tools
 
-- register_mcp_server: Register a single server.
-- delete_mcp_server: Delete a single server.
-- member_health: Get status for all member servers.
-- activate_mcp_server: Reactivates a previously deactivated member server by loading its config, updating status in DB, and mounting it.
-- deactivate_mcp_server: Deactivates a member server by unmounting it and marking it as deactivated in DB.
-- list_member_servers: List status of all member servers (active or deactivated).
-- get_tool_config_by_name: Get a tool configuration details
-- get_tool_config_by_server: Get all tool configuration details of a specific member server
-- disable_tools: Disable a tool or multiple from the servers and Composer
-- enable_tools: Enable a tool or multiple from the servers and Composer
-- update_tool_description: Update tool description of member servers
+#### Server Management Tools
+- `register_mcp_server`: Register a single server.
+- `delete_mcp_server`: Delete a single server.
+- `member_health`: Get status for all member servers.
+- `activate_mcp_server`: Reactivates a previously deactivated member server by loading its config, updating status in DB, and mounting it.
+- `deactivate_mcp_server`: Deactivates a member server by unmounting it and marking it as deactivated in DB.
+- `list_member_servers`: List status of all member servers (active or deactivated).
+
+#### Tool Management Tools
+- `get_tool_config_by_name`: Get a tool configuration details
+- `get_tool_config_by_server`: Get all tool configuration details of a specific member server
+- `disable_tools`: Disable a tool or multiple from the servers and Composer
+- `enable_tools`: Enable a tool or multiple from the servers and Composer
+- `update_tool_description`: Update tool description of member servers
 - [add_tools](#Add-tool-using-Curl-command-and-Python-script): Add tool using curl command or Python script.
 - [add_tools_from_openapi](#Add-tool-using-OpenAPI-specification): Add tool using the OpenAPI specifications
+
+#### Prompt Management Tools
+- `add_prompts`: Add one or more prompts to the composer
+- `get_all_prompts`: Get all registered prompts as JSON strings
+- `remove_prompt`: Remove a specific prompt by name
+- `list_prompts_per_server`: List all prompts from a specific server
+- `filter_prompts`: Filter prompts based on criteria like name, description, tags
+
+#### Resource Management Tools
+- `add_resource_template`: Add a resource template to the composer
+- `create_resource`: Create a new resource in the composer
+- `list_resources`: List all available resources (actual resources)
+- `list_resource_templates`: List all available resource templates
+- `remove_resource`: Remove a specific resource by name
+- `list_resources_per_server`: List all resources from a specific server
+- `filter_resources`: Filter resources based on criteria like name, description, tags
 
 #### Add tool using Curl command and Python script
 
@@ -442,7 +461,7 @@ prompt_config = [
 added = await composer.add_prompts(prompt_config)
 ```
 
-### Get all Prompts
+#### Get all Prompts
 
 - `get_all_prompts() -> list[str]`
   Retrieves all registered prompts as JSON strings, with internal function references stripped.
@@ -455,6 +474,193 @@ added = await composer.add_prompts(prompt_config)
 prompts = await composer.get_all_prompts()
 for prompt_json in prompts:
     print(prompt_json)
+```
+
+#### Remove a Prompt
+
+- `remove_prompt(prompt_name: str) -> str`
+  Removes a specific prompt by name.
+
+- **Arguments**:
+  - `prompt_name`: The name of the prompt to remove.
+- **Returns**: A status message indicating success or failure.
+
+**Example:**
+
+```python
+result = await composer.remove_prompt("test_prompt")
+print(result)  # "Prompt 'test_prompt' removed successfully" or "Prompt 'test_prompt' not found"
+```
+
+#### List Prompts per Server
+
+- `list_prompts_per_server(server_id: str) -> list[dict]`
+  Lists all prompts from a specific server.
+
+- **Arguments**:
+  - `server_id`: The ID of the server to list prompts from.
+- **Returns**: A list of dictionaries containing prompt information with server_id included.
+
+**Example:**
+
+```python
+prompts = await composer.list_prompts_per_server("my-server")
+for prompt in prompts:
+    print(f"Prompt: {prompt['name']} from server: {prompt['server_id']}")
+```
+
+#### Filter Prompts
+
+- `filter_prompts(filter_criteria: dict) -> list[dict]`
+  Filters prompts based on criteria like name, description, tags, etc.
+
+- **Arguments**:
+  - `filter_criteria`: A dictionary containing filter criteria (name, description, tags).
+- **Returns**: A list of dictionaries containing matching prompts.
+
+**Example:**
+
+```python
+# Filter by name
+result = await composer.filter_prompts({"name": "test"})
+
+# Filter by description
+result = await composer.filter_prompts({"description": "response"})
+
+# Filter by multiple criteria
+result = await composer.filter_prompts({
+    "name": "prompt",
+    "description": "test"
+})
+```
+
+### MCP Composer Resources
+
+#### Adding resource templates
+
+- `add_resource_template(resource_config: dict) -> str`
+  Registers a resource template with the composer.
+
+- **Arguments**:
+  - `resource_config`: A dictionary describing the resource template. Should contain at least a `name` field.
+- **Returns**: A success message.
+
+**Example:**
+
+```python
+resource_config = {
+    "name": "my_template",
+    "description": "A template for creating resources",
+    "uri_template": "resource://{name}",
+    "mime_type": "text/plain",
+    "tags": ["template", "example"],
+    "enabled": True
+}
+result = await composer.add_resource_template(resource_config)
+```
+
+#### Creating actual resources
+
+- `create_resource(resource_config: dict) -> str`
+  Creates an actual resource in the composer.
+
+- **Arguments**:
+  - `resource_config`: A dictionary describing the resource. Should contain at least a `name` field.
+- **Returns**: A success message.
+
+**Example:**
+
+```python
+resource_config = {
+    "name": "my_resource",
+    "description": "An actual resource with content",
+    "uri": "resource://my_resource",
+    "mime_type": "text/plain",
+    "content": "This is the actual content of the resource",
+    "tags": ["resource", "example"],
+    "enabled": True
+}
+result = await composer.create_resource(resource_config)
+```
+
+#### Listing resources and templates
+
+- `list_resources() -> list[dict]`
+  Lists all actual resources from composer and mounted servers.
+
+- `list_resource_templates() -> list[dict]`
+  Lists all resource templates from composer and mounted servers.
+
+**Example:**
+
+```python
+# List actual resources
+resources = await composer.list_resources()
+for resource in resources:
+    print(f"Resource: {resource['name']} - {resource['description']}")
+
+# List resource templates
+templates = await composer.list_resource_templates()
+for template in templates:
+    print(f"Template: {template['name']} - {template['description']}")
+```
+
+#### Remove Resource
+
+- `remove_resource(resource_name: str) -> str`
+  Removes a specific resource by name.
+
+- **Arguments**:
+  - `resource_name`: The name of the resource to remove.
+- **Returns**: A status message indicating success or failure.
+
+**Example:**
+
+```python
+result = await composer.remove_resource("my_resource")
+print(result)  # "Resource 'my_resource' removed successfully" or "Resource 'my_resource' not found"
+```
+
+#### List Resources per Server
+
+- `list_resources_per_server(server_id: str) -> list[dict]`
+  Lists all resources from a specific server.
+
+- **Arguments**:
+  - `server_id`: The ID of the server to list resources from.
+- **Returns**: A list of dictionaries containing resource information with server_id included.
+
+**Example:**
+
+```python
+resources = await composer.list_resources_per_server("my-server")
+for resource in resources:
+    print(f"Resource: {resource['name']} from server: {resource['server_id']}")
+```
+
+#### Filter Resources
+
+- `filter_resources(filter_criteria: dict) -> list[dict]`
+  Filters resources based on criteria like name, description, tags, etc.
+
+- **Arguments**:
+  - `filter_criteria`: A dictionary containing filter criteria (name, description, tags).
+- **Returns**: A list of dictionaries containing matching resources.
+
+**Example:**
+
+```python
+# Filter by name
+result = await composer.filter_resources({"name": "resource"})
+
+# Filter by description
+result = await composer.filter_resources({"description": "test"})
+
+# Filter by multiple criteria
+result = await composer.filter_resources({
+    "name": "resource",
+    "description": "test"
+})
 ```
 
 ### Demo using MCP Inspector

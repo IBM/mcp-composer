@@ -199,9 +199,99 @@ class CloudantAdapter(DatabaseInterface):
                 logger.info(
                     "Saved tool description '%s' for server '%s'. Response: %s", description, server_id, response
                 )
-
             else:
-                logger.error("Failed to save tool description: %s", e)
+                logger.error("Failed to save tool description: %s", str(e))
+
+    def disable_prompts(self, prompts: list[str], server_id: str) -> None:
+        try:
+            # check if server config already present in db
+            existing_doc = self._client.get_document(db=self._db_name, doc_id=server_id).get_result()
+            prompts = list(set(prompts))
+            existing_prompts = existing_doc.get("disabled_prompts", [])
+            prompts_description = existing_doc.get("prompts_description", {})
+
+            # check the prompt already present in disabled prompts list
+            # if yes raise error, else update the disabled prompts list
+            if existing_prompts:
+                logger.info(
+                    """Disabled prompt list is already
+                        %s present in cloudant for server_id %s.
+                        So, update the disabled prompt list.
+                        Response: %s""",
+                    existing_prompts,
+                    server_id,
+                    existing_doc,
+                )
+
+                duplicate_prompt = check_duplicate_tool(existing_prompts, prompts)
+                if duplicate_prompt:
+                    raise ToolDuplicateError(f"Prompt {duplicate_prompt} is already disabled")
+                existing_doc["disabled_prompts"].extend(prompts)
+            else:
+                # if no disabled prompts list present add it
+                existing_doc["disabled_prompts"] = prompts
+
+            # Remove prompt descriptions if they exist
+            if existing_doc["disabled_prompts"] and prompts_description:
+                for prompt in existing_doc["disabled_prompts"]:
+                    prompts_description.pop(prompt, None)
+
+            response = self._client.post_document(
+                db=self._db_name,
+                document=existing_doc,
+            ).get_result()
+
+            logger.info(
+                """Saved disabled prompt list '%s'
+                    for server '%s'.
+                    Response: '%s'""",
+                existing_doc["disabled_prompts"],
+                server_id,
+                response,
+            )
+
+        except ApiException as e:
+            # Add server config to db with disabled prompts list, since it not exist
+            if e.code == 404:
+                logger.info("Server %s is not exist in database. Adding the server with disabled prompt list", server_id)
+                prompt_doc = Document(_id=server_id, id=server_id, disabled_prompts=prompts)
+                response = self._client.post_document(
+                    db=self._db_name,
+                    document=prompt_doc,
+                ).get_result()
+                logger.info(
+                    """Saved disabled prompt list '%s'
+                        for server '%s'.
+                        Response: '%s'""",
+                    prompts,
+                    server_id,
+                    response,
+                )
+            else:
+                logger.error("Failed to save disabled prompt list:%s", str(e))
+
+    def enable_prompts(self, prompts: list[str], server_id: str) -> None:
+        """Enable prompts which already disabled"""
+        try:
+            # check if server config already present in db
+            existing_doc = self._client.get_document(db=self._db_name, doc_id=server_id).get_result()
+            existing_doc["disabled_prompts"] = prompts
+
+            response = self._client.post_document(
+                db=self._db_name,
+                document=existing_doc,
+            ).get_result()
+
+            logger.info(
+                """Saved disabled prompt list '%s'
+                    for server '%s'.
+                    Response: '%s'""",
+                existing_doc["disabled_prompts"],
+                server_id,
+                response,
+            )
+        except Exception as e:
+            logger.error("Failed to save disabled prompt list:%s", str(e))
 
     def get_document(self, server_id: str) -> Dict:
         # get the server config details of a single server
