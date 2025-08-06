@@ -229,6 +229,60 @@ class LocalFileAdapter(DatabaseInterface):
             break
         self._write_data(data)
 
+    def disable_resources(self, resources: list[str], server_id: str) -> None:
+        """Add or Update disabled resources in file for the member server"""
+        data = self._read_data()
+        resources = list(set(resources))
+
+        for server in data:
+            if server.get("id") != server_id:
+                continue
+
+            existing_resources = server.get("disabled_resources", [])
+            resources_description = server.get("resources_description", {})
+
+            duplicate_resource = check_duplicate_tool(existing_resources, resources)
+            if duplicate_resource:
+                raise ToolDuplicateError(f"Resource {duplicate_resource} is already disabled")
+
+            # Update disabled_resources
+            if existing_resources:
+                server["disabled_resources"].extend(resources)
+                logger.info("Updated disabled resource list for server:%s", server_id)
+                logger.info("Previous resources:%s", existing_resources)
+            else:
+                server["disabled_resources"] = resources
+                logger.info(
+                    "Added new disabled resource list: %s  for server %s", resources, server_id
+                )
+
+            # Remove resource descriptions if they exist
+            if server["disabled_resources"] and resources_description:
+                for resource in server["disabled_resources"]:
+                    resources_description.pop(resource, None)
+
+            break
+
+        self._write_data(data)
+
+    def enable_resources(self, resources: list[str], server_id: str) -> None:
+        """Enable resources which already disabled"""
+        data = self._read_data()
+        resources = list(set(resources))
+        for server in data:
+            if server.get("id") != server_id:
+                continue
+
+            server["disabled_resources"] = resources
+            logger.info(
+                "Updated disabled resource list for server:%s, disabled resources:%s",
+                server_id,
+                server["disabled_resources"],
+            )
+
+            break
+        self._write_data(data)
+
     def mark_deactivated(self, server_id: str) -> None:
         """Save deactivated member server"""
         data = self._read_data()

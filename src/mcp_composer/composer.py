@@ -132,11 +132,12 @@ class MCPComposer(FastMCP):
         # Add Resource management tools
         self.add_tool(Tool.from_function(self.create_resource))
         self.add_tool(Tool.from_function(self.create_resource_template))
-        self.add_tool(Tool.from_function(self.remove_resource))
         self.add_tool(Tool.from_function(self.list_resources))
         self.add_tool(Tool.from_function(self.list_resource_templates))
         self.add_tool(Tool.from_function(self.list_resources_per_server))
         self.add_tool(Tool.from_function(self.filter_resources))
+        self.add_tool(Tool.from_function(self.disable_resources))
+        self.add_tool(Tool.from_function(self.enable_resources))
 
     async def _load_custom_tools(self):
         """Load tools using saved OpenAPI, Curl, and Python script."""
@@ -358,10 +359,6 @@ class MCPComposer(FastMCP):
             for resource in resources
         ]
 
-    async def remove_resource(self, resource_name: str) -> str:
-        """Remove a specific resource by name from composer or mounted servers."""
-        return await self._resource_manager.remove_resource(resource_name)
-
     async def list_resources_per_server(self, server_id: str) -> list[dict]:
         """List all resources from a specific server."""
         return await self._resource_manager.list_resources_per_server(server_id)
@@ -369,3 +366,15 @@ class MCPComposer(FastMCP):
     async def filter_resources(self, filter_criteria: dict) -> list[dict]:
         """Filter resources based on criteria like name, description, tags, etc."""
         return await self._resource_manager.filter_resources(filter_criteria)
+
+    async def disable_resources(self, resources: list[str], server_id: str) -> str:
+        """
+        Disable a resource or multiple resources from the member server
+        """
+        return await self._resource_manager.disable_resources(resources, server_id)
+
+    async def enable_resources(self, resources: list[str], server_id: str) -> str:
+        """
+        Enable a resource or multiple resources from the member server
+        """
+        return await self._resource_manager.enable_resources(resources, server_id)

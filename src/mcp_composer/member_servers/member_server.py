@@ -39,6 +39,8 @@ class MemberMCPServer(BaseModel):
     tools_description: dict[str, str] = Field(default_factory=dict, description="Removed tools")
     disabled_prompts: list[str] = Field(default_factory=list, description="Disabled prompts")
     prompts_description: dict[str, str] = Field(default_factory=dict, description="Prompt descriptions")
+    disabled_resources: list[str] = Field(default_factory=list, description="Disabled resources")
+    resources_description: dict[str, str] = Field(default_factory=dict, description="Resource descriptions")
     health_status: HealthStatus = Field(default=HealthStatus.healthy, description="Server health status")
 
     # Runtime-only field (not serialized)

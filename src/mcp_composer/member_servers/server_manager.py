@@ -404,6 +404,53 @@ class ServerManager:
         except Exception as e:
             raise ToolDisableError(f"Failed to enable prompt: {e}") from e
 
+    def disable_resources(self, resources: List[str], server_id: str) -> None:
+        """Disable resources of member server"""
+        try:
+            resources = list(set(resources))
+            member = self.get(server_id)
+            existing_resources = member.disabled_resources
+            resources_description = member.resources_description
+            duplicate_resource = check_duplicate_tool(existing_resources, resources)
+
+            if duplicate_resource:
+                raise ToolDuplicateError(f"Resource {duplicate_resource} is already disabled")
+
+            existing_resources.extend(resources)
+            logger.info(
+                "Added new disabled resource list %s for server %s.", resources, server_id
+            )
+
+            # Remove resource descriptions if they exist
+            if existing_resources and resources_description:
+                for resource in existing_resources:
+                    resources_description.pop(resource, None)
+        except Exception as e:
+            raise ToolDisableError(f"Failed to disable resource: {e}") from e
+
+        if self._database:
+            self._database.disable_resources(resources, server_id)
+
+    def enable_resources(self, resources: List[str], server_id: str) -> None:
+        """Enable resources of member server and add to database"""
+        try:
+            resources = list(set(resources))
+            member = self.get(server_id)
+            disabled_resources = member.disabled_resources
+            resources_to_remove = [resource for resource in resources if resource in disabled_resources]
+            if not resources_to_remove:
+                raise ValueError("No resources disabled")
+
+            # Remove matching resources from disabled_resources
+            member.disabled_resources = [
+                resource for resource in disabled_resources if resource not in resources_to_remove
+            ]
+            if self._database:
+                self._database.enable_resources(member.disabled_resources, server_id)
+
+        except Exception as e:
+            raise ToolDisableError(f"Failed to enable resource: {e}") from e
+
     def get_document(self, server_id: str) -> Dict:
         """Get a member server details from database"""
         if self._database is None:

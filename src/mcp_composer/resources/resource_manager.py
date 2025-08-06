@@ -7,6 +7,8 @@ from fastmcp.resources import ResourceTemplate, Resource
 from fastmcp.settings import DuplicateBehavior
 
 from pydantic import AnyUrl
+from mcp_composer.member_servers.member_server import HealthStatus
+from mcp_composer.member_servers.server_manager import ServerManager
 
 logger = logging.getLogger(__name__)
 
@@ -16,7 +18,7 @@ class MCPResourceManager(ResourceManager):
 
     def __init__(
             self,
-            server_manager=None,
+            server_manager: ServerManager,
             duplicate_behavior: DuplicateBehavior | None = None,
             database=None
         ):
@@ -33,6 +35,250 @@ class MCPResourceManager(ResourceManager):
         for idx, mounted_server in enumerate(self._mounted_servers):
             if mounted_server.prefix == server_id:
                 del self._mounted_servers[idx]
+
+    def _filter_disabled_resources(self, resources: dict[str, Resource]) -> dict[str, Resource]:
+        """Filter resources by performing the following actions for a member server,
+        if it exists
+        1. Remove disabled resources
+        2. Update description
+        """
+        try:
+            if not self._server_manager:
+                return resources
+
+            server_config = self._server_manager.list()
+            if not server_config:
+                return resources
+
+            remove_set = set()
+            description_updates = {}
+
+            for member in server_config:
+                if member.health_status == HealthStatus.unhealthy:
+                    continue
+
+                if member.disabled_resources:
+                    remove_set.update(member.disabled_resources)
+                if member.resources_description:
+                    description_updates.update(member.resources_description)
+
+            filtered_resources = {}
+            for name, resource in resources.items():
+                # Check if this resource should be filtered out
+                should_remove = False
+
+                # Check exact key match first
+                if name in remove_set:
+                    should_remove = True
+                else:
+                    # Check if any disabled resource matches this resource by name
+                    resource_name = getattr(resource, 'name', None)
+                    if resource_name:
+                        for disabled_resource in remove_set:
+                            # Extract the resource name from the disabled resource key
+                            # Format: server_id_resource_name -> resource_name
+                            if '_' in disabled_resource:
+                                disabled_resource_name = disabled_resource.split('_', 1)[1]
+                                if resource_name.lower() == disabled_resource_name.lower():
+                                    should_remove = True
+                                    break
+
+                if should_remove:
+                    continue
+
+                if name in description_updates:
+                    resource.description = description_updates[name]
+                filtered_resources[name] = resource
+            return filtered_resources
+        except Exception as e:
+            logger.exception("Resources filtering failed: %s", e)
+            raise
+
+    def _filter_disabled_templates(self, templates: dict[str, ResourceTemplate]) -> dict[str, ResourceTemplate]:
+        """Filter resource templates by performing the following actions for a member server,
+        if it exists
+        1. Remove disabled resources
+        2. Update description
+        """
+        try:
+            if not self._server_manager:
+                return templates
+
+            server_config = self._server_manager.list()
+            if not server_config:
+                return templates
+
+            remove_set = set()
+            description_updates = {}
+
+            for member in server_config:
+                if member.health_status == HealthStatus.unhealthy:
+                    continue
+
+                if member.disabled_resources:
+                    remove_set.update(member.disabled_resources)
+                if member.resources_description:
+                    description_updates.update(member.resources_description)
+
+            filtered_templates = {}
+            for name, template in templates.items():
+                # Check if this template should be filtered out
+                should_remove = False
+
+                # Check exact key match first
+                if name in remove_set:
+                    should_remove = True
+                else:
+                    # Check if any disabled resource matches this template by name
+                    template_name = getattr(template, 'name', None)
+                    if template_name:
+                        for disabled_resource in remove_set:
+                            # Extract the resource name from the disabled resource key
+                            # Format: server_id_resource_name -> resource_name
+                            if '_' in disabled_resource:
+                                disabled_resource_name = disabled_resource.split('_', 1)[1]
+                                if template_name.lower() == disabled_resource_name.lower():
+                                    should_remove = True
+                                    break
+
+                if should_remove:
+                    continue
+
+                if name in description_updates:
+                    template.description = description_updates[name]
+                filtered_templates[name] = template
+            return filtered_templates
+        except Exception as e:
+            logger.exception("Resource templates filtering failed: %s", e)
+            raise
+
+    async def get_resources(self) -> dict[str, Resource]:
+        """
+        Gets the complete, unfiltered inventory of all resources and applies filtering.
+        """
+        resources = await super().get_resources()
+        return self._filter_disabled_resources(resources)
+
+    async def get_resource_templates(self) -> dict[str, ResourceTemplate]:
+        """
+        Gets the complete, unfiltered inventory of all resource templates and applies filtering.
+        """
+        templates = await super().get_resource_templates()
+        return self._filter_disabled_templates(templates)
+
+    async def list_resources(self) -> list[Resource]:
+        """
+        Lists all resources, applying protocol filtering and our custom disabled resource filtering.
+        """
+        resources_dict = await self.get_resources()
+        return list(resources_dict.values())
+
+    async def list_resource_templates(self) -> list[ResourceTemplate]:
+        """
+        Lists all resource templates, applying protocol filtering and our custom disabled resource filtering.
+        """
+        templates_dict = await self.get_resource_templates()
+        return list(templates_dict.values())
+
+    async def disable_resources(self, resources: list[str], server_id: str) -> str:
+        """
+        Disable a resource or multiple resources from the member server.
+        This method handles both Resources and Resource Templates.
+        """
+        if not self._server_manager:
+            return "Server manager not available"
+
+        try:
+            self._server_manager.check_server_exist(server_id)
+
+            # Get all resources and templates using the list methods
+            all_resources = await self.list_resources()
+            all_templates = await self.list_resource_templates()
+
+            # Find resources to disable by matching names
+            resources_to_disable = []
+
+            for resource_name in resources:
+                # Check in resources
+                for resource in all_resources:
+                    actual_name = getattr(resource, 'name', None)
+                    if actual_name and resource_name.lower() == actual_name.lower():
+                        # Find the corresponding key in the resources dictionary
+                        resources_dict = await self.get_resources()
+                        for key, res in resources_dict.items():
+                            if res == resource:
+                                full_key = f"{server_id}_{resource_name}"
+                                resources_to_disable.append(full_key)
+                                break
+                        break
+
+                # Check in templates
+                for template in all_templates:
+                    actual_name = getattr(template, 'name', None)
+                    if actual_name and resource_name.lower() == actual_name.lower():
+                        # Find the corresponding key in the templates dictionary
+                        templates_dict = await self.get_resource_templates()
+                        for key, temp in templates_dict.items():
+                            if temp == template:
+                                full_key = f"{server_id}_{resource_name}"
+                                resources_to_disable.append(full_key)
+                                break
+                        break
+
+            if not resources_to_disable:
+                return f"No resources or resource templates found to disable: {resources}"
+
+            self._server_manager.disable_resources(resources_to_disable, server_id)
+            logger.info("Disabled %s resources/templates from server", resources_to_disable)
+            return f"Disabled {resources_to_disable} resources/templates from server {server_id}"
+        except Exception as e:
+            logger.error("Error disabling resources: %s", e)
+            return f"Failed to disable resources: {str(e)}"
+
+    async def enable_resources(self, resources: list[str], server_id: str) -> str:
+        """
+        Enable a resource or multiple resources from the member server.
+        This method handles both Resources and Resource Templates.
+        """
+        if not self._server_manager:
+            return "Server manager not available"
+
+        try:
+            self._server_manager.check_server_exist(server_id)
+
+            # Get all resources and templates using the parent class methods (unfiltered)
+            all_resources = await super().get_resources()
+            all_templates = await super().get_resource_templates()
+
+            # Find resources to enable by matching names
+            resources_to_enable = []
+
+            for resource_name in resources:
+                # Check in resources
+                for key, resource in all_resources.items():
+                    actual_name = getattr(resource, 'name', None)
+                    if actual_name and resource_name.lower() == actual_name.lower():
+                        full_key = f"{server_id}_{resource_name}"
+                        resources_to_enable.append(full_key)
+                        break
+
+                # Check in templates
+                for key, template in all_templates.items():
+                    actual_name = getattr(template, 'name', None)
+                    if actual_name and resource_name.lower() == actual_name.lower():
+                        full_key = f"{server_id}_{resource_name}"
+                        resources_to_enable.append(full_key)
+                        break
+
+            if not resources_to_enable:
+                return f"No resources or resource templates found to enable: {resources}"
+
+            self._server_manager.enable_resources(resources_to_enable, server_id)
+            logger.info("Enabled %s resources/templates from server", resources_to_enable)
+            return f"Enabled {resources_to_enable} resources/templates from server {server_id}"
+        except Exception as e:
+            logger.error("Error enabling resources: %s", e)
+            return f"Failed to enable resources: {str(e)}"
 
     async def create_resource_template(self, resource_config: dict) -> str:
         """
@@ -147,47 +393,6 @@ class MCPResourceManager(ResourceManager):
             logger.error("Error creating resource: %s", e)
             return f"Failed to create resource: {str(e)}"
 
-    async def remove_resource(self, resource_name: str) -> str:
-        """Remove a specific resource by name from composer or mounted servers."""
-        try:
-            # First try to remove from our own resources using FastMCP's _resources
-            # Find resource by name and remove by URI
-            for uri, resource in self._resources.items():
-                if hasattr(resource, 'name') and resource.name == resource_name:
-                    self._resources.pop(uri, None)
-                    logger.info("Resource %s removed from composer successfully", resource_name)
-                    return f"Resource '{resource_name}' removed from composer successfully"
-
-            # Also check resource templates using FastMCP's _templates
-            # Find template by name and remove by URI template
-            for uri_template, template in self._templates.items():
-                if hasattr(template, 'name') and template.name == resource_name:
-                    self._templates.pop(uri_template, None)
-                    logger.info("Resource template %s removed from composer successfully", resource_name)
-                    return f"Resource template '{resource_name}' removed from composer successfully"
-
-            # If not found in our resources, try to remove from mounted servers
-            if self._server_manager:
-                for server_id, member in self._server_manager._member_servers.items():
-                    if member.server:
-                        try:
-                            # Check if the resource exists in this server
-                            server_resources = await member.server.get_resource_templates()
-                            for key, resource in server_resources.items():
-                                if hasattr(resource, 'name') and resource.name == resource_name:
-                                    # Try to remove from the server's resource manager
-                                    if hasattr(member.server, '_resource_manager') and hasattr(member.server._resource_manager, '_templates'):
-                                        member.server._resource_manager._templates.pop(key, None)
-                                        logger.info("Resource %s removed from server %s successfully", resource_name, server_id)
-                                        return f"Resource '{resource_name}' removed from server '{server_id}' successfully"
-                        except Exception as e:
-                            logger.warning("Error removing resource from server %s: %s", server_id, e)
-
-            return f"Resource '{resource_name}' not found in composer or any mounted servers"
-        except Exception as e:
-            logger.error("Error removing resource %s: %s", resource_name, e)
-            return f"Failed to remove resource '{resource_name}': {str(e)}"
-
     async def list_resources_per_server(self, server_id: str) -> List[Dict]:
         """List all resources from a specific server."""
         try:
@@ -197,23 +402,49 @@ class MCPResourceManager(ResourceManager):
             # Get resources from the specific server
             server = self._server_manager.get_member(server_id)
             if server and hasattr(server, 'server') and server.server:
-                resources = await server.server.get_resource_templates()
                 result = []
-                for key, resource in resources.items():
-                    if hasattr(resource, 'name'):
-                        result.append({
-                            "name": resource.name,
-                            "description": getattr(resource, 'description', ''),
-                            "template": str(resource),
-                            "server_id": server_id
-                        })
-                    else:
-                        result.append({
-                            "name": key,
-                            "description": "",
-                            "template": str(resource),
-                            "server_id": server_id
-                        })
+                try:
+                    resources = await server.server.get_resources()
+                    for key, resource in resources.items():
+                        if hasattr(resource, 'name'):
+                            result.append({
+                                "name": resource.name,
+                                "description": getattr(resource, 'description', ''),
+                                "uri": str(getattr(resource, 'uri', '')),
+                                "type": "resource",
+                                "server_id": server_id
+                            })
+                        else:
+                            result.append({
+                                "name": key,
+                                "description": "",
+                                "uri": str(resource),
+                                "type": "resource",
+                                "server_id": server_id
+                            })
+                except Exception as e:
+                    logger.warning("Error getting resources from server %s: %s", server_id, e)
+                try:
+                    templates = await server.server.get_resource_templates()
+                    for key, template in templates.items():
+                        if hasattr(template, 'name'):
+                            result.append({
+                                "name": template.name,
+                                "description": getattr(template, 'description', ''),
+                                "uri_template": str(getattr(template, 'uri_template', '')),
+                                "type": "template",
+                                "server_id": server_id
+                            })
+                        else:
+                            result.append({
+                                "name": key,
+                                "description": "",
+                                "uri_template": str(template),
+                                "type": "template",
+                                "server_id": server_id
+                            })
+                except Exception as e:
+                    logger.warning("Error getting resource templates from server %s: %s", server_id, e)
                 return result
             return []
         except Exception as e:

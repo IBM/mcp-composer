@@ -43,6 +43,14 @@ class DatabaseInterface(ABC):
         pass
 
     @abstractmethod
+    def enable_resources(self, resources: list[str], server_id: str) -> None:
+        pass
+
+    @abstractmethod
+    def disable_resources(self, resources: list[str], server_id: str) -> None:
+        pass
+
+    @abstractmethod
     def mark_deactivated(self, server_id: str) -> None:
         """Marks the given server as deactivated (sets status='deactivated')"""
         pass

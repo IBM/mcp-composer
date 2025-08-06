@@ -293,6 +293,97 @@ class CloudantAdapter(DatabaseInterface):
         except Exception as e:
             logger.error("Failed to save disabled prompt list:%s", str(e))
 
+    def disable_resources(self, resources: list[str], server_id: str) -> None:
+        try:
+            # check if server config already present in db
+            existing_doc = self._client.get_document(db=self._db_name, doc_id=server_id).get_result()
+            resources = list(set(resources))
+            existing_resources = existing_doc.get("disabled_resources", [])
+            resources_description = existing_doc.get("resources_description", {})
+
+            # check the resource already present in disabled resources list
+            # if yes raise error, else update the disabled resources list
+            if existing_resources:
+                logger.info(
+                    """Disabled resource list is already
+                        %s present in cloudant for server_id %s.
+                        So, update the disabled resource list.
+                        Response: %s""",
+                    existing_resources,
+                    server_id,
+                    existing_doc,
+                )
+
+                duplicate_resource = check_duplicate_tool(existing_resources, resources)
+                if duplicate_resource:
+                    raise ToolDuplicateError(f"Resource {duplicate_resource} is already disabled")
+                existing_doc["disabled_resources"].extend(resources)
+            else:
+                # if no disabled resources list present add it
+                existing_doc["disabled_resources"] = resources
+
+            # Remove resource descriptions if they exist
+            if existing_doc["disabled_resources"] and resources_description:
+                for resource in existing_doc["disabled_resources"]:
+                    resources_description.pop(resource, None)
+
+            response = self._client.post_document(
+                db=self._db_name,
+                document=existing_doc,
+            ).get_result()
+
+            logger.info(
+                """Saved disabled resource list '%s'
+                    for server '%s'.
+                    Response: '%s'""",
+                existing_doc["disabled_resources"],
+                server_id,
+                response,
+            )
+
+        except ApiException as e:
+            # Add server config to db with disabled resources list, since it not exist
+            if e.code == 404:
+                logger.info("Server %s is not exist in database. Adding the server with disabled resource list", server_id)
+                resource_doc = Document(_id=server_id, id=server_id, disabled_resources=resources)
+                response = self._client.post_document(
+                    db=self._db_name,
+                    document=resource_doc,
+                ).get_result()
+                logger.info(
+                    """Saved disabled resource list '%s'
+                        for server '%s'.
+                        Response: '%s'""",
+                    resources,
+                    server_id,
+                    response,
+                )
+            else:
+                logger.error("Failed to save disabled resource list:%s", str(e))
+
+    def enable_resources(self, resources: list[str], server_id: str) -> None:
+        """Enable resources which already disabled"""
+        try:
+            # check if server config already present in db
+            existing_doc = self._client.get_document(db=self._db_name, doc_id=server_id).get_result()
+            existing_doc["disabled_resources"] = resources
+
+            response = self._client.post_document(
+                db=self._db_name,
+                document=existing_doc,
+            ).get_result()
+
+            logger.info(
+                """Saved disabled resource list '%s'
+                    for server '%s'.
+                    Response: '%s'""",
+                existing_doc["disabled_resources"],
+                server_id,
+                response,
+            )
+        except Exception as e:
+            logger.error("Failed to save disabled resource list:%s", str(e))
+
     def get_document(self, server_id: str) -> Dict:
         # get the server config details of a single server
         server_doc = {}

@@ -65,5 +65,18 @@ class FakeDatabase(DatabaseInterface):
             if "disabled_prompts" in self._servers[server_id]:
                 self._servers[server_id]["disabled_prompts"] = prompts
 
+    def disable_resources(self, resources: list[str], server_id: str) -> None:
+        """Disable resources in the fake database."""
+        if server_id in self._servers:
+            if "disabled_resources" not in self._servers[server_id]:
+                self._servers[server_id]["disabled_resources"] = []
+            self._servers[server_id]["disabled_resources"].extend(resources)
+
+    def enable_resources(self, resources: list[str], server_id: str) -> None:
+        """Enable resources in the fake database."""
+        if server_id in self._servers:
+            if "disabled_resources" in self._servers[server_id]:
+                self._servers[server_id]["disabled_resources"] = resources
+
     def update_server_config(self, config: dict) -> None:
         self._servers[config["id"]] = config

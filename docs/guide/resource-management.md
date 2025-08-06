@@ -1,6 +1,6 @@
 # Resource Management in MCP Composer
 
-MCP Composer provides a comprehensive resource management system that allows you to dynamically create, list, and manage resources and resource templates across your MCP infrastructure. The system supports both runtime resource creation and static resource loading from configuration files. As part of resource management in MCP Composer, you will create resources and templates dynamically, list all registered resources, get resources from specific servers, filter resources based on criteria, and apply safety and validation rules. Among them, create resources and templates dynamically, list all registered resources, list resources per server, and filter resources are currently supported.
+MCP Composer provides a comprehensive resource management system that allows you to dynamically create, list, manage, enable, and disable resources and resource templates across your MCP infrastructure. The system supports both runtime resource creation and static resource loading from configuration files. As part of resource management in MCP Composer, you will create resources and templates dynamically, list all registered resources, get resources from specific servers, filter resources based on criteria, enable/disable resources, and apply safety and validation rules. Among them, create resources and templates dynamically, list all registered resources, list resources per server, filter resources, and enable/disable resources are currently supported.
 
 Here is the roadmap for resource management in MCP Composer:
 
@@ -14,8 +14,9 @@ Based on the mind map shown, MCP Composer currently supports the following resou
 
 - **Create**: Dynamically create new resources and templates to the system*  
 - **List**: Retrieve all registered resources and templates*
-- **List per Server**: Get resources from specific servers*
+- **List per Server**: Get resources from specific servers (both resources and templates)*
 - **Filter**: Filter resources based on criteria*
+- **Enable/Disable**: Enable or disable resources and templates across servers*
 
 The following feature is planned to be implemented:
 
@@ -25,7 +26,7 @@ The following feature is planned to be implemented:
 
 ### 1. Resource Management Tools
 
-MCP Composer exposes seven main tools for resource management:
+MCP Composer exposes nine main tools for resource management:
 
 ```python
 # Create resource templates
@@ -40,14 +41,17 @@ self.add_tool(Tool.from_function(self.list_resources))
 # List all resource templates
 self.add_tool(Tool.from_function(self.list_resource_templates))
 
-# Remove resources
-self.add_tool(Tool.from_function(self.remove_resource))
-
 # List resources per server
 self.add_tool(Tool.from_function(self.list_resources_per_server))
 
 # Filter resources
 self.add_tool(Tool.from_function(self.filter_resources))
+
+# Enable resources
+self.add_tool(Tool.from_function(self.enable_resources))
+
+# Disable resources
+self.add_tool(Tool.from_function(self.disable_resources))
 ```
 
 ### 2. Resource Management Flow
@@ -59,8 +63,7 @@ sequenceDiagram
     participant Client
     participant MCPComposer
     participant ResourceManager
-    participant MCPServerBuilder
-    participant LocalFile
+    participant ServerManager
     participant FastMCP
 
     Note over Client, FastMCP: Dynamic Resource Creation Flow
@@ -86,7 +89,7 @@ sequenceDiagram
     MCPComposer->>ResourceManager: list_resources()
     ResourceManager->>FastMCP: get_resources()
     FastMCP-->>ResourceManager: resources_dict
-    ResourceManager->>ResourceManager: convert to list of dicts
+    ResourceManager->>ResourceManager: apply filtering (disabled resources)
     ResourceManager-->>MCPComposer: list of resource dicts
     MCPComposer-->>Client: list of resources with metadata
 
@@ -95,11 +98,21 @@ sequenceDiagram
     MCPComposer->>ResourceManager: list_resources_per_server(server_id)
     ResourceManager->>ServerManager: get_member(server_id)
     ServerManager-->>ResourceManager: member server
-    ResourceManager->>MemberServer: get_resource_templates()
-    MemberServer-->>ResourceManager: resources_dict
-    ResourceManager->>ResourceManager: format resources with server_id
+    ResourceManager->>MemberServer: get_resources() AND get_resource_templates()
+    MemberServer-->>ResourceManager: resources_dict AND templates_dict
+    ResourceManager->>ResourceManager: format resources with server_id and type
     ResourceManager-->>MCPComposer: list of resource dicts
     MCPComposer-->>Client: list of resources with server info
+
+    Note over Client, FastMCP: Enable/Disable Resources Flow
+    Client->>MCPComposer: disable_resources(resources, server_id)
+    MCPComposer->>ResourceManager: disable_resources(resources, server_id)
+    ResourceManager->>ResourceManager: find resources by name
+    ResourceManager->>ServerManager: disable_resources(resources_to_disable, server_id)
+    ServerManager->>ServerManager: update disabled_resources list
+    ServerManager-->>ResourceManager: success
+    ResourceManager-->>MCPComposer: success message
+    MCPComposer-->>Client: success message
 
     Note over Client, FastMCP: Filter Resources Flow
     Client->>MCPComposer: filter_resources(filter_criteria)
@@ -251,7 +264,7 @@ result = await composer.create_resource_template(template_config)
 
 ### List All Resources
 
-The `list_resources` function retrieves all registered resources:
+The `list_resources` function retrieves all registered resources (excluding disabled ones):
 
 ```python
 async def list_resources(self) -> list[dict]:
@@ -272,7 +285,7 @@ async def list_resources(self) -> list[dict]:
 #### Example Usage:
 
 ```python
-# Get all registered resources
+# Get all registered resources (excluding disabled ones)
 all_resources = await composer.list_resources()
 for resource in all_resources:
     print(f"Resource: {resource['name']} - {resource['description']}")
@@ -283,7 +296,7 @@ for resource in all_resources:
 
 ### List All Resource Templates
 
-The `list_resource_templates` function retrieves all registered resource templates:
+The `list_resource_templates` function retrieves all registered resource templates (excluding disabled ones):
 
 ```python
 async def list_resource_templates(self) -> list[dict]:
@@ -304,7 +317,7 @@ async def list_resource_templates(self) -> list[dict]:
 #### Example Usage:
 
 ```python
-# Get all registered resource templates
+# Get all registered resource templates (excluding disabled ones)
 all_templates = await composer.list_resource_templates()
 for template in all_templates:
     print(f"Template: {template['name']} - {template['description']}")
@@ -317,59 +330,78 @@ for template in all_templates:
 
 ### List Resources Per Server
 
-The `list_resources_per_server` function retrieves all resources from a specific server:
+The `list_resources_per_server` function retrieves all resources and templates from a specific server:
 
 ```python
 async def list_resources_per_server(self, server_id: str) -> list[dict]:
-    """List all resources from a specific server."""
+    """List all resources and templates from a specific server."""
     return await self._resource_manager.list_resources_per_server(server_id)
 ```
 
 #### Example Usage:
 
 ```python
-# List resources from a specific server
+# List resources and templates from a specific server
 resources = await composer.list_resources_per_server("my-server")
 for resource in resources:
     print(f"Resource: {resource['name']} from server: {resource['server_id']}")
+    print(f"  Type: {resource['type']}")  # 'resource' or 'template'
     print(f"  Description: {resource['description']}")
-    print(f"  Template: {resource['template']}")
+    if resource['type'] == 'resource':
+        print(f"  URI: {resource['uri']}")
+    else:
+        print(f"  URI Template: {resource['uri_template']}")
 ```
 
 #### Implementation Details:
 
-The method checks if the server exists and retrieves resources from the specific server:
+The method checks if the server exists and retrieves both resources and templates from the specific server:
 
 ```python
 async def list_resources_per_server(self, server_id: str) -> List[Dict]:
-    """List all resources from a specific server."""
+    """List all resources and templates from a specific server."""
     try:
         if not self._server_manager or not self._server_manager.has_member_server(server_id):
             return []
 
         server = self._server_manager.get_member(server_id)
         if server and hasattr(server, 'server') and server.server:
-            resources = await server.server.get_resource_templates()
             result = []
-            for key, resource in resources.items():
-                if hasattr(resource, 'name'):
-                    result.append({
-                        "name": resource.name,
-                        "description": getattr(resource, 'description', ''),
-                        "template": str(resource),
-                        "server_id": server_id
-                    })
-                else:
-                    result.append({
-                        "name": key,
-                        "description": "",
-                        "template": str(resource),
-                        "server_id": server_id
-                    })
+            
+            # Get resources
+            try:
+                resources = await server.server.get_resources()
+                for key, resource in resources.items():
+                    if hasattr(resource, 'name'):
+                        result.append({
+                            "name": resource.name,
+                            "description": getattr(resource, 'description', ''),
+                            "uri": str(getattr(resource, 'uri', '')),
+                            "type": "resource",
+                            "server_id": server_id
+                        })
+            except Exception as e:
+                logger.warning("Error getting resources from server %s: %s", server_id, e)
+            
+            # Get resource templates
+            try:
+                templates = await server.server.get_resource_templates()
+                for key, template in templates.items():
+                    if hasattr(template, 'name'):
+                        result.append({
+                            "name": template.name,
+                            "description": getattr(template, 'description', ''),
+                            "uri_template": str(getattr(template, 'uri_template', '')),
+                            "type": "template",
+                            "server_id": server_id
+                        })
+            except Exception as e:
+                logger.warning("Error getting resource templates from server %s: %s", server_id, e)
+            
             return result
         return []
     except Exception as e:
-        logger.error("Error listing resources for server '%s': %s", server_id, e)
+        logger.error("Error listing resources for server %s: %s", server_id, e)
         return []
 ```
 
@@ -516,24 +548,156 @@ async def filter_resources(self, filter_criteria: dict) -> List[Dict]:
         return []
 ```
 
-## Removing Resources
+## Enabling and Disabling Resources
 
-### Remove a Resource
+### Enable Resources
 
-The `remove_resource` function removes a specific resource by name:
+The `enable_resources` function allows you to enable previously disabled resources or templates:
 
 ```python
-async def remove_resource(self, resource_name: str) -> str:
-    """Remove a specific resource by name from composer or mounted servers."""
-    return await self._resource_manager.remove_resource(resource_name)
+async def enable_resources(self, resources: list[str], server_id: str) -> str:
+    """Enable resources or templates from a specific server."""
+    return await self._resource_manager.enable_resources(resources, server_id)
 ```
 
 #### Example Usage:
 
 ```python
-# Remove a specific resource
-result = await composer.remove_resource("my_resource")
-print(result)  # "Resource 'my_resource' removed successfully" or "Resource 'my_resource' not found"
+# Enable a single resource
+result = await composer.enable_resources(["finance_reference"], "mcp-stock-info")
+print(result)  # "Enabled ['mcp-stock-info_finance_reference'] resources/templates from server mcp-stock-info"
+
+# Enable multiple resources
+result = await composer.enable_resources(["resource1", "resource2"], "my-server")
+print(result)  # "Enabled ['my-server_resource1', 'my-server_resource2'] resources/templates from server my-server"
+```
+
+### Disable Resources
+
+The `disable_resources` function allows you to disable resources or templates:
+
+```python
+async def disable_resources(self, resources: list[str], server_id: str) -> str:
+    """Disable resources or templates from a specific server."""
+    return await self._resource_manager.disable_resources(resources, server_id)
+```
+
+#### Example Usage:
+
+```python
+# Disable a single resource
+result = await composer.disable_resources(["finance_reference"], "mcp-stock-info")
+print(result)  # "Disabled ['mcp-stock-info_finance_reference'] resources/templates from server mcp-stock-info"
+
+# Disable multiple resources
+result = await composer.disable_resources(["resource1", "resource2"], "my-server")
+print(result)  # "Disabled ['my-server_resource1', 'my-server_resource2'] resources/templates from server my-server"
+```
+
+#### Implementation Details:
+
+The enable/disable functionality works by:
+
+1. **Finding resources by name**: The system searches for resources and templates by their `name` attribute
+2. **Handling both types**: Works with both `Resource` and `ResourceTemplate` objects
+3. **Server-specific**: Resources are disabled/enabled per server
+4. **Persistent storage**: Changes are persisted to the database
+5. **Filtering**: Disabled resources are automatically filtered out from `list_resources()` and `list_resource_templates()`
+
+```python
+async def disable_resources(self, resources: list[str], server_id: str) -> str:
+    """
+    Disable a resource or multiple resources from the member server.
+    This method handles both Resources and Resource Templates.
+    """
+    if not self._server_manager:
+        return "Server manager not available"
+
+    try:
+        self._server_manager.check_server_exist(server_id)
+        
+        # Get all resources and templates using the list methods
+        all_resources = await self.list_resources()
+        all_templates = await self.list_resource_templates()
+        
+        # Find resources to disable by matching names
+        resources_to_disable = []
+        
+        for resource_name in resources:
+            # Check in resources
+            for resource in all_resources:
+                actual_name = getattr(resource, 'name', None)
+                if actual_name and resource_name.lower() == actual_name.lower():
+                    full_key = f"{server_id}_{resource_name}"
+                    resources_to_disable.append(full_key)
+                    break
+            
+            # Check in templates
+            for template in all_templates:
+                actual_name = getattr(template, 'name', None)
+                if actual_name and resource_name.lower() == actual_name.lower():
+                    full_key = f"{server_id}_{resource_name}"
+                    resources_to_disable.append(full_key)
+                    break
+
+        if not resources_to_disable:
+            return f"No resources or resource templates found to disable: {resources}"
+
+        self._server_manager.disable_resources(resources_to_disable, server_id)
+        return f"Disabled {resources_to_disable} resources/templates from server {server_id}"
+    except Exception as e:
+        return f"Failed to disable resources: {str(e)}"
+```
+
+### Filtering Disabled Resources
+
+Disabled resources are automatically filtered out from all listing operations:
+
+```python
+def _filter_disabled_resources(self, resources: dict[str, Resource]) -> dict[str, Resource]:
+    """Filter resources by removing disabled ones."""
+    try:
+        if not self._server_manager:
+            return resources
+
+        server_config = self._server_manager.list()
+        if not server_config:
+            return resources
+
+        remove_set = set()
+        for member in server_config:
+            if member.health_status == HealthStatus.unhealthy:
+                continue
+            if member.disabled_resources:
+                remove_set.update(member.disabled_resources)
+
+        filtered_resources = {}
+        for name, resource in resources.items():
+            # Check if this resource should be filtered out
+            should_remove = False
+            
+            # Check exact key match first
+            if name in remove_set:
+                should_remove = True
+            else:
+                # Check if any disabled resource matches this resource by name
+                resource_name = getattr(resource, 'name', None)
+                if resource_name:
+                    for disabled_resource in remove_set:
+                        if '_' in disabled_resource:
+                            disabled_resource_name = disabled_resource.split('_', 1)[1]
+                            if resource_name.lower() == disabled_resource_name.lower():
+                                should_remove = True
+                                break
+            
+            if should_remove:
+                continue
+            
+            filtered_resources[name] = resource
+        return filtered_resources
+    except Exception as e:
+        logger.exception("Resources filtering failed: %s", e)
+        raise
 ```
 
 ## Example Resources
@@ -632,6 +796,23 @@ async def test_list_resources_via_composer():
     assert isinstance(result, list)
     assert isinstance(result[0], dict)
     assert any(r["name"] == "test_resource" for r in result)
+```
+
+### Enable/Disable Tests
+
+```python
+@pytest.mark.asyncio
+async def test_disable_and_enable_resources():
+    """Test the full disable/enable resource flow."""
+    composer = MCPComposer("test-composer")
+
+    # Test disabling resources
+    result = await composer.disable_resources(["test_resource"], "test-server")
+    assert "Disabled" in result or "No resources found to disable" in result
+
+    # Test enabling resources
+    result = await composer.enable_resources(["test_resource"], "test-server")
+    assert "Enabled" in result or "No resources disabled" in result
 ```
 
 ### Filter Tests
@@ -794,6 +975,34 @@ Content-Type: application/json
 }
 ```
 
+#### Enable Resources
+
+```http
+POST /mcp/tools/enable_resources
+Content-Type: application/json
+
+{
+  "arguments": {
+    "resources": ["resource1", "resource2"],
+    "server_id": "my-server"
+  }
+}
+```
+
+#### Disable Resources
+
+```http
+POST /mcp/tools/disable_resources
+Content-Type: application/json
+
+{
+  "arguments": {
+    "resources": ["resource1", "resource2"],
+    "server_id": "my-server"
+  }
+}
+```
+
 ## Best Practices
 
 ### 1. Resource Naming
@@ -875,6 +1084,31 @@ Contains pre-defined resources covering:
 
 ## Conclusion
 
-MCP Composer's resource management system provides a flexible and powerful way to handle dynamic resource creation and management. The current implementation supports creating resources and templates both dynamically and through static configuration files, with comprehensive listing capabilities including server-specific listing and filtering functionality. The system is designed to be extensible, allowing for future enhancements like advanced guardrails and validation rules.
+MCP Composer's resource management system provides a flexible and powerful way to handle dynamic resource creation and management. The current implementation supports creating resources and templates both dynamically and through static configuration files, with comprehensive listing capabilities including server-specific listing and filtering functionality. The system now includes advanced enable/disable functionality that allows you to control resource visibility across servers, with automatic filtering of disabled resources from all listing operations.
 
-The resource management system complements the prompt management system, providing a complete solution for managing both structured data (resources) and natural language templates (prompts) within the MCP Composer ecosystem. 
+### Key Features Implemented
+
+- **Dynamic Resource Creation**: Create resources and templates on-the-fly with custom functions or static content
+- **Comprehensive Listing**: List all resources, templates, or server-specific resources with full metadata
+- **Advanced Filtering**: Filter resources by name, description, tags, type, and URI patterns
+- **Enable/Disable Management**: Enable or disable resources and templates per server with persistent storage
+- **Automatic Filtering**: Disabled resources are automatically filtered out from all listing operations
+- **Server-Specific Operations**: All operations can be performed on specific servers or across the entire system
+- **Error Handling**: Robust error handling with meaningful error messages
+- **Type Safety**: Support for both `Resource` and `ResourceTemplate` objects
+- **Architecture Benefits**: Built on FastMCP framework for easy extension and customization
+- **Persistent Storage**: All changes are persisted to the database (local file, Cloudant, etc.)
+- **Server Management**: Integrated with the server management system for seamless operation
+- **Filtering Logic**: Intelligent filtering that handles resource naming conventions and URI patterns
+- **Performance Optimized**: Efficient resource discovery and filtering algorithms
+
+The resource management system complements the prompt management system, providing a complete solution for managing both structured data (resources) and natural language templates (prompts) within the MCP Composer ecosystem. The enable/disable functionality adds a crucial layer of control, allowing administrators to manage resource visibility and access across their MCP infrastructure.
+
+### Future Enhancements
+
+The system is designed to be extensible, allowing for future enhancements like:
+- **Advanced Guardrails**: Apply safety and validation rules
+- **Resource Versioning**: Version control for resources and templates
+- **Access Control**: Fine-grained permissions for resource access
+- **Resource Dependencies**: Manage dependencies between resources
+- **Resource Monitoring**: Track resource usage and performance metrics 

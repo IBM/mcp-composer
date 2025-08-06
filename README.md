@@ -352,19 +352,21 @@ mcp-composer --mode <http|stdio> [--host HOST] [--port PORT] [--log-level LEVEL]
 
 #### Prompt Management Tools
 - `add_prompts`: Add one or more prompts to the composer
-- `get_all_prompts`: Get all registered prompts as JSON strings
-- `remove_prompt`: Remove a specific prompt by name
-- `list_prompts_per_server`: List all prompts from a specific server
+- `get_all_prompts`: Get all registered prompts as JSON strings (excluding disabled ones)
+- `list_prompts_per_server`: List all prompts from a specific server (excluding disabled ones)
 - `filter_prompts`: Filter prompts based on criteria like name, description, tags
+- `enable_prompts`: Enable prompts from a specific server
+- `disable_prompts`: Disable prompts from a specific server
 
 #### Resource Management Tools
 - `add_resource_template`: Add a resource template to the composer
 - `create_resource`: Create a new resource in the composer
 - `list_resources`: List all available resources (actual resources)
 - `list_resource_templates`: List all available resource templates
-- `remove_resource`: Remove a specific resource by name
-- `list_resources_per_server`: List all resources from a specific server
+- `list_resources_per_server`: List all resources and templates from a specific server
 - `filter_resources`: Filter resources based on criteria like name, description, tags
+- `enable_resources`: Enable resources or templates from a specific server
+- `disable_resources`: Disable resources or templates from a specific server
 
 #### Add tool using Curl command and Python script
 
@@ -476,26 +478,10 @@ for prompt_json in prompts:
     print(prompt_json)
 ```
 
-#### Remove a Prompt
-
-- `remove_prompt(prompt_name: str) -> str`
-  Removes a specific prompt by name.
-
-- **Arguments**:
-  - `prompt_name`: The name of the prompt to remove.
-- **Returns**: A status message indicating success or failure.
-
-**Example:**
-
-```python
-result = await composer.remove_prompt("test_prompt")
-print(result)  # "Prompt 'test_prompt' removed successfully" or "Prompt 'test_prompt' not found"
-```
-
 #### List Prompts per Server
 
 - `list_prompts_per_server(server_id: str) -> list[dict]`
-  Lists all prompts from a specific server.
+  Lists all prompts from a specific server (excluding disabled ones).
 
 - **Arguments**:
   - `server_id`: The ID of the server to list prompts from.
@@ -507,6 +493,42 @@ print(result)  # "Prompt 'test_prompt' removed successfully" or "Prompt 'test_pr
 prompts = await composer.list_prompts_per_server("my-server")
 for prompt in prompts:
     print(f"Prompt: {prompt['name']} from server: {prompt['server_id']}")
+    print(f"  Description: {prompt['description']}")
+    print(f"  Template: {prompt['template']}")
+```
+
+#### Enable Prompts
+
+- `enable_prompts(prompts: list[str], server_id: str) -> str`
+  Enables prompts from a specific server.
+
+- **Arguments**:
+  - `prompts`: A list of prompt names to enable.
+  - `server_id`: The ID of the server containing the prompts.
+- **Returns**: A status message indicating success or failure.
+
+**Example:**
+
+```python
+result = await composer.enable_prompts(["app_top_errors_yesterday"], "mcp-prompt")
+print(result)  # "Enabled ['mcp-prompt_app_top_errors_yesterday'] prompts from server mcp-prompt"
+```
+
+#### Disable Prompts
+
+- `disable_prompts(prompts: list[str], server_id: str) -> str`
+  Disables prompts from a specific server.
+
+- **Arguments**:
+  - `prompts`: A list of prompt names to disable.
+  - `server_id`: The ID of the server containing the prompts.
+- **Returns**: A status message indicating success or failure.
+
+**Example:**
+
+```python
+result = await composer.disable_prompts(["app_top_errors_yesterday"], "mcp-prompt")
+print(result)  # "Disabled ['mcp-prompt_app_top_errors_yesterday'] prompts from server mcp-prompt"
 ```
 
 #### Filter Prompts
@@ -605,30 +627,14 @@ for template in templates:
     print(f"Template: {template['name']} - {template['description']}")
 ```
 
-#### Remove Resource
-
-- `remove_resource(resource_name: str) -> str`
-  Removes a specific resource by name.
-
-- **Arguments**:
-  - `resource_name`: The name of the resource to remove.
-- **Returns**: A status message indicating success or failure.
-
-**Example:**
-
-```python
-result = await composer.remove_resource("my_resource")
-print(result)  # "Resource 'my_resource' removed successfully" or "Resource 'my_resource' not found"
-```
-
 #### List Resources per Server
 
 - `list_resources_per_server(server_id: str) -> list[dict]`
-  Lists all resources from a specific server.
+  Lists all resources and templates from a specific server.
 
 - **Arguments**:
   - `server_id`: The ID of the server to list resources from.
-- **Returns**: A list of dictionaries containing resource information with server_id included.
+- **Returns**: A list of dictionaries containing resource information with server_id and type included.
 
 **Example:**
 
@@ -636,6 +642,41 @@ print(result)  # "Resource 'my_resource' removed successfully" or "Resource 'my_
 resources = await composer.list_resources_per_server("my-server")
 for resource in resources:
     print(f"Resource: {resource['name']} from server: {resource['server_id']}")
+    print(f"  Type: {resource['type']}")  # 'resource' or 'template'
+```
+
+#### Enable Resources
+
+- `enable_resources(resources: list[str], server_id: str) -> str`
+  Enables resources or templates from a specific server.
+
+- **Arguments**:
+  - `resources`: A list of resource names to enable.
+  - `server_id`: The ID of the server containing the resources.
+- **Returns**: A status message indicating success or failure.
+
+**Example:**
+
+```python
+result = await composer.enable_resources(["finance_reference"], "mcp-stock-info")
+print(result)  # "Enabled ['mcp-stock-info_finance_reference'] resources/templates from server mcp-stock-info"
+```
+
+#### Disable Resources
+
+- `disable_resources(resources: list[str], server_id: str) -> str`
+  Disables resources or templates from a specific server.
+
+- **Arguments**:
+  - `resources`: A list of resource names to disable.
+  - `server_id`: The ID of the server containing the resources.
+- **Returns**: A status message indicating success or failure.
+
+**Example:**
+
+```python
+result = await composer.disable_resources(["finance_reference"], "mcp-stock-info")
+print(result)  # "Disabled ['mcp-stock-info_finance_reference'] resources/templates from server mcp-stock-info"
 ```
 
 #### Filter Resources
@@ -644,7 +685,7 @@ for resource in resources:
   Filters resources based on criteria like name, description, tags, etc.
 
 - **Arguments**:
-  - `filter_criteria`: A dictionary containing filter criteria (name, description, tags).
+  - `filter_criteria`: A dictionary containing filter criteria (name, description, tags, type).
 - **Returns**: A list of dictionaries containing matching resources.
 
 **Example:**
@@ -656,10 +697,14 @@ result = await composer.filter_resources({"name": "resource"})
 # Filter by description
 result = await composer.filter_resources({"description": "test"})
 
+# Filter by type (resource or template)
+result = await composer.filter_resources({"type": "resource"})
+
 # Filter by multiple criteria
 result = await composer.filter_resources({
     "name": "resource",
-    "description": "test"
+    "description": "test",
+    "type": "template"
 })
 ```
 
