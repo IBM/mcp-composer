@@ -7,9 +7,9 @@ from ibm_cloud_sdk_core.authenticators import IAMAuthenticator
 from ibmcloudant import CloudantV1
 from ibmcloudant.cloudant_v1 import Document
 
-from mcp_composer.exceptions import ToolDuplicateError
-from mcp_composer.utils import LoggerFactory
-from mcp_composer.utils.tools import check_duplicate_tool
+from mcp_composer.core.utils.exceptions import ToolDuplicateError
+from mcp_composer.core.utils import LoggerFactory
+from mcp_composer.core.utils.tools import check_duplicate_tool
 
 from .database import DatabaseInterface
 
@@ -38,7 +38,9 @@ class CloudantAdapter(DatabaseInterface):
 
     def load_all_servers(self) -> List[Dict]:
         try:
-            result = self._client.post_all_docs(db=self._db_name, include_docs=True).get_result()
+            result = self._client.post_all_docs(
+                db=self._db_name, include_docs=True
+            ).get_result()
             return [row["doc"] for row in result.get("rows", []) if "doc" in row]
         except Exception as exc:
             logger.error("Cloudant read failed: %s", exc)
@@ -47,16 +49,22 @@ class CloudantAdapter(DatabaseInterface):
     def add_server(self, config: Dict) -> None:
         doc_id = config["id"]
         try:
-            existing = self._client.get_document(db=self._db_name, doc_id=doc_id).get_result()
+            existing = self._client.get_document(
+                db=self._db_name, doc_id=doc_id
+            ).get_result()
             config["_rev"] = existing["_rev"]  # Set revision ID for update
 
             # Update existing document
-            self._client.post_document(db=self._db_name, document=Document(**config)).get_result()
+            self._client.post_document(
+                db=self._db_name, document=Document(**config)
+            ).get_result()
             logger.info("Updated server '%s' in Cloudant", doc_id)
         except ApiException as e:
             if e.code == 404:
                 try:
-                    self._client.post_document(db=self._db_name, document=Document(**config)).get_result()
+                    self._client.post_document(
+                        db=self._db_name, document=Document(**config)
+                    ).get_result()
                     logger.info("Saved server '%s' to Cloudant", doc_id)
                 except Exception as post_err:
                     logger.error("Failed to save server '%s': %s", doc_id, post_err)
@@ -65,10 +73,14 @@ class CloudantAdapter(DatabaseInterface):
 
     def remove_server(self, server_id: str) -> None:
         try:
-            result = self._client.post_find(db=self._db_name, selector={"id": {"$eq": server_id}}).get_result()
+            result = self._client.post_find(
+                db=self._db_name, selector={"id": {"$eq": server_id}}
+            ).get_result()
 
             for doc in result.get("docs", []):
-                self._client.delete_document(db=self._db_name, doc_id=doc["_id"], rev=doc["_rev"])
+                self._client.delete_document(
+                    db=self._db_name, doc_id=doc["_id"], rev=doc["_rev"]
+                )
                 logger.info("Deleted server '%s' from Cloudant", server_id)
         except Exception as exc:
             logger.error("Cloudant operation failed: %s", exc)
@@ -76,7 +88,9 @@ class CloudantAdapter(DatabaseInterface):
     def disable_tools(self, tools: list[str], server_id: str) -> None:
         try:
             # check if server config already present in db
-            existing_doc = self._client.get_document(db=self._db_name, doc_id=server_id).get_result()
+            existing_doc = self._client.get_document(
+                db=self._db_name, doc_id=server_id
+            ).get_result()
             tools = list(set(tools))
             existing_tools = existing_doc.get("disabled_tools", [])
             tools_description = existing_doc.get("tools_description", {})
@@ -96,7 +110,9 @@ class CloudantAdapter(DatabaseInterface):
 
                 duplicate_tool = check_duplicate_tool(existing_tools, tools)
                 if duplicate_tool:
-                    raise ToolDuplicateError(f"Tool {duplicate_tool} is already removed")
+                    raise ToolDuplicateError(
+                        f"Tool {duplicate_tool} is already removed"
+                    )
                 existing_doc["disabled_tools"].extend(tools)
             else:
                 # if no remove tools list present add it
@@ -124,7 +140,10 @@ class CloudantAdapter(DatabaseInterface):
         except ApiException as e:
             # Add server config to db with remove tools list, since it not exist
             if e.code == 404:
-                logger.info("Server %s is not exist in database. Adding the server with remove tool list", server_id)
+                logger.info(
+                    "Server %s is not exist in database. Adding the server with remove tool list",
+                    server_id,
+                )
                 tool_doc = Document(_id=server_id, id=server_id, disabled_tools=tools)
                 response = self._client.post_document(
                     db=self._db_name,
@@ -145,7 +164,9 @@ class CloudantAdapter(DatabaseInterface):
         """Enable tools which already disabled"""
         try:
             # check if server config already present in db
-            existing_doc = self._client.get_document(db=self._db_name, doc_id=server_id).get_result()
+            existing_doc = self._client.get_document(
+                db=self._db_name, doc_id=server_id
+            ).get_result()
             existing_doc["disabled_tools"] = tools
 
             response = self._client.post_document(
@@ -164,10 +185,14 @@ class CloudantAdapter(DatabaseInterface):
         except Exception as e:
             logger.error("Failed to save disabled tool list:%s", str(e))
 
-    def update_tool_description(self, tool: str, description: str, server_id: str) -> None:
+    def update_tool_description(
+        self, tool: str, description: str, server_id: str
+    ) -> None:
         try:
             # Try to retrieve the existing server document
-            existing_doc = self._client.get_document(db=self._db_name, doc_id=server_id).get_result()
+            existing_doc = self._client.get_document(
+                db=self._db_name, doc_id=server_id
+            ).get_result()
 
             # Update or initialize tools_description
             tools_description = existing_doc.get("tools_description", {})
@@ -180,12 +205,20 @@ class CloudantAdapter(DatabaseInterface):
                 document=existing_doc,
             ).get_result()
 
-            logger.info("Updated tool description '%s' for server '%s'. Response: %s", description, server_id, response)
+            logger.info(
+                "Updated tool description '%s' for server '%s'. Response: %s",
+                description,
+                server_id,
+                response,
+            )
 
         except ApiException as e:
             if e.code == 404:
                 # Document does not exist, create a new one
-                logger.info("Server '%s' not found in database. Adding it with tool description.", server_id)
+                logger.info(
+                    "Server '%s' not found in database. Adding it with tool description.",
+                    server_id,
+                )
                 tool_doc = Document(
                     _id=server_id,
                     id=server_id,
@@ -197,7 +230,10 @@ class CloudantAdapter(DatabaseInterface):
                 ).get_result()
 
                 logger.info(
-                    "Saved tool description '%s' for server '%s'. Response: %s", description, server_id, response
+                    "Saved tool description '%s' for server '%s'. Response: %s",
+                    description,
+                    server_id,
+                    response,
                 )
             else:
                 logger.error("Failed to save tool description: %s", str(e))
@@ -205,7 +241,9 @@ class CloudantAdapter(DatabaseInterface):
     def disable_prompts(self, prompts: list[str], server_id: str) -> None:
         try:
             # check if server config already present in db
-            existing_doc = self._client.get_document(db=self._db_name, doc_id=server_id).get_result()
+            existing_doc = self._client.get_document(
+                db=self._db_name, doc_id=server_id
+            ).get_result()
             prompts = list(set(prompts))
             existing_prompts = existing_doc.get("disabled_prompts", [])
             prompts_description = existing_doc.get("prompts_description", {})
@@ -225,7 +263,9 @@ class CloudantAdapter(DatabaseInterface):
 
                 duplicate_prompt = check_duplicate_tool(existing_prompts, prompts)
                 if duplicate_prompt:
-                    raise ToolDuplicateError(f"Prompt {duplicate_prompt} is already disabled")
+                    raise ToolDuplicateError(
+                        f"Prompt {duplicate_prompt} is already disabled"
+                    )
                 existing_doc["disabled_prompts"].extend(prompts)
             else:
                 # if no disabled prompts list present add it
@@ -253,8 +293,13 @@ class CloudantAdapter(DatabaseInterface):
         except ApiException as e:
             # Add server config to db with disabled prompts list, since it not exist
             if e.code == 404:
-                logger.info("Server %s is not exist in database. Adding the server with disabled prompt list", server_id)
-                prompt_doc = Document(_id=server_id, id=server_id, disabled_prompts=prompts)
+                logger.info(
+                    "Server %s is not exist in database. Adding the server with disabled prompt list",
+                    server_id,
+                )
+                prompt_doc = Document(
+                    _id=server_id, id=server_id, disabled_prompts=prompts
+                )
                 response = self._client.post_document(
                     db=self._db_name,
                     document=prompt_doc,
@@ -274,7 +319,9 @@ class CloudantAdapter(DatabaseInterface):
         """Enable prompts which already disabled"""
         try:
             # check if server config already present in db
-            existing_doc = self._client.get_document(db=self._db_name, doc_id=server_id).get_result()
+            existing_doc = self._client.get_document(
+                db=self._db_name, doc_id=server_id
+            ).get_result()
             existing_doc["disabled_prompts"] = prompts
 
             response = self._client.post_document(
@@ -296,7 +343,9 @@ class CloudantAdapter(DatabaseInterface):
     def disable_resources(self, resources: list[str], server_id: str) -> None:
         try:
             # check if server config already present in db
-            existing_doc = self._client.get_document(db=self._db_name, doc_id=server_id).get_result()
+            existing_doc = self._client.get_document(
+                db=self._db_name, doc_id=server_id
+            ).get_result()
             resources = list(set(resources))
             existing_resources = existing_doc.get("disabled_resources", [])
             resources_description = existing_doc.get("resources_description", {})
@@ -316,7 +365,9 @@ class CloudantAdapter(DatabaseInterface):
 
                 duplicate_resource = check_duplicate_tool(existing_resources, resources)
                 if duplicate_resource:
-                    raise ToolDuplicateError(f"Resource {duplicate_resource} is already disabled")
+                    raise ToolDuplicateError(
+                        f"Resource {duplicate_resource} is already disabled"
+                    )
                 existing_doc["disabled_resources"].extend(resources)
             else:
                 # if no disabled resources list present add it
@@ -344,8 +395,13 @@ class CloudantAdapter(DatabaseInterface):
         except ApiException as e:
             # Add server config to db with disabled resources list, since it not exist
             if e.code == 404:
-                logger.info("Server %s is not exist in database. Adding the server with disabled resource list", server_id)
-                resource_doc = Document(_id=server_id, id=server_id, disabled_resources=resources)
+                logger.info(
+                    "Server %s is not exist in database. Adding the server with disabled resource list",
+                    server_id,
+                )
+                resource_doc = Document(
+                    _id=server_id, id=server_id, disabled_resources=resources
+                )
                 response = self._client.post_document(
                     db=self._db_name,
                     document=resource_doc,
@@ -365,7 +421,9 @@ class CloudantAdapter(DatabaseInterface):
         """Enable resources which already disabled"""
         try:
             # check if server config already present in db
-            existing_doc = self._client.get_document(db=self._db_name, doc_id=server_id).get_result()
+            existing_doc = self._client.get_document(
+                db=self._db_name, doc_id=server_id
+            ).get_result()
             existing_doc["disabled_resources"] = resources
 
             response = self._client.post_document(
@@ -388,9 +446,15 @@ class CloudantAdapter(DatabaseInterface):
         # get the server config details of a single server
         server_doc = {}
         try:
-            server_doc = self._client.get_document(db=self._db_name, doc_id=server_id).get_result()
+            server_doc = self._client.get_document(
+                db=self._db_name, doc_id=server_id
+            ).get_result()
 
-            logger.info("Retrieve server '%s' config details from Cloudant. Response: %s", server_id, server_doc)
+            logger.info(
+                "Retrieve server '%s' config details from Cloudant. Response: %s",
+                server_id,
+                server_doc,
+            )
 
         except ApiException as e:
             logger.error("No server details found in  DB: %s", e)
@@ -399,7 +463,9 @@ class CloudantAdapter(DatabaseInterface):
     def mark_deactivated(self, server_id: str) -> None:
         try:
             # Get the document first
-            doc = self._client.get_document(db=self._db_name, doc_id=server_id).get_result()
+            doc = self._client.get_document(
+                db=self._db_name, doc_id=server_id
+            ).get_result()
             doc["status"] = "deactivated"
 
             # Update the document with new status
@@ -407,7 +473,9 @@ class CloudantAdapter(DatabaseInterface):
                 db=self._db_name,
                 document=doc,
             ).get_result()
-            logger.info("Marked server '%s' as deactivated. Response: %s", server_id, response)
+            logger.info(
+                "Marked server '%s' as deactivated. Response: %s", server_id, response
+            )
         except ApiException as e:
             if e.code == 404:
                 logger.error("Server '%s' not found. Cannot deactivate.", server_id)
@@ -415,11 +483,15 @@ class CloudantAdapter(DatabaseInterface):
                 logger.error("Error deactivating server '%s': %s", server_id, e)
 
         except Exception as e:
-            logger.error("Unexpected error while deactivating server '%s': %s", server_id, e)
+            logger.error(
+                "Unexpected error while deactivating server '%s': %s", server_id, e
+            )
 
     def get_server_status(self, server_id: str) -> str:
         try:
-            doc = self._client.get_document(db=self._db_name, doc_id=server_id).get_result()
+            doc = self._client.get_document(
+                db=self._db_name, doc_id=server_id
+            ).get_result()
             status = doc.get("status", "active")  # default to 'active' if not set
             logger.info("Server '%s' has status: %s", server_id, status)
             return status
@@ -427,10 +499,14 @@ class CloudantAdapter(DatabaseInterface):
             if e.code == 404:
                 logger.warning("Server '%s' not found when fetching status.", server_id)
             else:
-                logger.error("Error retrieving server status for '%s': %s", server_id, e)
+                logger.error(
+                    "Error retrieving server status for '%s': %s", server_id, e
+                )
 
         except Exception as e:
-            logger.error("Unexpected error retrieving status for '%s': %s", server_id, e)
+            logger.error(
+                "Unexpected error retrieving status for '%s': %s", server_id, e
+            )
 
         return "unknown"
 
@@ -444,11 +520,15 @@ class CloudantAdapter(DatabaseInterface):
             raise ValueError("Config must include 'id' to update.")
 
         try:
-            existing = self._client.get_document(db=self._db_name, doc_id=server_id).get_result()
+            existing = self._client.get_document(
+                db=self._db_name, doc_id=server_id
+            ).get_result()
 
             config["_rev"] = existing["_rev"]
 
-            self._client.post_document(db=self._db_name, document=Document(**config)).get_result()
+            self._client.post_document(
+                db=self._db_name, document=Document(**config)
+            ).get_result()
 
             logger.info("Updated configuration for server '%s'", server_id)
 

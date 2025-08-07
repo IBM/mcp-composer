@@ -1,11 +1,11 @@
-from mcp_composer.composer import MCPComposer
-from .utils import (
+from mcp_composer.core.composer import MCPComposer
+from .core.utils import (
     LoggerFactory,
     ValidationError,
     AllServersValidator,
     ServerConfigValidator,
 )
-from .member_servers import MCPServerBuilder, ServerManager
+from .core.member_servers import MCPServerBuilder, ServerManager
 
 __all__ = [
     "MCPComposer",

@@ -8,14 +8,17 @@ def test_to_framework_message_user():
     assert msg.content == "hello"
     assert msg.__class__.__name__ == "UserMessage"
 
+
 def test_to_framework_message_agent():
     msg = agent_bee.to_framework_message("agent", "hi")
     assert msg.content == "hi"
     assert msg.__class__.__name__ == "AssistantMessage"
 
+
 def test_to_framework_message_invalid():
     with pytest.raises(ValueError):
         agent_bee.to_framework_message("invalid", "fail")
+
 
 @patch("mcp_composer_client.agent_bee.ReActAgent")
 @patch("mcp_composer_client.agent_bee.get_llm")
@@ -29,4 +32,5 @@ def test_create_agent_from_tools(mock_get_llm, mock_ReActAgent):
     agent = pytest.run(agent_bee.create_agent_from_tools(tools, messages))
     assert agent is not None
 
-# More advanced async tests for run_agent_multimcp can be added with pytest-asyncio 
+
+# More advanced async tests for run_agent_multimcp can be added with pytest-asyncio

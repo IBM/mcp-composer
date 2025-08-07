@@ -9,9 +9,9 @@ from fastapi import FastAPI, HTTPException, Body
 from pydantic import Field, create_model, BaseModel
 
 from fastmcp.tools.tool import Tool
-from mcp_composer.utils import LoggerFactory
-from mcp_composer.composer import MCPComposer
-from mcp_composer.utils.tools import format_tool
+from mcp_composer.core.utils import LoggerFactory
+from mcp_composer.core.composer import MCPComposer
+from mcp_composer.core.utils.tools import format_tool
 
 logger = LoggerFactory.get_logger()
 
@@ -52,7 +52,10 @@ def make_tool_endpoint(tool_model, tool: Tool):
     async def endpoint(body: tool_model):  # pylint: disable=invalid-name
         try:
             result = await tool.run(body.model_dump())
-            if hasattr(result, "structured_content") and result.structured_content is not None:
+            if (
+                hasattr(result, "structured_content")
+                and result.structured_content is not None
+            ):
                 return result.structured_content
             elif hasattr(result, "content") and result.content is not None:
                 return result.content
@@ -72,7 +75,9 @@ async def lifespan(app: FastAPI):
     FastAPI lifespan hook to load tools and dynamically register endpoints.
     """
     await COMPOSER.setup_member_servers()
-    tools = await COMPOSER._tool_manager.get_all_tools()  # pylint: disable=protected-access
+    tools = (
+        await COMPOSER._tool_manager.get_all_tools()
+    )  # pylint: disable=protected-access
     logger.info("Loaded composer tools: %s", list(tools.keys()))
 
     for tool_name, tool in tools.items():
@@ -145,7 +150,11 @@ async def list_tools(request: ToolsRequest = Body(...)):
         m = re.match(r"([^_]+)_(.+)", tool_name)
         if m:
             t_server_id, _ = m.groups()
-            status = "inactive" if tool_name in server_disabled.get(t_server_id, set()) else "active"
+            status = (
+                "inactive"
+                if tool_name in server_disabled.get(t_server_id, set())
+                else "active"
+            )
         else:
             status = "active"
         tool_info = format_tool(tool)

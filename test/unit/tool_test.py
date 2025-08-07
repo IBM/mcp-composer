@@ -6,7 +6,7 @@ import json
 from unittest.mock import MagicMock
 
 from .composer_test import TestData
-from mcp_composer import MCPComposer
+from mcp_composer.core.composer import MCPComposer
 from mcp_composer.store.database import DatabaseInterface
 
 

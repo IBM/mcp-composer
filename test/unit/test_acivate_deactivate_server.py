@@ -1,7 +1,8 @@
 import pytest
-from mcp_composer.composer import MCPComposer
+from mcp_composer.core.composer import MCPComposer
 from mcp_composer.store.fake_database import FakeDatabase
 from fastmcp.exceptions import ToolError
+
 
 @pytest.fixture
 def fake_db():
@@ -30,7 +31,10 @@ async def test_activate_mcp_server_success(fake_db, server_config):
 
     assert f"Server '{server_config['id']}' activated" in result
     reloaded = composer._server_manager.load_all_servers_db()
-    assert any(s["id"] == server_config["id"] and s["status"] == "active" for s in reloaded)
+    assert any(
+        s["id"] == server_config["id"] and s["status"] == "active" for s in reloaded
+    )
+
 
 @pytest.mark.asyncio
 async def test_activate_mcp_server_invalid_id(fake_db):
@@ -38,6 +42,7 @@ async def test_activate_mcp_server_invalid_id(fake_db):
 
     with pytest.raises(ToolError):
         await composer.activate_mcp_server("invalid-server-id")
+
 
 @pytest.mark.asyncio
 async def test_deactivate_mcp_server_success(fake_db, server_config):
@@ -73,4 +78,3 @@ async def test_deactivate_mcp_server_twice(fake_db, server_config):
         await composer.deactivate_mcp_server(server_config["id"])
 
     assert "already deactivated" in str(excinfo.value)
-

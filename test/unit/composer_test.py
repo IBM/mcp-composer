@@ -7,11 +7,11 @@ import json
 from unittest.mock import MagicMock, patch
 from fastmcp.tools.tool import Tool
 
-from mcp_composer.member_servers.member_server import HealthStatus
-from mcp_composer.utils import ValidationError
-from mcp_composer import MCPComposer
+from mcp_composer.core.member_servers.member_server import HealthStatus
+from mcp_composer.core.utils.validator import ValidationError
+from mcp_composer.core.composer import MCPComposer
 from mcp_composer.store.database import DatabaseInterface
-from mcp_composer.utils.custom_tool import DynamicToolGenerator, OpenApiTool
+from mcp_composer.core.utils.custom_tool import DynamicToolGenerator, OpenApiTool
 
 
 class TestData:

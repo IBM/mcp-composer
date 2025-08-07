@@ -1,7 +1,7 @@
 import pytest
 import logging
 
-from mcp_composer import MCPComposer
+from mcp_composer.core.composer import MCPComposer
 from mcp_composer.store.fake_database import FakeDatabase
 
 
@@ -47,18 +47,18 @@ async def test_composer_restart_persists_and_restores_server(
     await composer_1.setup_member_servers()
     tools_1 = await composer_1.get_tools()
     logger.debug("[First run] Tools: %s", tools_1)
-    assert any(server_config["id"] in t for t in tools_1), (
-        "Server tools not available after registration"
-    )
+    assert any(
+        server_config["id"] in t for t in tools_1
+    ), "Server tools not available after registration"
 
     # -------- Simulate restart --------
     composer_2 = MCPComposer("composer", database_config=fake_db)
     await composer_2.setup_member_servers()
     tools_2 = await composer_2.get_tools()
     logger.debug("[After restart] Tools: %s", tools_2)
-    assert any(server_config["id"] in t for t in tools_2), (
-        "Server tool not found after restart"
-    )
+    assert any(
+        server_config["id"] in t for t in tools_2
+    ), "Server tool not found after restart"
 
 
 @pytest.mark.asyncio
@@ -70,9 +70,9 @@ async def test_duplicate_registration_skips_duplicate(fake_db, server_config, ca
     # Register again with same config
     await composer.setup_member_servers()
 
-    assert len(fake_db._servers) == 1, (
-        "Duplicate registration should not add a second entry"
-    )
+    assert (
+        len(fake_db._servers) == 1
+    ), "Duplicate registration should not add a second entry"
     assert server_config["id"] in fake_db._servers
 
 

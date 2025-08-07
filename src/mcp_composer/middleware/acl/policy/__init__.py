@@ -12,10 +12,10 @@ from .schemas import AuthContext
 
 __all__ = [
     "PolicyMiddleware",
-    "PolicyMode", 
+    "PolicyMode",
     "IdentityMode",
     "Settings",
     "SETTINGS",
     "IdentityManager",
     "AuthContext",
-] 
+]

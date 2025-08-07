@@ -8,7 +8,7 @@ import jwt
 from typing import Dict, Any, Optional, Tuple
 from .config import SETTINGS, IdentityMode, Settings
 from .schemas import AuthContext
-from mcp_composer.utils.logger import LoggerFactory
+from mcp_composer.core.utils.logger import LoggerFactory
 
 logger = LoggerFactory.get_logger()
 
@@ -24,7 +24,9 @@ class IdentityManager:
             settings: Configuration settings (uses global SETTINGS if None)
         """
         self.settings = settings or SETTINGS
-        logger.info(f"Identity manager initialized with mode: {self.settings.identity_mode}")
+        logger.info(
+            f"Identity manager initialized with mode: {self.settings.identity_mode}"
+        )
 
     def extract_identity(self, context: Any) -> Tuple[str, Dict[str, Any]]:
         """
@@ -57,12 +59,12 @@ class IdentityManager:
     def _extract_jwt_identity(self, context: Any) -> Tuple[str, Dict[str, Any]]:
         """Extract identity from JWT token."""
         headers = self._get_headers(context)
-        
+
         # Get JWT from header
         header_val = headers.get(self.settings.identity_header) or headers.get(
             self.settings.identity_header.lower()
         )
-        
+
         if not header_val:
             return "unknown", {"type": "missing_jwt_header"}
 
@@ -72,7 +74,7 @@ class IdentityManager:
             return "unknown", {"type": "invalid_jwt_header_format"}
 
         token = match.group(1)
-        
+
         try:
             # Decode JWT
             if self.settings.identity_jwt_secret:
@@ -80,18 +82,15 @@ class IdentityManager:
                     token,
                     self.settings.identity_jwt_secret,
                     algorithms=self.settings.jwt_algorithms,
-                    options={"verify_signature": True}
+                    options={"verify_signature": True},
                 )
             else:
                 # Decode without verification (for development/testing)
-                payload = jwt.decode(
-                    token,
-                    options={"verify_signature": False}
-                )
+                payload = jwt.decode(token, options={"verify_signature": False})
 
             # Extract user ID from configured field
             user_id = payload.get(self.settings.identity_jwt_field, "unknown")
-            
+
             # Extract additional attributes
             attributes = {
                 "type": "jwt",
@@ -125,18 +124,18 @@ class IdentityManager:
             "type": "fixed_identity",
             "mode": "fixed",
         }
-        
+
         logger.debug(f"Using fixed identity: {user_id}")
         return user_id, attributes
 
     def _extract_header_identity(self, context: Any) -> Tuple[str, Dict[str, Any]]:
         """Extract identity from header."""
         headers = self._get_headers(context)
-        
+
         user_id = headers.get(self.settings.identity_header) or headers.get(
             self.settings.identity_header.lower()
         )
-        
+
         if not user_id:
             return "unknown", {"type": "missing_header_identity"}
 
@@ -144,14 +143,14 @@ class IdentityManager:
             "type": "header_identity",
             "header": self.settings.identity_header,
         }
-        
+
         logger.debug(f"Extracted header identity: {user_id}")
         return user_id, attributes
 
     def _extract_source_identity(self, context: Any) -> Tuple[str, Dict[str, Any]]:
         """Extract identity from context source."""
-        source = getattr(context, 'source', None)
-        
+        source = getattr(context, "source", None)
+
         if not source:
             return "unknown", {"type": "missing_source"}
 
@@ -160,18 +159,18 @@ class IdentityManager:
             "type": "source_identity",
             "source": source,
         }
-        
+
         logger.debug(f"Extracted source identity: {user_id}")
         return user_id, attributes
 
     def _extract_api_key_identity(self, context: Any) -> Tuple[str, Dict[str, Any]]:
         """Extract identity from API key."""
         headers = self._get_headers(context)
-        
+
         api_key = headers.get(self.settings.api_key_header) or headers.get(
             self.settings.api_key_header.lower()
         )
-        
+
         if not api_key:
             return "unknown", {"type": "missing_api_key"}
 
@@ -183,23 +182,28 @@ class IdentityManager:
             "api_key": api_key,
             "header": self.settings.api_key_header,
         }
-        
+
         logger.debug(f"Extracted API key identity: {user_id}")
         return user_id, attributes
 
     def _get_headers(self, context: Any) -> Dict[str, str]:
         """Extract headers from context."""
-        headers = {}
-        
+        headers: Dict[str, str] = {}
+
         # Try different ways to get headers
-        if hasattr(context, 'headers'):
+        if hasattr(context, "headers"):
             headers = context.headers or {}
-        elif hasattr(context, 'fastmcp_context'):
-            if hasattr(context.fastmcp_context, 'request_context'):
-                if hasattr(context.fastmcp_context.request_context, 'request'):
-                    if hasattr(context.fastmcp_context.request_context.request, 'headers'):
-                        headers = context.fastmcp_context.request_context.request.headers or {}
-        
+        elif hasattr(context, "fastmcp_context"):
+            if hasattr(context.fastmcp_context, "request_context"):
+                if hasattr(context.fastmcp_context.request_context, "request"):
+                    if hasattr(
+                        context.fastmcp_context.request_context.request, "headers"
+                    ):
+                        headers = (
+                            context.fastmcp_context.request_context.request.headers
+                            or {}
+                        )
+
         return headers
 
     def create_auth_context(self, context: Any) -> AuthContext:
@@ -213,31 +217,34 @@ class IdentityManager:
             AuthContext with extracted identity information
         """
         user_id, attributes = self.extract_identity(context)
-        
+
         # Determine authentication status
         authenticated = user_id != "unknown" and attributes.get("type") not in [
-            "missing_jwt_header", "missing_header_identity", "missing_api_key", "missing_source"
+            "missing_jwt_header",
+            "missing_header_identity",
+            "missing_api_key",
+            "missing_source",
         ]
-        
+
         # Extract roles from attributes
         roles = attributes.get("roles", [])
         if not roles and authenticated:
             # Fallback to default role
             roles = [self.settings.default_user_role]
-        
+
         # Extract agent ID
         agent_id = attributes.get("agent_id") or attributes.get("sub")
-        
+
         # Determine auth method
         auth_method = self.settings.identity_mode.value
-        
+
         return AuthContext(
             user_id=user_id,
             roles=roles,
             agent_id=agent_id,
             authenticated=authenticated,
             auth_method=auth_method,
-            metadata=attributes
+            metadata=attributes,
         )
 
     def validate_api_key(self, api_key: str) -> bool:
@@ -269,8 +276,8 @@ class IdentityManager:
         return {
             "permissions": [],
             "roles": [self.settings.default_user_role],
-            "metadata": {}
-        } 
+            "metadata": {},
+        }
 
     def resolve_role_from_context(self, context: dict) -> str:
         """

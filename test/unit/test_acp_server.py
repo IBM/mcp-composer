@@ -8,4 +8,5 @@ def test_run_invokes_server():
         acp_server.run()
         mock_server.run.assert_called()
 
-# More advanced async tests for mcp_composer_chatbot can be added with pytest-asyncio 
+
+# More advanced async tests for mcp_composer_chatbot can be added with pytest-asyncio

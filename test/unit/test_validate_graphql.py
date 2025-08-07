@@ -1,17 +1,17 @@
 import pytest
-from mcp_composer.utils import ServerConfigValidator
-from mcp_composer.utils import ConfigKey, MemberServerType, ValidationError
+from mcp_composer.core.utils.validator import ServerConfigValidator
+from mcp_composer.core.utils.validator import ConfigKey, MemberServerType, ValidationError
 
 
 class TestGraphQLConfigValidation:
     def test_valid_graphql_config_passes(self):
         config = {
-           str(ConfigKey.ID): "graphql-test",
+            str(ConfigKey.ID): "graphql-test",
             ConfigKey.TYPE: MemberServerType.GRAPHQL,
             ConfigKey.GRAPHQL: {
                 ConfigKey.ENDPOINT: "https://example.com/graphql",
-                ConfigKey.SCHEMA_FILEPATH: "schemas/schema.graphql"
-            }
+                ConfigKey.SCHEMA_FILEPATH: "schemas/schema.graphql",
+            },
         }
         validator = ServerConfigValidator(config)
         # Should not raise
@@ -31,9 +31,7 @@ class TestGraphQLConfigValidation:
         config = {
             str(ConfigKey.ID): "graphql-no-endpoint",
             ConfigKey.TYPE: MemberServerType.GRAPHQL,
-            ConfigKey.GRAPHQL: {
-                ConfigKey.SCHEMA_FILEPATH: "schemas/schema.graphql"
-            }
+            ConfigKey.GRAPHQL: {ConfigKey.SCHEMA_FILEPATH: "schemas/schema.graphql"},
         }
         validator = ServerConfigValidator(config)
         with pytest.raises(ValidationError) as exc:
@@ -44,9 +42,7 @@ class TestGraphQLConfigValidation:
         config = {
             str(ConfigKey.ID): "graphql-no-schema",
             ConfigKey.TYPE: MemberServerType.GRAPHQL,
-            ConfigKey.GRAPHQL: {
-                ConfigKey.ENDPOINT: "https://example.com/graphql"
-            }
+            ConfigKey.GRAPHQL: {ConfigKey.ENDPOINT: "https://example.com/graphql"},
         }
         validator = ServerConfigValidator(config)
         with pytest.raises(ValidationError) as exc:
@@ -57,7 +53,7 @@ class TestGraphQLConfigValidation:
         config = {
             ConfigKey.ID: "non-graphql",
             ConfigKey.TYPE: MemberServerType.CLIENT,
-            ConfigKey.ENDPOINT: "https://client-endpoint.com"
+            ConfigKey.ENDPOINT: "https://client-endpoint.com",
         }
         validator = ServerConfigValidator(config)
         # Should pass — graphql check is skipped

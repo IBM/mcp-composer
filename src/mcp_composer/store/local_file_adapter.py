@@ -6,9 +6,9 @@ from pathlib import Path
 from typing import List, Dict
 from dotenv import load_dotenv, find_dotenv
 
-from mcp_composer.utils import LoggerFactory
-from mcp_composer.exceptions import ToolDuplicateError
-from mcp_composer.utils.tools import check_duplicate_tool
+from mcp_composer.core.utils import LoggerFactory
+from mcp_composer.core.utils.exceptions import ToolDuplicateError
+from mcp_composer.core.utils.tools import check_duplicate_tool
 from .database import DatabaseInterface
 
 load_dotenv(find_dotenv(".env"))
@@ -30,7 +30,7 @@ class LocalFileAdapter(DatabaseInterface):
         logger.info("Using local file storage: %s", self._file_path)
         self._ensure_file_exists()
 
-    def _ensure_file_exists(self):
+    def _ensure_file_exists(self) -> None:
         if not self._file_path.exists():
             self._file_path.parent.mkdir(parents=True, exist_ok=True)
             with open(self._file_path, "w", encoding="utf-8") as f:
@@ -43,7 +43,7 @@ class LocalFileAdapter(DatabaseInterface):
         except (json.JSONDecodeError, FileNotFoundError):
             return []
 
-    def _write_data(self, data: List[Dict]):
+    def _write_data(self, data: List[Dict]) -> None:
         with open(self._file_path, "w", encoding="utf-8") as f:
             json.dump(data, f, indent=2)
 
@@ -189,7 +189,9 @@ class LocalFileAdapter(DatabaseInterface):
 
             duplicate_prompt = check_duplicate_tool(existing_prompts, prompts)
             if duplicate_prompt:
-                raise ToolDuplicateError(f"Prompt {duplicate_prompt} is already disabled")
+                raise ToolDuplicateError(
+                    f"Prompt {duplicate_prompt} is already disabled"
+                )
 
             # Update disabled_prompts
             if existing_prompts:
@@ -199,7 +201,9 @@ class LocalFileAdapter(DatabaseInterface):
             else:
                 server["disabled_prompts"] = prompts
                 logger.info(
-                    "Added new disabled prompt list: %s  for server %s", prompts, server_id
+                    "Added new disabled prompt list: %s  for server %s",
+                    prompts,
+                    server_id,
                 )
 
             # Remove prompt descriptions if they exist
@@ -243,7 +247,9 @@ class LocalFileAdapter(DatabaseInterface):
 
             duplicate_resource = check_duplicate_tool(existing_resources, resources)
             if duplicate_resource:
-                raise ToolDuplicateError(f"Resource {duplicate_resource} is already disabled")
+                raise ToolDuplicateError(
+                    f"Resource {duplicate_resource} is already disabled"
+                )
 
             # Update disabled_resources
             if existing_resources:
@@ -253,7 +259,9 @@ class LocalFileAdapter(DatabaseInterface):
             else:
                 server["disabled_resources"] = resources
                 logger.info(
-                    "Added new disabled resource list: %s  for server %s", resources, server_id
+                    "Added new disabled resource list: %s  for server %s",
+                    resources,
+                    server_id,
                 )
 
             # Remove resource descriptions if they exist

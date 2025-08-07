@@ -12,6 +12,7 @@ from enum import Enum
 
 class IdentityMode(str, Enum):
     """Identity extraction modes."""
+
     jwt = "jwt"
     fixed = "fixed"
     header = "header"
@@ -21,6 +22,7 @@ class IdentityMode(str, Enum):
 
 class PolicyMode(str, Enum):
     """Policy enforcement modes."""
+
     file = "file"
     vault = "vault"
     opa = "opa"
@@ -34,12 +36,13 @@ class Settings(BaseSettings):
 
     All settings can be configured via environment variables with the prefix MCP_POLICY_.
     """
+
     model_config = SettingsConfigDict(
         env_prefix="MCP_POLICY_",
         case_sensitive=False,
         env_file=".env",
         env_file_encoding="utf-8",
-        extra='allow'
+        extra="allow",
     )
 
     # Policy enforcement mode
@@ -79,7 +82,7 @@ class Settings(BaseSettings):
     # Identity extraction mode
     identity_mode: IdentityMode = IdentityMode.fixed
     # Header to extract identity from (for 'jwt' and 'header' modes)
-    identity_header: str = r"[Aa]uthorization (.+)" #"Authorization/authorization "
+    identity_header: str = r"[Aa]uthorization (.+)"  # "Authorization/authorization "
     # Regex to extract token from header (for 'jwt' mode)
     identity_header_regex: str = r"[Bb]earer (.+)"
     # JWT secret or public key (for 'jwt' mode)
@@ -145,4 +148,4 @@ class Settings(BaseSettings):
 
 
 # Global settings instance
-SETTINGS = Settings() 
+SETTINGS = Settings()

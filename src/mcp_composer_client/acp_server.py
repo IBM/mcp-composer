@@ -12,7 +12,8 @@ from mcp_composer_client.agent_bee import run_agent_multimcp, auto_filter_tools
 # Load environment variables
 load_dotenv(find_dotenv(".env"))
 
-server = Server( )
+server = Server()
+
 
 @server.agent(
     metadata=Metadata(
@@ -25,11 +26,15 @@ server = Server( )
         )
     )
 )
-async def mcp_composer_chatbot_no_tool_filter(inputs: list[Message], context: Context) -> AsyncGenerator:
+async def mcp_composer_chatbot_no_tool_filter(
+    inputs: list[Message], context: Context
+) -> AsyncGenerator:
     """AI agent that calls Platform APIs to fulfill a user query"""
 
     response = ""
-    async for message in run_agent_multimcp(user_input=str(inputs[-1]), context=context):
+    async for message in run_agent_multimcp(
+        user_input=str(inputs[-1]), context=context
+    ):
         response += message
 
     yield MessagePart(content=response)
@@ -46,19 +51,30 @@ async def mcp_composer_chatbot_no_tool_filter(inputs: list[Message], context: Co
         )
     )
 )
-async def mcp_composer_chatbot(inputs: list[Message], context: Context) -> AsyncGenerator:
+async def mcp_composer_chatbot(
+    inputs: list[Message], context: Context
+) -> AsyncGenerator:
     """AI agent that calls Platform APIs to fulfill a user query"""
 
     response = ""
-    async for message in run_agent_multimcp(user_input=str(inputs[-1]), context=context, tool_select_method=os.getenv("TOOL_SELECT_METHOD")):
+    async for message in run_agent_multimcp(
+        user_input=str(inputs[-1]),
+        context=context,
+        tool_select_method=os.getenv("TOOL_SELECT_METHOD"),
+    ):
         response += message
 
     yield MessagePart(content=response)
 
 
 def run():
-    server.run(host=os.getenv("HOST", "localhost"), port=int(os.getenv("PORT", 8000)), configure_telemetry=False)
-    
+    server.run(
+        host=os.getenv("HOST", "localhost"),
+        port=int(os.getenv("PORT", 8000)),
+        configure_telemetry=False,
+    )
+
+
 if __name__ == "__main__":
     try:
         run()

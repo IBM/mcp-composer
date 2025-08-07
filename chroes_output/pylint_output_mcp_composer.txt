@@ -1,157 +1,255 @@
 ************* Module mcp_composer
 src/mcp_composer/__init__.py:24:7: W0718: Catching too general exception Exception (broad-exception-caught)
 ************* Module mcp_composer.composer
-src/mcp_composer/composer.py:38:4: R0913: Too many arguments (6/5) (too-many-arguments)
-src/mcp_composer/composer.py:38:4: R0917: Too many positional arguments (6/5) (too-many-positional-arguments)
-src/mcp_composer/composer.py:38:4: R0915: Too many statements (52/50) (too-many-statements)
-src/mcp_composer/composer.py:154:15: W0718: Catching too general exception Exception (broad-exception-caught)
-src/mcp_composer/composer.py:222:15: W0718: Catching too general exception Exception (broad-exception-caught)
-************* Module mcp_composer.__main__
-src/mcp_composer/__main__.py:4:0: C0304: Final newline missing (missing-final-newline)
-************* Module mcp_composer.settings.base_config
-src/mcp_composer/settings/base_config.py:19:61: C0321: More than one statement on a single line (multiple-statements)
-src/mcp_composer/settings/base_config.py:22:83: C0321: More than one statement on a single line (multiple-statements)
-src/mcp_composer/settings/base_config.py:25:72: C0321: More than one statement on a single line (multiple-statements)
-src/mcp_composer/settings/base_config.py:28:78: C0321: More than one statement on a single line (multiple-statements)
-src/mcp_composer/settings/base_config.py:31:94: C0321: More than one statement on a single line (multiple-statements)
-src/mcp_composer/settings/base_config.py:4:0: C0411: standard import "typing.Any" should be placed before third party imports "pydantic_settings.BaseSettings", "pydantic.Field" (wrong-import-order)
-************* Module mcp_composer.settings.model_config
-src/mcp_composer/settings/model_config.py:43:0: R0903: Too few public methods (0/2) (too-few-public-methods)
-src/mcp_composer/settings/model_config.py:2:0: C0411: standard import "typing.List" should be placed before third party import "pydantic.BaseModel" (wrong-import-order)
-************* Module mcp_composer.settings.__init__
-src/mcp_composer/settings/__init__.py:9:0: C0304: Final newline missing (missing-final-newline)
-************* Module mcp_composer.settings.file_loader
-src/mcp_composer/settings/file_loader.py:26:19: W0718: Catching too general exception Exception (broad-exception-caught)
-src/mcp_composer/settings/file_loader.py:47:20: W0201: Attribute 'history' defined outside __init__ (attribute-defined-outside-init)
-src/mcp_composer/settings/file_loader.py:52:12: W0201: Attribute 'history' defined outside __init__ (attribute-defined-outside-init)
-src/mcp_composer/settings/file_loader.py:7:0: C0411: third party import "dotenv.load_dotenv" should be placed before first party import "mcp_composer.settings.base_adapter.SecretAdapter"  (wrong-import-order)
-src/mcp_composer/settings/file_loader.py:9:0: C0412: Imports from package mcp_composer are not grouped (ungrouped-imports)
-************* Module mcp_composer.settings.ibm_secret_loader
-src/mcp_composer/settings/ibm_secret_loader.py:53:0: C0301: Line too long (122/120) (line-too-long)
-src/mcp_composer/settings/ibm_secret_loader.py:59:15: W0718: Catching too general exception Exception (broad-exception-caught)
-src/mcp_composer/settings/ibm_secret_loader.py:77:12: E1101: Instance of 'SecretsManagerV2' has no 'update_secret' member (no-member)
-src/mcp_composer/settings/ibm_secret_loader.py:97:19: W0718: Catching too general exception Exception (broad-exception-caught)
-************* Module mcp_composer.settings.base_adapter
-src/mcp_composer/settings/base_adapter.py:47:0: C0304: Final newline missing (missing-final-newline)
-src/mcp_composer/settings/base_adapter.py:15:8: W0107: Unnecessary pass statement (unnecessary-pass)
-src/mcp_composer/settings/base_adapter.py:20:8: W0107: Unnecessary pass statement (unnecessary-pass)
-src/mcp_composer/settings/base_adapter.py:25:8: W0107: Unnecessary pass statement (unnecessary-pass)
-src/mcp_composer/settings/base_adapter.py:30:8: W0107: Unnecessary pass statement (unnecessary-pass)
-src/mcp_composer/settings/base_adapter.py:35:8: W0107: Unnecessary pass statement (unnecessary-pass)
-src/mcp_composer/settings/base_adapter.py:47:8: W0107: Unnecessary pass statement (unnecessary-pass)
-************* Module mcp_composer.settings.adapters
-src/mcp_composer/settings/adapters.py:9:0: C0304: Final newline missing (missing-final-newline)
-src/mcp_composer/settings/adapters.py:6:12: W0108: Lambda may not be necessary (unnecessary-lambda)
-src/mcp_composer/settings/adapters.py:7:17: W0108: Lambda may not be necessary (unnecessary-lambda)
-************* Module mcp_composer.tools.graphql_tool
-src/mcp_composer/tools/graphql_tool.py:77:19: W0718: Catching too general exception Exception (broad-exception-caught)
-src/mcp_composer/tools/graphql_tool.py:89:23: W3101: Missing timeout argument for method 'requests.post' can cause your program to hang indefinitely (missing-timeout)
-************* Module mcp_composer.utils.validator
-src/mcp_composer/utils/validator.py:87:71: C0303: Trailing whitespace (trailing-whitespace)
-src/mcp_composer/utils/validator.py:89:47: C0303: Trailing whitespace (trailing-whitespace)
-src/mcp_composer/utils/validator.py:92:0: C0303: Trailing whitespace (trailing-whitespace)
-src/mcp_composer/utils/validator.py:109:0: C0303: Trailing whitespace (trailing-whitespace)
-src/mcp_composer/utils/validator.py:118:0: C0303: Trailing whitespace (trailing-whitespace)
-src/mcp_composer/utils/validator.py:137:0: C0301: Line too long (132/120) (line-too-long)
-src/mcp_composer/utils/validator.py:162:0: C0301: Line too long (125/120) (line-too-long)
-src/mcp_composer/utils/validator.py:66:4: W0107: Unnecessary pass statement (unnecessary-pass)
-src/mcp_composer/utils/validator.py:77:8: W1203: Use lazy % formatting in logging functions (logging-fstring-interpolation)
-src/mcp_composer/utils/validator.py:82:12: W1203: Use lazy % formatting in logging functions (logging-fstring-interpolation)
-src/mcp_composer/utils/validator.py:85:12: W1203: Use lazy % formatting in logging functions (logging-fstring-interpolation)
-src/mcp_composer/utils/validator.py:88:12: W1203: Use lazy % formatting in logging functions (logging-fstring-interpolation)
-src/mcp_composer/utils/validator.py:91:12: W1203: Use lazy % formatting in logging functions (logging-fstring-interpolation)
-src/mcp_composer/utils/validator.py:167:8: W1203: Use lazy % formatting in logging functions (logging-fstring-interpolation)
-src/mcp_composer/utils/validator.py:195:0: R0903: Too few public methods (1/2) (too-few-public-methods)
-************* Module mcp_composer.utils.oauth_cli_utils
-src/mcp_composer/utils/oauth_cli_utils.py:17:14: C0303: Trailing whitespace (trailing-whitespace)
-src/mcp_composer/utils/oauth_cli_utils.py:74:0: C0303: Trailing whitespace (trailing-whitespace)
-src/mcp_composer/utils/oauth_cli_utils.py:88:46: C0303: Trailing whitespace (trailing-whitespace)
-src/mcp_composer/utils/oauth_cli_utils.py:99:0: C0303: Trailing whitespace (trailing-whitespace)
-src/mcp_composer/utils/oauth_cli_utils.py:71:0: R0914: Too many local variables (19/15) (too-many-locals)
-src/mcp_composer/utils/oauth_cli_utils.py:93:4: W1203: Use lazy % formatting in logging functions (logging-fstring-interpolation)
-src/mcp_composer/utils/oauth_cli_utils.py:98:4: W1203: Use lazy % formatting in logging functions (logging-fstring-interpolation)
-src/mcp_composer/utils/oauth_cli_utils.py:83:4: W0612: Unused variable 'code_verifier' (unused-variable)
-src/mcp_composer/utils/oauth_cli_utils.py:4:0: C0411: standard import "urllib.parse.urlparse" should be placed before third party import "pydantic.AnyUrl" and first party import "mcp_composer.MCPComposer"  (wrong-import-order)
-src/mcp_composer/utils/oauth_cli_utils.py:7:0: C0411: third party import "mcp.server.auth.middleware.auth_context.get_access_token" should be placed before first party imports "mcp_composer.MCPComposer", "mcp_composer.auth_handler.oauth.SimpleOAuthProvider", "mcp_composer.utils.logger.LoggerFactory"  (wrong-import-order)
-src/mcp_composer/utils/oauth_cli_utils.py:8:0: C0411: third party import "mcp.shared.auth.OAuthClientInformationFull" should be placed before first party imports "mcp_composer.MCPComposer", "mcp_composer.auth_handler.oauth.SimpleOAuthProvider", "mcp_composer.utils.logger.LoggerFactory"  (wrong-import-order)
-src/mcp_composer/utils/oauth_cli_utils.py:9:0: C0411: third party import "mcp.server.auth.provider.AuthorizationParams" should be placed before first party imports "mcp_composer.MCPComposer", "mcp_composer.auth_handler.oauth.SimpleOAuthProvider", "mcp_composer.utils.logger.LoggerFactory"  (wrong-import-order)
-src/mcp_composer/utils/oauth_cli_utils.py:12:0: C0411: standard import "webbrowser" should be placed before third party imports "pydantic.AnyUrl", "mcp.server.auth.middleware.auth_context.get_access_token", "mcp.shared.auth.OAuthClientInformationFull", "mcp.server.auth.provider.AuthorizationParams" and first party imports "mcp_composer.MCPComposer", "mcp_composer.auth_handler.oauth.SimpleOAuthProvider", "mcp_composer.utils.logger.LoggerFactory"  (wrong-import-order)
-src/mcp_composer/utils/oauth_cli_utils.py:13:0: C0411: third party import "aiohttp.web" should be placed before first party imports "mcp_composer.MCPComposer", "mcp_composer.auth_handler.oauth.SimpleOAuthProvider", "mcp_composer.utils.logger.LoggerFactory"  (wrong-import-order)
-src/mcp_composer/utils/oauth_cli_utils.py:14:0: C0411: third party import "jwt" should be placed before first party imports "mcp_composer.MCPComposer", "mcp_composer.auth_handler.oauth.SimpleOAuthProvider", "mcp_composer.utils.logger.LoggerFactory"  (wrong-import-order)
-src/mcp_composer/utils/oauth_cli_utils.py:15:0: C0411: standard import "asyncio" should be placed before third party imports "pydantic.AnyUrl", "mcp.server.auth.middleware.auth_context.get_access_token", "mcp.shared.auth.OAuthClientInformationFull", "mcp.server.auth.provider.AuthorizationParams", "aiohttp.web", "jwt" and first party imports "mcp_composer.MCPComposer", "mcp_composer.auth_handler.oauth.SimpleOAuthProvider", "mcp_composer.utils.logger.LoggerFactory"  (wrong-import-order)
-src/mcp_composer/utils/oauth_cli_utils.py:16:0: C0411: standard import "secrets" should be placed before third party imports "pydantic.AnyUrl", "mcp.server.auth.middleware.auth_context.get_access_token", "mcp.shared.auth.OAuthClientInformationFull", "mcp.server.auth.provider.AuthorizationParams", "aiohttp.web", "jwt" and first party imports "mcp_composer.MCPComposer", "mcp_composer.auth_handler.oauth.SimpleOAuthProvider", "mcp_composer.utils.logger.LoggerFactory"  (wrong-import-order)
-src/mcp_composer/utils/oauth_cli_utils.py:17:0: C0411: standard import "hashlib" should be placed before third party imports "pydantic.AnyUrl", "mcp.server.auth.middleware.auth_context.get_access_token", "mcp.shared.auth.OAuthClientInformationFull", "mcp.server.auth.provider.AuthorizationParams", "aiohttp.web", "jwt" and first party imports "mcp_composer.MCPComposer", "mcp_composer.auth_handler.oauth.SimpleOAuthProvider", "mcp_composer.utils.logger.LoggerFactory"  (wrong-import-order)
-src/mcp_composer/utils/oauth_cli_utils.py:18:0: C0411: standard import "base64" should be placed before third party imports "pydantic.AnyUrl", "mcp.server.auth.middleware.auth_context.get_access_token", "mcp.shared.auth.OAuthClientInformationFull", "mcp.server.auth.provider.AuthorizationParams", "aiohttp.web", "jwt" and first party imports "mcp_composer.MCPComposer", "mcp_composer.auth_handler.oauth.SimpleOAuthProvider", "mcp_composer.utils.logger.LoggerFactory"  (wrong-import-order)
-************* Module mcp_composer.utils.health
-src/mcp_composer/utils/health.py:8:0: R0903: Too few public methods (1/2) (too-few-public-methods)
-************* Module mcp_composer.utils.auth_strategy
-src/mcp_composer/utils/auth_strategy.py:69:19: W0718: Catching too general exception Exception (broad-exception-caught)
-************* Module mcp_composer.utils.logger
-src/mcp_composer/utils/logger.py:19:8: W0105: String statement has no effect (pointless-string-statement)
-src/mcp_composer/utils/logger.py:6:0: R0903: Too few public methods (1/2) (too-few-public-methods)
-************* Module mcp_composer.utils.cli
-src/mcp_composer/utils/cli.py:195:11: W0718: Catching too general exception Exception (broad-exception-caught)
-************* Module mcp_composer.utils.utils
-src/mcp_composer/utils/utils.py:102:8: W0707: Consider explicitly re-raising using 'raise MemberServerError('Failed to fetch the status of member servers: %s', e) from e' (raise-missing-from)
-src/mcp_composer/utils/utils.py:102:8: W0715: Exception arguments suggest string formatting might be intended (raising-format-tuple)
-src/mcp_composer/utils/utils.py:106:8: W0707: Consider explicitly re-raising using 'raise MemberServerError('Failed to fetch the status of member servers: %s', e) from e' (raise-missing-from)
-src/mcp_composer/utils/utils.py:106:8: W0715: Exception arguments suggest string formatting might be intended (raising-format-tuple)
-src/mcp_composer/utils/utils.py:147:12: W0622: Redefining built-in 'str' (redefined-builtin)
-src/mcp_composer/utils/utils.py:151:12: W0707: Consider explicitly re-raising using 'raise ValueError(f'Missing required argument: {e.args[0]}') from e' (raise-missing-from)
-************* Module mcp_composer.utils.custom_tool
-src/mcp_composer/utils/custom_tool.py:26:0: R0903: Too few public methods (0/2) (too-few-public-methods)
-src/mcp_composer/utils/custom_tool.py:94:38: W1514: Using open without explicitly specifying an encoding (unspecified-encoding)
-src/mcp_composer/utils/custom_tool.py:108:20: W1514: Using open without explicitly specifying an encoding (unspecified-encoding)
-src/mcp_composer/utils/custom_tool.py:110:16: W1514: Using open without explicitly specifying an encoding (unspecified-encoding)
-src/mcp_composer/utils/custom_tool.py:123:35: W1514: Using open without explicitly specifying an encoding (unspecified-encoding)
-src/mcp_composer/utils/custom_tool.py:135:17: W1514: Using open without explicitly specifying an encoding (unspecified-encoding)
-src/mcp_composer/utils/custom_tool.py:160:21: W1514: Using open without explicitly specifying an encoding (unspecified-encoding)
-src/mcp_composer/utils/custom_tool.py:184:17: W1514: Using open without explicitly specifying an encoding (unspecified-encoding)
-src/mcp_composer/utils/custom_tool.py:207:16: W0122: Use of exec (exec-used)
-src/mcp_composer/utils/custom_tool.py:190:4: R1710: Either all return statements in a function should return an expression, or none of them should. (inconsistent-return-statements)
-src/mcp_composer/utils/custom_tool.py:228:0: R0902: Too many instance attributes (8/7) (too-many-instance-attributes)
-src/mcp_composer/utils/custom_tool.py:247:4: R0914: Too many local variables (16/15) (too-many-locals)
-src/mcp_composer/utils/custom_tool.py:295:4: R0914: Too many local variables (16/15) (too-many-locals)
-src/mcp_composer/utils/custom_tool.py:295:4: R0912: Too many branches (13/12) (too-many-branches)
-************* Module mcp_composer.utils.patch_openapi_tool
-src/mcp_composer/utils/patch_openapi_tool.py:29:16: W0212: Access to a protected member _get_unique_name of a client class (protected-access)
-src/mcp_composer/utils/patch_openapi_tool.py:44:15: W0212: Access to a protected member _client of a client class (protected-access)
-src/mcp_composer/utils/patch_openapi_tool.py:51:16: W0212: Access to a protected member _timeout of a client class (protected-access)
-src/mcp_composer/utils/patch_openapi_tool.py:55:7: W0212: Access to a protected member _mcp_component_fn of a client class (protected-access)
-src/mcp_composer/utils/patch_openapi_tool.py:59:15: W0718: Catching too general exception Exception (broad-exception-caught)
-src/mcp_composer/utils/patch_openapi_tool.py:57:12: W0212: Access to a protected member _mcp_component_fn of a client class (protected-access)
-src/mcp_composer/utils/patch_openapi_tool.py:70:4: W0212: Access to a protected member _tools of a client class (protected-access)
-src/mcp_composer/utils/patch_openapi_tool.py:70:4: W0212: Access to a protected member _tool_manager of a client class (protected-access)
-src/mcp_composer/utils/patch_openapi_tool.py:80:0: W0212: Access to a protected member _create_openapi_tool of a client class (protected-access)
-************* Module mcp_composer.auth_handler.dynamic_token_client
-src/mcp_composer/auth_handler/dynamic_token_client.py:9:4: R0913: Too many arguments (6/5) (too-many-arguments)
-************* Module mcp_composer.auth_handler.dynamic_token_manager
-src/mcp_composer/auth_handler/dynamic_token_manager.py:68:15: W0718: Catching too general exception Exception (broad-exception-caught)
-************* Module mcp_composer.auth_handler.oauth_callback
-src/mcp_composer/auth_handler/oauth_callback.py:30:15: W0718: Catching too general exception Exception (broad-exception-caught)
-************* Module mcp_composer.auth_handler.oauth
-src/mcp_composer/auth_handler/oauth.py:62:0: R0902: Too many instance attributes (11/7) (too-many-instance-attributes)
-src/mcp_composer/auth_handler/oauth.py:65:4: W0231: __init__ method from base class 'OAuthProvider' is not called (super-init-not-called)
-************* Module mcp_composer.models.tool
-src/mcp_composer/models/tool.py:43:4: E0213: Method 'validate_curl_config' should have "self" as first argument (no-self-argument)
-src/mcp_composer/models/tool.py:56:4: E0213: Method 'validate_script_config' should have "self" as first argument (no-self-argument)
-************* Module mcp_composer.member_servers.builder
-src/mcp_composer/member_servers/builder.py:48:8: R1705: Unnecessary "elif" after "return", remove the leading "el" from "elif" (no-else-return)
-src/mcp_composer/member_servers/builder.py:89:8: R1705: Unnecessary "elif" after "return", remove the leading "el" from "elif" (no-else-return)
-src/mcp_composer/member_servers/builder.py:89:11: R1714: Consider merging these comparisons with 'in' by using 'transport_type in (MemberServerType.HTTP, MemberServerType.SSE)'. Use a set instead if elements are hashable. (consider-using-in)
-src/mcp_composer/member_servers/builder.py:216:23: W0718: Catching too general exception Exception (broad-exception-caught)
-src/mcp_composer/member_servers/builder.py:32:0: R0903: Too few public methods (1/2) (too-few-public-methods)
-src/mcp_composer/member_servers/builder.py:7:0: C0411: third party import "fastmcp.FastMCP" should be placed before first party import "mcp_composer.utils.patch_openapi_tool"  (wrong-import-order)
-src/mcp_composer/member_servers/builder.py:8:0: C0411: third party import "fastmcp.client.auth.OAuth" should be placed before first party import "mcp_composer.utils.patch_openapi_tool"  (wrong-import-order)
-src/mcp_composer/member_servers/builder.py:9:0: C0411: third party import "fastmcp.client.transports.StreamableHttpTransport" should be placed before first party import "mcp_composer.utils.patch_openapi_tool"  (wrong-import-order)
-src/mcp_composer/member_servers/builder.py:14:0: C0411: third party import "fastmcp.client.auth.oauth.FileTokenStorage" should be placed before first party import "mcp_composer.utils.patch_openapi_tool"  (wrong-import-order)
-src/mcp_composer/member_servers/builder.py:16:0: C0411: third party import "httpx" should be placed before first party import "mcp_composer.utils.patch_openapi_tool"  (wrong-import-order)
-src/mcp_composer/member_servers/builder.py:18:0: C0412: Imports from package mcp_composer are not grouped (ungrouped-imports)
-src/mcp_composer/member_servers/builder.py:6:0: W0611: Unused patch_openapi_tool imported from mcp_composer.utils (unused-import)
-************* Module mcp_composer.member_servers.server_manager
-src/mcp_composer/member_servers/server_manager.py:62:27: W0613: Unused argument 'server_id' (unused-argument)
-src/mcp_composer/member_servers/server_manager.py:27:0: R0904: Too many public methods (27/20) (too-many-public-methods)
-src/mcp_composer/member_servers/server_manager.py:1:0: R0401: Cyclic import (mcp_composer.member_servers.member_server -> mcp_composer.utils -> mcp_composer.utils.utils) (cyclic-import)
+src/mcp_composer/composer.py:44:4: R0913: Too many arguments (6/5) (too-many-arguments)
+src/mcp_composer/composer.py:44:4: R0917: Too many positional arguments (6/5) (too-many-positional-arguments)
+src/mcp_composer/composer.py:44:4: R0915: Too many statements (65/50) (too-many-statements)
+src/mcp_composer/composer.py:184:15: W0718: Catching too general exception Exception (broad-exception-caught)
+src/mcp_composer/composer.py:254:15: W0718: Catching too general exception Exception (broad-exception-caught)
+src/mcp_composer/composer.py:39:0: R0904: Too many public methods (24/20) (too-many-public-methods)
+src/mcp_composer/composer.py:12:0: W0611: Unused Resource imported from fastmcp.resources (unused-import)
+src/mcp_composer/composer.py:12:0: W0611: Unused ResourceTemplate imported from fastmcp.resources (unused-import)
+src/mcp_composer/composer.py:14:0: W0611: Unused build_prompt_from_dict imported from mcp_composer.core.utils (unused-import)
+************* Module mcp_composer.core.settings.model_config
+src/mcp_composer/core/settings/model_config.py:44:0: R0903: Too few public methods (0/2) (too-few-public-methods)
+************* Module mcp_composer.core.settings.ibm_secret_loader
+src/mcp_composer/core/settings/ibm_secret_loader.py:81:12: E1101: Instance of 'SecretsManagerV2' has no 'update_secret' member (no-member)
+************* Module mcp_composer.core.settings.base_adapter
+src/mcp_composer/core/settings/base_adapter.py:15:8: W0107: Unnecessary pass statement (unnecessary-pass)
+src/mcp_composer/core/settings/base_adapter.py:20:8: W0107: Unnecessary pass statement (unnecessary-pass)
+src/mcp_composer/core/settings/base_adapter.py:25:8: W0107: Unnecessary pass statement (unnecessary-pass)
+src/mcp_composer/core/settings/base_adapter.py:30:8: W0107: Unnecessary pass statement (unnecessary-pass)
+src/mcp_composer/core/settings/base_adapter.py:37:8: W0107: Unnecessary pass statement (unnecessary-pass)
+src/mcp_composer/core/settings/base_adapter.py:49:8: W0107: Unnecessary pass statement (unnecessary-pass)
+************* Module mcp_composer.core.resources.resource_manager
+src/mcp_composer/core/resources/resource_manager.py:47:8: R1702: Too many nested blocks (7/5) (too-many-nested-blocks)
+src/mcp_composer/core/resources/resource_manager.py:39:4: R0912: Too many branches (16/12) (too-many-branches)
+src/mcp_composer/core/resources/resource_manager.py:112:8: R1702: Too many nested blocks (7/5) (too-many-nested-blocks)
+src/mcp_composer/core/resources/resource_manager.py:104:4: R0912: Too many branches (16/12) (too-many-branches)
+src/mcp_composer/core/resources/resource_manager.py:197:4: R0914: Too many local variables (17/15) (too-many-locals)
+src/mcp_composer/core/resources/resource_manager.py:252:15: W0718: Catching too general exception Exception (broad-exception-caught)
+src/mcp_composer/core/resources/resource_manager.py:205:8: R1702: Too many nested blocks (6/5) (too-many-nested-blocks)
+src/mcp_composer/core/resources/resource_manager.py:205:8: R1702: Too many nested blocks (6/5) (too-many-nested-blocks)
+src/mcp_composer/core/resources/resource_manager.py:222:28: W0612: Unused variable 'key' (unused-variable)
+src/mcp_composer/core/resources/resource_manager.py:301:15: W0718: Catching too general exception Exception (broad-exception-caught)
+src/mcp_composer/core/resources/resource_manager.py:276:20: W0612: Unused variable 'key' (unused-variable)
+src/mcp_composer/core/resources/resource_manager.py:374:15: W0718: Catching too general exception Exception (broad-exception-caught)
+src/mcp_composer/core/resources/resource_manager.py:341:36: W0613: Unused argument 'param' (unused-argument)
+src/mcp_composer/core/resources/resource_manager.py:423:15: W0718: Catching too general exception Exception (broad-exception-caught)
+src/mcp_composer/core/resources/resource_manager.py:499:15: W0718: Catching too general exception Exception (broad-exception-caught)
+src/mcp_composer/core/resources/resource_manager.py:462:23: W0718: Catching too general exception Exception (broad-exception-caught)
+src/mcp_composer/core/resources/resource_manager.py:491:23: W0718: Catching too general exception Exception (broad-exception-caught)
+src/mcp_composer/core/resources/resource_manager.py:503:4: R0914: Too many local variables (19/15) (too-many-locals)
+src/mcp_composer/core/resources/resource_manager.py:613:15: W0718: Catching too general exception Exception (broad-exception-caught)
+src/mcp_composer/core/resources/resource_manager.py:503:4: R0912: Too many branches (20/12) (too-many-branches)
+src/mcp_composer/core/resources/resource_manager.py:9:0: W0611: Unused AnyUrl imported from pydantic (unused-import)
+************* Module mcp_composer.core.utils.validator
+src/mcp_composer/core/utils/validator.py:210:0: R0903: Too few public methods (1/2) (too-few-public-methods)
+************* Module mcp_composer.core.utils.oauth_cli_utils
+src/mcp_composer/core/utils/oauth_cli_utils.py:78:0: R0914: Too many local variables (19/15) (too-many-locals)
+src/mcp_composer/core/utils/oauth_cli_utils.py:100:4: W1203: Use lazy % formatting in logging functions (logging-fstring-interpolation)
+src/mcp_composer/core/utils/oauth_cli_utils.py:105:4: W1203: Use lazy % formatting in logging functions (logging-fstring-interpolation)
+src/mcp_composer/core/utils/oauth_cli_utils.py:90:4: W0612: Unused variable 'code_verifier' (unused-variable)
+src/mcp_composer/core/utils/oauth_cli_utils.py:4:0: C0411: standard import "urllib.parse.urlparse" should be placed before third party import "pydantic.AnyUrl" and first party import "mcp_composer.MCPComposer"  (wrong-import-order)
+src/mcp_composer/core/utils/oauth_cli_utils.py:7:0: C0411: third party import "mcp.server.auth.middleware.auth_context.get_access_token" should be placed before first party imports "mcp_composer.MCPComposer", "mcp_composer.core.auth_handler.oauth.SimpleOAuthProvider", "mcp_composer.core.utils.logger.LoggerFactory"  (wrong-import-order)
+src/mcp_composer/core/utils/oauth_cli_utils.py:8:0: C0411: third party import "mcp.shared.auth.OAuthClientInformationFull" should be placed before first party imports "mcp_composer.MCPComposer", "mcp_composer.core.auth_handler.oauth.SimpleOAuthProvider", "mcp_composer.core.utils.logger.LoggerFactory"  (wrong-import-order)
+src/mcp_composer/core/utils/oauth_cli_utils.py:9:0: C0411: third party import "mcp.server.auth.provider.AuthorizationParams" should be placed before first party imports "mcp_composer.MCPComposer", "mcp_composer.core.auth_handler.oauth.SimpleOAuthProvider", "mcp_composer.core.utils.logger.LoggerFactory"  (wrong-import-order)
+src/mcp_composer/core/utils/oauth_cli_utils.py:12:0: C0411: standard import "webbrowser" should be placed before third party imports "pydantic.AnyUrl", "mcp.server.auth.middleware.auth_context.get_access_token", "mcp.shared.auth.OAuthClientInformationFull", "mcp.server.auth.provider.AuthorizationParams" and first party imports "mcp_composer.MCPComposer", "mcp_composer.core.auth_handler.oauth.SimpleOAuthProvider", "mcp_composer.core.utils.logger.LoggerFactory"  (wrong-import-order)
+src/mcp_composer/core/utils/oauth_cli_utils.py:13:0: C0411: third party import "aiohttp.web" should be placed before first party imports "mcp_composer.MCPComposer", "mcp_composer.core.auth_handler.oauth.SimpleOAuthProvider", "mcp_composer.core.utils.logger.LoggerFactory"  (wrong-import-order)
+src/mcp_composer/core/utils/oauth_cli_utils.py:14:0: C0411: third party import "jwt" should be placed before first party imports "mcp_composer.MCPComposer", "mcp_composer.core.auth_handler.oauth.SimpleOAuthProvider", "mcp_composer.core.utils.logger.LoggerFactory"  (wrong-import-order)
+src/mcp_composer/core/utils/oauth_cli_utils.py:15:0: C0411: standard import "asyncio" should be placed before third party imports "pydantic.AnyUrl", "mcp.server.auth.middleware.auth_context.get_access_token", "mcp.shared.auth.OAuthClientInformationFull", "mcp.server.auth.provider.AuthorizationParams", "aiohttp.web", "jwt" and first party imports "mcp_composer.MCPComposer", "mcp_composer.core.auth_handler.oauth.SimpleOAuthProvider", "mcp_composer.core.utils.logger.LoggerFactory"  (wrong-import-order)
+src/mcp_composer/core/utils/oauth_cli_utils.py:16:0: C0411: standard import "secrets" should be placed before third party imports "pydantic.AnyUrl", "mcp.server.auth.middleware.auth_context.get_access_token", "mcp.shared.auth.OAuthClientInformationFull", "mcp.server.auth.provider.AuthorizationParams", "aiohttp.web", "jwt" and first party imports "mcp_composer.MCPComposer", "mcp_composer.core.auth_handler.oauth.SimpleOAuthProvider", "mcp_composer.core.utils.logger.LoggerFactory"  (wrong-import-order)
+src/mcp_composer/core/utils/oauth_cli_utils.py:17:0: C0411: standard import "hashlib" should be placed before third party imports "pydantic.AnyUrl", "mcp.server.auth.middleware.auth_context.get_access_token", "mcp.shared.auth.OAuthClientInformationFull", "mcp.server.auth.provider.AuthorizationParams", "aiohttp.web", "jwt" and first party imports "mcp_composer.MCPComposer", "mcp_composer.core.auth_handler.oauth.SimpleOAuthProvider", "mcp_composer.core.utils.logger.LoggerFactory"  (wrong-import-order)
+src/mcp_composer/core/utils/oauth_cli_utils.py:18:0: C0411: standard import "base64" should be placed before third party imports "pydantic.AnyUrl", "mcp.server.auth.middleware.auth_context.get_access_token", "mcp.shared.auth.OAuthClientInformationFull", "mcp.server.auth.provider.AuthorizationParams", "aiohttp.web", "jwt" and first party imports "mcp_composer.MCPComposer", "mcp_composer.core.auth_handler.oauth.SimpleOAuthProvider", "mcp_composer.core.utils.logger.LoggerFactory"  (wrong-import-order)
+************* Module mcp_composer.core.utils.health
+src/mcp_composer/core/utils/health.py:8:0: R0903: Too few public methods (1/2) (too-few-public-methods)
+************* Module mcp_composer.core.utils.auth_strategy
+src/mcp_composer/core/utils/auth_strategy.py:22:4: R1705: Unnecessary "elif" after "return", remove the leading "el" from "elif" (no-else-return)
+************* Module mcp_composer.core.utils.logger
+src/mcp_composer/core/utils/logger.py:20:8: W0105: String statement has no effect (pointless-string-statement)
+src/mcp_composer/core/utils/logger.py:7:0: R0903: Too few public methods (1/2) (too-few-public-methods)
+************* Module mcp_composer.core.utils.cli
+src/mcp_composer/core/utils/cli.py:220:11: W0718: Catching too general exception Exception (broad-exception-caught)
+************* Module mcp_composer.core.utils.utils
+src/mcp_composer/core/utils/utils.py:106:8: W0707: Consider explicitly re-raising using 'raise MemberServerError('Failed to fetch the status of member servers: %s', e) from e' (raise-missing-from)
+src/mcp_composer/core/utils/utils.py:106:8: W0715: Exception arguments suggest string formatting might be intended (raising-format-tuple)
+src/mcp_composer/core/utils/utils.py:110:8: W0707: Consider explicitly re-raising using 'raise MemberServerError('Failed to fetch the status of member servers: %s', e) from e' (raise-missing-from)
+src/mcp_composer/core/utils/utils.py:110:8: W0715: Exception arguments suggest string formatting might be intended (raising-format-tuple)
+src/mcp_composer/core/utils/utils.py:194:4: W0122: Use of exec (exec-used)
+************* Module mcp_composer.core.utils.custom_tool
+src/mcp_composer/core/utils/custom_tool.py:26:0: R0903: Too few public methods (0/2) (too-few-public-methods)
+src/mcp_composer/core/utils/custom_tool.py:94:38: W1514: Using open without explicitly specifying an encoding (unspecified-encoding)
+src/mcp_composer/core/utils/custom_tool.py:108:20: W1514: Using open without explicitly specifying an encoding (unspecified-encoding)
+src/mcp_composer/core/utils/custom_tool.py:110:16: W1514: Using open without explicitly specifying an encoding (unspecified-encoding)
+src/mcp_composer/core/utils/custom_tool.py:123:35: W1514: Using open without explicitly specifying an encoding (unspecified-encoding)
+src/mcp_composer/core/utils/custom_tool.py:135:17: W1514: Using open without explicitly specifying an encoding (unspecified-encoding)
+src/mcp_composer/core/utils/custom_tool.py:160:21: W1514: Using open without explicitly specifying an encoding (unspecified-encoding)
+src/mcp_composer/core/utils/custom_tool.py:184:17: W1514: Using open without explicitly specifying an encoding (unspecified-encoding)
+src/mcp_composer/core/utils/custom_tool.py:207:16: W0122: Use of exec (exec-used)
+src/mcp_composer/core/utils/custom_tool.py:234:0: R0902: Too many instance attributes (8/7) (too-many-instance-attributes)
+src/mcp_composer/core/utils/custom_tool.py:253:4: R0914: Too many local variables (16/15) (too-many-locals)
+src/mcp_composer/core/utils/custom_tool.py:301:4: R0914: Too many local variables (16/15) (too-many-locals)
+src/mcp_composer/core/utils/custom_tool.py:301:4: R0912: Too many branches (13/12) (too-many-branches)
+src/mcp_composer/core/utils/custom_tool.py:9:0: W0611: Unused Optional imported from typing (unused-import)
+************* Module mcp_composer.core.utils.patch_openapi_tool
+src/mcp_composer/core/utils/patch_openapi_tool.py:29:16: W0212: Access to a protected member _get_unique_name of a client class (protected-access)
+src/mcp_composer/core/utils/patch_openapi_tool.py:44:15: W0212: Access to a protected member _client of a client class (protected-access)
+src/mcp_composer/core/utils/patch_openapi_tool.py:51:16: W0212: Access to a protected member _timeout of a client class (protected-access)
+src/mcp_composer/core/utils/patch_openapi_tool.py:55:7: W0212: Access to a protected member _mcp_component_fn of a client class (protected-access)
+src/mcp_composer/core/utils/patch_openapi_tool.py:59:15: W0718: Catching too general exception Exception (broad-exception-caught)
+src/mcp_composer/core/utils/patch_openapi_tool.py:57:12: W0212: Access to a protected member _mcp_component_fn of a client class (protected-access)
+src/mcp_composer/core/utils/patch_openapi_tool.py:70:4: W0212: Access to a protected member _tools of a client class (protected-access)
+src/mcp_composer/core/utils/patch_openapi_tool.py:70:4: W0212: Access to a protected member _tool_manager of a client class (protected-access)
+src/mcp_composer/core/utils/patch_openapi_tool.py:80:0: W0212: Access to a protected member _create_openapi_tool of a client class (protected-access)
+************* Module mcp_composer.core.auth_handler.dynamic_token_client
+src/mcp_composer/core/auth_handler/dynamic_token_client.py:10:4: R0913: Too many arguments (6/5) (too-many-arguments)
+src/mcp_composer/core/auth_handler/dynamic_token_client.py:3:0: C0411: standard import "typing.Any" should be placed before third party import "httpx" (wrong-import-order)
+************* Module mcp_composer.core.auth_handler.dynamic_token_manager
+src/mcp_composer/core/auth_handler/dynamic_token_manager.py:81:15: W0718: Catching too general exception Exception (broad-exception-caught)
+src/mcp_composer/core/auth_handler/dynamic_token_manager.py:3:0: C0411: standard import "typing.Any" should be placed before third party import "httpx" (wrong-import-order)
+************* Module mcp_composer.core.auth_handler.oauth_callback
+src/mcp_composer/core/auth_handler/oauth_callback.py:30:15: W0718: Catching too general exception Exception (broad-exception-caught)
+************* Module mcp_composer.core.auth_handler.oauth
+src/mcp_composer/core/auth_handler/oauth.py:64:0: R0902: Too many instance attributes (11/7) (too-many-instance-attributes)
+src/mcp_composer/core/auth_handler/oauth.py:67:4: W0231: __init__ method from base class 'OAuthProvider' is not called (super-init-not-called)
+src/mcp_composer/core/auth_handler/oauth.py:4:0: W0611: Unused find_dotenv imported from dotenv (unused-import)
+************* Module mcp_composer.core.models.tool
+src/mcp_composer/core/models/tool.py:48:4: E0213: Method 'validate_curl_config' should have "self" as first argument (no-self-argument)
+src/mcp_composer/core/models/tool.py:61:4: E0213: Method 'validate_script_config' should have "self" as first argument (no-self-argument)
+************* Module mcp_composer.core.member_servers.builder
+src/mcp_composer/core/member_servers/builder.py:48:8: R1705: Unnecessary "elif" after "return", remove the leading "el" from "elif" (no-else-return)
+src/mcp_composer/core/member_servers/builder.py:93:8: R1705: Unnecessary "elif" after "return", remove the leading "el" from "elif" (no-else-return)
+src/mcp_composer/core/member_servers/builder.py:94:12: R1714: Consider merging these comparisons with 'in' by using 'transport_type in (MemberServerType.HTTP, MemberServerType.SSE)'. Use a set instead if elements are hashable. (consider-using-in)
+src/mcp_composer/core/member_servers/builder.py:237:23: W0718: Catching too general exception Exception (broad-exception-caught)
+src/mcp_composer/core/member_servers/builder.py:32:0: R0903: Too few public methods (1/2) (too-few-public-methods)
+src/mcp_composer/core/member_servers/builder.py:7:0: C0411: third party import "fastmcp.FastMCP" should be placed before first party import "mcp_composer.core.utils.patch_openapi_tool"  (wrong-import-order)
+src/mcp_composer/core/member_servers/builder.py:8:0: C0411: third party import "fastmcp.client.auth.OAuth" should be placed before first party import "mcp_composer.core.utils.patch_openapi_tool"  (wrong-import-order)
+src/mcp_composer/core/member_servers/builder.py:9:0: C0411: third party import "fastmcp.client.transports.StreamableHttpTransport" should be placed before first party import "mcp_composer.core.utils.patch_openapi_tool"  (wrong-import-order)
+src/mcp_composer/core/member_servers/builder.py:14:0: C0411: third party import "fastmcp.client.auth.oauth.FileTokenStorage" should be placed before first party import "mcp_composer.core.utils.patch_openapi_tool"  (wrong-import-order)
+src/mcp_composer/core/member_servers/builder.py:16:0: C0411: third party import "httpx" should be placed before first party import "mcp_composer.core.utils.patch_openapi_tool"  (wrong-import-order)
+src/mcp_composer/core/member_servers/builder.py:6:0: W0611: Unused import mcp_composer.core.utils.patch_openapi_tool (unused-import)
+************* Module mcp_composer.core.member_servers.server_manager
+src/mcp_composer/core/member_servers/server_manager.py:62:27: W0613: Unused argument 'server_id' (unused-argument)
+src/mcp_composer/core/member_servers/server_manager.py:27:0: R0904: Too many public methods (31/20) (too-many-public-methods)
+************* Module mcp_composer.core.prompts.prompt_manager
+src/mcp_composer/core/prompts/prompt_manager.py:65:19: W0718: Catching too general exception Exception (broad-exception-caught)
+src/mcp_composer/core/prompts/prompt_manager.py:102:15: W0718: Catching too general exception Exception (broad-exception-caught)
+src/mcp_composer/core/prompts/prompt_manager.py:186:15: W0718: Catching too general exception Exception (broad-exception-caught)
+src/mcp_composer/core/prompts/prompt_manager.py:204:15: W0718: Catching too general exception Exception (broad-exception-caught)
+src/mcp_composer/core/prompts/prompt_manager.py:249:15: W0718: Catching too general exception Exception (broad-exception-caught)
+************* Module mcp_composer.core.prompts.__init__
+src/mcp_composer/core/prompts/__init__.py:1:0: R0801: Similar lines in 2 files
+==mcp_composer.core.prompts.prompt_manager:[221:228]
+==mcp_composer.core.resources.resource_manager:[551:559]
+                        match = False
+
+                if (
+                    match
+                    and "description" in filter_criteria
+                    and filter_criteria["description"]
+                ): (duplicate-code)
+src/mcp_composer/core/prompts/__init__.py:1:0: R0801: Similar lines in 2 files
+==mcp_composer.core.settings.base_adapter:[6:48]
+==mcp_composer.core.settings.base_config:[14:36]
+class SecretAdapter(ABC):
+    """
+    Abstract adapter interface for secret/config version storage.
+    """
+
+    @abstractmethod
+    def load_config(self, server_id: str) -> Dict[str, Any]:
+        """Return the latest config for the server."""
+        pass
+
+    @abstractmethod
+    def save_config(self, server_id: str, versions: List[Dict[str, Any]]) -> None:
+        """Save a list of versions for the given server."""
+        pass
+
+    @abstractmethod
+    def get_all_versions(self, server_id: str) -> List[Dict[str, Any]]:
+        """Return all versions for a given server."""
+        pass
+
+    @abstractmethod
+    def get_latest_version(self, server_id: str) -> Optional[Dict[str, Any]]:
+        """Return the latest version of the config."""
+        pass
+
+    @abstractmethod
+    def get_version_by_id(
+        self, server_id: str, version_id: str
+    ) -> Optional[Dict[str, Any]]:
+        """Return a specific version by ID."""
+        pass
+
+    @abstractmethod
+    def rollback(self, server_id: str, version_id: str) -> Dict[str, Any]:
+        """
+        Roll back the server config to a previous version.
+
+        Returns:
+            The rolled-back config dictionary.
+        Raises:
+            ValueError: if the specified version_id is not found.
+        """ (duplicate-code)
+src/mcp_composer/core/prompts/__init__.py:1:0: R0801: Similar lines in 2 files
+==mcp_composer.core.prompts.prompt_manager:[119:126]
+==mcp_composer.core.resources.resource_manager:[119:126]
+            remove_set = set()
+            description_updates = {}
+
+            for member in server_config:
+                if member.health_status == HealthStatus.unhealthy:
+                    continue
+ (duplicate-code)
+src/mcp_composer/core/prompts/__init__.py:1:0: R0801: Similar lines in 2 files
+==mcp_composer.core.resources.resource_manager:[54:61]
+==mcp_composer.core.tools.tool_manager:[61:68]
+            remove_set = set()
+            description_updates = {}
+
+            for member in server_config:
+                if member.health_status == HealthStatus.unhealthy:
+                    continue
+ (duplicate-code)
+src/mcp_composer/core/prompts/__init__.py:1:0: R0801: Similar lines in 2 files
+==mcp_composer.core.settings.base_adapter:[19:49]
+==mcp_composer.core.settings.base_config:[17:36]
+        pass
+
+    @abstractmethod
+    def get_all_versions(self, server_id: str) -> List[Dict[str, Any]]:
+        """Return all versions for a given server."""
+        pass
+
+    @abstractmethod
+    def get_latest_version(self, server_id: str) -> Optional[Dict[str, Any]]:
+        """Return the latest version of the config."""
+        pass
+
+    @abstractmethod
+    def get_version_by_id(
+        self, server_id: str, version_id: str
+    ) -> Optional[Dict[str, Any]]:
+        """Return a specific version by ID."""
+        pass
+
+    @abstractmethod
+    def rollback(self, server_id: str, version_id: str) -> Dict[str, Any]:
+        """
+        Roll back the server config to a previous version.
+
+        Returns:
+            The rolled-back config dictionary.
+        Raises:
+            ValueError: if the specified version_id is not found.
+        """
+        pass (duplicate-code)
+src/mcp_composer/core/prompts/__init__.py:1:0: R0401: Cyclic import (mcp_composer.core.auth_handler.dynamic_token_client -> mcp_composer.core.utils -> mcp_composer.core.utils.auth_strategy) (cyclic-import)
+src/mcp_composer/core/prompts/__init__.py:1:0: R0401: Cyclic import (mcp_composer.core.member_servers.member_server -> mcp_composer.core.utils -> mcp_composer.core.utils.utils) (cyclic-import)
+src/mcp_composer/core/prompts/__init__.py:1:0: R0401: Cyclic import (mcp_composer.core.auth_handler.dynamic_token_manager -> mcp_composer.core.utils -> mcp_composer.core.utils.auth_strategy) (cyclic-import)
 
 ------------------------------------------------------------------
-Your code has been rated at 9.33/10 (previous run: 9.22/10, +0.11)
+Your code has been rated at 9.49/10 (previous run: 9.46/10, +0.03)
+
