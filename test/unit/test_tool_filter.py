@@ -3,7 +3,7 @@
 import pytest
 from unittest.mock import Mock, AsyncMock, patch
 from fastmcp.server.middleware import MiddlewareContext
-from mcp_composer.middleware.tool_filter import ListFilteredTool
+from mcp_composer.middleware.tool.tool_filter import ListFilteredTool
 from mcp_composer.core.utils.exceptions import ToolFilterError
 
 
@@ -42,15 +42,10 @@ class TestListFilteredTool:
     async def test_on_list_tools_success(self, list_filtered_tool, mock_context, mock_call_next):
         """Test successful tool filtering"""
         # Mock tools
-        mock_tools = [
-            {"name": "tool1", "description": "Tool 1"},
-            {"name": "tool2", "description": "Tool 2"}
-        ]
+        mock_tools = [{"name": "tool1", "description": "Tool 1"}, {"name": "tool2", "description": "Tool 2"}]
 
         # Mock filtered tools
-        mock_filtered_tools = {
-            "tool1": {"name": "tool1", "description": "Filtered Tool 1"}
-        }
+        mock_filtered_tools = {"tool1": {"name": "tool1", "description": "Filtered Tool 1"}}
 
         list_filtered_tool.gw.get_tools.return_value = mock_tools
         list_filtered_tool.gw._tool_manager.filter_tools.return_value = mock_filtered_tools
@@ -165,15 +160,14 @@ class TestListFilteredTool:
     def test_list_filtered_tool_class_inheritance(self, list_filtered_tool):
         """Test that ListFilteredTool inherits from Middleware"""
         from fastmcp.server.middleware import Middleware
+
         assert isinstance(list_filtered_tool, Middleware)
 
     @pytest.mark.asyncio
     async def test_on_list_tools_with_complex_tools(self, list_filtered_tool, mock_context, mock_call_next):
         """Test tool filtering with complex tool objects"""
         # Mock complex tools
-        mock_tools = [
-            {"name": "complex_tool", "description": "Complex Tool", "parameters": {"type": "object"}}
-        ]
+        mock_tools = [{"name": "complex_tool", "description": "Complex Tool", "parameters": {"type": "object"}}]
         mock_filtered_tools = {
             "complex_tool": {"name": "complex_tool", "description": "Complex Tool", "parameters": {"type": "object"}}
         }

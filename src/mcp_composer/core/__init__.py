@@ -12,4 +12,5 @@ __all__ = [
     "settings",
     "tools",
     "utils",
+    "composer",
 ]

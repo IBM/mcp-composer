@@ -1,7 +1,7 @@
 import os
 import sys
 import asyncio
-from mcp_composer.middleware.tool_filter import ListFilteredTool
+from mcp_composer.middleware.tool.tool_filter import ListFilteredTool
 from mcp_composer import MCPComposer
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../src")))
@@ -21,9 +21,7 @@ async def main():
     await gw.setup_member_servers()
 
     if mode == "http":
-        await gw.run_http_async(
-            host="0.0.0.0", port=9000, log_level="debug", path="/mcp"
-        )
+        await gw.run_http_async(host="0.0.0.0", port=9000, log_level="debug", path="/mcp")
     elif mode == "stdio":
         await gw.run_stdio_async()
     elif mode == "sse":

@@ -94,63 +94,63 @@ class LocalFileAdapter(DatabaseInterface):
             return server_cfg
         return {}
 
-    def disable_tools(self, tools: list[str], server_id: str) -> None:
-        """Add or Update disabled tools in file for the member server"""
+    def _update_disabled_tools(self, tools: list[str], server_id: str, enable: bool = False) -> None:
+        """Common method to update the disabled tools list for a server."""
         data = self._read_data()
-        tools = list(set(tools))
+        tools = list(set(tools))  # Remove duplicates
 
         for server in data:
             if server.get("id") != server_id:
                 continue
 
-            existing_tools = server.get("disabled_tools", [])
-            tools_description = server.get("tools_description", {})
-
-            duplicate_tool = check_duplicate_tool(existing_tools, tools)
-            if duplicate_tool:
-                raise ToolDuplicateError(f"Tool {duplicate_tool} is already removed")
-
-            # Update disabled_tools
-            if existing_tools:
-                server["disabled_tools"].extend(tools)
-                logger.info("Updated remove tool list for server:%s", server_id)
-                logger.info("Previous tools:%s", existing_tools)
-            else:
+            if enable:
                 server["disabled_tools"] = tools
                 logger.info(
-                    "Added new remove tool list: %s  for server %s", tools, server_id
+                    "Updated disabled tool list for server:%s, disabled tools:%s",
+                    server_id,
+                    server["disabled_tools"],
+                )
+            else:
+                if len(tools) == 1 and tools[0].lower() == "all":
+                    existing_tools = []
+                else:
+                    existing_tools = server.get("disabled_tools", [])
+
+                duplicate_tool = check_duplicate_tool(existing_tools, tools)
+                if duplicate_tool:
+                    raise ToolDuplicateError(f"Tool {duplicate_tool} is already removed")
+
+                if existing_tools:
+                    server["disabled_tools"].extend(tools)
+                    logger.info("Updated remove tool list for server:%s", server_id)
+                    logger.info("Previous tools:%s", existing_tools)
+                else:
+                    server["disabled_tools"] = tools
+                    logger.info("Added new remove tool list: %s for server %s", tools, server_id)
+
+            break
+        else:
+            if not enable:
+                # Create new server entry if not found
+                data.append(
+                    {
+                        "id": server_id,
+                        "type": "composer",
+                        "disabled_tools": tools,
+                    }
                 )
 
-            # Remove tool descriptions if they exist
-            if server["disabled_tools"] and tools_description:
-                for tool in server["disabled_tools"]:
-                    tools_description.pop(tool, None)
-
-            break
-
         self._write_data(data)
+
+    def disable_tools(self, tools: list[str], server_id: str) -> None:
+        """Add or update disabled tools in file for a given member server or composer."""
+        self._update_disabled_tools(tools, server_id, enable=False)
 
     def enable_tools(self, tools: list[str], server_id: str) -> None:
-        """Enable tools which already disabled"""
-        data = self._read_data()
-        tools = list(set(tools))
-        for server in data:
-            if server.get("id") != server_id:
-                continue
+        """Enable tools which are already disabled on the given member server or composer."""
+        self._update_disabled_tools(tools, server_id, enable=True)
 
-            server["disabled_tools"] = tools = tools
-            logger.info(
-                "Updated disabled tool list for server:%s, disabled tools:%s",
-                server_id,
-                server["disabled_tools"],
-            )
-
-            break
-        self._write_data(data)
-
-    def update_tool_description(
-        self, tool: str, description: str, server_id: str
-    ) -> None:
+    def update_tool_description(self, tool: str, description: str, server_id: str) -> None:
         """store tool description of member server in file storage"""
         data = self._read_data()
         for server in data:
@@ -189,9 +189,7 @@ class LocalFileAdapter(DatabaseInterface):
 
             duplicate_prompt = check_duplicate_tool(existing_prompts, prompts)
             if duplicate_prompt:
-                raise ToolDuplicateError(
-                    f"Prompt {duplicate_prompt} is already disabled"
-                )
+                raise ToolDuplicateError(f"Prompt {duplicate_prompt} is already disabled")
 
             # Update disabled_prompts
             if existing_prompts:
@@ -247,9 +245,7 @@ class LocalFileAdapter(DatabaseInterface):
 
             duplicate_resource = check_duplicate_tool(existing_resources, resources)
             if duplicate_resource:
-                raise ToolDuplicateError(
-                    f"Resource {duplicate_resource} is already disabled"
-                )
+                raise ToolDuplicateError(f"Resource {duplicate_resource} is already disabled")
 
             # Update disabled_resources
             if existing_resources:

@@ -1,7 +1,6 @@
 """Tools filter middleware"""
 
-from typing import Any, List
-from fastmcp.server.middleware import Middleware, MiddlewareContext, CallNext
+from fastmcp.server.middleware import Middleware, MiddlewareContext
 
 from mcp_composer.core.utils.exceptions import ToolFilterError
 from mcp_composer.core.utils.logger import LoggerFactory
@@ -15,10 +14,10 @@ class ListFilteredTool(Middleware):
     2. Update description of tools if exist
     """
 
-    def __init__(self, gw: Any) -> None:
+    def __init__(self, gw):
         self.gw = gw
 
-    async def on_list_tools(self, context: MiddlewareContext, call_next: CallNext) -> list[Any]:
+    async def on_list_tools(self, context: MiddlewareContext, call_next):
         try:
             tools = await self.gw.get_tools()
             filtered_tools = self.gw._tool_manager.filter_tools(tools)
