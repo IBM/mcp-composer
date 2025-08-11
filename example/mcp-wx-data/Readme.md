@@ -2,6 +2,7 @@
 
 1. Update spec_filepath location, endpoint and apikey in `example/mcp-wx-data/wx-data-config.json`
 
+
 ```
  {
     "open_api": {
