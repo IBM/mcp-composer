@@ -2,11 +2,6 @@
 
 MCP Composer provides a comprehensive resource management system that allows you to dynamically create, list, manage, enable, and disable resources and resource templates across your MCP infrastructure. The system supports both runtime resource creation and static resource loading from configuration files. As part of resource management in MCP Composer, you will create resources and templates dynamically, list all registered resources, get resources from specific servers, filter resources based on criteria, enable/disable resources, and apply safety and validation rules. Among them, create resources and templates dynamically, list all registered resources, list resources per server, filter resources, and enable/disable resources are currently supported.
 
-Here is the roadmap for resource management in MCP Composer:
-
-![resource_roadmap](/images/resource_roadmap.png)
-
-P.S - features those are in purple are supported today. 
 
 ## Key Functionality
 

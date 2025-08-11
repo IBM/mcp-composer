@@ -28,7 +28,6 @@ Update the path below based on your local install location:
 ```bash
 uv tool install -e /Users/charna.parkey/code/mcp-composer
 ```
-
 Export the path provided by that tool install
 
 ```bash
@@ -42,7 +41,6 @@ Use the CLI to see if mcp composer can successfully be booted via uvx
 ```bash
 uvx mcp-composer --mode sse
 ```
-
 You should see mcp composer successful boot up with an info message that says:
 
 ```bash
@@ -60,7 +58,6 @@ You can't run two MCP Composers on the same port during the rest of this demo.
 git clone https://github.com/langflow-ai/langflow
 cd langflow
 ```
-
 2. **Install Langflow**
 
 ```bash
@@ -112,7 +109,6 @@ OAUTH_PROVIDER_SCOPE=openid
 - Windsurf
 
 ## 🧠 Claude Integration
-
 1. Go to the Auto Install tab inside Langflow, click + next to Claude
 
 2. Restart Claude. On opening, you should be redirected to the OAuth flow.
@@ -139,7 +135,6 @@ If Claude fails to start due to uvx path issues, update the configuration JSON t
 🛑 If you're done, remove the MCP Composer server from Langflow to stop running on port 9000
 
 ## 🌍 Connecting Other MCP Servers via MCP Composer
-
 - Any MCP Servers that are in the config file of the MCP Composer will be made available when connecting MCP Composer to Langflow, you do not need to have the langflow servers passed via the json snippet and you do not need to pass the oath via the environment variable if it is configured this way
   - To do this you’ll need to create a config.json file in the mcp-composer/config folder
 - Add mcp server configs to the config.json file in the config directory of the MCP Composer

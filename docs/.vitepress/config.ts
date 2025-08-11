@@ -51,6 +51,7 @@ defineConfig({
             { text: 'Server Management', link: '/guide/server-management' },
             { text: 'Tool Management', link: '/guide/tool-management' },
             { text: 'Prompt Management', link: '/guide/prompt-management' },
+            { text: 'Resource Management', link: '/guide/resource-management' },
             { text: 'Authentication', link: '/guide/authentication' },
             { text: 'Policy Based ACL', link: '/guide/policy-acl' }
           ]
@@ -70,6 +71,7 @@ defineConfig({
           items: [
             { text: 'Overview', link: '/examples/' },
             { text: 'MCP Inspector Demo', link: '/examples/mcp-inspector' },
+            { text: 'wx Data Demo', link: '/examples/watsonx-data' },
             { text: 'Open API V2 fix', link: '/examples/using-swagger-2-api-spec' }
           ]
         }

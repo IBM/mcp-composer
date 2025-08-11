@@ -18,6 +18,11 @@ The examples demonstrate how to:
 
 - [MCP Inspector Demo](/examples/mcp-inspector) - Use MCP Inspector for testing and debugging
 
+
+### 🧪 Integration with APIs
+
+- [IBM watsonx.data Demo](/examples/watsonx-data) - Integrate MCP Composer with IBM watsonx.data
+
 ## Quick Examples
 
 ### Basic Tool Registration

@@ -233,6 +233,35 @@ for prompt in all_prompts:
     print(prompt)
 ```
 
+
+## Prompt Building Process
+
+### The `build_prompt_from_dict` Function
+
+This utility function converts prompt dictionaries into FastMCP Prompt objects:
+
+```python
+async def build_prompt_from_dict(entry: dict) -> Prompt:
+    name = entry["name"]
+    template = entry["template"]
+    description = entry.get("description", "")
+    arguments = entry.get("arguments", [])
+
+    def fn() -> str:
+        """
+        Replaces placeholders in the template string with values from arguments.
+        """
+        try:
+            result = template.format(**arguments)
+            return result
+        except KeyError as e:
+            raise ValueError(f"Missing required argument: {e.args[0]}")
+
+    # Wrap into a FastMCP Prompt
+    prompt = Prompt.from_function(fn, name=name, description=description)
+    prompt.arguments = arguments
+    return prompt
+
 ### List Prompts Per Server
 
 The `list_prompts_per_server` function retrieves all prompts from a specific server (excluding disabled ones):
@@ -491,6 +520,7 @@ async def filter_prompts(self, filter_criteria: dict) -> List[Dict]:
     except Exception as e:
         logger.error("Error filtering prompts: %s", e)
         return []
+
 ```
 
 ## Example Prompts
@@ -600,6 +630,7 @@ async def test_builder_local():
     assert len(prompts) == 16, "Composer should return 16 prompts from local file"
     assert isinstance(prompts, list), "Should return a list of prompts"
 ```
+
 
 ### Enable/Disable Tests
 
