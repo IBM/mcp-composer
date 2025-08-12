@@ -15,7 +15,18 @@ class TestOAuthCallback:
     def mock_self(self):
         """Mock self object with custom_route method"""
         mock = Mock()
-        mock.custom_route = Mock()
+        # Capture the handler function that gets registered
+        captured_handler = None
+        
+        def custom_route(path, methods):
+            def decorator(handler_func):
+                nonlocal captured_handler
+                captured_handler = handler_func
+                return handler_func
+            return decorator
+        
+        mock.custom_route = custom_route
+        mock._captured_handler = lambda: captured_handler
         return mock
 
     @pytest.fixture
@@ -44,12 +55,27 @@ class TestOAuthCallback:
 
     def test_register_oauth_callback_calls_custom_route(self, mock_self, mock_settings, mock_auth_provider):
         """Test that register_oauth_callback calls custom_route"""
+        # Track if custom_route was called
+        custom_route_called = False
+        custom_route_args = None
+        custom_route_kwargs = None
+        
+        original_custom_route = mock_self.custom_route
+        
+        def custom_route_wrapper(path, methods):
+            nonlocal custom_route_called, custom_route_args, custom_route_kwargs
+            custom_route_called = True
+            custom_route_args = (path,)
+            custom_route_kwargs = {"methods": methods}
+            return original_custom_route(path, methods)
+        
+        mock_self.custom_route = custom_route_wrapper
+        
         register_oauth_callback(mock_self, mock_settings, mock_auth_provider)
         
         # Verify custom_route was called
-        mock_self.custom_route.assert_called_once()
-        args, kwargs = mock_self.custom_route.call_args
-        assert kwargs['methods'] == ["GET"]
+        assert custom_route_called, "custom_route was not called"
+        assert custom_route_kwargs['methods'] == ["GET"]
 
     @pytest.mark.asyncio
     async def test_callback_handler_missing_code_and_state(self, mock_self, mock_settings, mock_auth_provider):
@@ -57,7 +83,8 @@ class TestOAuthCallback:
         register_oauth_callback(mock_self, mock_settings, mock_auth_provider)
         
         # Get the registered callback handler
-        callback_handler = mock_self.custom_route.call_args[1]['methods'][0]
+        callback_handler = mock_self._captured_handler()
+        assert callback_handler is not None, "Handler was not captured"
         
         # Create mock request with missing parameters
         mock_request = Mock(spec=Request)
@@ -76,7 +103,8 @@ class TestOAuthCallback:
         register_oauth_callback(mock_self, mock_settings, mock_auth_provider)
         
         # Get the registered callback handler
-        callback_handler = mock_self.custom_route.call_args[1]['methods'][0]
+        callback_handler = mock_self._captured_handler()
+        assert callback_handler is not None, "Handler was not captured"
         
         # Mock successful auth provider response
         mock_auth_provider.handle_callback.return_value = "http://localhost:3000/success"
@@ -90,7 +118,7 @@ class TestOAuthCallback:
         
         assert isinstance(response, RedirectResponse)
         assert response.status_code == 302
-        assert response.url == "http://localhost:3000/success"
+        assert response.headers.get("location") == "http://localhost:3000/success"
         mock_auth_provider.handle_callback.assert_called_once_with("test_code", "test_state")
 
     @pytest.mark.asyncio
@@ -99,7 +127,8 @@ class TestOAuthCallback:
         register_oauth_callback(mock_self, mock_settings, mock_auth_provider)
         
         # Get the registered callback handler
-        callback_handler = mock_self.custom_route.call_args[1]['methods'][0]
+        callback_handler = mock_self._captured_handler()
+        assert callback_handler is not None, "Handler was not captured"
         
         # Mock auth provider raising HTTPException
         mock_auth_provider.handle_callback.side_effect = HTTPException(400, "Bad request")
@@ -121,7 +150,8 @@ class TestOAuthCallback:
         register_oauth_callback(mock_self, mock_settings, mock_auth_provider)
         
         # Get the registered callback handler
-        callback_handler = mock_self.custom_route.call_args[1]['methods'][0]
+        callback_handler = mock_self._captured_handler()
+        assert callback_handler is not None, "Handler was not captured"
         
         # Mock auth provider raising unexpected exception
         mock_auth_provider.handle_callback.side_effect = Exception("Unexpected error")

@@ -66,14 +66,20 @@ class TestMainModule:
         # Mock the config building
         mock_build_config.return_value = []
         
-        # Simulate running the module as a script
-        with patch('mcp_composer.__main__.__name__', '__main__'):
-            # Re-import the module to trigger the if __name__ == "__main__" block
-            import importlib
-            import mcp_composer.__main__
-            importlib.reload(mcp_composer.__main__)
-            
-            # Verify that the functions were called
-            mock_parse_args.assert_called_once()
-            mock_build_config.assert_called_once_with(mock_args)
-            mock_run_composer.assert_called_once() 
+        # Test the main function directly (which is what __main__.py calls)
+        # This simulates the actual execution path when the module is run as a script
+        main()
+        
+        # Verify that the functions were called
+        mock_parse_args.assert_called_once()
+        mock_build_config.assert_called_once_with(mock_args)
+        mock_run_composer.assert_called_once()
+        
+        # Also verify the import structure is correct
+        import mcp_composer.__main__
+        assert hasattr(mcp_composer.__main__, 'main')
+        assert callable(mcp_composer.__main__.main)
+        
+        # Verify that the main function is the same as the one from cli
+        from mcp_composer.core.utils.cli import main as cli_main
+        assert mcp_composer.__main__.main is cli_main 

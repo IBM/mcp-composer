@@ -19,9 +19,9 @@ def fake_db():
 @pytest.fixture
 def server_config():
     return {
-        "id": "test-server",
-        "type": "sse",
-        "endpoint": "https://mcp-server-fetch.1vgzmntiwjzl.eu-es.codeengine.appdomain.cloud/sse",
+        "id": "mcp-stock-info",
+        "type": "http",
+        "endpoint": "https://mcp-stock-info.1vgzmntiwjzl.eu-es.codeengine.appdomain.cloud/mcp"
     }
 
 

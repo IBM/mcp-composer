@@ -49,11 +49,11 @@ class ToolBuilderConfig(BaseModel):
         """validate curl config is not empty"""
         if curl_config:
             for k, v in curl_config.items():
-                if not k.strip() and k.strip() == "value":
+                if not k or not k.strip():
                     raise ValueError(
                         "Curl config key cannot be empty or key should contain a value"
                     )
-                if not v.strip():
+                if isinstance(v, str) and not v.strip():
                     raise ValueError(f"Curl config value for '{k}' cannot be empty.")
         return curl_config
 
@@ -62,11 +62,11 @@ class ToolBuilderConfig(BaseModel):
         """validate python script config is not empty"""
         if script_config:
             for k, v in script_config.items():
-                if not k.strip() and k.strip() == "value":
+                if not k or not k.strip():
                     raise ValueError(
                         "Python script config key cannot be empty or key should contain a value"
                     )
-                if not v.strip():
+                if isinstance(v, str) and not v.strip():
                     raise ValueError(f"Python script value for '{k}' cannot be empty.")
         return script_config
 

@@ -223,13 +223,13 @@ class TestOpenApiToolAuthConfig:
         """Test creating OpenApiToolAuthConfig with dynamic_bearer auth"""
         config = OpenApiToolAuthConfig(
             auth_strategy="dynamic_bearer",
-            auth={"token_url": "https://auth.example.com/token", "api_key": "test-key"}
+            auth={"token_url": "https://auth.example.com/token", "apikey": "test-key"}
         )
         
         assert config.auth_strategy == "dynamic_bearer"
         assert isinstance(config.auth, DynamicBearerAuth)
         assert config.auth.token_url == "https://auth.example.com/token"
-        assert config.auth.api_key == "test-key"
+        assert config.auth.apikey == "test-key"
 
     def test_openapi_tool_auth_config_basic(self):
         """Test creating OpenApiToolAuthConfig with basic auth"""
@@ -247,12 +247,12 @@ class TestOpenApiToolAuthConfig:
         """Test creating OpenApiToolAuthConfig with api_key auth"""
         config = OpenApiToolAuthConfig(
             auth_strategy="api_key",
-            auth={"key": "api-key", "value": "key-value"}
+            auth={"apikey": "api-key", "value": "key-value"}
         )
         
         assert config.auth_strategy == "api_key"
         assert isinstance(config.auth, APIkey)
-        assert config.auth.key == "api-key"
+        assert config.auth.apikey == "api-key"
         assert config.auth.value == "key-value"
 
     def test_openapi_tool_auth_config_missing_auth_strategy(self):
