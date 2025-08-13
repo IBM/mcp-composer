@@ -1,24 +1,24 @@
 """Utility functions"""
 
+import asyncio
+import importlib.util
+import json
 import os
 import re
 import subprocess
-from typing import Any, Dict, Optional, Tuple, Callable
-import importlib.util
-import json
-import asyncio
+from typing import Any, Callable, Dict, Optional, Tuple
+
 import aiohttp
 import httpx
-
 from aiohttp import ClientConnectorError
-from fastmcp.server.openapi import RouteMap, MCPType
 from fastmcp.prompts.prompt import Prompt, PromptArgument
-from mcp_composer.core.settings.base_adapter import SecretAdapter
-from mcp_composer.core.utils.logger import LoggerFactory
-from mcp_composer.core.member_servers.member_server import HealthStatus, MemberMCPServer
-from mcp_composer.core.utils.exceptions import MemberServerError
-from mcp_composer.core.settings.adapters import ADAPTER_REGISTRY
+from fastmcp.server.openapi import MCPType, RouteMap
 
+from mcp_composer.core.member_servers.member_server import HealthStatus, MemberMCPServer
+from mcp_composer.core.settings.adapters import ADAPTER_REGISTRY
+from mcp_composer.core.settings.base_adapter import SecretAdapter
+from mcp_composer.core.utils.exceptions import MemberServerError
+from mcp_composer.core.utils.logger import LoggerFactory
 
 logger = LoggerFactory.get_logger()
 
@@ -90,11 +90,7 @@ async def get_member_health(
             status = []
             for (status_code, server), server_id in zip(results, tasks.keys()):
                 server_status = {}
-                health = (
-                    HealthStatus.healthy
-                    if status_code in {200, 406, 401}
-                    else HealthStatus.unhealthy
-                )
+                health = HealthStatus.healthy if status_code in {200, 406, 401} else HealthStatus.unhealthy
                 server.health_status = health
                 server_status["status"] = health
                 server_status["server_name"] = server_id
@@ -103,11 +99,11 @@ async def get_member_health(
 
     except ClientConnectorError as e:
         logger.exception("Connection Error: Failed to connect to MCP server. %s", e)
-        raise MemberServerError("Failed to fetch the status of member servers: %s", e)
+        raise MemberServerError(f"Failed to fetch the status of member servers: {e}") from e
 
     except Exception as e:
         logger.exception("Failed to fetch the status of member servers: %s", e)
-        raise MemberServerError("Failed to fetch the status of member servers: %s", e)
+        raise MemberServerError(f"Failed to fetch the status of member servers: {e}") from e
 
 
 def get_server_doc_info(doc: dict) -> tuple[list[str], dict[str, str]]:
@@ -240,11 +236,7 @@ def get_version_adapter(config: Optional[Dict[str, Any]] = None) -> SecretAdapte
     else:
         adapter_type = os.getenv("VERSION_ADAPTER_TYPE", "file").lower()
         adapter_args = (
-            {
-                "file_path": os.getenv(
-                    "VERSION_CONFIG_FILE_PATH", "versioned_config.json"
-                )
-            }
+            {"file_path": os.getenv("VERSION_CONFIG_FILE_PATH", "versioned_config.json")}
             if adapter_type == "file"
             else {}
         )

@@ -1,7 +1,7 @@
 # base_adapter.py
 
 from abc import ABC, abstractmethod
-from typing import Dict, List, Optional, Any
+from typing import Any, Dict, List, Optional
 
 
 class SecretAdapter(ABC):
@@ -12,29 +12,22 @@ class SecretAdapter(ABC):
     @abstractmethod
     def load_config(self, server_id: str) -> Dict[str, Any]:
         """Return the latest config for the server."""
-        pass
 
     @abstractmethod
     def save_config(self, server_id: str, versions: List[Dict[str, Any]]) -> None:
         """Save a list of versions for the given server."""
-        pass
 
     @abstractmethod
     def get_all_versions(self, server_id: str) -> List[Dict[str, Any]]:
         """Return all versions for a given server."""
-        pass
 
     @abstractmethod
     def get_latest_version(self, server_id: str) -> Optional[Dict[str, Any]]:
         """Return the latest version of the config."""
-        pass
 
     @abstractmethod
-    def get_version_by_id(
-        self, server_id: str, version_id: str
-    ) -> Optional[Dict[str, Any]]:
+    def get_version_by_id(self, server_id: str, version_id: str) -> Optional[Dict[str, Any]]:
         """Return a specific version by ID."""
-        pass
 
     @abstractmethod
     def rollback(self, server_id: str, version_id: str) -> Dict[str, Any]:
@@ -46,4 +39,3 @@ class SecretAdapter(ABC):
         Raises:
             ValueError: if the specified version_id is not found.
         """
-        pass

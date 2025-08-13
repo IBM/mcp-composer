@@ -41,9 +41,7 @@ class ServerManager:
     ):
         self._member_servers: dict[str, MemberMCPServer] = {}
         # Fix here: explicitly declare non-optional type
-        self._serializer: Callable[[str, MemberMCPServer], Any] = (
-            serializer or self.default_serializer
-        )
+        self._serializer: Callable[[str, MemberMCPServer], Any] = serializer or self.default_serializer
         self._database = database
         self._config_manager = config_manager
 
@@ -59,7 +57,7 @@ class ServerManager:
         self.duplicate_behavior = duplicate_behavior
 
     @staticmethod
-    def default_serializer(server_id: str, member: MemberMCPServer):
+    def default_serializer(server_id: str, member: MemberMCPServer):  # pylint: disable=W0613
         """serializer convert to dict"""
         return member.to_dict()
 
@@ -123,14 +121,10 @@ class ServerManager:
     ) -> str:
         """Update an existing server's configuration."""
         try:
-            logger.info(
-                "Updating server '%s' with new config: %s", server_id, new_config
-            )
+            logger.info("Updating server '%s' with new config: %s", server_id, new_config)
 
             if new_config.get("id") and new_config["id"] != server_id:
-                raise ValidationError(
-                    "Server ID in config does not match the target server ID."
-                )
+                raise ValidationError("Server ID in config does not match the target server ID.")
             new_config["id"] = server_id
 
             ServerConfigValidator(new_config).validate()
@@ -146,28 +140,20 @@ class ServerManager:
 
             existing_config = self._database.get_document(server_id)
             if self._config_manager is not None and existing_config:
-                version_id = self._config_manager.save_version(
-                    server_id, existing_config
-                )
+                version_id = self._config_manager.save_version(server_id, existing_config)
                 new_config["version_id"] = version_id
-                logger.info(
-                    "Saved config version %s for server '%s'", version_id, server_id
-                )
+                logger.info("Saved config version %s for server '%s'", version_id, server_id)
 
             self.update_server_db(new_config)
 
-            return await self._mount_and_register_server(
-                new_config, mount_callback, save_to_db=False
-            )
+            return await self._mount_and_register_server(new_config, mount_callback, save_to_db=False)
 
         except (ValidationError, NotFoundError) as err:
             logger.error("Error updating server '%s': %s", server_id, err)
             raise ToolError(f"Failed to update server '{server_id}': {err}") from err
 
         except Exception as e:
-            logger.exception(
-                "Unexpected error while updating server '%s': %s", server_id, e
-            )
+            logger.exception("Unexpected error while updating server '%s': %s", server_id, e)
             raise ToolError(f"Failed to update server '{server_id}': {e}") from e
 
     async def activate_server(
@@ -183,18 +169,14 @@ class ServerManager:
                 logger.warning("Server '%s' already mounted.", server_id)
                 return f"Server '{server_id}' already mounted."
 
-            await self._mount_and_register_server(
-                config, mount_callback, save_to_db=False
-            )
+            await self._mount_and_register_server(config, mount_callback, save_to_db=False)
             return f"Server '{server_id}' activated"
 
         except Exception as e:
             logger.exception("Failed to activate server '%s': %s", server_id, e)
             raise ToolError(f"Failed to activate server '{server_id}': {e}") from e
 
-    def deactivate_server(
-        self, server_id: str, unmount_callback: Callable[[str], None]
-    ) -> str:
+    def deactivate_server(self, server_id: str, unmount_callback: Callable[[str], None]) -> str:
         """Deactivate a mounted server."""
         try:
             self.prepare_deactivation(server_id)
@@ -223,11 +205,7 @@ class ServerManager:
         return [
             {
                 "id": cfg["id"],
-                "server_name": (
-                    self.get(cfg["id"]).get_server().name
-                    if self.has_member_server(cfg["id"])
-                    else "N/A"
-                ),
+                "server_name": (self.get(cfg["id"]).get_server().name if self.has_member_server(cfg["id"]) else "N/A"),
                 "status": self.get_server_status(cfg["id"]),
             }
             for cfg in configs
@@ -279,10 +257,7 @@ class ServerManager:
 
     def list_serialized(self) -> Dict[str, Any]:
         """List all member server"""
-        return {
-            server_id: self._serializer(server_id, member)
-            for server_id, member in self._member_servers.items()
-        }
+        return {server_id: self._serializer(server_id, member) for server_id, member in self._member_servers.items()}
 
     def add_server_db(self, config: dict) -> None:
         """Add member server to database"""
@@ -313,9 +288,7 @@ class ServerManager:
                 raise ToolDuplicateError(f"Tool {duplicate_tool} is already disabled")
 
             existing_tools.extend(tools)
-            logger.info(
-                "Added new disabled tool list %s for server %s.", tools, server_id
-            )
+            logger.info("Added new disabled tool list %s for server %s.", tools, server_id)
 
             # Remove tool descriptions if they exist
             if existing_tools and tools_description:
@@ -338,18 +311,14 @@ class ServerManager:
                 raise ValueError("No tools disabled")
 
             # Remove matching tools from disabled_tools
-            member.disabled_tools = [
-                tool for tool in disabled_tools if tool not in tools_to_remove
-            ]
+            member.disabled_tools = [tool for tool in disabled_tools if tool not in tools_to_remove]
             if self._database:
                 self._database.enable_tools(member.disabled_tools, server_id)
 
         except Exception as e:
             raise ToolDisableError(f"Failed to disable tool: {e}") from e
 
-    def update_tool_description(
-        self, tool: str, description: str, server_id: str
-    ) -> None:
+    def update_tool_description(self, tool: str, description: str, server_id: str) -> None:
         """Update member server's tool description"""
         member = self.get(server_id)
         # if tools description already found, update it
@@ -374,14 +343,10 @@ class ServerManager:
             duplicate_prompt = check_duplicate_tool(existing_prompts, prompts)
 
             if duplicate_prompt:
-                raise ToolDuplicateError(
-                    f"Prompt {duplicate_prompt} is already disabled"
-                )
+                raise ToolDuplicateError(f"Prompt {duplicate_prompt} is already disabled")
 
             existing_prompts.extend(prompts)
-            logger.info(
-                "Added new disabled prompt list %s for server %s.", prompts, server_id
-            )
+            logger.info("Added new disabled prompt list %s for server %s.", prompts, server_id)
 
             # Remove prompt descriptions if they exist
             if existing_prompts and prompts_description:
@@ -399,16 +364,12 @@ class ServerManager:
             prompts = list(set(prompts))
             member = self.get(server_id)
             disabled_prompts = member.disabled_prompts
-            prompts_to_remove = [
-                prompt for prompt in prompts if prompt in disabled_prompts
-            ]
+            prompts_to_remove = [prompt for prompt in prompts if prompt in disabled_prompts]
             if not prompts_to_remove:
                 raise ValueError("No prompts disabled")
 
             # Remove matching prompts from disabled_prompts
-            member.disabled_prompts = [
-                prompt for prompt in disabled_prompts if prompt not in prompts_to_remove
-            ]
+            member.disabled_prompts = [prompt for prompt in disabled_prompts if prompt not in prompts_to_remove]
             if self._database:
                 self._database.enable_prompts(member.disabled_prompts, server_id)
 
@@ -425,9 +386,7 @@ class ServerManager:
             duplicate_resource = check_duplicate_tool(existing_resources, resources)
 
             if duplicate_resource:
-                raise ToolDuplicateError(
-                    f"Resource {duplicate_resource} is already disabled"
-                )
+                raise ToolDuplicateError(f"Resource {duplicate_resource} is already disabled")
 
             existing_resources.extend(resources)
             logger.info(
@@ -452,17 +411,13 @@ class ServerManager:
             resources = list(set(resources))
             member = self.get(server_id)
             disabled_resources = member.disabled_resources
-            resources_to_remove = [
-                resource for resource in resources if resource in disabled_resources
-            ]
+            resources_to_remove = [resource for resource in resources if resource in disabled_resources]
             if not resources_to_remove:
                 raise ValueError("No resources disabled")
 
             # Remove matching resources from disabled_resources
             member.disabled_resources = [
-                resource
-                for resource in disabled_resources
-                if resource not in resources_to_remove
+                resource for resource in disabled_resources if resource not in resources_to_remove
             ]
             if self._database:
                 self._database.enable_resources(member.disabled_resources, server_id)

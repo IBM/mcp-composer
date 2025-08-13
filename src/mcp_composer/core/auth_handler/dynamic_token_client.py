@@ -1,7 +1,9 @@
 import time
-import httpx
 from typing import Any
-from mcp_composer.core.utils import LoggerFactory, ConfigKey
+
+import httpx
+
+from mcp_composer.core.utils import ConfigKey, LoggerFactory
 
 logger = LoggerFactory.get_logger()
 
@@ -35,9 +37,7 @@ class DynamicTokenClient(httpx.AsyncClient):
         # Expect apikey to be in headers: self.headers["apikey"]
 
         if not self.apikey or not self.token_url:
-            raise ValueError(
-                "Missing 'apikey' or 'token_url' in headers for token refresh."
-            )
+            raise ValueError("Missing 'apikey' or 'token_url' in headers for token refresh.")
 
         if self.media_type == ConfigKey.MEDIA_TYPE_JSON:
             headers = {"Content-Type": "application/json", "Accept": "application/json"}
@@ -60,9 +60,7 @@ class DynamicTokenClient(httpx.AsyncClient):
         expires_in = token_data.get("expires_in", 3600)
         self._expires_at = time.time() + expires_in - 60  # refresh early
 
-    async def request(
-        self, method: str, url: httpx.URL | str, **kwargs: Any
-    ) -> httpx.Response:
+    async def request(self, method: str, url: httpx.URL | str, **kwargs: Any) -> httpx.Response:
         # Prevent recursion if the token_url is being called
 
         if method.upper() == "POST" and str(url).startswith(str(self.token_url)):

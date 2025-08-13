@@ -1,6 +1,7 @@
 """Auth strategy"""
 
 import httpx
+
 from mcp_composer.core.auth_handler.dynamic_token_client import DynamicTokenClient
 from mcp_composer.core.auth_handler.dynamic_token_manager import DynamicTokenManager
 from mcp_composer.core.utils.logger import LoggerFactory
@@ -19,7 +20,7 @@ async def get_client(base_url: str, auth_config: dict | None = None) -> httpx.As
     if not isinstance(auth_values, dict):
         auth_values = {}
 
-    if auth_strategy == AuthStrategy.DYNAMIC_BEARER:
+    if auth_strategy == AuthStrategy.DYNAMIC_BEARER:  # pylint: disable=R1705
         token_url = auth_values.get(ConfigKey.Token_URL)
         api_key = auth_values.get(ConfigKey.APIKEY)
         if not token_url or not api_key:
@@ -33,18 +34,14 @@ async def get_client(base_url: str, auth_config: dict | None = None) -> httpx.As
         )
     elif auth_strategy == AuthStrategy.BEARER:
         logger.info("Setting up header and client for bearer")
-        headers[ConfigKey.AUTH_HEADER.value] = (
-            f"Bearer {auth_values.get(ConfigKey.TOKEN)}"
-        )
+        headers[ConfigKey.AUTH_HEADER.value] = f"Bearer {auth_values.get(ConfigKey.TOKEN)}"
         return httpx.AsyncClient(base_url=base_url, headers=headers)
     elif auth_strategy == AuthStrategy.APITOKEN:
         logger.info("Setting up header and client for apiToken")
         headers[ConfigKey.AUTH_HEADER.value] = (
             f"{auth_values.get(ConfigKey.AUTH_PREFIX)} {auth_values.get(ConfigKey.TOKEN)}"
         )
-        logger.info(
-            "the headers are updated %s and the url is %s", headers, base_url
-        )
+        logger.info("the headers are updated %s and the url is %s", headers, base_url)
         http_client = httpx.AsyncClient(base_url=base_url, headers=headers)
         # concert
         response = await http_client.get("/core/api/v1/applications/")

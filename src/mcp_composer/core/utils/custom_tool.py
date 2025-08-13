@@ -1,19 +1,18 @@
 """Custom tool utility functions"""
 
-from copy import deepcopy
+import ast
 import json
 import os
-import ast
-from pathlib import Path
 import textwrap
-from typing import Dict, List, Any, Callable, Tuple, Optional
+from copy import deepcopy
+from pathlib import Path
+from typing import Any, Callable, Dict, List, Tuple
 
 import httpx
 
-
-from mcp_composer.core.utils.exceptions import ToolGenerateError
 from mcp_composer.core.models.tool import ToolBuilderConfig
 from mcp_composer.core.utils.auth_strategy import get_client
+from mcp_composer.core.utils.exceptions import ToolGenerateError
 from mcp_composer.core.utils.logger import LoggerFactory
 from mcp_composer.core.utils.utils import (
     ensure_dependencies_installed,
@@ -52,9 +51,7 @@ class DynamicToolGenerator:
         current_file = os.path.abspath(__file__)
         current_dir = os.path.dirname(current_file)
         parent_dir = os.path.dirname(current_dir)
-        folder_path = os.path.join(
-            parent_dir, f"{ToolPaths.OUTPUT_DIR_NAME}/{ToolPaths.CURL_DIR_NAME}"
-        )
+        folder_path = os.path.join(parent_dir, f"{ToolPaths.OUTPUT_DIR_NAME}/{ToolPaths.CURL_DIR_NAME}")
         filepath = os.path.join(folder_path, ToolPaths.CURL_TOOLS_FILE_NAME)
         return folder_path, filepath
 
@@ -71,9 +68,7 @@ class DynamicToolGenerator:
             url = tool["url"]
 
             async with httpx.AsyncClient() as client:
-                req = client.build_request(
-                    method.upper(), url, headers=headers, json=body
-                )
+                req = client.build_request(method.upper(), url, headers=headers, json=body)
                 res = await client.send(req)
                 return {"status_code": res.status_code, "body": res.text}
 
@@ -85,13 +80,11 @@ class DynamicToolGenerator:
     def write_curl_to_file(tool_data: dict) -> None:
         """Write the converted cURL command as a Python function into a file."""
         try:
-            folder_path, filepath = (
-                DynamicToolGenerator._get_curl_folder_and_file_path()
-            )
+            folder_path, filepath = DynamicToolGenerator._get_curl_folder_and_file_path()
             os.makedirs(folder_path, exist_ok=True)
 
             if os.path.exists(filepath):
-                existing = json.loads(Path(filepath).read_text())
+                existing = json.loads(Path(filepath).read_text(encoding="utf-8"))
                 if existing:
                     # Deep copy to avoid modifying originals
                     result = deepcopy(existing)
@@ -105,9 +98,9 @@ class DynamicToolGenerator:
                             break
                     if not updated:
                         result.append(tool_data)
-                    Path(filepath).write_text(json.dumps(result, indent=2))
+                    Path(filepath).write_text(json.dumps(result, indent=2), encoding="utf-8")
             else:
-                Path(filepath).write_text(json.dumps([tool_data], indent=2))
+                Path(filepath).write_text(json.dumps([tool_data], indent=2), encoding="utf-8")
 
         except Exception as e:
             logger.exception("Failed to write curl config to file: %s", e)
@@ -120,7 +113,7 @@ class DynamicToolGenerator:
             _, filepath = DynamicToolGenerator._get_curl_folder_and_file_path()
             tools_list: List[Callable[[], Any]] = []
             if os.path.exists(filepath):
-                tools = json.loads(Path(filepath).read_text())
+                tools = json.loads(Path(filepath).read_text(encoding="utf-8"))
                 for tool in tools:
                     tools_list.append(DynamicToolGenerator.create_api_request(tool))
             return tools_list
@@ -132,7 +125,7 @@ class DynamicToolGenerator:
         """Create folder and Create the file with shared imports if not exists"""
         os.makedirs(self.folder_path, exist_ok=True)
         if not os.path.exists(self.filepath):
-            with open(self.filepath, "w") as f:
+            with open(self.filepath, "w", encoding="utf-8") as f:
                 f.write("import httpx\n")
                 f.write("from collections import OrderedDict\n\n")
                 f.write("# --- Generated tool functions below ---\n\n")
@@ -141,11 +134,7 @@ class DynamicToolGenerator:
         """validate python script"""
         try:
             tree = ast.parse(script, mode="exec")
-            func_defs = [
-                node
-                for node in tree.body
-                if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
-            ]
+            func_defs = [node for node in tree.body if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))]
             if len(func_defs) != 1:
                 raise ValueError("Script must contain exactly one function.")
             return tree
@@ -157,14 +146,12 @@ class DynamicToolGenerator:
         # Check for duplicate function if file exists
         if os.path.exists(self.filepath):
             try:
-                with open(self.filepath, "r") as f:
+                with open(self.filepath, "r", encoding="utf-8") as f:
                     existing_code = f.read()
 
                 tree = ast.parse(existing_code, mode="exec")
                 defined_funcs = {
-                    node.name
-                    for node in ast.walk(tree)
-                    if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+                    node.name for node in ast.walk(tree) if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
                 }
                 if func_name in defined_funcs:
                     raise ValueError(f"Function {func_name} already exists in.")
@@ -181,7 +168,7 @@ class DynamicToolGenerator:
         try:
             cleaned_code = textwrap.dedent(function_code).strip()
 
-            with open(self.filepath, "a") as f:
+            with open(self.filepath, "a", encoding="utf-8") as f:
                 f.write(f"\n# --- MCP Tool function: {func_name} ---\n")
                 f.write(cleaned_code + "\n")
         except Exception as e:
@@ -332,18 +319,12 @@ class OpenApiTool:
                     if tag["name"] not in existing_tags:
                         result.setdefault("tags", []).append(tag)
 
-                Path(self.filepath).write_text(
-                    json.dumps(result, indent=2), encoding="utf-8"
-                )
+                Path(self.filepath).write_text(json.dumps(result, indent=2), encoding="utf-8")
             else:
-                Path(self.filepath).write_text(
-                    json.dumps(self.open_api, indent=2), encoding="utf-8"
-                )
+                Path(self.filepath).write_text(json.dumps(self.open_api, indent=2), encoding="utf-8")
 
             if self.auth_config:
-                Path(self.auth_filepath).write_text(
-                    json.dumps(self.auth_config, indent=2), encoding="utf-8"
-                )
+                Path(self.auth_filepath).write_text(json.dumps(self.auth_config, indent=2), encoding="utf-8")
 
         except Exception as e:
             logger.exception("Failed to write OpenAPI spec to file: %s", e)

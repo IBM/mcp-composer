@@ -1,3 +1,4 @@
+# pylint: disable=W0718
 from mcp_composer.core.composer import MCPComposer
 from .core.utils import (
     LoggerFactory,

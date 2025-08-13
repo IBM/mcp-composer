@@ -1,8 +1,8 @@
 # utils/logger.py
 
 import logging
-import sys
 import os
+import sys
 
 
 class LoggerFactory:
@@ -16,7 +16,7 @@ class LoggerFactory:
 
         # Convert level string to logging level constant
         log_level = getattr(logging, level.upper(), logging.INFO)
-        
+
         # Set the logger level
         logger.setLevel(log_level)
 
@@ -32,7 +32,7 @@ class LoggerFactory:
             try:
                 # Use a more robust path for the log file
                 log_file_path = os.path.join(os.getcwd(), "mcp_composer.log")
-                file_handler = logging.FileHandler(log_file_path, mode='a')
+                file_handler = logging.FileHandler(log_file_path, mode="a")
                 file_handler.setFormatter(formatter)
                 logger.addHandler(file_handler)
             except (OSError, IOError, PermissionError):

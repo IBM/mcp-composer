@@ -7,11 +7,12 @@ from fastmcp.prompts import PromptManager
 from fastmcp.prompts.prompt import Prompt
 from fastmcp.settings import DuplicateBehavior
 
-from mcp_composer.core.member_servers.server_manager import ServerManager
 from mcp_composer.core.member_servers.member_server import HealthStatus
+from mcp_composer.core.member_servers.server_manager import ServerManager
 from mcp_composer.core.utils import build_prompt_from_dict
 
 logger = logging.getLogger(__name__)
+# pylint: disable=W0718
 
 
 class MCPPromptManager(PromptManager):
@@ -75,9 +76,7 @@ class MCPPromptManager(PromptManager):
     async def list_prompts_per_server(self, server_id: str) -> List[Dict]:
         """List all prompts from a specific server."""
         try:
-            if not self._server_manager or not self._server_manager.has_member_server(
-                server_id
-            ):
+            if not self._server_manager or not self._server_manager.has_member_server(server_id):
                 return []
 
             # Use our filtered get_prompts method which automatically excludes disabled prompts
@@ -166,11 +165,7 @@ class MCPPromptManager(PromptManager):
             self._server_manager.check_server_exist(server_id)
             server_prompts = await self.get_prompts()
             # Check if prompts exist in the server
-            available_prompts = [
-                name
-                for name in server_prompts.keys()
-                if name.startswith(f"{server_id}_")
-            ]
+            available_prompts = [name for name in server_prompts.keys() if name.startswith(f"{server_id}_")]
             prompts_to_disable = []
             for prompt in prompts:
                 full_prompt_name = f"{server_id}_{prompt}"
@@ -221,15 +216,8 @@ class MCPPromptManager(PromptManager):
                     if filter_criteria["name"].lower() not in name.lower():
                         match = False
 
-                if (
-                    match
-                    and "description" in filter_criteria
-                    and filter_criteria["description"]
-                ):
-                    if (
-                        filter_criteria["description"].lower()
-                        not in description.lower()
-                    ):
+                if match and "description" in filter_criteria and filter_criteria["description"]:
+                    if filter_criteria["description"].lower() not in description.lower():
                         match = False
 
                 if match and "tags" in filter_criteria and filter_criteria["tags"]:

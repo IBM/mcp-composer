@@ -32,6 +32,7 @@ from mcp_composer.core.resources import MCPResourceManager
 load_dotenv()
 
 logger = LoggerFactory.get_logger()
+# pylint: disable=W0718
 
 
 class MCPComposer(FastMCP):
@@ -92,43 +93,56 @@ class MCPComposer(FastMCP):
                 logger.error("Validation error: %s", e)
                 sys.exit(1)
 
-        # Add Server management tools
-        self.add_tool(Tool.from_function(self.register_mcp_server))
-        self.add_tool(Tool.from_function(self.update_mcp_server_config))
-        self.add_tool(Tool.from_function(self.delete_mcp_server))
-        self.add_tool(Tool.from_function(self.member_health))
-        self.add_tool(Tool.from_function(self.activate_mcp_server))
-        self.add_tool(Tool.from_function(self.deactivate_mcp_server))
-        self.add_tool(Tool.from_function(self.add_tools))
-        self.add_tool(Tool.from_function(self.add_tools_from_openapi))
-        self.add_tool(Tool.from_function(self._server_manager.list_member_servers))
+        # Server Management Tools
+        server_tools = [
+            self.register_mcp_server,
+            self.update_mcp_server_config,
+            self.delete_mcp_server,
+            self.member_health,
+            self.activate_mcp_server,
+            self.deactivate_mcp_server,
+            self.add_tools,
+            self.add_tools_from_openapi,
+            self._server_manager.list_member_servers,
+        ]
 
-        # Add Tool management tools
-        self.add_tool(Tool.from_function(self._tool_manager.get_tool_config_by_name))
-        self.add_tool(Tool.from_function(self._tool_manager.get_tool_config_by_server))
-        self.add_tool(Tool.from_function(self._tool_manager.disable_tools))
-        self.add_tool(Tool.from_function(self._tool_manager.enable_tools))
-        # self.add_tool(Tool.from_function(self._tool_manager.disable_tools_by_server))
-        # self.add_tool(Tool.from_function(self._tool_manager.enable_tools_by_server))
-        self.add_tool(Tool.from_function(self._tool_manager.update_tool_description))
+        # Tool Management Tools
+        tool_management_tools = [
+            self._tool_manager.get_tool_config_by_name,
+            self._tool_manager.get_tool_config_by_server,
+            self._tool_manager.disable_tools,
+            self._tool_manager.enable_tools,
+            # Uncomment if needed:
+            # self._tool_manager.disable_tools_by_server,
+            # self._tool_manager.enable_tools_by_server,
+            self._tool_manager.update_tool_description,
+        ]
 
-        # Add Prompt management tools
-        self.add_tool(Tool.from_function(self.add_prompts))
-        self.add_tool(Tool.from_function(self.get_all_prompts))
-        self.add_tool(Tool.from_function(self.list_prompts_per_server))
-        self.add_tool(Tool.from_function(self.filter_prompts))
-        self.add_tool(Tool.from_function(self.disable_prompts))
-        self.add_tool(Tool.from_function(self.enable_prompts))
+        # Prompt Management Tools
+        prompt_tools = [
+            self.add_prompts,
+            self.get_all_prompts,
+            self.list_prompts_per_server,
+            self.filter_prompts,
+            self.disable_prompts,
+            self.enable_prompts,
+        ]
 
-        # Add Resource management tools
-        self.add_tool(Tool.from_function(self.create_resource))
-        self.add_tool(Tool.from_function(self.create_resource_template))
-        self.add_tool(Tool.from_function(self.list_resources))
-        self.add_tool(Tool.from_function(self.list_resource_templates))
-        self.add_tool(Tool.from_function(self.list_resources_per_server))
-        self.add_tool(Tool.from_function(self.filter_resources))
-        self.add_tool(Tool.from_function(self.disable_resources))
-        self.add_tool(Tool.from_function(self.enable_resources))
+        # Resource Management Tools
+        resource_tools = [
+            self.create_resource,
+            self.create_resource_template,
+            self.list_resources,
+            self.list_resource_templates,
+            self.list_resources_per_server,
+            self.filter_resources,
+            self.disable_resources,
+            self.enable_resources,
+        ]
+
+        # Register all tools
+        for tool_func in server_tools + tool_management_tools + prompt_tools + resource_tools:
+            self.add_tool(Tool.from_function(tool_func))
 
     async def _load_custom_tools(self):
         """Load tools using saved OpenAPI, Curl, and Python script."""
@@ -197,7 +211,7 @@ class MCPComposer(FastMCP):
             server_type = cfg.get("type")
 
             if server_type == "composer":
-                self._tool_manager._disabled_tools = cfg.get("disabled_tools", [])
+                self._tool_manager._disabled_tools = cfg.get("disabled_tools", [])  # pylint: disable=W0212
                 logger.info("Disabled tool list in composer: %s", cfg)
                 continue
 
@@ -276,8 +290,8 @@ class MCPComposer(FastMCP):
         """Create a tool from OpenAPI Specification"""
         server_name, client = await tool_from_open_api(openapi_spec, auth_config)
         await self.import_server(
-            server_name,
             self.from_openapi(openapi_spec, client),  # type: ignore
+            server_name,
         )
         return "Successfully added tools"
 

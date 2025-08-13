@@ -1,10 +1,13 @@
 import asyncio
-import httpx
 from typing import Any
+
+import httpx
+
+from mcp_composer.core.utils import AuthStrategy, ConfigKey
 from mcp_composer.core.utils.logger import LoggerFactory
-from mcp_composer.core.utils import ConfigKey, AuthStrategy
 
 logger = LoggerFactory.get_logger()
+# pylint: disable=W0718
 
 
 class DynamicTokenManager(httpx.AsyncClient):
@@ -69,9 +72,7 @@ class DynamicTokenManager(httpx.AsyncClient):
                     raise ValueError("JSESSIONID not found — login failed.")
 
                 headers = {"Cookie": f"JSESSIONID={jsessionid}"}
-                return httpx.AsyncClient(
-                    base_url=self.base_url, headers=headers, verify=False
-                )
+                return httpx.AsyncClient(base_url=self.base_url, headers=headers, verify=False)
 
         except httpx.HTTPStatusError as e:
             logger.error(

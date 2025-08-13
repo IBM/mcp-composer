@@ -1,21 +1,23 @@
+import asyncio
+import base64
+import hashlib
+import secrets
+import webbrowser
 from typing import Any
-from pydantic import AnyUrl, TypeAdapter
-from mcp_composer import MCPComposer
 from urllib.parse import urlparse, urlunparse
-from mcp_composer.core.auth_handler.oauth import SimpleOAuthProvider, ServerSettings
-from mcp_composer.core.utils.logger import LoggerFactory
+
+import jwt
+from aiohttp import web
 from mcp.server.auth.middleware.auth_context import get_access_token
-from mcp.shared.auth import OAuthClientInformationFull
 from mcp.server.auth.provider import (
     AuthorizationParams,
 )
-import webbrowser
-from aiohttp import web
-import jwt
-import asyncio
-import secrets
-import hashlib
-import base64
+from mcp.shared.auth import OAuthClientInformationFull
+from pydantic import AnyUrl, TypeAdapter
+
+from mcp_composer import MCPComposer
+from mcp_composer.core.auth_handler.oauth import ServerSettings, SimpleOAuthProvider
+from mcp_composer.core.utils.logger import LoggerFactory
 
 logger = LoggerFactory.get_logger()
 
@@ -25,9 +27,7 @@ def generate_pkce_pair():
     code_verifier = secrets.token_urlsafe(64)
     # Step 2: Create the code_challenge (SHA256, base64url, no '=' padding)
     code_challenge = (
-        base64.urlsafe_b64encode(hashlib.sha256(code_verifier.encode()).digest())
-        .rstrip(b"=")
-        .decode("ascii")
+        base64.urlsafe_b64encode(hashlib.sha256(code_verifier.encode()).digest()).rstrip(b"=").decode("ascii")
     )
     return code_verifier, code_challenge
 
@@ -87,7 +87,7 @@ async def create_mcp_server(settings: ServerSettings) -> MCPComposer:
         redirect_uris=redirect_uris,
     )
 
-    code_verifier, code_challenge = generate_pkce_pair()
+    _, code_challenge = generate_pkce_pair()
     params = AuthorizationParams(
         state=None,
         redirect_uri=AnyUrl(settings.callback_path),
@@ -97,12 +97,12 @@ async def create_mcp_server(settings: ServerSettings) -> MCPComposer:
     )
 
     auth_url = await oauth_provider.authorize(client_info, params)
-    logger.info(f"Generated authorization URL: {auth_url}")
+    logger.info("Generated authorization URL: %s", auth_url)
     safe_url = sanitize_url(auth_url)
     webbrowser.open(safe_url)
     print(f"Browser opened with: {safe_url}")
     callback_path = urlparse(settings.callback_path).path
-    logger.info(f"Callback path set to: {callback_path}")
+    logger.info("Callback path set to: %s", callback_path)
 
     # --- HANDLE CALLBACK ---
     parsed = urlparse(callback_path)
