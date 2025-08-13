@@ -465,4 +465,5 @@ This comprehensive feature set makes MCP Composer the ideal solution for enterpr
 - [Installation Guide](/guide/installation) - Set up MCP Composer
 - [Quick Start](/guide/quick-start) - Get up and running in minutes
 - [Configuration](/guide/configuration) - Learn about configuration options
+- [Middleware Guide](/guide/middleware) - Create and use middleware components
 - [Examples](/examples/) - See practical examples and demos 

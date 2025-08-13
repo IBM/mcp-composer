@@ -18,6 +18,9 @@ The examples demonstrate how to:
 
 - [MCP Inspector Demo](/examples/mcp-inspector) - Use MCP Inspector for testing and debugging
 
+### 🔧 Middleware Examples
+
+- [Middleware Examples](/examples/middleware-examples) - Comprehensive middleware patterns and implementations
 
 ### 🧪 Integration with APIs
 

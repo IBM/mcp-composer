@@ -121,7 +121,7 @@ def validate_policy_config(config: Dict[str, Any]) -> bool:
     if config is None:
         logger.error("Policy config is None")
         return False
-    
+
     required_fields = ["mode"]
     if not all(field in config for field in required_fields):
         logger.error(f"Missing required fields in policy config: {required_fields}")
