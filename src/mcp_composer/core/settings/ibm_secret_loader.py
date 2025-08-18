@@ -31,7 +31,9 @@ class IBMCloudSecretAdapter(SecretAdapter):
     ):
         self.api_key = api_key or os.getenv("IBM_CLOUD_SM_APIKEY")
         self.sm_url = sm_url or os.getenv("IBM_CLOUD_SM_URL")
-        self.secret_group = secret_group or os.getenv("IBM_CLOUD_SM_SECRET_GROUP", "default")
+        self.secret_group = secret_group or os.getenv(
+            "IBM_CLOUD_SM_SECRET_GROUP", "default"
+        )
         self.history_limit = history_limit
 
         if not self.api_key or not self.sm_url:
@@ -92,14 +94,18 @@ class IBMCloudSecretAdapter(SecretAdapter):
                 payload = secret_details["resources"][0].get("payload", "[]")
                 return json.loads(payload)
             except (json.JSONDecodeError, KeyError, OSError) as e:
-                logger.warning("Error parsing payload for server_id %s: %s", server_id, e)
+                logger.warning(
+                    "Error parsing payload for server_id %s: %s", server_id, e
+                )
         return []
 
     def get_latest_version(self, server_id: str) -> Optional[Dict[str, Any]]:
         versions = self.get_all_versions(server_id)
         return versions[-1] if versions else None
 
-    def get_version_by_id(self, server_id: str, version_id: str) -> Optional[Dict[str, Any]]:
+    def get_version_by_id(
+        self, server_id: str, version_id: str
+    ) -> Optional[Dict[str, Any]]:
         for version in self.get_all_versions(server_id):
             if version.get("version_id") == version_id:
                 return version
@@ -113,4 +119,6 @@ class IBMCloudSecretAdapter(SecretAdapter):
         version = self.get_version_by_id(server_id, version_id)
         if version:
             return version["config"]
-        raise ValueError(f"Version ID '{version_id}' not found for server '{server_id}'")
+        raise ValueError(
+            f"Version ID '{version_id}' not found for server '{server_id}'"
+        )

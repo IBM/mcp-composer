@@ -10,7 +10,9 @@ from mcp_composer.core.utils.validator import AuthStrategy, ConfigKey
 logger = LoggerFactory.get_logger()
 
 
-async def get_client(base_url: str, auth_config: dict | None = None) -> httpx.AsyncClient:
+async def get_client(
+    base_url: str, auth_config: dict | None = None
+) -> httpx.AsyncClient:
     """Return http client"""
     headers = {}
     auth_strategy = auth_config.get("auth_strategy") if auth_config else None
@@ -24,7 +26,9 @@ async def get_client(base_url: str, auth_config: dict | None = None) -> httpx.As
         token_url = auth_values.get(ConfigKey.Token_URL)
         api_key = auth_values.get(ConfigKey.APIKEY)
         if not token_url or not api_key:
-            raise ValueError("token_url and api_key are required for DYNAMIC_BEARER strategy")
+            raise ValueError(
+                "token_url and api_key are required for DYNAMIC_BEARER strategy"
+            )
 
         return DynamicTokenClient(
             base_url=base_url,
@@ -34,7 +38,9 @@ async def get_client(base_url: str, auth_config: dict | None = None) -> httpx.As
         )
     elif auth_strategy == AuthStrategy.BEARER:
         logger.info("Setting up header and client for bearer")
-        headers[ConfigKey.AUTH_HEADER.value] = f"Bearer {auth_values.get(ConfigKey.TOKEN)}"
+        headers[ConfigKey.AUTH_HEADER.value] = (
+            f"Bearer {auth_values.get(ConfigKey.TOKEN)}"
+        )
         return httpx.AsyncClient(base_url=base_url, headers=headers)
     elif auth_strategy == AuthStrategy.APITOKEN:
         logger.info("Setting up header and client for apiToken")

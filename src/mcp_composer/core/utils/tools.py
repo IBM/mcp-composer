@@ -86,7 +86,9 @@ async def tool_from_script(config: dict) -> Callable[[], Any]:
         raise ToolGenerateError(str(e)) from e
 
 
-async def tool_from_open_api(open_api: dict, auth_config: dict | None = None) -> Tuple[str, Any]:
+async def tool_from_open_api(
+    open_api: dict, auth_config: dict | None = None
+) -> Tuple[str, Any]:
     """Create tool from OpenAPI specification"""
     try:
         # for now, considering only one server

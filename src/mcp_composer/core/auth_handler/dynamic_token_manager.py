@@ -31,7 +31,9 @@ class DynamicTokenManager(httpx.AsyncClient):
             **kwargs,
         )
 
-    async def get_authenticated_http_client_for_jessonid(self) -> httpx.AsyncClient | None:
+    async def get_authenticated_http_client_for_jessonid(
+        self,
+    ) -> httpx.AsyncClient | None:
         """Get an authenticated HTTP client using JSESSIONID authentication."""
         if self.auth_strategy != AuthStrategy.JSESSIONID:
             return None
@@ -72,7 +74,9 @@ class DynamicTokenManager(httpx.AsyncClient):
                     raise ValueError("JSESSIONID not found — login failed.")
 
                 headers = {"Cookie": f"JSESSIONID={jsessionid}"}
-                return httpx.AsyncClient(base_url=self.base_url, headers=headers, verify=False)
+                return httpx.AsyncClient(
+                    base_url=self.base_url, headers=headers, verify=False
+                )
 
         except httpx.HTTPStatusError as e:
             logger.error(

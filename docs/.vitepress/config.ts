@@ -55,7 +55,9 @@ export default withMermaid(
               { text: 'Resource Management', link: '/guide/resource-management' },
               { text: 'Authentication', link: '/guide/authentication' },
               { text: 'Policy Based ACL', link: '/guide/policy-acl' },
-              { text: 'Middleware as Plugin', link: '/guide/middleware' }
+              { text: 'Middleware as Plugin', link: '/guide/middleware' },
+              { text: 'Monitoring', link: '/guide/monitoring' }
+
             ]
           }
         ],

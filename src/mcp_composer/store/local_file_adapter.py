@@ -94,7 +94,9 @@ class LocalFileAdapter(DatabaseInterface):
             return server_cfg
         return {}
 
-    def _update_disabled_tools(self, tools: list[str], server_id: str, enable: bool = False) -> None:
+    def _update_disabled_tools(
+        self, tools: list[str], server_id: str, enable: bool = False
+    ) -> None:
         """Common method to update the disabled tools list for a server."""
         data = self._read_data()
         tools = list(set(tools))  # Remove duplicates
@@ -118,7 +120,9 @@ class LocalFileAdapter(DatabaseInterface):
 
                 duplicate_tool = check_duplicate_tool(existing_tools, tools)
                 if duplicate_tool:
-                    raise ToolDuplicateError(f"Tool {duplicate_tool} is already removed")
+                    raise ToolDuplicateError(
+                        f"Tool {duplicate_tool} is already removed"
+                    )
 
                 if existing_tools:
                     server["disabled_tools"].extend(tools)
@@ -126,7 +130,9 @@ class LocalFileAdapter(DatabaseInterface):
                     logger.info("Previous tools:%s", existing_tools)
                 else:
                     server["disabled_tools"] = tools
-                    logger.info("Added new remove tool list: %s for server %s", tools, server_id)
+                    logger.info(
+                        "Added new remove tool list: %s for server %s", tools, server_id
+                    )
 
             break
         else:
@@ -150,7 +156,9 @@ class LocalFileAdapter(DatabaseInterface):
         """Enable tools which are already disabled on the given member server or composer."""
         self._update_disabled_tools(tools, server_id, enable=True)
 
-    def update_tool_description(self, tool: str, description: str, server_id: str) -> None:
+    def update_tool_description(
+        self, tool: str, description: str, server_id: str
+    ) -> None:
         """store tool description of member server in file storage"""
         data = self._read_data()
         for server in data:
@@ -189,7 +197,9 @@ class LocalFileAdapter(DatabaseInterface):
 
             duplicate_prompt = check_duplicate_tool(existing_prompts, prompts)
             if duplicate_prompt:
-                raise ToolDuplicateError(f"Prompt {duplicate_prompt} is already disabled")
+                raise ToolDuplicateError(
+                    f"Prompt {duplicate_prompt} is already disabled"
+                )
 
             # Update disabled_prompts
             if existing_prompts:
@@ -245,7 +255,9 @@ class LocalFileAdapter(DatabaseInterface):
 
             duplicate_resource = check_duplicate_tool(existing_resources, resources)
             if duplicate_resource:
-                raise ToolDuplicateError(f"Resource {duplicate_resource} is already disabled")
+                raise ToolDuplicateError(
+                    f"Resource {duplicate_resource} is already disabled"
+                )
 
             # Update disabled_resources
             if existing_resources:

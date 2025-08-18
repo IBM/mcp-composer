@@ -91,7 +91,10 @@ class MCPServerBuilder:
         headers = config.get(ConfigKey.HEADERS)
         oauth = config.get(ConfigKey.AUTH)
         transport = None
-        if transport_type in {MemberServerType.HTTP, MemberServerType.SSE}:  # pylint: disable=R1705
+        if transport_type in {
+            MemberServerType.HTTP,
+            MemberServerType.SSE,
+        }:  # pylint: disable=R1705
             endpoint = config[ConfigKey.ENDPOINT]
             auth = None
             if oauth:
@@ -123,22 +126,32 @@ class MCPServerBuilder:
 
         headers = self.config.get(ConfigKey.HEADERS)
         if headers:
-            transport = StreamableHttpTransport(url=self.config[ConfigKey.ENDPOINT], headers=headers)
+            transport = StreamableHttpTransport(
+                url=self.config[ConfigKey.ENDPOINT], headers=headers
+            )
             client = Client(transport)
         try:
             return FastMCP.as_proxy(client, name=self.mcp_id)
         except Exception as e:
-            logger.exception("Failed to build member MCP server '%s': %s", self.config.get("id"), e)
-            raise RuntimeError(f"Failed to build member MCP server '{self.mcp_id}'") from e
+            logger.exception(
+                "Failed to build member MCP server '%s': %s", self.config.get("id"), e
+            )
+            raise RuntimeError(
+                f"Failed to build member MCP server '{self.mcp_id}'"
+            ) from e
 
     async def _build_from_openapi(self) -> FastMCP:
         openapi_config = self.config[ConfigKey.OPEN_API]
         custom_mappings = []
         if ConfigKey.CUSTOM_ROUTES in openapi_config:
-            custom_mappings = await load_custom_mappings_from_json(openapi_config[ConfigKey.CUSTOM_ROUTES])
+            custom_mappings = await load_custom_mappings_from_json(
+                openapi_config[ConfigKey.CUSTOM_ROUTES]
+            )
         spec = {}
         if ConfigKey.SPEC_URL in openapi_config:
-            spec = await load_spec_from_url(openapi_config[ConfigKey.ENDPOINT], openapi_config[ConfigKey.SPEC_URL])
+            spec = await load_spec_from_url(
+                openapi_config[ConfigKey.ENDPOINT], openapi_config[ConfigKey.SPEC_URL]
+            )
         elif ConfigKey.SPEC_FILEPATH in openapi_config:
             spec = await load_json(openapi_config[ConfigKey.SPEC_FILEPATH])
         else:
@@ -171,7 +184,9 @@ class MCPServerBuilder:
                 )
             case AuthStrategy.BEARER:
                 logger.info("Setting up header and client for bearer")
-                headers[ConfigKey.AUTH_HEADER.value] = f"Bearer {auth_config.get(ConfigKey.TOKEN)}"
+                headers[ConfigKey.AUTH_HEADER.value] = (
+                    f"Bearer {auth_config.get(ConfigKey.TOKEN)}"
+                )
                 http_client = httpx.AsyncClient(base_url=base_url, headers=headers)
 
             case AuthStrategy.APITOKEN:
@@ -209,7 +224,9 @@ class MCPServerBuilder:
                         password=auth_config.get(ConfigKey.PASSWORD),
                     )
 
-                    http_client = await token_manager.get_authenticated_http_client_for_jessonid()
+                    http_client = (
+                        await token_manager.get_authenticated_http_client_for_jessonid()
+                    )
                 except KeyError as e:
                     # Required config missing
                     logger.error("Missing configuration key: %s", e)

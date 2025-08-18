@@ -44,7 +44,9 @@ headers = {}
 
 # If auth is required
 if config["auth_strategy"] == "bearer":
-    headers["Authorization"] = f"{config['auth']['auth_prefix']} {config['auth']['token']}"
+    headers["Authorization"] = (
+        f"{config['auth']['auth_prefix']} {config['auth']['token']}"
+    )
 
 http_client = httpx.AsyncClient(base_url=GRAPHQL_ENDPOINT, headers=headers)
 
@@ -60,7 +62,10 @@ async def create_tools(schema):
     """Dynamically Create Tools from Queries"""
     tools = []
     for gql_type in schema["types"]:
-        if gql_type["kind"] == "OBJECT" and gql_type["name"] == schema["queryType"]["name"]:
+        if (
+            gql_type["kind"] == "OBJECT"
+            and gql_type["name"] == schema["queryType"]["name"]
+        ):
             for field in gql_type["fields"]:
                 tool_name = field["name"]
                 arg_defs = field.get("args", [])
@@ -73,7 +78,9 @@ async def create_tools(schema):
 
                         # For now, let's create a simple function that can handle the test case
                         # This is a workaround for the fastmcp limitation
-                        if len(param_names) == 1 and param_names[0] == "code":  # pylint: disable=R1705
+                        if (
+                            len(param_names) == 1 and param_names[0] == "code"
+                        ):  # pylint: disable=R1705
 
                             async def country_func(code):
                                 query_body = f"""
@@ -82,7 +89,9 @@ async def create_tools(schema):
                             __typename
                           }}
                         }}"""
-                                response = await http_client.post("", json={"query": query_body})
+                                response = await http_client.post(
+                                    "", json={"query": query_body}
+                                )
                                 response.raise_for_status()
                                 return response.json()
 
@@ -97,7 +106,9 @@ async def create_tools(schema):
                             async def generic_func():
                                 # This is a placeholder - in real usage, we'd need to handle dynamic parameters
                                 query_body = f"query {{ {tool_name} {{ __typename }} }}"
-                                response = await http_client.post("", json={"query": query_body})
+                                response = await http_client.post(
+                                    "", json={"query": query_body}
+                                )
                                 response.raise_for_status()
                                 return response.json()
 
@@ -110,13 +121,17 @@ async def create_tools(schema):
                         # Create a function without parameters
                         async def tool_func_without_args():
                             query_body = f"query {{ {tool_name} {{ __typename }} }}"
-                            response = await http_client.post("", json={"query": query_body})
+                            response = await http_client.post(
+                                "", json={"query": query_body}
+                            )
                             response.raise_for_status()
                             return response.json()
 
                         # Create the tool with the function that has no parameters
                         return Tool.from_function(
-                            tool_func_without_args, name=tool_name, description=f"Query {tool_name}"
+                            tool_func_without_args,
+                            name=tool_name,
+                            description=f"Query {tool_name}",
                         )
 
                 tools.append(make_tool(tool_name, arg_defs))

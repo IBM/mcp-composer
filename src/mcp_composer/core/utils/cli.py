@@ -16,7 +16,11 @@ from mcp_composer.core.auth_handler.oauth import ServerSettings
 from mcp_composer.core.utils import MemberServerType
 from mcp_composer.core.utils.logger import LoggerFactory
 from mcp_composer.core.utils.oauth_cli_utils import create_mcp_server
-from mcp_composer.core.utils.middleware_cli import cmd_validate, cmd_list, cmd_add_middleware
+from mcp_composer.core.utils.middleware_cli import (
+    cmd_validate,
+    cmd_list,
+    cmd_add_middleware,
+)
 
 load_dotenv()
 logger = LoggerFactory.get_logger()
@@ -26,7 +30,7 @@ logger = LoggerFactory.get_logger()
 def _add_middleware_command(parser: argparse.ArgumentParser) -> argparse.ArgumentParser:
     """Add middleware subcommands to the parser."""
     subparsers = parser.add_subparsers(dest='command', help='Available commands')
-    
+
     # Validate command
     validate_parser = subparsers.add_parser(
         'validate',
@@ -52,7 +56,7 @@ def _add_middleware_command(parser: argparse.ArgumentParser) -> argparse.Argumen
         action='store_true',
         help='Show enabled middlewares in execution order'
     )
-    
+
     # List command
     list_parser = subparsers.add_parser(
         'list',
@@ -78,7 +82,7 @@ def _add_middleware_command(parser: argparse.ArgumentParser) -> argparse.Argumen
         action='store_true',
         help='Show all middlewares including disabled ones'
     )
-    
+
     # Add middleware command
     add_parser = subparsers.add_parser(
         'add-middleware',
@@ -171,7 +175,7 @@ def _add_middleware_command(parser: argparse.ArgumentParser) -> argparse.Argumen
         action='store_true',
         help='Show enabled middlewares in execution order after update'
     )
-    
+
     return parser
 
 
@@ -187,6 +191,10 @@ def _setup_args_parser() -> argparse.ArgumentParser:
         mcp-composer --mode http --endpoint http://api.example.com
         mcp-composer --mode sse --endpoint http://localhost:8001/sse
         mcp-composer --mode stdio --script-path /path/to/server.py --id mcp-news
+        
+        Middleware commands:
+        mcp-composer validate middleware-config.json
+        mcp-composer add-middleware --config middleware-config.json --name Logger --kind mcp_composer.middleware.logging_middleware.LoggingMiddleware
         
         Middleware commands:
         mcp-composer validate middleware-config.json
@@ -207,22 +215,34 @@ def _add_arguments_to_parser(parser: argparse.ArgumentParser) -> None:
         default="stdio",
         help="MCP mode to run (http, sse, or stdio)",
     )
-    parser.add_argument("--id", default="mcp-local", help="Unique ID for this MCP instance")
-    parser.add_argument("--endpoint", help="endpoint for HTTP or SSE server running remotely")
+    parser.add_argument(
+        "--id", default="mcp-local", help="Unique ID for this MCP instance"
+    )
+    parser.add_argument(
+        "--endpoint", help="endpoint for HTTP or SSE server running remotely"
+    )
     parser.add_argument(
         "--config_path",
         default=default_config_path,
         help="Path to JSON config for MCP member servers",
     )
-    parser.add_argument("--directory", help="Working directory for the uvicorn process (optional)")
-    parser.add_argument("--script_path", help="Path to the script to run in 'stdio' mode")
+    parser.add_argument(
+        "--directory", help="Working directory for the uvicorn process (optional)"
+    )
+    parser.add_argument(
+        "--script_path", help="Path to the script to run in 'stdio' mode"
+    )
     parser.add_argument("--host", default="0.0.0.0", help="Host for SSE or HTTP server")
-    parser.add_argument("--port", type=int, default=9000, help="Port for SSE or HTTP server")
+    parser.add_argument(
+        "--port", type=int, default=9000, help="Port for SSE or HTTP server"
+    )
     parser.add_argument(
         "--auth_type",
         help="Optional auth type. If 'oauth', uses test_composer_oauth.create_mcp_server()",
     )
-    parser.add_argument("--sse-url", help="Langflow-compatible SSE URL to convert into stdio")
+    parser.add_argument(
+        "--sse-url", help="Langflow-compatible SSE URL to convert into stdio"
+    )
     parser.add_argument(
         "--disable-composer-tools",
         action=argparse.BooleanOptionalAction,
@@ -248,7 +268,7 @@ def _add_arguments_to_parser(parser: argparse.ArgumentParser) -> None:
         help="Pass through all environment variables when spawning all server processes.",
         default=False,
     )
-    parser = _add_middleware_command(parser)
+
 
 def build_config_from_args(args: argparse.Namespace) -> List[Dict]:
     """Build configuration dictionary from command line arguments."""
@@ -308,7 +328,9 @@ async def run_dynamic_composer(args: argparse.Namespace, config: list[Dict]) -> 
 
     if args.sse_url:
         logger.info("mounting SSE server into MCP composer")
-        remote_proxy = MCPComposer.as_proxy(ProxyClient(args.sse_url), name="local-stdio")
+        remote_proxy = MCPComposer.as_proxy(
+            ProxyClient(args.sse_url), name="local-stdio"
+        )
         await mcp.import_server(remote_proxy)
 
     ##mcp.add_middleware(ListFilteredTool(mcp))
@@ -317,9 +339,13 @@ async def run_dynamic_composer(args: argparse.Namespace, config: list[Dict]) -> 
     if args.mode == MemberServerType.STDIO:
         await mcp.run_stdio_async()
     elif args.mode == MemberServerType.SSE:
-        await mcp.run_sse_async(host=args.host, port=args.port, log_level="debug", path="/sse")
+        await mcp.run_sse_async(
+            host=args.host, port=args.port, log_level="debug", path="/sse"
+        )
     elif args.mode == MemberServerType.HTTP:
-        await mcp.run_http_async(host=args.host, port=args.port, log_level="debug", path="/mcp")
+        await mcp.run_http_async(
+            host=args.host, port=args.port, log_level="debug", path="/mcp"
+        )
     else:
         raise ValueError(f"Unknown config type: {args.mode}")
 
@@ -344,6 +370,20 @@ def main() -> None:
         logger.error("Unknown command: %s", args.command)
         sys.exit(1)
 
+    # Handle middleware commands
+    if args.command == "validate":
+        sys.exit(cmd_validate(args))
+    elif args.command == "list":
+        sys.exit(cmd_list(args))
+    elif args.command == "add-middleware":
+        sys.exit(cmd_add_middleware(args))
+    elif args.command is None:
+        # No command specified, run the main MCP Composer
+        pass
+    else:
+        logger.error("Unknown command: %s", args.command)
+        sys.exit(1)
+
     # Set SERVER_CONFIG_FILE_PATH first so it's available for other env vars
     if args.config_path:
         logger.info("Setting SERVER_CONFIG_FILE_PATH to %s", args.config_path)
@@ -356,7 +396,9 @@ def main() -> None:
         for key, value in args.env:
             base_env[key] = value
             os.environ[key] = value
-            logger.info("Setting environment variable from --env: %s=%s", key, os.environ[key])
+            logger.info(
+                "Setting environment variable from --env: %s=%s", key, os.environ[key]
+            )
         base_env.update(os.environ)
     # Pass through all environment variables if requested
     if args.pass_environment:

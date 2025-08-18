@@ -26,7 +26,9 @@ class SecretAdapter(ABC):
         """Return the latest version of the config."""
 
     @abstractmethod
-    def get_version_by_id(self, server_id: str, version_id: str) -> Optional[Dict[str, Any]]:
+    def get_version_by_id(
+        self, server_id: str, version_id: str
+    ) -> Optional[Dict[str, Any]]:
         """Return a specific version by ID."""
 
     @abstractmethod

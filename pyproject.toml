@@ -49,6 +49,13 @@ dev = [
     "bandit==1.7.5",
 ]
 
+[project.optional-dependencies]
+tracing = [
+  "opentelemetry-api>=1.26.0",
+  "opentelemetry-sdk>=1.26.0",
+  "opentelemetry-exporter-otlp>=1.26.0",
+]
+
 
 [tool.pyright]
 include = ["src", "test"]
@@ -111,6 +118,14 @@ pythonpath = ["src"]
 testpaths = [
     "test",
 ]
+
+[tool.mcp_composer]
+# default feature flags (can be overridden by env)
+tracing_enabled = false
+tracing_protocol = "http"   # "http" | "grpc"
+tracing_endpoint = "http://localhost:4318"
+service_name = "mcp-composer"
+environment = "dev"
 
 [build-system]
 requires = ["setuptools>=61.0", "wheel"]

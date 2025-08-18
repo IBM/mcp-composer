@@ -131,7 +131,11 @@ class MCPToolManager(ToolManager):
             if mounted_server.prefix == server.id:
                 tools = await mounted_server.server.get_tools()
                 server_tools = {f"{server.id}_{k}": v for k, v in tools.items()}
-                result = {k: v for k, v in server_tools.items() if not remove or k not in remove}
+                result = {
+                    k: v
+                    for k, v in server_tools.items()
+                    if not remove or k not in remove
+                }
                 break  # Stop after finding the matching server
 
         # Update tool descriptions if provided
@@ -235,10 +239,14 @@ class MCPToolManager(ToolManager):
         if not tools_to_remove:
             raise ValueError("No tools disabled")
         # Remove matching tools from disabled_tools
-        self._disabled_tools = [tool for tool in disabled_tools if tool not in tools_to_remove]
+        self._disabled_tools = [
+            tool for tool in disabled_tools if tool not in tools_to_remove
+        ]
 
         if self._database:
-            self._database.enable_tools(self._disabled_tools, server_id=self._composer.name)
+            self._database.enable_tools(
+                self._disabled_tools, server_id=self._composer.name
+            )
 
         logger.info("Enabled %s tools from composer", tools)
         return f"Enabled {tools} tools from composer"
@@ -251,12 +259,16 @@ class MCPToolManager(ToolManager):
             self._disabled_tools = []
 
         if self._database:
-            self._database.enable_tools(self._disabled_tools, server_id=self._composer.name)
+            self._database.enable_tools(
+                self._disabled_tools, server_id=self._composer.name
+            )
 
         logger.info("Enabled all tools from composer")
         return "Enabled all tools from composer"
 
-    async def update_tool_description(self, tool: str, description: str, server_id: str) -> str:
+    async def update_tool_description(
+        self, tool: str, description: str, server_id: str
+    ) -> str:
         """
         Update tool description of member servers
         """

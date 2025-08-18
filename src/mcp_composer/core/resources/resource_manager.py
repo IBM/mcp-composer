@@ -36,7 +36,9 @@ class MCPResourceManager(ResourceManager):
             if mounted_server.prefix == server_id:
                 del self._mounted_servers[idx]
 
-    def _filter_disabled_resources(self, resources: dict[str, Resource]) -> dict[str, Resource]:
+    def _filter_disabled_resources(
+        self, resources: dict[str, Resource]
+    ) -> dict[str, Resource]:
         """Filter resources by performing the following actions for a member server,
         if it exists
         1. Remove disabled resources
@@ -78,8 +80,13 @@ class MCPResourceManager(ResourceManager):
                             # Extract the resource name from the disabled resource key
                             # Format: server_id_resource_name -> resource_name
                             if "_" in disabled_resource:
-                                disabled_resource_name = disabled_resource.split("_", 1)[1]
-                                if resource_name.lower() == disabled_resource_name.lower():
+                                disabled_resource_name = disabled_resource.split(
+                                    "_", 1
+                                )[1]
+                                if (
+                                    resource_name.lower()
+                                    == disabled_resource_name.lower()
+                                ):
                                     should_remove = True
                                     break
 
@@ -94,7 +101,9 @@ class MCPResourceManager(ResourceManager):
             logger.exception("Resources filtering failed: %s", e)
             raise
 
-    def _filter_disabled_templates(self, templates: dict[str, ResourceTemplate]) -> dict[str, ResourceTemplate]:
+    def _filter_disabled_templates(
+        self, templates: dict[str, ResourceTemplate]
+    ) -> dict[str, ResourceTemplate]:
         """Filter resource templates by performing the following actions for a member server,
         if it exists
         1. Remove disabled resources
@@ -136,8 +145,13 @@ class MCPResourceManager(ResourceManager):
                             # Extract the resource name from the disabled resource key
                             # Format: server_id_resource_name -> resource_name
                             if "_" in disabled_resource:
-                                disabled_resource_name = disabled_resource.split("_", 1)[1]
-                                if template_name.lower() == disabled_resource_name.lower():
+                                disabled_resource_name = disabled_resource.split(
+                                    "_", 1
+                                )[1]
+                                if (
+                                    template_name.lower()
+                                    == disabled_resource_name.lower()
+                                ):
                                     should_remove = True
                                     break
 
@@ -226,10 +240,14 @@ class MCPResourceManager(ResourceManager):
                         break
 
             if not resources_to_disable:
-                return f"No resources or resource templates found to disable: {resources}"
+                return (
+                    f"No resources or resource templates found to disable: {resources}"
+                )
 
             self._server_manager.disable_resources(resources_to_disable, server_id)
-            logger.info("Disabled %s resources/templates from server", resources_to_disable)
+            logger.info(
+                "Disabled %s resources/templates from server", resources_to_disable
+            )
             return f"Disabled {resources_to_disable} resources/templates from server {server_id}"
         except Exception as e:
             logger.error("Error disabling resources: %s", e)
@@ -271,10 +289,14 @@ class MCPResourceManager(ResourceManager):
                         break
 
             if not resources_to_enable:
-                return f"No resources or resource templates found to enable: {resources}"
+                return (
+                    f"No resources or resource templates found to enable: {resources}"
+                )
 
             self._server_manager.enable_resources(resources_to_enable, server_id)
-            logger.info("Enabled %s resources/templates from server", resources_to_enable)
+            logger.info(
+                "Enabled %s resources/templates from server", resources_to_enable
+            )
             return f"Enabled {resources_to_enable} resources/templates from server {server_id}"
         except Exception as e:
             logger.error("Error enabling resources: %s", e)
@@ -320,7 +342,9 @@ class MCPResourceManager(ResourceManager):
                         return template_content
 
                     # Create a proper URI template with parameters for the function-based template
-                    function_uri_template = f"resource://{resource_config['name']}/{{param}}"
+                    function_uri_template = (
+                        f"resource://{resource_config['name']}/{{param}}"
+                    )
 
                     template = ResourceTemplate.from_function(
                         fn=template_fn,
@@ -343,7 +367,9 @@ class MCPResourceManager(ResourceManager):
                     )
 
             self.add_template(template)
-            logger.info("Resource template %s added successfully", resource_config["name"])
+            logger.info(
+                "Resource template %s added successfully", resource_config["name"]
+            )
             return f"Resource template '{resource_config['name']}' added successfully"
         except Exception as e:
             logger.error("Error adding resource template: %s", e)
@@ -401,7 +427,9 @@ class MCPResourceManager(ResourceManager):
     async def list_resources_per_server(self, server_id: str) -> List[Dict]:
         """List all resources from a specific server."""
         try:
-            if not self._server_manager or not self._server_manager.has_member_server(server_id):
+            if not self._server_manager or not self._server_manager.has_member_server(
+                server_id
+            ):
                 return []
 
             # Get resources from the specific server
@@ -432,7 +460,9 @@ class MCPResourceManager(ResourceManager):
                                 }
                             )
                 except Exception as e:
-                    logger.warning("Error getting resources from server %s: %s", server_id, e)
+                    logger.warning(
+                        "Error getting resources from server %s: %s", server_id, e
+                    )
                 try:
                     templates = await server.server.get_resource_templates()
                     for key, template in templates.items():
@@ -441,7 +471,9 @@ class MCPResourceManager(ResourceManager):
                                 {
                                     "name": template.name,
                                     "description": getattr(template, "description", ""),
-                                    "uri_template": str(getattr(template, "uri_template", "")),
+                                    "uri_template": str(
+                                        getattr(template, "uri_template", "")
+                                    ),
                                     "type": "template",
                                     "server_id": server_id,
                                 }
@@ -520,7 +552,11 @@ class MCPResourceManager(ResourceManager):
                         match = False
 
                 # Filter by description
-                if match and "description" in filter_criteria and filter_criteria["description"]:
+                if (
+                    match
+                    and "description" in filter_criteria
+                    and filter_criteria["description"]
+                ):
                     search_desc = filter_criteria["description"].lower()
                     item_desc = item_data["description"].lower()
                     if search_desc not in item_desc:
@@ -539,7 +575,11 @@ class MCPResourceManager(ResourceManager):
                         match = False
 
                 # Filter by URI pattern
-                if match and "uri_pattern" in filter_criteria and filter_criteria["uri_pattern"]:
+                if (
+                    match
+                    and "uri_pattern" in filter_criteria
+                    and filter_criteria["uri_pattern"]
+                ):
                     if item_data["type"] == "resource":
                         uri = item_data["uri"]
                     else:

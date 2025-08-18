@@ -96,7 +96,7 @@ class ServerConfigValidator:
         else:
             logger.warning(
                 "Skipping validation for unsupported type: %s",
-                self.config.get(ConfigKey.TYPE)
+                self.config.get(ConfigKey.TYPE),
             )
 
     def _validate_stdio_requirements(self) -> None:

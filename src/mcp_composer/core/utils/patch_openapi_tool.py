@@ -29,7 +29,9 @@ def _patched_create_openapi_tool(
     # Get a unique tool name
     tool_name = self._get_unique_name(name, "tool")  # pylint: disable=W0212
 
-    base_description = route.description or route.summary or f"Executes {route.method} {route.path}"
+    base_description = (
+        route.description or route.summary or f"Executes {route.method} {route.path}"
+    )
 
     # Format enhanced description with parameters and request body
     enhanced_description = format_description_with_responses(
@@ -76,4 +78,6 @@ def _patched_create_openapi_tool(
     )
 
 
-FastMCPOpenAPI._create_openapi_tool = _patched_create_openapi_tool  # pylint: disable=W0212
+FastMCPOpenAPI._create_openapi_tool = (
+    _patched_create_openapi_tool  # pylint: disable=W0212
+)

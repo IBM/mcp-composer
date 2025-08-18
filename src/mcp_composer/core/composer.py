@@ -49,7 +49,9 @@ class MCPComposer(FastMCP):
         auth: OAuthProvider | None = None,
     ):
         super().__init__(name=name, auth=auth)
-        self._config_manager = ConfigManager(get_version_adapter(version_adapter_config))
+        self._config_manager = ConfigManager(
+            get_version_adapter(version_adapter_config)
+        )
 
         database = None
         if database_config:
@@ -59,7 +61,9 @@ class MCPComposer(FastMCP):
                 elif database_config.get("type") == "cloudant":
                     required_keys = ["api_key", "service_url"]
                     if not all(k in database_config for k in required_keys):
-                        raise ValueError("Missing required Cloudant config keys: api_key, service_url")
+                        raise ValueError(
+                            "Missing required Cloudant config keys: api_key, service_url"
+                        )
 
                     database = CloudantAdapter(
                         api_key=database_config["api_key"],
@@ -67,7 +71,9 @@ class MCPComposer(FastMCP):
                         db_name=database_config.get("db_name", "mcp_servers"),
                     )
                 else:
-                    logger.warning("Unsupported database type: %s", database_config.get("type"))
+                    logger.warning(
+                        "Unsupported database type: %s", database_config.get("type")
+                    )
             except Exception as e:
                 logger.error("Failed to initialize database: %s", e)
                 raise
@@ -75,10 +81,18 @@ class MCPComposer(FastMCP):
             database = LocalFileAdapter()
             logger.info("No database config provided, using local file storage")
 
-        self._server_manager = ServerManager(database=database, config_manager=self._config_manager)
-        self._tool_manager = MCPToolManager(composer=self, server_manager=self._server_manager, database=database)
-        self._resource_manager = MCPResourceManager(server_manager=self._server_manager, database=database)
-        self._prompt_manager = MCPPromptManager(server_manager=self._server_manager, database=database)
+        self._server_manager = ServerManager(
+            database=database, config_manager=self._config_manager
+        )
+        self._tool_manager = MCPToolManager(
+            composer=self, server_manager=self._server_manager, database=database
+        )
+        self._resource_manager = MCPResourceManager(
+            server_manager=self._server_manager, database=database
+        )
+        self._prompt_manager = MCPPromptManager(
+            server_manager=self._server_manager, database=database
+        )
 
         self._db_configs: list[dict] = self._server_manager.load_all_servers_db()
         self._config: list[dict] = []
@@ -141,7 +155,9 @@ class MCPComposer(FastMCP):
         ]
 
         # Register all tools
-        for tool_func in server_tools + tool_management_tools + prompt_tools + resource_tools:
+        for tool_func in (
+            server_tools + tool_management_tools + prompt_tools + resource_tools
+        ):
             self.add_tool(Tool.from_function(tool_func))
 
     async def _load_custom_tools(self):
@@ -211,7 +227,9 @@ class MCPComposer(FastMCP):
             server_type = cfg.get("type")
 
             if server_type == "composer":
-                self._tool_manager._disabled_tools = cfg.get("disabled_tools", [])  # pylint: disable=W0212
+                self._tool_manager._disabled_tools = cfg.get(
+                    "disabled_tools", []
+                )  # pylint: disable=W0212
                 logger.info("Disabled tool list in composer: %s", cfg)
                 continue
 
@@ -220,7 +238,9 @@ class MCPComposer(FastMCP):
                 continue
 
             if cfg.get("status") == "deactivated":
-                logger.info("Server '%s' is marked deactivated, skipping mount.", server_id)
+                logger.info(
+                    "Server '%s' is marked deactivated, skipping mount.", server_id
+                )
                 continue
 
             if server_id in seen_ids:
@@ -239,7 +259,9 @@ class MCPComposer(FastMCP):
     async def register_mcp_server(self, config: dict) -> str:
         """Register a single server."""
         logger.info("Registering single server: %s", config)
-        return await self._server_manager.register_server(config=config, mount_callback=self.mount)
+        return await self._server_manager.register_server(
+            config=config, mount_callback=self.mount
+        )
 
     async def update_mcp_server_config(self, server_id: str, new_config: dict) -> str:
         """Update the configuration of an existing member server."""
@@ -273,11 +295,15 @@ class MCPComposer(FastMCP):
 
     async def activate_mcp_server(self, server_id: str) -> str:
         """Reactivates a previously deactivated member server."""
-        return await self._server_manager.activate_server(server_id=server_id, mount_callback=self.mount)
+        return await self._server_manager.activate_server(
+            server_id=server_id, mount_callback=self.mount
+        )
 
     async def deactivate_mcp_server(self, server_id: str) -> str:
         """Deactivates a member server by unmounting it and marking it as deactivated."""
-        return self._server_manager.deactivate_server(server_id=server_id, unmount_callback=self._tool_manager.unmount)
+        return self._server_manager.deactivate_server(
+            server_id=server_id, unmount_callback=self._tool_manager.unmount
+        )
 
     async def add_tools(self, tool_config: dict) -> str:
         """Create a tool from a python script."""
@@ -286,7 +312,9 @@ class MCPComposer(FastMCP):
             self.add_tool(Tool.from_function(fn))
         return "Successfully added tools"
 
-    async def add_tools_from_openapi(self, openapi_spec: dict, auth_config: dict | None = None) -> str:
+    async def add_tools_from_openapi(
+        self, openapi_spec: dict, auth_config: dict | None = None
+    ) -> str:
         """Create a tool from OpenAPI Specification"""
         server_name, client = await tool_from_open_api(openapi_spec, auth_config)
         await self.import_server(

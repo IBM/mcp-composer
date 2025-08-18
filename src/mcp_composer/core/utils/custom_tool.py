@@ -51,7 +51,9 @@ class DynamicToolGenerator:
         current_file = os.path.abspath(__file__)
         current_dir = os.path.dirname(current_file)
         parent_dir = os.path.dirname(current_dir)
-        folder_path = os.path.join(parent_dir, f"{ToolPaths.OUTPUT_DIR_NAME}/{ToolPaths.CURL_DIR_NAME}")
+        folder_path = os.path.join(
+            parent_dir, f"{ToolPaths.OUTPUT_DIR_NAME}/{ToolPaths.CURL_DIR_NAME}"
+        )
         filepath = os.path.join(folder_path, ToolPaths.CURL_TOOLS_FILE_NAME)
         return folder_path, filepath
 
@@ -68,7 +70,9 @@ class DynamicToolGenerator:
             url = tool["url"]
 
             async with httpx.AsyncClient() as client:
-                req = client.build_request(method.upper(), url, headers=headers, json=body)
+                req = client.build_request(
+                    method.upper(), url, headers=headers, json=body
+                )
                 res = await client.send(req)
                 return {"status_code": res.status_code, "body": res.text}
 
@@ -80,7 +84,9 @@ class DynamicToolGenerator:
     def write_curl_to_file(tool_data: dict) -> None:
         """Write the converted cURL command as a Python function into a file."""
         try:
-            folder_path, filepath = DynamicToolGenerator._get_curl_folder_and_file_path()
+            folder_path, filepath = (
+                DynamicToolGenerator._get_curl_folder_and_file_path()
+            )
             os.makedirs(folder_path, exist_ok=True)
 
             if os.path.exists(filepath):
@@ -98,9 +104,13 @@ class DynamicToolGenerator:
                             break
                     if not updated:
                         result.append(tool_data)
-                    Path(filepath).write_text(json.dumps(result, indent=2), encoding="utf-8")
+                    Path(filepath).write_text(
+                        json.dumps(result, indent=2), encoding="utf-8"
+                    )
             else:
-                Path(filepath).write_text(json.dumps([tool_data], indent=2), encoding="utf-8")
+                Path(filepath).write_text(
+                    json.dumps([tool_data], indent=2), encoding="utf-8"
+                )
 
         except Exception as e:
             logger.exception("Failed to write curl config to file: %s", e)
@@ -134,7 +144,11 @@ class DynamicToolGenerator:
         """validate python script"""
         try:
             tree = ast.parse(script, mode="exec")
-            func_defs = [node for node in tree.body if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))]
+            func_defs = [
+                node
+                for node in tree.body
+                if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+            ]
             if len(func_defs) != 1:
                 raise ValueError("Script must contain exactly one function.")
             return tree
@@ -151,7 +165,9 @@ class DynamicToolGenerator:
 
                 tree = ast.parse(existing_code, mode="exec")
                 defined_funcs = {
-                    node.name for node in ast.walk(tree) if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+                    node.name
+                    for node in ast.walk(tree)
+                    if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
                 }
                 if func_name in defined_funcs:
                     raise ValueError(f"Function {func_name} already exists in.")
@@ -221,7 +237,9 @@ class DynamicToolGenerator:
 class OpenApiTool:
     """Custom tool generator for OpenAPI specification"""
 
-    def __init__(self, file_name: str, open_api: Dict, auth_config: Dict | None = None) -> None:
+    def __init__(
+        self, file_name: str, open_api: Dict, auth_config: Dict | None = None
+    ) -> None:
         self.output_dir = "custom_tool"
         self.file_name = f"{file_name}.json"
         self.auth_file_name = f"{file_name}_auth.json"
@@ -319,12 +337,18 @@ class OpenApiTool:
                     if tag["name"] not in existing_tags:
                         result.setdefault("tags", []).append(tag)
 
-                Path(self.filepath).write_text(json.dumps(result, indent=2), encoding="utf-8")
+                Path(self.filepath).write_text(
+                    json.dumps(result, indent=2), encoding="utf-8"
+                )
             else:
-                Path(self.filepath).write_text(json.dumps(self.open_api, indent=2), encoding="utf-8")
+                Path(self.filepath).write_text(
+                    json.dumps(self.open_api, indent=2), encoding="utf-8"
+                )
 
             if self.auth_config:
-                Path(self.auth_filepath).write_text(json.dumps(self.auth_config, indent=2), encoding="utf-8")
+                Path(self.auth_filepath).write_text(
+                    json.dumps(self.auth_config, indent=2), encoding="utf-8"
+                )
 
         except Exception as e:
             logger.exception("Failed to write OpenAPI spec to file: %s", e)

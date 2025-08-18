@@ -27,7 +27,9 @@ def generate_pkce_pair():
     code_verifier = secrets.token_urlsafe(64)
     # Step 2: Create the code_challenge (SHA256, base64url, no '=' padding)
     code_challenge = (
-        base64.urlsafe_b64encode(hashlib.sha256(code_verifier.encode()).digest()).rstrip(b"=").decode("ascii")
+        base64.urlsafe_b64encode(hashlib.sha256(code_verifier.encode()).digest())
+        .rstrip(b"=")
+        .decode("ascii")
     )
     return code_verifier, code_challenge
 

@@ -90,7 +90,11 @@ async def get_member_health(
             status = []
             for (status_code, server), server_id in zip(results, tasks.keys()):
                 server_status = {}
-                health = HealthStatus.healthy if status_code in {200, 406, 401} else HealthStatus.unhealthy
+                health = (
+                    HealthStatus.healthy
+                    if status_code in {200, 406, 401}
+                    else HealthStatus.unhealthy
+                )
                 server.health_status = health
                 server_status["status"] = health
                 server_status["server_name"] = server_id
@@ -99,11 +103,15 @@ async def get_member_health(
 
     except ClientConnectorError as e:
         logger.exception("Connection Error: Failed to connect to MCP server. %s", e)
-        raise MemberServerError(f"Failed to fetch the status of member servers: {e}") from e
+        raise MemberServerError(
+            f"Failed to fetch the status of member servers: {e}"
+        ) from e
 
     except Exception as e:
         logger.exception("Failed to fetch the status of member servers: %s", e)
-        raise MemberServerError(f"Failed to fetch the status of member servers: {e}") from e
+        raise MemberServerError(
+            f"Failed to fetch the status of member servers: {e}"
+        ) from e
 
 
 def get_server_doc_info(doc: dict) -> tuple[list[str], dict[str, str]]:
@@ -236,7 +244,11 @@ def get_version_adapter(config: Optional[Dict[str, Any]] = None) -> SecretAdapte
     else:
         adapter_type = os.getenv("VERSION_ADAPTER_TYPE", "file").lower()
         adapter_args = (
-            {"file_path": os.getenv("VERSION_CONFIG_FILE_PATH", "versioned_config.json")}
+            {
+                "file_path": os.getenv(
+                    "VERSION_CONFIG_FILE_PATH", "versioned_config.json"
+                )
+            }
             if adapter_type == "file"
             else {}
         )
