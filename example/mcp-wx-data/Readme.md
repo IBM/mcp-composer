@@ -23,6 +23,7 @@
 SERVER_CONFIG_FILE_PATH="example/mcp-wx-data/wx-data-config.json"
 ```
 
+
 3. Run the composer
 
 ```
