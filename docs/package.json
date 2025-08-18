@@ -9,8 +9,12 @@
     "docs:preview": "vitepress preview"
   },
   "devDependencies": {
-    "mermaid": "11.9.0",
-    "vitepress": "^1.0.0-rc.44",
-    "vitepress-plugin-mermaid": "2.0.17"
+    "mermaid": "^11.9.0",
+    "vitepress": "^1.6.4",
+    "vitepress-plugin-mermaid": "^2.0.17"
+  },
+  "overrides": {
+    "esbuild": "^0.25.9",
+    "@esbuild/*": "^0.25.9"
   }
 }
