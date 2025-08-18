@@ -402,3 +402,6 @@ class StatefulMiddleware(Middleware):
 ```
 
 This guide provides the foundation for creating and using middleware in MCP Composer. For more specific examples, see the [Middleware Examples](../examples/middleware-examples.md) documentation.
+
+
+For more details on middleware configuration, see the [Middleware Configuration](./middleware-configuration.md)

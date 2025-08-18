@@ -41,7 +41,8 @@ export default withMermaid(
               { text: 'Configuration', link: '/guide/configuration' },
               { text: 'Langflow Integration', link: '/guide/langflow-integration' },
               { text: 'Whl Usage', link: '/guide/use-with-claude' },
-              { text: 'CLI Usage', link: '/guide/cli' }
+              { text: 'CLI Usage', link: '/guide/cli' },
+              { text: 'Roadmap', link: '/guide/roadmap' },
 
             ]
           },
@@ -53,7 +54,8 @@ export default withMermaid(
               { text: 'Prompt Management', link: '/guide/prompt-management' },
               { text: 'Resource Management', link: '/guide/resource-management' },
               { text: 'Authentication', link: '/guide/authentication' },
-              { text: 'Policy Based ACL', link: '/guide/policy-acl' }
+              { text: 'Policy Based ACL', link: '/guide/policy-acl' },
+              { text: 'Middleware as Plugin', link: '/guide/middleware' }
             ]
           }
         ],

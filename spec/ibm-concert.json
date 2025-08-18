@@ -148,7 +148,6 @@
             "schema": {
               "maxLength": 1000,
               "minLength": 0,
-              "pattern": "^[a-zA-Z0-9\\-]+$",
               "type": "string"
             }
           }
@@ -179,7 +178,6 @@
                   "description": "JWT string",
                   "maxLength": 1000,
                   "minLength": 0,
-                  "pattern": "^[A-Za-z0-9-_]+(?:\\.[A-Za-z0-9-_]+){2}$",
                   "type": "string"
                 }
               }
@@ -245,7 +243,6 @@
             "schema": {
               "maxLength": 1000,
               "minLength": 0,
-              "pattern": "^[a-zA-Z0-9\\-]+$",
               "type": "string"
             }
           }

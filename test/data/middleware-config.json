@@ -1,0 +1,149 @@
+{
+  "middleware": [
+    {
+      "name": "PIIFilter",
+      "description": "",
+      "version": "0.0.0",
+      "kind": "mcp_composer.middleware.pii_middleware.SecretsAndPIIMiddleware",
+      "mode": "enabled",
+      "priority": 10,
+      "applied_hooks": [
+        "on_call_tool",
+        "on_read_resource",
+        "on_list_prompts"
+      ],
+      "conditions": {
+        "include_tools": [
+          "get_data"
+        ],
+        "exclude_tools": [
+          "get_prompts"
+        ],
+        "include_prompts": [],
+        "exclude_prompts": [],
+        "include_server_ids": [],
+        "exclude_server_ids": []
+      },
+      "config": {
+        "redact_inputs": true,
+        "redact_outputs": true,
+        "replace_inputs": false,
+        "allowlist_tools": [],
+        "allowlist_fields": [],
+        "strategy": {
+          "mode": "mask",
+          "redaction_text": "[PII_REDACTED]"
+        },
+        "sensitive_keys": {
+          "add": [
+            "x-auth-token"
+          ],
+          "remove": []
+        },
+        "patterns": {
+          "add": [
+            {
+              "tag": "SLACK_BOT",
+              "regex": "xoxb-[A-Za-z0-9-]{20,}",
+              "flags": []
+            }
+          ],
+          "remove": []
+        }
+      },
+      "logic": {}
+    },
+    {
+      "name": "RateLimiter",
+      "description": "",
+      "version": "0.0.0",
+      "kind": "mcp_composer.middleware.rate_limit_filter.RateLimitingMiddleware",
+      "mode": "enabled",
+      "priority": 20,
+      "applied_hooks": [
+        "on_call_tool"
+      ],
+      "conditions": {
+        "include_tools": [
+          "*"
+        ],
+        "exclude_tools": [],
+        "include_prompts": [],
+        "exclude_prompts": [],
+        "include_server_ids": [],
+        "exclude_server_ids": []
+      },
+      "config": {
+        "requests_per_minute": 120,
+        "burst_limit": 20,
+        "scope": "per_client",
+        "enforce": true,
+        "client_id_field": "client_id"
+      },
+      "logic": {}
+    },
+    {
+      "name": "CircuitBreaker",
+      "description": "Circuit breaker for tool calls",
+      "version": "0.0.0",
+      "kind": "mcp_composer.middleware.circuit_breaker.CircuitBreakerMiddleware",
+      "mode": "enabled",
+      "priority": 30,
+      "applied_hooks": [
+        "on_call_tool"
+      ],
+      "conditions": {
+        "include_tools": [
+          "*"
+        ],
+        "exclude_tools": [],
+        "include_prompts": [],
+        "exclude_prompts": [],
+        "include_server_ids": [],
+        "exclude_server_ids": []
+      },
+      "config": {},
+      "logic": {}
+    },
+    {
+      "name": "Logger",
+      "description": "",
+      "version": "0.0.0",
+      "kind": "mcp_composer.middleware.logging_middleware.LoggingMiddleware",
+      "mode": "enabled",
+      "priority": 100,
+      "applied_hooks": [
+        "on_call_tool",
+        "on_list_tools",
+        "on_read_resource",
+        "on_list_prompts"
+      ],
+      "conditions": {
+        "include_tools": [
+          "*"
+        ],
+        "exclude_tools": [],
+        "include_prompts": [],
+        "exclude_prompts": [],
+        "include_server_ids": [],
+        "exclude_server_ids": []
+      },
+      "config": {
+        "log_tools": true,
+        "log_resources": false,
+        "log_prompts": false,
+        "log_args": true,
+        "log_results": true,
+        "max_payload_length": 800,
+        "log_level": "INFO"
+      },
+      "logic": {}
+    }
+  ],
+  "middleware_settings": {
+    "middleware_timeout": 30,
+    "fail_on_middleware_error": false,
+    "enable_middleware_api": true,
+    "middleware_health_check_interval": 60
+  }
+}

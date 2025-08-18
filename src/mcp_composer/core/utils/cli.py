@@ -4,9 +4,10 @@ import argparse
 import asyncio
 import os
 import sys
+import json
 from pathlib import Path
 from typing import Dict, List
-
+from pydantic import ValidationError
 from dotenv import load_dotenv
 from fastmcp.server.proxy import ProxyClient
 
@@ -15,10 +16,163 @@ from mcp_composer.core.auth_handler.oauth import ServerSettings
 from mcp_composer.core.utils import MemberServerType
 from mcp_composer.core.utils.logger import LoggerFactory
 from mcp_composer.core.utils.oauth_cli_utils import create_mcp_server
+from mcp_composer.core.utils.middleware_cli import cmd_validate, cmd_list, cmd_add_middleware
 
 load_dotenv()
 logger = LoggerFactory.get_logger()
 # pylint: disable=W0718
+
+
+def _add_middleware_command(parser: argparse.ArgumentParser) -> argparse.ArgumentParser:
+    """Add middleware subcommands to the parser."""
+    subparsers = parser.add_subparsers(dest='command', help='Available commands')
+    
+    # Validate command
+    validate_parser = subparsers.add_parser(
+        'validate',
+        help='Validate middleware configuration file'
+    )
+    validate_parser.add_argument(
+        'path',
+        help='Path to middleware configuration file'
+    )
+    validate_parser.add_argument(
+        '--ensure-imports',
+        action='store_true',
+        help='Ensure all middleware classes can be imported'
+    )
+    validate_parser.add_argument(
+        '--format',
+        choices=['text', 'json'],
+        default='text',
+        help='Output format'
+    )
+    validate_parser.add_argument(
+        '--show-middlewares',
+        action='store_true',
+        help='Show enabled middlewares in execution order'
+    )
+    
+    # List command
+    list_parser = subparsers.add_parser(
+        'list',
+        help='List middlewares from configuration file'
+    )
+    list_parser.add_argument(
+        'config',
+        help='Path to middleware configuration file'
+    )
+    list_parser.add_argument(
+        '--ensure-imports',
+        action='store_true',
+        help='Ensure all middleware classes can be imported'
+    )
+    list_parser.add_argument(
+        '--format',
+        choices=['text', 'json'],
+        default='text',
+        help='Output format'
+    )
+    list_parser.add_argument(
+        '--all',
+        action='store_true',
+        help='Show all middlewares including disabled ones'
+    )
+    
+    # Add middleware command
+    add_parser = subparsers.add_parser(
+        'add-middleware',
+        help='Add or update middleware in configuration file'
+    )
+    add_parser.add_argument(
+        '--config',
+        required=True,
+        help='Path to middleware configuration file'
+    )
+    add_parser.add_argument(
+        '--name',
+        required=True,
+        help='Name of the middleware'
+    )
+    add_parser.add_argument(
+        '--kind',
+        required=True,
+        help='Python import path to middleware class (e.g., module.ClassName)'
+    )
+    add_parser.add_argument(
+        '--description',
+        help='Description of the middleware'
+    )
+    add_parser.add_argument(
+        '--version',
+        help='Version of the middleware (default: 0.0.0)'
+    )
+    add_parser.add_argument(
+        '--mode',
+        choices=['enabled', 'disabled'],
+        default='enabled',
+        help='Middleware mode (default: enabled)'
+    )
+    add_parser.add_argument(
+        '--priority',
+        type=int,
+        default=100,
+        help='Execution priority (lower numbers run first, default: 100)'
+    )
+    add_parser.add_argument(
+        '--applied-hooks',
+        help='Comma-separated list of hooks (e.g., on_call_tool,on_list_tools)'
+    )
+    add_parser.add_argument(
+        '--include-tools',
+        help='Comma-separated list of tools to include (default: *)'
+    )
+    add_parser.add_argument(
+        '--exclude-tools',
+        help='Comma-separated list of tools to exclude'
+    )
+    add_parser.add_argument(
+        '--include-prompts',
+        help='Comma-separated list of prompts to include'
+    )
+    add_parser.add_argument(
+        '--exclude-prompts',
+        help='Comma-separated list of prompts to exclude'
+    )
+    add_parser.add_argument(
+        '--include-server-ids',
+        help='Comma-separated list of server IDs to include'
+    )
+    add_parser.add_argument(
+        '--exclude-server-ids',
+        help='Comma-separated list of server IDs to exclude'
+    )
+    add_parser.add_argument(
+        '--config-file',
+        help='Path to JSON file containing middleware configuration'
+    )
+    add_parser.add_argument(
+        '--update',
+        action='store_true',
+        help='Update existing middleware if name already exists'
+    )
+    add_parser.add_argument(
+        '--ensure-imports',
+        action='store_true',
+        help='Ensure all middleware classes can be imported after update'
+    )
+    add_parser.add_argument(
+        '--dry-run',
+        action='store_true',
+        help='Show what would be written without actually writing'
+    )
+    add_parser.add_argument(
+        '--show-middlewares',
+        action='store_true',
+        help='Show enabled middlewares in execution order after update'
+    )
+    
+    return parser
 
 
 def _setup_args_parser() -> argparse.ArgumentParser:
@@ -33,6 +187,10 @@ def _setup_args_parser() -> argparse.ArgumentParser:
         mcp-composer --mode http --endpoint http://api.example.com
         mcp-composer --mode sse --endpoint http://localhost:8001/sse
         mcp-composer --mode stdio --script-path /path/to/server.py --id mcp-news
+        
+        Middleware commands:
+        mcp-composer validate middleware-config.json
+        mcp-composer add-middleware --config middleware-config.json --name Logger --kind mcp_composer.middleware.logging_middleware.LoggingMiddleware
         """,
     )
     _add_arguments_to_parser(parser)
@@ -90,7 +248,7 @@ def _add_arguments_to_parser(parser: argparse.ArgumentParser) -> None:
         help="Pass through all environment variables when spawning all server processes.",
         default=False,
     )
-
+    parser = _add_middleware_command(parser)
 
 def build_config_from_args(args: argparse.Namespace) -> List[Dict]:
     """Build configuration dictionary from command line arguments."""
@@ -171,6 +329,20 @@ def main() -> None:
     logger.info("Starting MCP Composer CLI...")
     parser = _setup_args_parser()
     args = parser.parse_args()
+
+    # Handle middleware commands
+    if args.command == 'validate':
+        sys.exit(cmd_validate(args))
+    elif args.command == 'list':
+        sys.exit(cmd_list(args))
+    elif args.command == 'add-middleware':
+        sys.exit(cmd_add_middleware(args))
+    elif args.command is None:
+        # No command specified, run the main MCP Composer
+        pass
+    else:
+        logger.error("Unknown command: %s", args.command)
+        sys.exit(1)
 
     # Set SERVER_CONFIG_FILE_PATH first so it's available for other env vars
     if args.config_path:
