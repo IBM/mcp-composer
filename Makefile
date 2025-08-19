@@ -35,6 +35,22 @@ docker-build-client:
 	$(BUILD_ENGINE) build $(BUILD_ENGINE_ARGS) $(BUILD_ARGS) $(DREADNOUGHT_DOCKER_BUILD_ARGS) \
 		-f Dockerfile_Client -t $(SRC_CLIENT_IMAGE_URI) .
 
+# Deploy the CI build to https://github.ibm.com/automation-paas-cd-pipeline/mcp-composer-cd
+.PHONY: deploy
+deploy:
+	@echo "export GIT_REPO=https://github.ibm.com/automation-paas-cd-pipeline/mcp-composer-cd”
+	@echo "export GIT_COMMITTER=autopaas@us.ibm.com"
+	@echo "export GIT_BRANCH=dev”
+	@echo "export GIT_ORG=automation-paas-cd-pipeline"
+	@echo "export PULL_REQUEST_ASSIGNEE=autopaas"
+	@echo "export PROMOTION_ENV=development"
+	@echo "export ENABLE_DEV_HEAD_USE=true"
+	@echo "export GIT_TOKEN={vault::CloudRock-SecretManager.CloudRock-CICD.GitHub-FnID}"
+	@echo "export PROMOTION_ENV_APP_SET=application-sets/aws-dev/us-east/application-set.yaml"
+	@echo "export DEVELOPMENT_ENV_APP_SET=application-sets/aws-dev/us-east/application-set.yaml"	
+	@echo "export REPLACEMENTS=\"resources/values.yaml config.imageTag.app,$(REGISTRY_IMAGE_TAG_SHORT);resources/values.yaml config.imageTag.client,$(REGISTRY_IMAGE_TAG_SHORT);resources/values.yaml config.imageTag.root,$(REGISTRY_IMAGE_TAG_SHORT)\""
+
+
 help:
 	@awk 'BEGIN {FS = ":.*##"; printf "\nUsage:\n  make \033[36m<target>\033[0m\n"} \
 	/^[a-zA-Z_-]+:.*?##/ { printf "  \033[36m%-25s\033[0m %s\n", $$1, $$2 } \
