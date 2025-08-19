@@ -203,12 +203,15 @@ class MCPServerBuilder:
 
             case AuthStrategy.APIKEY:
                 logger.info("Setting up header and client for apikey")
+                auth_header = " ".join(filter(None, [
+                    auth_config.get(ConfigKey.AUTH_PREFIX),
+                    auth_config.get(ConfigKey.APIKEY)
+                ]))
                 headers[ConfigKey.AUTH_HEADER.value] = (
-                    f"{auth_config.get(ConfigKey.AUTH_PREFIX)} {auth_config.get(ConfigKey.APIKEY)}"
+                    f"{auth_header}"
                 )
                 logger.info(
-                    "the headers are updated '%s' and the url is '%s'",
-                    headers,
+                    "the url is '%s'",
                     base_url,
                 )
                 http_client = httpx.AsyncClient(base_url=base_url, headers=headers)

@@ -202,6 +202,7 @@ def _setup_args_parser() -> argparse.ArgumentParser:
         """,
     )
     _add_arguments_to_parser(parser)
+    _add_middleware_command(parser)
     return parser
 
 
