@@ -1,8 +1,8 @@
 [project]
 name = "mcp-composer"
-version = "0.1.0"
-description = "Add your description here"
-readme = "README.md"
+version = "0.1.0.2"
+description = "FastMCP-based MCP Server Orchestrator"
+readme = "PACKAGE.md"
 requires-python = ">=3.11"
 dependencies = [
     "duckduckgo-search>=8.0.1",
