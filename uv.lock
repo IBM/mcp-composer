@@ -1650,7 +1650,7 @@ wheels = [
 
 [[package]]
 name = "mcp-composer"
-version = "0.1.0"
+version = "0.1.0.2"
 source = { editable = "." }
 dependencies = [
     { name = "acp-sdk" },
@@ -1691,8 +1691,8 @@ dev = [
     { name = "black" },
     { name = "coverage" },
     { name = "dirty-equals" },
-    { name = "pre-commit" },
     { name = "mypy" },
+    { name = "pre-commit" },
     { name = "pylint" },
     { name = "pytest" },
     { name = "pytest-asyncio" },
@@ -1741,8 +1741,8 @@ dev = [
     { name = "black", specifier = "==24.4" },
     { name = "coverage", specifier = "==7.5" },
     { name = "dirty-equals", specifier = "==0.9.0" },
-    { name = "pre-commit" },
     { name = "mypy", specifier = "==1.10.0" },
+    { name = "pre-commit" },
     { name = "pylint", specifier = ">=3.3.7" },
     { name = "pytest", specifier = "==8.3.3" },
     { name = "pytest-asyncio", specifier = "==0.23.5" },
