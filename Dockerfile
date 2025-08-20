@@ -5,6 +5,8 @@ FROM ${BUILDER_IMAGE}:${DREADNOUGHT_PYTHON312_TAG}
 
 ENV ENABLE_PACKAGE_MANAGER=true
 
+USER root
+
 RUN dnf install -y \
     gcc-c++ \
     python3.12 \
@@ -20,8 +22,6 @@ ENV CXXFLAGS="-std=c++11"
 
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
-USER root
-
 WORKDIR /app
 
 RUN mkdir -p /app && chmod -R 0777 /app
@@ -31,7 +31,7 @@ COPY pyproject.toml uv.lock ./
 
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --locked --no-install-project --no-dev
-    
+
 COPY . /app
 
 RUN chmod -R 0777 /app
