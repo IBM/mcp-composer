@@ -3,6 +3,7 @@
 # pylint: disable=W0611
 # pylint: disable=C0411
 import json
+import os
 from typing import Dict
 import jsonref
 import httpx
@@ -148,14 +149,38 @@ class MCPServerBuilder:
                 openapi_config[ConfigKey.CUSTOM_ROUTES]
             )
         spec = {}
-        if ConfigKey.SPEC_URL in openapi_config:
+
+        # Enforce dev/prod rules here as well so build paths that skip validation still honor mode
+        mode = os.getenv("MCP_COMPOSER_MODE", "prod").strip().lower()
+        if mode not in {"dev", "prod"}:
+            logger.warning(
+                "Unknown MCP_COMPOSER_MODE '%s'; defaulting to 'prod' rules.", mode
+            )
+            mode = "prod"
+
+        if mode == "prod":
+            # Production: require spec_url only
+            if openapi_config.get(ConfigKey.SPEC_FILEPATH):
+                raise ValueError(
+                    "In production mode, 'spec_filepath' is not allowed; use 'spec_url'."
+                )
+            if not openapi_config.get(ConfigKey.SPEC_URL):
+                raise ValueError(
+                    "In production mode, 'spec_url' is required in 'open_api'."
+                )
             spec = await load_spec_from_url(
                 openapi_config[ConfigKey.ENDPOINT], openapi_config[ConfigKey.SPEC_URL]
             )
-        elif ConfigKey.SPEC_FILEPATH in openapi_config:
-            spec = await load_json(openapi_config[ConfigKey.SPEC_FILEPATH])
         else:
-            raise NotImplementedError("Spec is missing")
+            # Dev: prefer spec_url if present, else spec_filepath
+            if openapi_config.get(ConfigKey.SPEC_URL):
+                spec = await load_spec_from_url(
+                    openapi_config[ConfigKey.ENDPOINT], openapi_config[ConfigKey.SPEC_URL]
+                )
+            elif openapi_config.get(ConfigKey.SPEC_FILEPATH):
+                spec = await load_json(openapi_config[ConfigKey.SPEC_FILEPATH])
+            else:
+                raise NotImplementedError("Spec is missing (provide spec_url or spec_filepath)")
 
         headers = self.config.get(ConfigKey.HEADERS, {})
         logger.info("the headers are '%s'", headers)

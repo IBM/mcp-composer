@@ -9,6 +9,7 @@
 !/config/
 !/example
 !/spec
+!/composers
 
 ### ignore final ###
 __pycache__
