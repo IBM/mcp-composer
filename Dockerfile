@@ -1,5 +1,5 @@
 ARG BUILDER_IMAGE=icr.io/ibm-dreadnought-prod-images/ubi9/python312-builder
-ARG DREADNOUGHT_PYTHON312_TAG=SET_VALID_TAG
+ARG DREADNOUGHT_PYTHON312_TAG=v9.6.27
 
 FROM ${BUILDER_IMAGE}:${DREADNOUGHT_PYTHON312_TAG}
 
@@ -38,7 +38,5 @@ RUN chmod -R 0777 /app
 
 ENV PATH="/app/.venv/bin:$PATH"
 ENV UV_CACHE_DIR=/.cache/uv
-ENV SERVER_CONFIG_FILE_PATH=/app/example/mcsp_trio_server/mcsp_trio_master.json
 
-
-CMD ["uv", "run", "test/test_composer.py"]
+CMD ["uv", "run", "composers/solis_composer.py"]

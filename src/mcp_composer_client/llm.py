@@ -2,16 +2,16 @@ import os
 import re
 from beeai_framework.backend.chat import ChatModel
 from beeai_framework.backend.types import ChatModelParameters
-from beeai_framework.backend import UserMessage
+from beeai_framework.backend import UserMessage, SystemMessage
 from dotenv import load_dotenv, find_dotenv
 
 
 # Load environment variables
 load_dotenv(find_dotenv(".env"))
-model_name = os.getenv("CHAT_MODEL_NAME", "watsonx").strip()
+
 
 llm_default: ChatModel = ChatModel.from_name(
-    model_name,
+    os.getenv("CHAT_MODEL_NAME", "watsonx"),
     ChatModelParameters(temperature=0.01, max_tokens=1000),
 )
 
@@ -64,7 +64,15 @@ def get_llm(llm_name: str | None = None) -> ChatModel:
     return llm_default
 
 
-async def run_llm(user_input: str, llm_name: str | None = None) -> str:
+async def run_llm(
+    user_input: str, sys_input: str | None = None, llm_name: str | None = None
+) -> str:
     llm = get_llm(llm_name)
-    response = await llm.create(messages=[UserMessage(content=user_input)])
+    messages = []
+
+    if sys_input:
+        messages.append(SystemMessage(content=sys_input))
+    messages.append(UserMessage(content=user_input))
+
+    response = await llm.create(messages=messages)
     return response.get_text_content()

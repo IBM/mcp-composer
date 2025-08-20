@@ -1,0 +1,7 @@
+[
+  {
+    "id": "test-server",
+    "type": "sse",
+    "endpoint": "https://mcp-server-fetch.1vgzmntiwjzl.eu-es.codeengine.appdomain.cloud/sse"
+  }
+]

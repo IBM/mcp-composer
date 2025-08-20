@@ -1,0 +1,42 @@
+{
+  "name": "basic_access_policy",
+  "description": "Basic access control policy for MCP tools",
+  "version": "1.0",
+  "default_effect": "deny",
+  "rules": [
+    {
+      "name": "admin_full_access",
+      "description": "Admins have access to all tools",
+      "effect": "allow",
+      "roles": ["admin"],
+      "tools": ["*"],
+      "priority": 1000
+    },
+    {
+      "name": "user_basic_tools",
+      "description": "Regular users can access basic tools",
+      "effect": "allow",
+      "roles": ["user"],
+      "tools": ["get_weather", "get_time", "echo"],
+      "priority": 100
+    },
+    {
+      "name": "deny_sensitive_tools",
+      "description": "Deny access to sensitive tools for non-admins",
+      "effect": "deny",
+      "roles": ["user"],
+      "tools": ["delete_*", "admin_*", "system_*"],
+      "priority": 900
+    },
+    {
+      "name": "guest_readonly",
+      "description": "Guests can only read public information",
+      "effect": "allow",
+      "roles": ["guest"],
+      "tools": ["get_time", "get_public_info"],
+      "priority": 50
+    }
+  ],
+  "tags": ["basic", "demo"],
+  "created_by": "system"
+} 

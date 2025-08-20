@@ -17,6 +17,8 @@
 - [Installation](#installation)
   - [Prerequisites](#prerequisites)
   - [Setup](#setup)
+  - [Use as Tool](#use-as-tool)
+- [Usage](#usage)
 - [Key Features](#key-features)
   - [MCP Composer Servers](#mcp-composer-servers)
   - [Command Line Interface (CLI)](#command-line-interface-cli)
@@ -24,12 +26,11 @@
   - [MCP Composer Prompts](#mcp-composer-prompts)
 - [Demo using MCP Inspector](#demo-using-mcp-inspector)
 - [MCP Composer Client with Chatbot UI](#mcp-composer-client-with-chatbot-ui)
-
----
+- ***
 
 ## Overview
 
-The MCP Composer is a FastAPI based Composer that manages multiple MCP servers and tools.
+The MCP Composer is a [FastMCP](https://github.com/jlowin/fastmcp) based Composer that manages multiple MCP servers and tools.
 Servers and tools can be registered at runtime using structured JSON configurations.
 The MCP Composer serves as an orchestrator for tool execution and forwards tool requests to the correct upstream MCP server or interface.
 
@@ -56,7 +57,8 @@ Update the pyproject.toml if you need to install both `mcp_composer` and `mcp_co
 where = ["src"]
 include = ["mcp_composer", "mcp_composer_app"]
 ```
-If we only want to install `mcp_composer` 
+
+If we only want to install `mcp_composer`
 
 ```
 [tool.setuptools.packages.find]
@@ -76,40 +78,63 @@ include = ["mcp_composer"]
    git clone https://github.ibm.com/ai-elite/mcp-composer.git
    cd mcp-composer
    ```
+
 2. Create virtual Environment:
+
    ```bash
-   uv venv 
+   uv venv
    ```
 
 3. Activate the virtual environment.
-
    ```bash
    source .venv/bin/activate
    ```
 
-4. Synchronize the environment.
+4. **Environment Configuration (Required)**
+   
+   The MCP Composer requires environment variables to be set:
+   
+   **Setup**
+   ```bash
+   cp env.example .env
+   ```
+   
+   Edit the `.env` file and set the required environment variables:
+   - `SERVER_CONFIG_FILE_PATH`: Path to the server configuration file (default: `member_servers.json`)
+   
+   **Note**: If you don't set up the `.env` file, you'll get a `KeyError: 'SERVER_CONFIG_FILE_PATH'` error when trying to import the module.
 
-  
+5. Synchronize the environment.
+   
+   **First time setup**: Run this to create the initial `uv.lock` file:
+   ```bash
+   uv sync
+   ```
+   
+   **Subsequent runs**: Use the frozen lock file for consistency:
    ```bash
    uv sync --frozen        # Strict install (uses lock file exactly) - recommended as ensuring consistency across different environments
-   uv sync               # Install (update lock file) - incremental refresh, commit uv.lock
+   ```
+   
+   **Update dependencies**: If you need to update dependencies:
+   ```bash
    rm uv.lock && uv sync # Refresh child dependencies, commit uv.lock
    ```
-5. Add a new dependency; automatically creates a virtual environment if necessary
+
+6. Add a new dependency; automatically creates a virtual environment if necessary
 
    ```bash
-   uv add <my-package>   
+   uv add <my-package>
    ```
-6. Leverage the project's virtual environment:
+7. Leverage the project's virtual environment:
    ```
-   uv run <command&args> 
+   uv run <command&args>
    ```
-7. Test if MCP Composer is installed successfully or not
+8. Test if MCP Composer is installed successfully or not
 
    ```bash
    uv run python -c "import mcp_composer; print(mcp_composer.__version__)"
    ```
-
 
 ### Add MCP Composer as local dependency
 
@@ -119,20 +144,23 @@ include = ["mcp_composer"]
 [tool.hatch.metadata]
 allow-direct-references = true
 ```
+
 Then you can run the command:
 
 ```bash
 uv add <path to mcp-composer folder>
 ```
+
 Then, the pyproject.toml file is updated with the below lines:
 
 ```toml
 [tool.uv.sources]
 mcp-composer = { path = "mcp-composer" }
 ```
+
 Add mcp-composer to the dependencies section, example of the final pyproject.toml file:
 
-```toml  
+```toml
 [project]
 name = "py_project"
 
@@ -154,6 +182,42 @@ To ensure the package is properly installed and importable in the consumer proje
 uv pip install -e ../mcp-composer
 ```
 
+### Use as Tool
+
+#### Install mcp-composer as a tool
+
+1. Run the following command to install mcp-composer as a tool:
+
+   ```bash:
+   uv tool install -e /<absolute path>/mcp-composer
+   ```
+
+2. Add the tool to $PATH:
+   ```bash
+      export PATH="/<absolute path>/.local/bin:$PATH"
+   ```
+3. Check the instlation:
+   ```bash
+   which mcp-composer
+   ```
+
+#### Uninstall mcp-composer as a tool
+
+1. Run the following command to uninstall mcp-composer as a tool:
+
+   ```bash:
+   uv tool uninstall mcp-composer
+   ```
+
+## Usage
+
+1. Run MCP Server using MCP Composer Tool with oauth authentication with following command
+
+```bash
+
+uvx mcp-composer -sseurl --sse-url <url to remote sse mcp server> --auth_type oauth --env OAUTH_HOST <host> --env OAUTH_PORT <port> --env OAUTH_SERVER_URL <server url> --env OAUTH_CALLBACK_PATH <callback path> --env OAUTH_CLIENT_ID=<client id> --env OAUTH_CLIENT_SECRET <secret> --env OAUTH_AUTH_URL <auth url> -e-env OAUTH_TOKEN_URL <token url> --env OAUTH_MCP_SCOPE user --env OAUTH_PROVIDER_SCOPE=openid
+```
+
 ## Key Features
 
 - Register or remove tools at runtime using structured JSON configurations.
@@ -163,6 +227,38 @@ uv pip install -e ../mcp-composer
 - List tools and metadata by name or server.
 
 ### MCP Composer Servers
+
+#### Add MCP Server from local python file in stdio
+
+To add an MCP server from a local python file, use the builder with a configuration containing the python file path:
+
+**Example:**
+
+```
+[
+  {
+    "id": "mcp-local-news",
+    "type": "stdio",
+    "command": "uv",
+    "args": [
+      "--directory",
+      "/<absolute path of the directory>",
+      "run",
+      "<name of the python file>.py"
+    ],
+    "_id": "mcp-local-news"
+  }
+]
+```
+
+Run
+
+```bash
+uv run test/test_composer.py
+```
+
+test_composer.py can run on either `stdio` or `http` type.
+This will create a FastMCP server instance using the python file and its dependencies and also mount it on mcp-composer.
 
 #### Add MCP Server from OpenAPI Specification
 
@@ -227,33 +323,55 @@ mcp-composer --mode <http|stdio> [--host HOST] [--port PORT] [--log-level LEVEL]
 
 #### Options
 
-| Flag          | Description                                         | Default      |
-| ------------- | --------------------------------------------------- | ------------ |
-| `--mode`      | Mode to run the Composer in: `http` or `stdio`      | `http`       |
-| `--host`      | Host to bind to (for `http` mode)                   | `0.0.0.0`    |
-| `--port`      | Port to run on (for `http` mode)                    | `9000`       |
-| `--log-level` | Log level (e.g. `debug`, `info`, `warning`)         | `debug`      |
-| `--path`      | URL path to mount the MCP Composer on               | `/mcp`       |
-
+| Flag          | Description                                    | Default   |
+| ------------- | ---------------------------------------------- | --------- |
+| `--mode`      | Mode to run the Composer in: `http` or `stdio` | `http`    |
+| `--host`      | Host to bind to (for `http` mode)              | `0.0.0.0` |
+| `--port`      | Port to run on (for `http` mode)               | `9000`    |
+| `--log-level` | Log level (e.g. `debug`, `info`, `warning`)    | `debug`   |
+| `--path`      | URL path to mount the MCP Composer on          | `/mcp`    |
 
 ### MCP Composer Tools
 
-- register_mcp_server: Register a single server.
-- delete_mcp_server: Delete a single server.
-- member_health: Get status for all member servers.
-- activate_mcp_server: Reactivates a previously deactivated member server by loading its config, updating status in DB, and mounting it.
-- deactivate_mcp_server: Deactivates a member server by unmounting it and marking it as deactivated in DB.
-- list_member_servers: List status of all member servers (active or deactivated).
-- get_tool_config_by_name: Get a tool configuration details
-- get_tool_config_by_server: Get all tool configuration details of a specific member server
-- disable_tools: Disable a tool or multiple from the servers and Composer
-- enable_tools: Enable a tool or multiple from the servers and Composer
-- update_tool_description: Update tool description of member servers
+#### Server Management Tools
+- `register_mcp_server`: Register a single server.
+- `delete_mcp_server`: Delete a single server.
+- `member_health`: Get status for all member servers.
+- `activate_mcp_server`: Reactivates a previously deactivated member server by loading its config, updating status in DB, and mounting it.
+- `deactivate_mcp_server`: Deactivates a member server by unmounting it and marking it as deactivated in DB.
+- `list_member_servers`: List status of all member servers (active or deactivated).
+
+#### Tool Management Tools
+- `get_tool_config_by_name`: Get a tool configuration details
+- `get_tool_config_by_server`: Get all tool configuration details of a specific member server
+- `disable_tools`: Disable a tool or multiple from the servers and Composer
+- `enable_tools`: Enable a tool or multiple from the servers and Composer
+- `update_tool_description`: Update tool description of member servers
 - [add_tools](#Add-tool-using-Curl-command-and-Python-script): Add tool using curl command or Python script.
 - [add_tools_from_openapi](#Add-tool-using-OpenAPI-specification): Add tool using the OpenAPI specifications
 
+#### Prompt Management Tools
+- `add_prompts`: Add one or more prompts to the composer
+- `get_all_prompts`: Get all registered prompts as JSON strings (excluding disabled ones)
+- `list_prompts_per_server`: List all prompts from a specific server (excluding disabled ones)
+- `filter_prompts`: Filter prompts based on criteria like name, description, tags
+- `enable_prompts`: Enable prompts from a specific server
+- `disable_prompts`: Disable prompts from a specific server
+
+#### Resource Management Tools
+- `add_resource_template`: Add a resource template to the composer
+- `create_resource`: Create a new resource in the composer
+- `list_resources`: List all available resources (actual resources)
+- `list_resource_templates`: List all available resource templates
+- `list_resources_per_server`: List all resources and templates from a specific server
+- `filter_resources`: Filter resources based on criteria like name, description, tags
+- `enable_resources`: Enable resources or templates from a specific server
+- `disable_resources`: Disable resources or templates from a specific server
+
 #### Add tool using Curl command and Python script
+
 **Curl command:**
+
 ```JSON
 {
     "name": "event",
@@ -269,6 +387,7 @@ mcp-composer --mode <http|stdio> [--host HOST] [--port PORT] [--log-level LEVEL]
 ```
 
 **Python script:**
+
 ```python
 {
   "name": "test",
@@ -284,7 +403,9 @@ mcp-composer --mode <http|stdio> [--host HOST] [--port PORT] [--log-level LEVEL]
 ```
 
 #### Add tool using OpenAPI specification
+
 **input: openapi_spec**
+
 ```JSON
 {
   "openapi": "3.0.1",
@@ -298,6 +419,7 @@ mcp-composer --mode <http|stdio> [--host HOST] [--port PORT] [--log-level LEVEL]
 ```
 
 **input: auth_config**
+
 ```JSON
 {
   "auth_strategy": "basic",
@@ -341,7 +463,7 @@ prompt_config = [
 added = await composer.add_prompts(prompt_config)
 ```
 
-### Get all Prompts
+#### Get all Prompts
 
 - `get_all_prompts() -> list[str]`
   Retrieves all registered prompts as JSON strings, with internal function references stripped.
@@ -354,6 +476,236 @@ added = await composer.add_prompts(prompt_config)
 prompts = await composer.get_all_prompts()
 for prompt_json in prompts:
     print(prompt_json)
+```
+
+#### List Prompts per Server
+
+- `list_prompts_per_server(server_id: str) -> list[dict]`
+  Lists all prompts from a specific server (excluding disabled ones).
+
+- **Arguments**:
+  - `server_id`: The ID of the server to list prompts from.
+- **Returns**: A list of dictionaries containing prompt information with server_id included.
+
+**Example:**
+
+```python
+prompts = await composer.list_prompts_per_server("my-server")
+for prompt in prompts:
+    print(f"Prompt: {prompt['name']} from server: {prompt['server_id']}")
+    print(f"  Description: {prompt['description']}")
+    print(f"  Template: {prompt['template']}")
+```
+
+#### Enable Prompts
+
+- `enable_prompts(prompts: list[str], server_id: str) -> str`
+  Enables prompts from a specific server.
+
+- **Arguments**:
+  - `prompts`: A list of prompt names to enable.
+  - `server_id`: The ID of the server containing the prompts.
+- **Returns**: A status message indicating success or failure.
+
+**Example:**
+
+```python
+result = await composer.enable_prompts(["app_top_errors_yesterday"], "mcp-prompt")
+print(result)  # "Enabled ['mcp-prompt_app_top_errors_yesterday'] prompts from server mcp-prompt"
+```
+
+#### Disable Prompts
+
+- `disable_prompts(prompts: list[str], server_id: str) -> str`
+  Disables prompts from a specific server.
+
+- **Arguments**:
+  - `prompts`: A list of prompt names to disable.
+  - `server_id`: The ID of the server containing the prompts.
+- **Returns**: A status message indicating success or failure.
+
+**Example:**
+
+```python
+result = await composer.disable_prompts(["app_top_errors_yesterday"], "mcp-prompt")
+print(result)  # "Disabled ['mcp-prompt_app_top_errors_yesterday'] prompts from server mcp-prompt"
+```
+
+#### Filter Prompts
+
+- `filter_prompts(filter_criteria: dict) -> list[dict]`
+  Filters prompts based on criteria like name, description, tags, etc.
+
+- **Arguments**:
+  - `filter_criteria`: A dictionary containing filter criteria (name, description, tags).
+- **Returns**: A list of dictionaries containing matching prompts.
+
+**Example:**
+
+```python
+# Filter by name
+result = await composer.filter_prompts({"name": "test"})
+
+# Filter by description
+result = await composer.filter_prompts({"description": "response"})
+
+# Filter by multiple criteria
+result = await composer.filter_prompts({
+    "name": "prompt",
+    "description": "test"
+})
+```
+
+### MCP Composer Resources
+
+#### Adding resource templates
+
+- `add_resource_template(resource_config: dict) -> str`
+  Registers a resource template with the composer.
+
+- **Arguments**:
+  - `resource_config`: A dictionary describing the resource template. Should contain at least a `name` field.
+- **Returns**: A success message.
+
+**Example:**
+
+```python
+resource_config = {
+    "name": "my_template",
+    "description": "A template for creating resources",
+    "uri_template": "resource://{name}",
+    "mime_type": "text/plain",
+    "tags": ["template", "example"],
+    "enabled": True
+}
+result = await composer.add_resource_template(resource_config)
+```
+
+#### Creating actual resources
+
+- `create_resource(resource_config: dict) -> str`
+  Creates an actual resource in the composer.
+
+- **Arguments**:
+  - `resource_config`: A dictionary describing the resource. Should contain at least a `name` field.
+- **Returns**: A success message.
+
+**Example:**
+
+```python
+resource_config = {
+    "name": "my_resource",
+    "description": "An actual resource with content",
+    "uri": "resource://my_resource",
+    "mime_type": "text/plain",
+    "content": "This is the actual content of the resource",
+    "tags": ["resource", "example"],
+    "enabled": True
+}
+result = await composer.create_resource(resource_config)
+```
+
+#### Listing resources and templates
+
+- `list_resources() -> list[dict]`
+  Lists all actual resources from composer and mounted servers.
+
+- `list_resource_templates() -> list[dict]`
+  Lists all resource templates from composer and mounted servers.
+
+**Example:**
+
+```python
+# List actual resources
+resources = await composer.list_resources()
+for resource in resources:
+    print(f"Resource: {resource['name']} - {resource['description']}")
+
+# List resource templates
+templates = await composer.list_resource_templates()
+for template in templates:
+    print(f"Template: {template['name']} - {template['description']}")
+```
+
+#### List Resources per Server
+
+- `list_resources_per_server(server_id: str) -> list[dict]`
+  Lists all resources and templates from a specific server.
+
+- **Arguments**:
+  - `server_id`: The ID of the server to list resources from.
+- **Returns**: A list of dictionaries containing resource information with server_id and type included.
+
+**Example:**
+
+```python
+resources = await composer.list_resources_per_server("my-server")
+for resource in resources:
+    print(f"Resource: {resource['name']} from server: {resource['server_id']}")
+    print(f"  Type: {resource['type']}")  # 'resource' or 'template'
+```
+
+#### Enable Resources
+
+- `enable_resources(resources: list[str], server_id: str) -> str`
+  Enables resources or templates from a specific server.
+
+- **Arguments**:
+  - `resources`: A list of resource names to enable.
+  - `server_id`: The ID of the server containing the resources.
+- **Returns**: A status message indicating success or failure.
+
+**Example:**
+
+```python
+result = await composer.enable_resources(["finance_reference"], "mcp-stock-info")
+print(result)  # "Enabled ['mcp-stock-info_finance_reference'] resources/templates from server mcp-stock-info"
+```
+
+#### Disable Resources
+
+- `disable_resources(resources: list[str], server_id: str) -> str`
+  Disables resources or templates from a specific server.
+
+- **Arguments**:
+  - `resources`: A list of resource names to disable.
+  - `server_id`: The ID of the server containing the resources.
+- **Returns**: A status message indicating success or failure.
+
+**Example:**
+
+```python
+result = await composer.disable_resources(["finance_reference"], "mcp-stock-info")
+print(result)  # "Disabled ['mcp-stock-info_finance_reference'] resources/templates from server mcp-stock-info"
+```
+
+#### Filter Resources
+
+- `filter_resources(filter_criteria: dict) -> list[dict]`
+  Filters resources based on criteria like name, description, tags, etc.
+
+- **Arguments**:
+  - `filter_criteria`: A dictionary containing filter criteria (name, description, tags, type).
+- **Returns**: A list of dictionaries containing matching resources.
+
+**Example:**
+
+```python
+# Filter by name
+result = await composer.filter_resources({"name": "resource"})
+
+# Filter by description
+result = await composer.filter_resources({"description": "test"})
+
+# Filter by type (resource or template)
+result = await composer.filter_resources({"type": "resource"})
+
+# Filter by multiple criteria
+result = await composer.filter_resources({
+    "name": "resource",
+    "description": "test",
+    "type": "template"
+})
 ```
 
 ### Demo using MCP Inspector
@@ -489,14 +841,16 @@ INFO:     Uvicorn running on http://localhost:8000 (Press CTRL+C to quit)
   docker build -t chatbot -f Dockerfile_Client .
   ```
 
-  Run the image in container interactively (for Windows/Mac), by default, it uses `MCP_BASE_URL` to connect to MCP composer server. 
- 
+  Run the image in container interactively (for Windows/Mac), by default, it uses `MCP_BASE_URL` to connect to MCP composer server.
+
   ```bash
   docker run -it -e HOST=0.0.0.0 -p 8000:8000 chatbot
   ```
-  (In Linux, `-e HOST=0.0.0.0` can be removed.) 
+
+  (In Linux, `-e HOST=0.0.0.0` can be removed.)
 
   If using `config/mcp_composer_client.yaml` to config multiple MCP servers, set env `USER_CONFIG_FILE` to `yes`:
+
   ```bash
   docker run -it -e USER_CONFIG_FILE=yes -e HOST=0.0.0.0 -p 8000:8000 chatbot
   ```
@@ -504,3 +858,41 @@ INFO:     Uvicorn running on http://localhost:8000 (Press CTRL+C to quit)
 #### 3. Launch chatbot UI (Optional)
 
 Follow instruction in [Demo-Chatbot-UI](https://github.ibm.com/ai-elite/mcp-composer-chatbot-ui), open browser and input chatbot UI URL. Interact with the chatbot.
+
+## Troubleshooting
+
+### Common Issues
+
+1. **`KeyError: 'SERVER_CONFIG_FILE_PATH'`**
+   - **Cause**: Missing environment variable configuration
+   - **Solution**: Copy `env.example` to `.env` and set the required environment variables
+   ```bash
+   cp env.example .env
+   ```
+
+2. **`error: Unable to find lockfile at uv.lock`**
+   - **Cause**: Missing lock file (first-time setup)
+   - **Solution**: Run `uv sync` first to create the initial lock file
+   ```bash
+   uv sync
+   ```
+
+3. **Import errors when testing installation**
+   - **Cause**: Environment variables not loaded
+   - **Solution**: Ensure `.env` file exists and contains required variables
+   ```bash
+   # Check if .env file exists
+   ls -la .env
+   
+   # If not, create it
+   cp env.example .env
+   ```
+
+4. **Package not found when adding as local dependency**
+   - **Cause**: Path issues or missing development install
+   - **Solution**: Use the full path and install in editable mode
+   ```bash
+   uv add /full/path/to/mcp-composer --frozen
+   uv pip install -e /full/path/to/mcp-composer
+   ```
+

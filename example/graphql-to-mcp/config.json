@@ -16,5 +16,14 @@
       "schema_filepath": "./src/mcp-composer/example/graphql-to-mcp/pokemon.graphql"
     },
     "_id": "mcp-pokemon"
+  },
+  {
+    "id": "test-server-0e018c33",
+    "type": "stdio",
+    "command": "uv",
+    "args": [
+      "run"
+    ],
+    "_id": "test-server-0e018c33"
   }
 ]

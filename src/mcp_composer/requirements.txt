@@ -1,0 +1,31 @@
+# Core MCP framework
+fastmcp==2.10.3
+mcp>=1.0.0
+
+# HTTP clients
+requests==2.32.4
+httpx==0.28.1
+aiohttp==3.12.14
+
+# Web framework (for OAuth)
+fastapi==0.116.1
+starlette>=0.27.0
+
+# Data validation and settings
+pydantic==2.11.7
+pydantic-settings==2.10.1
+jsonschema>=4.24.0
+
+# JSON schema references
+jsonref>=1.1.0
+
+# Environment and configuration
+python-dotenv>=0.9.9
+
+# Database adapters
+ibmcloudant==0.10.2
+ibm-cloud-sdk-core==3.23.0
+
+# Secrets management
+ibm-secrets-manager-sdk==2.1.10
+hvac==2.3.0

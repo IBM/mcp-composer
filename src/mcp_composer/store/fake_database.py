@@ -43,7 +43,9 @@ class FakeDatabase(DatabaseInterface):
         """Adds tools to the tool list if not already present."""
         for tool_name in tools:
             if not any(t["name"] == tool_name for t in self._tools):
-                self._tools.append({"name": tool_name, "server_id": server_id, "description": ""})
+                self._tools.append(
+                    {"name": tool_name, "server_id": server_id, "description": ""}
+                )
 
     def update_tool_description(
         self, tool: str, description: str, server_id: str
@@ -51,6 +53,32 @@ class FakeDatabase(DatabaseInterface):
         for t in self._tools:
             if t["name"] == tool:
                 t["description"] = description
+
+    def disable_prompts(self, prompts: list[str], server_id: str) -> None:
+        """Disable prompts in the fake database."""
+        if server_id in self._servers:
+            if "disabled_prompts" not in self._servers[server_id]:
+                self._servers[server_id]["disabled_prompts"] = []
+            self._servers[server_id]["disabled_prompts"].extend(prompts)
+
+    def enable_prompts(self, prompts: list[str], server_id: str) -> None:
+        """Enable prompts in the fake database."""
+        if server_id in self._servers:
+            if "disabled_prompts" in self._servers[server_id]:
+                self._servers[server_id]["disabled_prompts"] = prompts
+
+    def disable_resources(self, resources: list[str], server_id: str) -> None:
+        """Disable resources in the fake database."""
+        if server_id in self._servers:
+            if "disabled_resources" not in self._servers[server_id]:
+                self._servers[server_id]["disabled_resources"] = []
+            self._servers[server_id]["disabled_resources"].extend(resources)
+
+    def enable_resources(self, resources: list[str], server_id: str) -> None:
+        """Enable resources in the fake database."""
+        if server_id in self._servers:
+            if "disabled_resources" in self._servers[server_id]:
+                self._servers[server_id]["disabled_resources"] = resources
 
     def update_server_config(self, config: dict) -> None:
         self._servers[config["id"]] = config

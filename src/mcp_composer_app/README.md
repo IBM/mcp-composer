@@ -1,6 +1,6 @@
 # MCP Composer REST API
 
-This FastAPI application dynamically exposes all registered MCP Composer tools as REST API endpoints.
+This FastMCP application dynamically exposes all registered MCP Composer tools as REST API endpoints.
 
 ## ✨ Features
 
