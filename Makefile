@@ -36,8 +36,8 @@ docker-build-client:
 		-f Dockerfile_Client -t $(SRC_CLIENT_IMAGE_URI) .
 
 # Deploy the CI build to https://github.ibm.com/automation-paas-cd-pipeline/mcp-composer-cd
-.PHONY: deploy
-deploy:
+.PHONY: post-deploy
+post-deploy:
 	@echo "export GIT_REPO=https://github.ibm.com/automation-paas-cd-pipeline/mcp-composer-cd”
 	@echo "export GIT_COMMITTER=autopaas@us.ibm.com"
 	@echo "export GIT_BRANCH=dev”
