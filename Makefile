@@ -38,16 +38,16 @@ docker-build-client:
 # Deploy the CI build to https://github.ibm.com/automation-paas-cd-pipeline/mcp-composer-cd
 .PHONY: post-deploy
 post-deploy:
-	@echo "export GIT_REPO=https://github.ibm.com/automation-paas-cd-pipeline/mcp-composer-cd”
-	@echo "export GIT_COMMITTER=autopaas@us.ibm.com"
+	@echo "export GIT_REPO=mcp-composer-cd”
+	@echo "export GIT_COMMITTER=\"CI/CD Functional ID <saas-ci1@ibm.com>\""
 	@echo "export GIT_BRANCH=dev”
 	@echo "export GIT_ORG=automation-paas-cd-pipeline"
 	@echo "export PULL_REQUEST_ASSIGNEE=autopaas"
 	@echo "export PROMOTION_ENV=development"
 	@echo "export ENABLE_DEV_HEAD_USE=true"
-	@echo "export GIT_TOKEN={vault::CloudRock-SecretManager.CloudRock-CICD.GitHub-FnID}"
-	@echo "export PROMOTION_ENV_APP_SET=application-sets/aws-dev/us-east/application-set.yaml"
-	@echo "export DEVELOPMENT_ENV_APP_SET=application-sets/aws-dev/us-east/application-set.yaml"	
+	@echo "export GIT_TOKEN=$(GIT_TOKEN)"
+	@echo "export PROMOTION_ENV_APP_SET=application-sets/aws-dev/us-east-1/application-set.yaml"
+	@echo "export DEVELOPMENT_ENV_APP_SET=application-sets/aws-dev/us-east-1/application-set.yaml"	
 	@echo "export REPLACEMENTS=\"resources/values.yaml config.imageTag.app,$(REGISTRY_IMAGE_TAG_SHORT);resources/values.yaml config.imageTag.client,$(REGISTRY_IMAGE_TAG_SHORT);resources/values.yaml config.imageTag.root,$(REGISTRY_IMAGE_TAG_SHORT)\""
 
 
