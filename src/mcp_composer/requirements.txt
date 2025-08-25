@@ -29,3 +29,9 @@ ibm-cloud-sdk-core==3.23.0
 # Secrets management
 ibm-secrets-manager-sdk==2.1.10
 hvac==2.3.0
+
+
+# Telemetry Management
+opentelemetry-api==1.26.0
+opentelemetry-sdk==1.26.0
+opentelemetry-exporter-otlp==1.26.0

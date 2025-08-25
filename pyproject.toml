@@ -51,9 +51,9 @@ dev = [
 
 [project.optional-dependencies]
 tracing = [
-  "opentelemetry-api>=1.26.0",
-  "opentelemetry-sdk>=1.26.0",
-  "opentelemetry-exporter-otlp>=1.26.0",
+  "opentelemetry-api==1.26.0",
+  "opentelemetry-sdk==1.26.0",
+  "opentelemetry-exporter-otlp==1.26.0",
 ]
 
 
@@ -108,10 +108,10 @@ show_missing = true
 package-dir = {"" = "src"}
 packages = ["mcp_composer", "mcp_composer.core", "mcp_composer.core.settings", 
             "mcp_composer.core.auth_handler", "mcp_composer.core.member_servers",
-            "mcp_composer.core.utils", "mcp_composer.middleware",
-            "mcp_composer.core.models", "mcp_composer.store",
+            "mcp_composer.core.utils", "mcp_composer.core.middleware",
+            "mcp_composer.core.models", "mcp_composer.core.resources",
             "mcp_composer.core.tools", "mcp_composer.core.prompts",
-            "mcp_composer.core.resources"]
+             "mcp_composer.middleware", "mcp_composer.features","mcp_composer.store"]
 
 [tool.pytest.ini_options]
 pythonpath = ["src"]
