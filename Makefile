@@ -38,9 +38,9 @@ docker-build-client:
 # Deploy the CI build to https://github.ibm.com/automation-paas-cd-pipeline/mcp-composer-cd
 .PHONY: post-deploy
 post-deploy:
-	@echo "export GIT_REPO=mcp-composer-cd”
+	@echo "export GIT_REPO=mcp-composer-cd"
 	@echo "export GIT_COMMITTER=\"CI/CD Functional ID <saas-ci1@ibm.com>\""
-	@echo "export GIT_BRANCH=dev”
+	@echo "export GIT_BRANCH=dev"
 	@echo "export GIT_ORG=automation-paas-cd-pipeline"
 	@echo "export PULL_REQUEST_ASSIGNEE=autopaas"
 	@echo "export PROMOTION_ENV=development"
