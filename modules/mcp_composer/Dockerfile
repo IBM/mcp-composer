@@ -25,7 +25,7 @@ COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 WORKDIR /app
 
 RUN mkdir -p /app && chmod -R 0777 /app
-RUN mkdir -p /.cache/uv && chmod -R 0777 /.cache/uv
+RUN mkdir -p /tmp/.cache/uv && chmod -R 0777 /tmp/.cache
 
 COPY pyproject.toml uv.lock ./
 
@@ -38,5 +38,6 @@ RUN chmod -R 0777 /app
 
 ENV PATH="/app/.venv/bin:$PATH"
 ENV UV_CACHE_DIR=/.cache/uv
+ENV PYTHONPATH=/app/src
 
-CMD ["uv", "run", "tests/test_composer.py"]
+CMD ["uv", "run", "--no-project", "composers/solis_composer.py"]
