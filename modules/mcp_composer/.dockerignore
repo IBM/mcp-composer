@@ -1,15 +1,14 @@
 ### ignore all ###
-/*
-
+*
 # (re)include core files:
-!/uv.lock
-!/pyproject.toml
-!/src/
-!/test/
-!/config/
-!/example
-!/spec
-!/composers
+!uv.lock
+!pyproject.toml
+!src/
+!tests/
+!config/
+!example
+!spec
+!composers
 
 ### ignore final ###
 __pycache__
