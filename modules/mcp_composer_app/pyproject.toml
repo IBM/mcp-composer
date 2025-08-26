@@ -2,7 +2,7 @@
 name = "mcp-composer-app"
 version = "0.1.0.2"
 description = "FastMCP-based MCP Server Orchestrator"
-readme = "PACKAGE.md"
+readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
     "fastmcp==2.11.2",
@@ -14,6 +14,7 @@ dependencies = [
     "pydantic==2.11.7",
     "pydantic-settings==2.10.1",
     "types-requests>=2.32.4.20250611",
+    "mcp-composer",
 ]
 
 [dependency-groups]
@@ -73,7 +74,7 @@ exclude = ["tests/", "build/"]
 
 [tool.coverage.run]
 branch = true
-source = ["src/mcp_composer"]
+source = ["src/mcp_composer_app"]
 
 [tool.coverage.report]
 exclude_lines = [
