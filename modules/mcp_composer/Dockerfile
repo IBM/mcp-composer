@@ -38,6 +38,7 @@ RUN chmod -R 0777 /app
 
 ENV PATH="/app/.venv/bin:$PATH"
 ENV UV_CACHE_DIR=/.cache/uv
+
 ENV PYTHONPATH=/app/src
 
 CMD ["uv", "run", "--no-project", "composers/solis_composer.py"]
