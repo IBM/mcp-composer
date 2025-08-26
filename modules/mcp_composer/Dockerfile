@@ -39,4 +39,4 @@ RUN chmod -R 0777 /app
 ENV PATH="/app/.venv/bin:$PATH"
 ENV UV_CACHE_DIR=/.cache/uv
 
-CMD ["uv", "run", "composers/solis_composer.py"]
+CMD ["uv", "run", "tests/test_composer.py"]
