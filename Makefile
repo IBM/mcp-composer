@@ -25,15 +25,15 @@ docker-push:
 
 docker-build-root:
 	$(BUILD_ENGINE) build $(BUILD_ENGINE_ARGS) $(BUILD_ARGS) $(DREADNOUGHT_DOCKER_BUILD_ARGS) \
-		-f Dockerfile -t $(ROOT_IMAGE_URI) .
+		-f Dockerfile -t $(ROOT_IMAGE_URI) modules/mcp_composer
 
 docker-build-app:
 	$(BUILD_ENGINE) build $(BUILD_ENGINE_ARGS) $(BUILD_ARGS) $(DREADNOUGHT_DOCKER_BUILD_ARGS) \
-		-f Dockerfile-Composer-App -t $(SRC_APP_IMAGE_URI) .
+		-f Dockerfile-Composer-App -t $(SRC_APP_IMAGE_URI) modules/mcp_composer_app
 
 docker-build-client:
 	$(BUILD_ENGINE) build $(BUILD_ENGINE_ARGS) $(BUILD_ARGS) $(DREADNOUGHT_DOCKER_BUILD_ARGS) \
-		-f Dockerfile_Client -t $(SRC_CLIENT_IMAGE_URI) .
+		-f Dockerfile_Client -t $(SRC_CLIENT_IMAGE_URI) modules/mcp_composer_client
 
 # Deploy the CI build to https://github.ibm.com/automation-paas-cd-pipeline/mcp-composer-cd
 .PHONY: post-deploy
