@@ -2,11 +2,8 @@
 /*
 
 # (re)include core files:
-!/modules/mcp_composer/pyproject.toml
-!/modules/mcp_composer/uv.lock
-!/modules/mcp_composer_app/pyproject.toml
-!/modules/mcp_composer_app/uv.lock
-!/modules/mcp_composer_client/uv.lock
+!/uv.lock
+!/pyproject.toml
 !/src/
 !/config/
 !/example
