@@ -895,4 +895,3 @@ Follow instruction in [Demo-Chatbot-UI](https://github.ibm.com/ai-elite/mcp-comp
    uv add /full/path/to/mcp-composer --frozen
    uv pip install -e /full/path/to/mcp-composer
    ```
-
