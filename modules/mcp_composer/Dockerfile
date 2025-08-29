@@ -25,7 +25,7 @@ COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 WORKDIR /app
 
 RUN mkdir -p /app && chmod -R 0777 /app
-RUN mkdir -p /tmp/.cache/uv && chmod -R 0777 /tmp/.cache
+RUN mkdir -p /.cache/uv && chmod -R 0777 /.cache/uv
 
 COPY pyproject.toml uv.lock ./
 

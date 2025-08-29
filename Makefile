@@ -25,19 +25,19 @@ docker-push:
 
 docker-build-root:
 	$(BUILD_ENGINE) build $(BUILD_ENGINE_ARGS) $(BUILD_ARGS) $(DREADNOUGHT_DOCKER_BUILD_ARGS) \
-		-f modules/mcp_composer/Dockerfile -t $(ROOT_IMAGE_URI) .
+		-f modules/mcp_composer/Dockerfile -t $(ROOT_IMAGE_URI) modules/mcp_composer
 
 docker-build-app:
-	$(BUILD_ENGINE) build $(BUILD_ENGINE_ARGS) $(BUILD_ARGS) $(DREADNOUGHT_DOCKER_BUILD_ARGS) \
-		-f modules/mcp_composer_app/Dockerfile-Composer-App -t $(SRC_APP_IMAGE_URI) .
+	$(BUILD_ENGINE) build $(BUILD_ENGINE_ARGS) --no-cache $(BUILD_ARGS) $(DREADNOUGHT_DOCKER_BUILD_ARGS) \
+		-f modules/mcp_composer_app/Dockerfile -t $(SRC_APP_IMAGE_URI) modules/mcp_composer_app
 
 docker-build-client:
 	$(BUILD_ENGINE) build $(BUILD_ENGINE_ARGS) $(BUILD_ARGS) $(DREADNOUGHT_DOCKER_BUILD_ARGS) \
-		-f modules/mcp_composer_client/Dockerfile_Client -t $(SRC_CLIENT_IMAGE_URI) .
+		-f modules/mcp_composer_client/Dockerfile -t $(SRC_CLIENT_IMAGE_URI) modules/mcp_composer_client
 
 # Deploy the CI build to https://github.ibm.com/automation-paas-cd-pipeline/mcp-composer-cd
-.PHONY: post-deploy
-post-deploy:
+.PHONY: deploy
+deploy:
 	@echo "export GIT_REPO=mcp-composer-cd"
 	@echo "export GIT_COMMITTER=\"CI/CD Functional ID <saas-ci1@ibm.com>\""
 	@echo "export GIT_BRANCH=dev"
@@ -51,10 +51,6 @@ post-deploy:
 	@echo "export REPLACEMENTS=\"resources/values.yaml config.imageTag.app,$(REGISTRY_IMAGE_TAG_SHORT);resources/values.yaml config.imageTag.client,$(REGISTRY_IMAGE_TAG_SHORT);resources/values.yaml config.imageTag.root,$(REGISTRY_IMAGE_TAG_SHORT)\""
 
 
-help:
-	@awk 'BEGIN {FS = ":.*##"; printf "\nUsage:\n  make \033[36m<target>\033[0m\n"} \
-	/^[a-zA-Z_-]+:.*?##/ { printf "  \033[36m%-25s\033[0m %s\n", $$1, $$2 } \
-	/^##@/ { printf "\n\033[1m%s\033[0m\n", substr($$0, 5) } ' $(MAKEFILE_LIST)
 
 vars: 
 	@$(foreach V, $(.VARIABLES), echo "$(V) = $($(V))";)
@@ -190,6 +186,12 @@ upload-pypi:
 
 # Show help
 help:
+
+	@awk 'BEGIN {FS = ":.*##"; printf "\nUsage:\n  make \033[36m<target>\033[0m\n"} \
+	/^[a-zA-Z_-]+:.*?##/ { printf "  \033[36m%-25s\033[0m %s\n", $$1, $$2 } \
+	/^##@/ { printf "\n\033[1m%s\033[0m\n", substr($$0, 5) } ' $(MAKEFILE_LIST)
+
+
 	@echo ""
 	@echo "🛠  Developer Tasks"
 	@echo "  format       - Format code with black"
@@ -211,9 +213,9 @@ help:
 	@echo "  status       - Show environment status"
 	@echo ""
 	@echo "📝 Examples:"
-@echo "  make build module=mcp_composer version=1.0.0"
-@echo "  make test-module module=mcp_composer"
-@echo "  make check-release module=mcp_composer"
-@echo "  make upload-testpypi module=mcp_composer version=1.0.0"
-@echo "  make upload-pypi module=mcp_composer version=1.0.0"
+	@echo "  make build module=mcp_composer version=1.0.0"
+	@echo "  make test-module module=mcp_composer"
+	@echo "  make check-release module=mcp_composer"
+	@echo "  make upload-testpypi module=mcp_composer version=1.0.0"
+	@echo "  make upload-pypi module=mcp_composer version=1.0.0"
 
