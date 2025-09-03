@@ -1,0 +1,11 @@
+{
+  "include": [
+    "modules/mcp_composer/src",
+    "modules/mcp_composer/composers"
+  ],
+  "extraPaths": [
+    "modules/mcp_composer/src"
+  ]
+}
+
+
