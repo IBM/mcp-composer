@@ -1,2 +1,2 @@
 # mcp-composer
-TBD
+Library - https://pypi.org/project/mcp-composer/
