@@ -77,6 +77,7 @@ class SimpleOAuthProvider(OAuthProvider):
         self.token_mapping: dict[str, str] = {}
         self.issuer_url = settings.server_url
         self.service_documentation_url = settings.server_url
+        self.resource_server_url = settings.server_url
         self.client_registration_options = ClientRegistrationOptions(
             enabled=True,
             valid_scopes=[settings.mcp_scope],
