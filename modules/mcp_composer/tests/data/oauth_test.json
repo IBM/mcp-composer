@@ -1,0 +1,38 @@
+[
+  {
+    "id": "snow-search",
+    "type": "openapi",
+    "open_api": {
+      "endpoint": "https://<edit-me>.service-now.com/",
+      "spec_filepath": "./tests/specs/snow_table_api_latest_spec.json",
+      "custom_routes": [
+        {
+          "methods": [
+            "GET"
+          ],
+          "pattern": ".*/.*",
+          "mcp_type": "TOOL"
+        },
+        {
+          "methods": [
+            "POST",
+            "PUT",
+            "PATCH",
+            "DELETE"
+          ],
+          "pattern": ".*/",
+          "mcp_type": "EXCLUDE"
+        }
+      ]
+    },
+    "auth_strategy": "oauth2",
+    "auth": {
+      "clientId": "ENV_SNOW_CLIENT_ID",
+      "clientSecret": "ENV_SNOW_CLIENT_SECRET",
+      "refreshToken": "ENV_SNOW_REFRESH_TOKEN",
+      "token_url": "https://<edit-me>.service-now.com/oauth_token.do",
+      "scope": "useraccount"
+    },
+    "_id": "snow-search"
+  }
+]

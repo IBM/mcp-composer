@@ -22,6 +22,7 @@ def create_mcp_server(settings: ServerSettings) -> MCPComposer:
     oauth_provider = SimpleOAuthProvider(settings)
     gw = MCPComposer("composer", auth=oauth_provider)
     callback_path = urlparse(settings.callback_path).path
+    logger.info("Registering OAuth callback at %s", callback_path)
 
     @gw.custom_route(f"{callback_path}", methods=["GET"])
     async def callback_handler(request: Request) -> Response:
@@ -76,9 +77,12 @@ def create_mcp_server(settings: ServerSettings) -> MCPComposer:
 
 async def main():
     settings = ServerSettings()
+    logger.info("Starting MCP Composer with settings:%s", settings.dict())
     gw = create_mcp_server(settings)
     await gw.setup_member_servers()
-    await gw.run_http_async(host="0.0.0.0", port=9000, log_level="debug", path="/mcp")
+    await gw.run_stdio_async()
+    # await gw.run_sse_async(host="localhost", port=9000, log_level="debug")
+    # run_http_async(host="0.0.0.0", port=9000, log_level="debug", path="/mcp")
 
 
 if __name__ == "__main__":

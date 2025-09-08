@@ -28,8 +28,16 @@ class ConfigKey(str, Enum):
     PASSWORD = "password"
     LOGIN_URL = "login_url"
     TOKEN_TYPE = "token_type"
+    TOKEN_GEN_AUTH_METHOD = "token_gen_auth_method"
+    TOKEN_GEN_METHOD = "token_gen_method"
+    SECRET = "secret"
     MEDIA_TYPE = "media_type"
     MEDIA_TYPE_JSON = "json"
+    # OAuth configuration keys
+    CLIENT_ID = "clientId"
+    CLIENT_SECRET = "clientSecret"
+    REFRESH_TOKEN = "refreshToken"
+    SCOPE = "scope"
     GRAPHQL = "graphql"
     SCHEMA_FILEPATH = "schema_filepath"
     PROMPT_PATH = "prompt_path"
@@ -37,6 +45,7 @@ class ConfigKey(str, Enum):
     ARGS = "args"
     ENV = "env"
     CWD = "cwd"
+    LAYERED = "layered"
 
 
 
@@ -130,8 +139,8 @@ class ServerConfigValidator:
             AuthStrategy.APIKEY: ["apikey"],
             AuthStrategy.APITOKEN.lower(): ["token"],
             AuthStrategy.BEARER: ["token"],
-            AuthStrategy.DYNAMIC_BEARER: ["apikey", "token_url"],
-            AuthStrategy.OAUTH: ["client_id", "client_secret", "token_url"],
+            AuthStrategy.DYNAMIC_BEARER: ["apikey", "token_url", "id", "secret"],
+            AuthStrategy.OAUTH: ["client_id", "client_secret", "token_url"]
         }
 
         # Check if strategy is supported
@@ -139,13 +148,24 @@ class ServerConfigValidator:
             raise ValidationError(
                 f"Unsupported {ConfigKey.AUTH_STRATEGY} '{strategy}' for server '{self.server_id}'"
             )
+        # Special logic for dynamic_bearer
+        if strategy == AuthStrategy.DYNAMIC_BEARER:
+            has_apikey = bool(auth.get(ConfigKey.APIKEY))
+            has_id_secret = bool(auth.get("id")) and bool(auth.get("secret"))
+            has_token_url = bool(auth.get(ConfigKey.Token_URL))
+            if not has_token_url:
+                missing = [ConfigKey.Token_URL]
+            elif not (has_apikey or has_id_secret):
+                missing = ["apikey or (id and secret)"]
+            else:
+                missing = []
+        else:
+            missing = [
+                key
+                for key in required_auth_keys[strategy]
+                if not auth.get(key) and strategy != AuthStrategy.BASIC
+            ]
 
-        # Find missing keys
-        missing = [
-            key
-            for key in required_auth_keys[strategy]
-            if not auth.get(key) and strategy != "basic"
-        ]
         if missing:
             raise ValidationError(
                 f"Missing field(s) in {ConfigKey.AUTH} for '{strategy}' strategy on server "

@@ -37,10 +37,10 @@ await composer.activate_mcp_server('customer-api')
 await composer.deactivate_mcp_server('customer-api')
 ```
 
-- **`list_member_servers`**: List status of all member servers (active or deactivated).
+- **`list_servers`**: List status of all member servers (active or deactivated).
 
 ```python
-await composer.list_member_servers()
+await composer.list_servers()
 ```
 
 - **`get_tool_config_by_name`**: Get a tool's configuration details.

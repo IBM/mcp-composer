@@ -28,39 +28,75 @@ load_dotenv()
 class ServerSettings(BaseSettings):
     """Settings for the simple OAuth MCP server."""
 
-    try:
-        model_config = SettingsConfigDict(env_prefix="OAUTH_")
-        if os.getenv("ENABLE_OAUTH", "False").lower() == "true":
-            # Server settings
-            host: str = os.environ["OAUTH_HOST"]
-            port: str = os.environ["OAUTH_PORT"]
-            server_url: AnyHttpUrl = AnyHttpUrl(os.environ["OAUTH_SERVER_URL"])
+    model_config = SettingsConfigDict(env_prefix="OAUTH_")
 
-            # OAuth settings - MUST be provided via environment variables
-            client_id: str = os.environ["OAUTH_CLIENT_ID"]
-            client_secret: str = os.environ["OAUTH_CLIENT_SECRET"]
-            callback_path: str = os.environ["OAUTH_CALLBACK_PATH"]
+    # Server settings - these will be loaded from OAUTH_HOST, OAUTH_PORT, etc.
+    host: str = ""
+    port: str = ""
+    server_url: AnyHttpUrl = AnyHttpUrl("http://localhost:8080")
 
-            # OAuth URLs
-            auth_url: str = os.environ["OAUTH_AUTH_URL"]
-            token_url: str = os.environ["OAUTH_TOKEN_URL"]
+    # OAuth settings - these will be loaded from OAUTH_CLIENT_ID, OAUTH_CLIENT_SECRET, etc.
+    client_id: str = ""
+    client_secret: str = ""
+    callback_path: str = ""
 
-            mcp_scope: str = os.environ["OAUTH_MCP_SCOPE"]
-            scope: str = os.environ["OAUTH_PROVIDER_SCOPE"]
+    # OAuth URLs - these will be loaded from OAUTH_AUTH_URL, OAUTH_TOKEN_URL, etc.
+    auth_url: str = ""
+    token_url: str = ""
 
-    except KeyError as err:
-        raise NotFoundError(
-            "Failed to load settings. Make sure environment variables are set:{err}"
-        ) from err
+    # Scopes - these will be loaded from OAUTH_MCP_SCOPE, OAUTH_PROVIDER_SCOPE
+    mcp_scope: str = ""
+    scope: str = ""
 
-    def __init__(self, **data):
+    def __init__(self, prefix: str = "OAUTH_", **data):
         """Initialize settings with values from environment variables.
-
-        Note: client_id and client_secret are required but can be
-        loaded automatically from environment variables (CLIENT_ID
-        and CLIENT_SECRET) and don't need to be passed explicitly.
+        
+        Args:
+            prefix: Prefix for environment variables (default: "OAUTH_")
+            **data: Additional data to override environment variables
         """
-        super().__init__(**data)
+        # Explicitly load environment variables before calling super().__init__
+        env_data = {}
+        for key, value in os.environ.items():
+            if key.startswith(prefix):
+                # Remove the prefix and map to correct field names
+                if key == f'{prefix}PROVIDER_SCOPE':
+                    field_name = 'scope'
+                elif key == f'{prefix}MCP_SCOPE':
+                    field_name = 'mcp_scope'
+                else:
+                    field_name = key[len(prefix):].lower()  # e.g., OAUTH_HOST -> host
+
+                if field_name == 'server_url':
+                    env_data[field_name] = AnyHttpUrl(value)
+                else:
+                    env_data[field_name] = value
+
+        # Merge with any explicitly passed data
+        env_data.update(data)
+
+        super().__init__(**env_data)
+
+        # Validate that required OAuth settings are provided when OAuth is enabled
+        # For remote OAuth, we use a different environment variable to check if enabled
+        enable_var = f'{prefix.rstrip("_")}_ENABLED' if prefix != "OAUTH_" else "ENABLE_OAUTH"
+        if os.getenv(enable_var, "False").lower() == "true":
+            # Check if all required environment variables are set
+            required_env_vars = [
+                f"{prefix}HOST", f"{prefix}PORT", f"{prefix}SERVER_URL", f"{prefix}CLIENT_ID",
+                f"{prefix}CLIENT_SECRET", f"{prefix}CALLBACK_PATH", f"{prefix}AUTH_URL",
+                f"{prefix}TOKEN_URL", f"{prefix}MCP_SCOPE", f"{prefix}PROVIDER_SCOPE"
+            ]
+
+            missing_vars = []
+            for var in required_env_vars:
+                if not os.environ.get(var):
+                    missing_vars.append(var)
+
+            if missing_vars:
+                raise NotFoundError(
+                    f"Failed to load OAuth settings with prefix '{prefix}'. Missing required environment variables: {missing_vars}"
+                )
 
 
 class SimpleOAuthProvider(OAuthProvider):
@@ -77,6 +113,7 @@ class SimpleOAuthProvider(OAuthProvider):
         self.token_mapping: dict[str, str] = {}
         self.issuer_url = settings.server_url
         self.service_documentation_url = settings.server_url
+        self.resource_server_url = settings.server_url
         self.client_registration_options = ClientRegistrationOptions(
             enabled=True,
             valid_scopes=[settings.mcp_scope],
@@ -127,6 +164,7 @@ class SimpleOAuthProvider(OAuthProvider):
             raise HTTPException(400, "Invalid state parameter")
 
         redirect_uri = state_data["redirect_uri"]
+        logger.info(f"Handling callback with redirect_uri: {redirect_uri}")
         code_challenge = state_data["code_challenge"]
         redirect_uri_provided_explicitly = (
             state_data["redirect_uri_provided_explicitly"] == "True"

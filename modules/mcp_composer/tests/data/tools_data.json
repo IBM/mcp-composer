@@ -60,5 +60,44 @@
                 }
             }
         }
+    },
+    "openapi_input_v1": {
+        "openapi": "3.0.3",
+        "info": {
+            "title": "HelloWorld_API",
+            "description": "A simple API with one endpoint",
+            "version": "1.0.0"
+        },
+        "servers": [
+            {
+                "url": "https://www.api.example.com/v1"
+            }
+        ],
+        "paths": {
+            "/hello": {
+                "get": {
+                    "summary": "Returns a greeting message",
+                    "responses": {
+                        "200": {
+                            "description": "Successful response",
+                            "content": {
+                                "application/json": {
+                                    "schema": {
+                                        "type": "object",
+                                        "properties": {
+                                            "message": {
+                                                "type": "string",
+                                                "example": "Hello, world!"
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "operationId": "get greeting_v1"
+                }
+            }
+        }
     }
 }

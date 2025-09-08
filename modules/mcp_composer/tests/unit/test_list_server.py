@@ -34,17 +34,17 @@ async def test_list_member_servers_empty(fake_db):
     composer = MCPComposer("composer", database_config=fake_db)
     await composer.setup_member_servers()
 
-    members = composer._server_manager.list_member_servers()
+    members = composer._server_manager.list_servers()
     assert members == [], "Expected no mounted servers on fresh start"
 
 
 @pytest.mark.asyncio
 async def test_list_member_servers_populated(fake_db, server_config):
-    """After mounting a server, it must appear in list_member_servers()."""
+    """After mounting a server, it must appear in list_servers()."""
     composer = MCPComposer("composer", config=[server_config], database_config=fake_db)
     await composer.setup_member_servers()
 
-    members = composer._server_manager.list_member_servers()
+    members = composer._server_manager.list_servers()
 
     # basic shape checks
     assert isinstance(members, list)
@@ -54,9 +54,7 @@ async def test_list_member_servers_populated(fake_db, server_config):
 
     # ensure our test server is present exactly once
     hits = [m for m in members if m["id"] == server_config["id"]]
-    assert (
-        len(hits) == 1
-    ), "Mounted server should appear exactly once in list_member_servers()"
+    assert len(hits) == 1, "Mounted server should appear exactly once in list_servers()"
 
 
 @pytest.mark.asyncio

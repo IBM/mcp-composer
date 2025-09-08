@@ -27,25 +27,59 @@ class LocalFileAdapter(DatabaseInterface):
         if file_path is None:
             file_path = os.getenv("SERVER_CONFIG_FILE_PATH", "member_servers.json")
         self._file_path = Path(file_path)
-        logger.info("Using local file storage: %s", self._file_path)
+        logger.info("Using local file storage for configuration storage: %s", self._file_path)
+
+        # Initialize file availability flag to False (pessimistic approach)
+        self._file_available = False
+
         self._ensure_file_exists()
 
     def _ensure_file_exists(self) -> None:
+        """Ensure the file exists, create it if it doesn't. Fail gracefully if creation fails."""
         if not self._file_path.exists():
-            self._file_path.parent.mkdir(parents=True, exist_ok=True)
-            with open(self._file_path, "w", encoding="utf-8") as f:
-                json.dump([], f)
+            try:
+                logger.info("Creating member_servers.json file")
+                self._file_path.parent.mkdir(parents=True, exist_ok=True)
+                with open(self._file_path, "w", encoding="utf-8") as f:
+                    json.dump([], f)
+                logger.info("Successfully created member_servers.json file")
+            except Exception as e:
+                logger.warning("Failed to create member_servers.json file: %s. Continuing without file persistence.", e)
+                # Set a flag to indicate file operations are not available
+                self._file_available = False
+            else:
+                self._file_available = True
+        else:
+            self._file_available = True
 
     def _read_data(self) -> List[Dict]:
+        if not self._file_available:
+            logger.debug("File not available, returning empty data")
+            return []
+
         try:
             with open(self._file_path, "r", encoding="utf-8") as f:
                 return json.load(f)
         except (json.JSONDecodeError, FileNotFoundError):
             return []
+        except Exception as e:
+            logger.warning("Failed to read from member_servers.json file: %s", e)
+            # Mark file as unavailable for future operations
+            self._file_available = False
+            return []
 
     def _write_data(self, data: List[Dict]) -> None:
-        with open(self._file_path, "w", encoding="utf-8") as f:
-            json.dump(data, f, indent=2)
+        if not self._file_available:
+            logger.debug("File not available, skipping write operation")
+            return
+
+        try:
+            with open(self._file_path, "w", encoding="utf-8") as f:
+                json.dump(data, f, indent=2)
+        except Exception as e:
+            logger.warning("Failed to write to member_servers.json file: %s", e)
+            # Mark file as unavailable for future operations
+            self._file_available = False
 
     def load_all_servers(self) -> List[Dict]:
         """Fetch all member server from file storage"""

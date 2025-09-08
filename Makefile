@@ -61,7 +61,13 @@ all: format lint type-check security test coverage
 # Format code with black
 format:
 	@echo "🔧 Formatting code with black..."
-	uv run black .
+	@if [ -z "$(module)" ]; then \
+	  echo "❌ Usage: make test-module module=<module_name>"; exit 1; \
+	fi
+	@if [ ! -d "modules/$(module)" ]; then \
+	  echo "❌ Module '$(module)' not found in modules/ directory"; exit 1; \
+	fi
+	cd modules/$(module) && uv run black .
 
 # Lint code with ruff
 lint:
@@ -117,21 +123,26 @@ status:
 	@echo "📦 Preparing release for mcp_composer..."
 	@echo "📁 Python: $$(python --version)"
 	@echo "📂 Virtualenv: $$(which python)"
+	@echo "🔧 Uv: $$(uv --version)"
 
 build:
 	@if [ -z "$(module)" ] || [ -z "$(version)" ]; then \
 	  echo "❌ Usage: make build module=<module_name> version=<x.y.z>"; exit 1; \
 	fi
-	@if git rev-parse "v$(version)" >/dev/null 2>&1; then \
-	  echo "⚠️  Git tag v$(version) already exists, reusing..."; \
+	@set -e; \
+	if git rev-parse "v$(version)" >/dev/null 2>&1; then \
+	  echo "⚠️  Git tag v$(version) already exists; building from the tag..."; \
+	  git fetch --tags --force --prune; \
+	  prev_branch=$$(git rev-parse --abbrev-ref HEAD); \
+	  git switch --detach "v$(version)"; \
+	  ( cd modules/$(module) && uv sync && uv build --wheel . ); \
+	  git switch "$$prev_branch" >/dev/null 2>&1 || git switch -; \
 	else \
-	  echo "🏷️  Creating git tag v$(version)..."; \
-	  git tag v$(version); \
+	  echo "🏷️  Creating git tag v$(version) on current HEAD..."; \
+	  git tag -a "v$(version)" -m "$(module) $(version)"; \
+	  ( cd modules/$(module) && uv sync && uv build --wheel . ); \
 	fi
-	@echo "🔨 Building wheel for $(module) (version $(version))..."
-	cd modules/$(module) && uv sync && uv build --wheel  .
 	@echo "✅ Wheel(s) for $(module) in modules/$(module)/dist/"
-
 
 check-release:
 	@if [ -z "$(module)" ] || [ -z "$(version)" ]; then \
@@ -166,6 +177,10 @@ upload-testpypi:
 	  TWINE_USERNAME=$$TEST_TWINE_USERNAME TWINE_PASSWORD=$$TEST_TWINE_PASSWORD \
 	    uv run twine upload --repository testpypi $$ARTS \
 	)
+
+run-mcp-inspector-local:
+	@echo "🔒 Running security checks with safety..."
+	npx @modelcontextprotocol/inspector
 
 upload-pypi:
 	@if [ -z "$(module)" ] || [ -z "$(version)" ]; then \

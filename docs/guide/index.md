@@ -15,14 +15,18 @@ MCP Composer serves as a central hub that:
 ## Key Concepts
 
 ### MCP Servers
+
 MCP Composer can work with various types of MCP servers:
+
 - **HTTP/SSE MCP Servers**: Remote servers accessible via HTTP
 - **Stdio MCP Servers**: Local servers running as subprocesses
 - **OpenAPI-based Servers**: Automatically generated from OpenAPI specifications
 - **GraphQL Servers**: Generated from GraphQL schemas
 
 ### Tools
+
 Tools are the actual functions that can be invoked. MCP Composer supports:
+
 - **OpenAPI Tools**: REST API endpoints
 - **GraphQL Tools**: GraphQL queries and mutations
 - **CLI Tools**: Command-line interface tools
@@ -30,7 +34,9 @@ Tools are the actual functions that can be invoked. MCP Composer supports:
 - **Curl Commands**: HTTP requests via curl
 
 ### Authentication
+
 MCP Composer handles authentication for upstream services:
+
 - **OAuth 2.0**: Full OAuth flow support
 - **Bearer Tokens**: Simple token-based authentication
 - **Basic Auth**: Username/password authentication
@@ -132,6 +138,7 @@ await composer.update_mcp_server_config("service-id", new_config)
 ```
 
 **Supported Server Types:**
+
 - **HTTP/SSE**: Remote MCP servers via HTTP or Server-Sent Events
 - **STDIO**: Local MCP servers via standard input/output
 - **OpenAPI**: REST APIs with OpenAPI specifications
@@ -170,6 +177,7 @@ await composer.add_tools({
 ```
 
 **Tool Types Supported:**
+
 - **OpenAPI**: Automatic tool generation from OpenAPI specs
 - **GraphQL**: GraphQL query tools with schema introspection
 - **Curl**: Tools based on curl commands
@@ -282,7 +290,7 @@ await composer.activate_mcp_server("server-id")
 await composer.deactivate_mcp_server("server-id")
 
 # List all servers
-servers = await composer.list_member_servers()
+servers = await composer.list_servers()
 
 # Get tool configurations
 tool_config = await composer.get_tool_config_by_name("tool-name")
@@ -385,21 +393,25 @@ Here's how a typical request flows through MCP Composer:
 ## 🎯 Use Cases
 
 ### **Enterprise Integration**
+
 - Orchestrate multiple internal APIs and services
 - Provide unified access to customer, product, and analytics data
 - Implement enterprise-grade security and monitoring
 
 ### **API Aggregation**
+
 - Aggregate tools from multiple REST APIs via OpenAPI
 - Provide GraphQL access to REST services
 - Handle different authentication methods per service
 
 ### **Development & Testing**
+
 - Mock external services for development
 - Test different server configurations
 - Validate tool integrations
 
 ### **Microservices Architecture**
+
 - Aggregate tools from multiple microservices
 - Provide consistent interface across services
 - Handle service discovery and health monitoring
@@ -407,21 +419,25 @@ Here's how a typical request flows through MCP Composer:
 ## 🚀 Performance Features
 
 ### **Caching**
+
 - Tool metadata caching
 - Authentication token caching
 - Server configuration caching
 
 ### **Load Balancing**
+
 - Round-robin load balancing
 - Health-based server selection
 - Automatic failover
 
 ### **Monitoring**
+
 - Real-time performance metrics
 - Tool call latency tracking
 - Error rate monitoring
 
 ### **Scalability**
+
 - Horizontal scaling support
 - Database-backed configuration
 - Stateless design
@@ -459,11 +475,12 @@ await composer.update_mcp_server_config("server-id", new_config)
 - **Audit trails** for all operations
 - **Tool usage analytics**
 
-This comprehensive feature set makes MCP Composer the ideal solution for enterprise-grade MCP server orchestration, providing the flexibility, security, and monitoring capabilities needed for production deployments. 
+This comprehensive feature set makes MCP Composer the ideal solution for enterprise-grade MCP server orchestration, providing the flexibility, security, and monitoring capabilities needed for production deployments.
+
 ## Next Steps
 
 - [Installation Guide](/guide/installation) - Set up MCP Composer
 - [Quick Start](/guide/quick-start) - Get up and running in minutes
 - [Configuration](/guide/configuration) - Learn about configuration options
 - [Middleware Guide](/guide/middleware) - Create and use middleware components
-- [Examples](/examples/) - See practical examples and demos 
+- [Examples](/examples/) - See practical examples and demos
