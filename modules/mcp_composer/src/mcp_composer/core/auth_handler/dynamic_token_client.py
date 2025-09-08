@@ -18,6 +18,7 @@ class DynamicTokenClient(httpx.AsyncClient):
         base_url: str,
         auth_data: dict[str, Any] | None = None,
         timeout: float = 10.0,
+        headers: dict[str, str] | None = None,
         **kwargs: Any,
     ) -> None:
         if not base_url:
@@ -28,11 +29,12 @@ class DynamicTokenClient(httpx.AsyncClient):
         self._access_token = None
         self._expires_at = 0
         self.auth_data = auth_data
-
+        self.headers = headers or {}
         # Pass everything to parent class
         super().__init__(
             base_url=base_url,
             timeout=timeout,
+            headers=self.headers,
             **kwargs,
         )
 
@@ -150,7 +152,9 @@ class DynamicTokenClient(httpx.AsyncClient):
                 self._expires_at = 0
                 raise
 
-        headers = kwargs.pop("headers", {})
+        # Merge initialization headers with request headers
+        headers = self.headers.copy()
+        headers.update(kwargs.pop("headers", {}))
         headers["Authorization"] = f"Bearer {self._access_token}"
         headers.setdefault("Content-Type", "application/json")
         logger.debug("Making request to %s with headers: %s and kwargs: %s", url, headers, kwargs)

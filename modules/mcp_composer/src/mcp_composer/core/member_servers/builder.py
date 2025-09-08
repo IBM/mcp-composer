@@ -48,7 +48,7 @@ class MCPServerBuilder:
     """
 
     def __init__(self, config: Dict):
-        logger.info("Building Member Server with config: %s", config)
+        logger.debug("Building Member Server with config: %s", config)
         self.config = config
         self.mcp_id = config["id"]
         self.mcp_type = config["type"]
@@ -211,7 +211,8 @@ class MCPServerBuilder:
                 )
 
             case AuthStrategy.DYNAMIC_BEARER:
-                http_client = DynamicTokenClient(base_url,auth_config)
+                logger.info("Setting up dynamic bearer token client")
+                http_client = DynamicTokenClient(base_url,auth_config, headers=headers)
             case AuthStrategy.OAUTH:
                 logger.info("Setting up OAuth client with auto-refresh")
                 # Use the generic resolve_env_value function to handle ENV_* values
