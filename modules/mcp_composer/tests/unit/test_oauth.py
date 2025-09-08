@@ -36,11 +36,19 @@ class TestServerSettings:
     def test_server_settings_valid_environment(self):
         """Test ServerSettings with valid environment variables."""
         settings = ServerSettings()
-        # With the current implementation, these fields are not accessible as attributes
-        # because they're defined inside the class-level try-except block
-        # We can only test that the class can be instantiated without errors
+        # Now the fields should be accessible as attributes
         assert hasattr(settings, 'model_config')
-        # The actual values are loaded from environment variables but not accessible as attributes
+        assert settings.host == 'localhost'
+        assert settings.port == '8080'
+        # AnyHttpUrl might add trailing slash, so check the base URL
+        assert 'localhost:8080' in str(settings.server_url)
+        assert settings.client_id == 'test_client_id'
+        assert settings.client_secret == 'test_client_secret'
+        assert settings.callback_path == '/callback'
+        assert settings.auth_url == 'http://localhost:8080/auth'
+        assert settings.token_url == 'http://localhost:8080/token'
+        assert settings.mcp_scope == 'mcp:read'
+        assert settings.scope == 'openid profile'
 
     @patch.dict(os.environ, {'ENABLE_OAUTH': 'false'})
     def test_server_settings_oauth_disabled(self):
@@ -51,22 +59,92 @@ class TestServerSettings:
 
     def test_server_settings_missing_environment_variables(self):
         """Test ServerSettings with missing environment variables."""
-        # With the current implementation, the class-level try-except block
-        # is not working as expected, so this test is adjusted to match reality
+        # Test that validation fails when OAuth is enabled but required fields are missing
         with patch.dict(os.environ, {
             'ENABLE_OAUTH': 'true'
             # Missing OAUTH_CLIENT_ID and OAUTH_CLIENT_SECRET
         }, clear=False):
-            # The current implementation doesn't raise an error in this case
-            # We can only test that the class can be instantiated
-            settings = ServerSettings()
-            assert hasattr(settings, 'model_config')
+            # Should raise an error due to missing required fields
+            with pytest.raises(NotFoundError) as exc_info:
+                ServerSettings()
+            assert "Failed to load OAuth settings" in str(exc_info.value)
 
     def test_server_settings_init_with_data(self):
         """Test ServerSettings initialization with data."""
         with patch.dict(os.environ, {'ENABLE_OAUTH': 'false'}):
             settings = ServerSettings()
             assert hasattr(settings, 'model_config')
+
+    def test_server_settings_environment_variable_population(self):
+        """Test that environment variables are correctly populated into ServerSettings attributes."""
+        # Set up environment variables
+        test_env = {
+            'ENABLE_OAUTH': 'true',
+            'OAUTH_HOST': 'testhost.example.com',
+            'OAUTH_PORT': '9090',
+            'OAUTH_SERVER_URL': 'https://testhost.example.com:9090',
+            'OAUTH_CLIENT_ID': 'test_client_123',
+            'OAUTH_CLIENT_SECRET': 'test_secret_456',
+            'OAUTH_CALLBACK_PATH': 'https://testhost.example.com:9090/callback',
+            'OAUTH_AUTH_URL': 'https://auth.example.com/authorize',
+            'OAUTH_TOKEN_URL': 'https://auth.example.com/token',
+            'OAUTH_MCP_SCOPE': 'mcp:read mcp:write',
+            'OAUTH_PROVIDER_SCOPE': 'openid profile email'
+        }
+        
+        with patch.dict(os.environ, test_env, clear=True):
+            settings = ServerSettings()
+            
+            # Verify all attributes are populated correctly
+            assert settings.host == 'testhost.example.com'
+            assert settings.port == '9090'
+            assert str(settings.server_url) == 'https://testhost.example.com:9090'
+            assert settings.client_id == 'test_client_123'
+            assert settings.client_secret == 'test_secret_456'
+            assert settings.callback_path == 'https://testhost.example.com:9090/callback'
+            assert settings.auth_url == 'https://auth.example.com/authorize'
+            assert settings.token_url == 'https://auth.example.com/token'
+            assert settings.mcp_scope == 'mcp:read mcp:write'
+            assert settings.scope == 'openid profile email'
+            
+            # Verify the server_url is properly converted to AnyHttpUrl
+            assert isinstance(settings.server_url, AnyHttpUrl)
+            assert settings.server_url.scheme == 'https'
+            assert settings.server_url.host == 'testhost.example.com'
+            assert settings.server_url.port == 9090
+
+    def test_server_settings_partial_environment_variables(self):
+        """Test ServerSettings with only some environment variables set."""
+        # Set only some environment variables
+        test_env = {
+            'ENABLE_OAUTH': 'true',
+            'OAUTH_HOST': 'partial.example.com',
+            'OAUTH_SERVER_URL': 'http://partial.example.com',
+            'OAUTH_CLIENT_ID': 'partial_client',
+            'OAUTH_CLIENT_SECRET': 'partial_secret',
+            'OAUTH_CALLBACK_PATH': '/partial/callback',
+            'OAUTH_AUTH_URL': 'http://partial.example.com/auth',
+            'OAUTH_TOKEN_URL': 'http://partial.example.com/token',
+            'OAUTH_MCP_SCOPE': 'partial:scope',
+            'OAUTH_PROVIDER_SCOPE': 'partial'
+        }
+        
+        with patch.dict(os.environ, test_env, clear=True):
+            settings = ServerSettings()
+            
+            # Verify populated attributes
+            assert settings.host == 'partial.example.com'
+            assert str(settings.server_url) == 'http://partial.example.com'
+            assert settings.client_id == 'partial_client'
+            assert settings.client_secret == 'partial_secret'
+            
+            # Verify missing attributes (should be empty strings or default values)
+            assert settings.port == ''  # Not set in environment
+            assert settings.callback_path == '/partial/callback'
+            assert settings.auth_url == 'http://partial.example.com/auth'
+            assert settings.token_url == 'http://partial.example.com/token'
+            assert settings.mcp_scope == 'partial:scope'
+            assert settings.scope == 'partial'
 
 
 class TestSimpleOAuthProvider:
