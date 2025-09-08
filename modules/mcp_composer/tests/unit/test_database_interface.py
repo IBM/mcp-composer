@@ -15,24 +15,24 @@ class TestDatabaseInterface:
     def test_database_interface_abstract_methods(self):
         """Test that DatabaseInterface has all required abstract methods"""
         abstract_methods = DatabaseInterface.__abstractmethods__
-        
+
         expected_methods = {
-            'load_all_servers',
-            'add_server',
-            'remove_server',
-            'get_document',
-            'enable_tools',
-            'disable_tools',
-            'update_tool_description',
-            'enable_prompts',
-            'disable_prompts',
-            'enable_resources',
-            'disable_resources',
-            'mark_deactivated',
-            'get_server_status',
-            'update_server_config'
+            "load_all_servers",
+            "add_server",
+            "remove_server",
+            "get_document",
+            "enable_tools",
+            "disable_tools",
+            "update_tool_description",
+            "enable_prompts",
+            "disable_prompts",
+            "enable_resources",
+            "disable_resources",
+            "mark_deactivated",
+            "get_server_status",
+            "update_server_config",
         }
-        
+
         assert abstract_methods == expected_methods
 
     def test_cannot_instantiate_database_interface(self):
@@ -42,59 +42,61 @@ class TestDatabaseInterface:
 
     def test_concrete_implementation_required(self):
         """Test that concrete implementations must implement all abstract methods"""
+
         class IncompleteDatabase(DatabaseInterface):
             def load_all_servers(self):
                 return []
-        
+
         # Should raise TypeError because not all abstract methods are implemented
         with pytest.raises(TypeError):
             IncompleteDatabase()
 
     def test_complete_concrete_implementation(self):
         """Test that a complete concrete implementation works"""
+
         class MockDatabase(DatabaseInterface):
             def load_all_servers(self):
                 return []
-            
+
             def add_server(self, config):
                 pass
-            
+
             def remove_server(self, server_id):
                 pass
-            
+
             def get_document(self, server_id):
                 return {}
-            
+
             def enable_tools(self, tools, server_id):
                 pass
-            
+
             def disable_tools(self, tools, server_id):
                 pass
-            
+
             def update_tool_description(self, tool, description, server_id):
                 pass
-            
+
             def enable_prompts(self, prompts, server_id):
                 pass
-            
+
             def disable_prompts(self, prompts, server_id):
                 pass
-            
+
             def enable_resources(self, resources, server_id):
                 pass
-            
+
             def disable_resources(self, resources, server_id):
                 pass
-            
+
             def mark_deactivated(self, server_id):
                 pass
-            
+
             def get_server_status(self, server_id):
                 return "active"
-            
+
             def update_server_config(self, config):
                 pass
-        
+
         # Should work without raising TypeError
         db = MockDatabase()
         assert isinstance(db, DatabaseInterface)
@@ -104,96 +106,96 @@ class TestDatabaseInterface:
     def test_method_signatures(self):
         """Test that abstract methods have correct signatures"""
         from typing import List, Dict
-        
+
         # Test load_all_servers
         sig = DatabaseInterface.load_all_servers.__annotations__
-        assert 'return' in sig
-        assert sig['return'] == List[Dict]
-        
+        assert "return" in sig
+        assert sig["return"] == List[Dict]
+
         # Test add_server
         sig = DatabaseInterface.add_server.__annotations__
-        assert 'config' in sig
-        assert sig['config'] == Dict
-        
+        assert "config" in sig
+        assert sig["config"] == Dict
+
         # Test remove_server
         sig = DatabaseInterface.remove_server.__annotations__
-        assert 'server_id' in sig
-        assert sig['server_id'] == str
-        
+        assert "server_id" in sig
+        assert sig["server_id"] == str
+
         # Test get_document
         sig = DatabaseInterface.get_document.__annotations__
-        assert 'server_id' in sig
-        assert sig['server_id'] == str
-        assert 'return' in sig
-        assert sig['return'] == Dict
-        
+        assert "server_id" in sig
+        assert sig["server_id"] == str
+        assert "return" in sig
+        assert sig["return"] == Dict
+
         # Test enable_tools
         sig = DatabaseInterface.enable_tools.__annotations__
-        assert 'tools' in sig
-        assert sig['tools'] == list[str]
-        assert 'server_id' in sig
-        assert sig['server_id'] == str
-        
+        assert "tools" in sig
+        assert sig["tools"] == list[str]
+        assert "server_id" in sig
+        assert sig["server_id"] == str
+
         # Test disable_tools
         sig = DatabaseInterface.disable_tools.__annotations__
-        assert 'tools' in sig
-        assert sig['tools'] == list[str]
-        assert 'server_id' in sig
-        assert sig['server_id'] == str
-        
+        assert "tools" in sig
+        assert sig["tools"] == list[str]
+        assert "server_id" in sig
+        assert sig["server_id"] == str
+
         # Test update_tool_description
         sig = DatabaseInterface.update_tool_description.__annotations__
-        assert 'tool' in sig
-        assert sig['tool'] == str
-        assert 'description' in sig
-        assert sig['description'] == str
-        assert 'server_id' in sig
-        assert sig['server_id'] == str
-        
+        assert "tool" in sig
+        assert sig["tool"] == str
+        assert "description" in sig
+        assert sig["description"] == str
+        assert "server_id" in sig
+        assert sig["server_id"] == str
+
         # Test enable_prompts
         sig = DatabaseInterface.enable_prompts.__annotations__
-        assert 'prompts' in sig
-        assert sig['prompts'] == list[str]
-        assert 'server_id' in sig
-        assert sig['server_id'] == str
-        
+        assert "prompts" in sig
+        assert sig["prompts"] == list[str]
+        assert "server_id" in sig
+        assert sig["server_id"] == str
+
         # Test disable_prompts
         sig = DatabaseInterface.disable_prompts.__annotations__
-        assert 'prompts' in sig
-        assert sig['prompts'] == list[str]
-        assert 'server_id' in sig
-        assert sig['server_id'] == str
-        
+        assert "prompts" in sig
+        assert sig["prompts"] == list[str]
+        assert "server_id" in sig
+        assert sig["server_id"] == str
+
         # Test enable_resources
         sig = DatabaseInterface.enable_resources.__annotations__
-        assert 'resources' in sig
-        assert sig['resources'] == list[str]
-        assert 'server_id' in sig
-        assert sig['server_id'] == str
-        
+        assert "resources" in sig
+        assert sig["resources"] == list[str]
+        assert "server_id" in sig
+        assert sig["server_id"] == str
+
         # Test disable_resources
         sig = DatabaseInterface.disable_resources.__annotations__
-        assert 'resources' in sig
-        assert sig['resources'] == list[str]
-        assert 'server_id' in sig
-        assert sig['server_id'] == str
-        
+        assert "resources" in sig
+        assert sig["resources"] == list[str]
+        assert "server_id" in sig
+        assert sig["server_id"] == str
+
         # Test mark_deactivated
         sig = DatabaseInterface.mark_deactivated.__annotations__
-        assert 'server_id' in sig
-        assert sig['server_id'] == str
-        
+        assert "server_id" in sig
+        assert sig["server_id"] == str
+
         # Test get_server_status
         sig = DatabaseInterface.get_server_status.__annotations__
-        assert 'server_id' in sig
-        assert sig['server_id'] == str
-        assert 'return' in sig
-        assert sig['return'] == str
-        
+        assert "server_id" in sig
+        assert sig["server_id"] == str
+        assert "return" in sig
+        assert sig["return"] == str
+
         # Test update_server_config
         sig = DatabaseInterface.update_server_config.__annotations__
-        assert 'config' in sig
-        assert sig['config'] == dict
+        assert "config" in sig
+        assert sig["config"] == dict
 
     def test_docstrings_exist(self):
         """Test that methods have docstrings"""
@@ -201,7 +203,7 @@ class TestDatabaseInterface:
         doc = DatabaseInterface.mark_deactivated.__doc__
         assert doc is not None
         assert "Marks the given server as deactivated" in doc
-        
+
         # Test get_server_status docstring
         doc = DatabaseInterface.get_server_status.__doc__
         assert doc is not None
@@ -210,14 +212,14 @@ class TestDatabaseInterface:
     def test_inheritance_chain(self):
         """Test that DatabaseInterface properly inherits from ABC"""
         assert DatabaseInterface.__bases__ == (ABC,)
-        
+
         # Test that it's abstract
-        assert hasattr(DatabaseInterface, '__abstractmethods__')
+        assert hasattr(DatabaseInterface, "__abstractmethods__")
         assert len(DatabaseInterface.__abstractmethods__) > 0
 
     def test_method_abstraction(self):
         """Test that all methods are properly abstract"""
         for method_name in DatabaseInterface.__abstractmethods__:
             method = getattr(DatabaseInterface, method_name)
-            assert hasattr(method, '__isabstractmethod__')
-            assert method.__isabstractmethod__ is True 
+            assert hasattr(method, "__isabstractmethod__")
+            assert method.__isabstractmethod__ is True

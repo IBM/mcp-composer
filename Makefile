@@ -61,7 +61,13 @@ all: format lint type-check security test coverage
 # Format code with black
 format:
 	@echo "🔧 Formatting code with black..."
-	uv run black .
+	@if [ -z "$(module)" ]; then \
+	  echo "❌ Usage: make test-module module=<module_name>"; exit 1; \
+	fi
+	@if [ ! -d "modules/$(module)" ]; then \
+	  echo "❌ Module '$(module)' not found in modules/ directory"; exit 1; \
+	fi
+	cd modules/$(module) && uv run black .
 
 # Lint code with ruff
 lint:

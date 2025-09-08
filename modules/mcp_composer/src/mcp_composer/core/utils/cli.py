@@ -1,26 +1,43 @@
 """src/mcp_composer/utils/cli.py"""
+# Enable remote debugging with debugpy
+#import debugpy
+
+# Listen on all interfaces (or "localhost") and port 5678
+#debugpy.listen(("0.0.0.0", 5678))
+#print("🔍 debugpy is waiting for debugger attach on port 5678...")
+
+# If you want the process to pause until you attach:
+#debugpy.wait_for_client()
+
 
 import argparse
 import asyncio
 import os
 import sys
 import json
+import httpx
 from pathlib import Path
 from typing import Dict, List
 from pydantic import ValidationError
 from dotenv import load_dotenv
 from fastmcp.server.proxy import ProxyClient
 
+from fastmcp.client.transports import (
+    StreamableHttpTransport,
+    SSETransport
+)
 from mcp_composer import MCPComposer
-from mcp_composer.core.auth_handler.oauth import ServerSettings
+from mcp_composer.core.auth_handler.oauth import ServerSettings, SimpleOAuthProvider
 from mcp_composer.core.utils import MemberServerType
 from mcp_composer.core.utils.logger import LoggerFactory
-from mcp_composer.core.utils.oauth_cli_utils import create_mcp_server
+
 from mcp_composer.core.utils.middleware_cli import (
     cmd_validate,
     cmd_list,
     cmd_add_middleware,
 )
+from mcp_composer.core.utils.oauth_cli_utils import create_mcp_server, oauth_pkce_login_async, get_issuer
+
 
 load_dotenv()
 logger = LoggerFactory.get_logger()
@@ -201,6 +218,16 @@ def _setup_args_parser() -> argparse.ArgumentParser:
         """,
     )
     _add_arguments_to_parser(parser)
+    # Don't add middleware commands to main parser to avoid conflicts
+    return parser
+
+
+def _setup_middleware_parser() -> argparse.ArgumentParser:
+    """Helper to create a parser specifically for middleware commands."""
+    parser = argparse.ArgumentParser(
+        description="MCP Composer Middleware Management",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
     _add_middleware_command(parser)
     return parser
 
@@ -241,7 +268,7 @@ def _add_arguments_to_parser(parser: argparse.ArgumentParser) -> None:
         help="Optional auth type. If 'oauth', uses test_composer_oauth.create_mcp_server()",
     )
     parser.add_argument(
-        "--sse-url", help="Langflow-compatible SSE URL to convert into stdio"
+        "--sse-url", help="Langflow compatible Url for remote SSE / HTTP server to connect to"
     )
     parser.add_argument(
         "--disable-composer-tools",
@@ -268,7 +295,18 @@ def _add_arguments_to_parser(parser: argparse.ArgumentParser) -> None:
         help="Pass through all environment variables when spawning all server processes.",
         default=False,
     )
-
+    parser.add_argument(
+        "--remote_auth_type",
+        choices=["oauth", "none"],
+        default="none",
+        help="Authentication type for remote server (oauth or none)",
+    )
+    parser.add_argument(
+        "--client_auth_type",
+        choices=["oauth", "none"],
+        default="none",
+        help="Authentication type for remote server (oauth or none)",
+    )
 
 def build_config_from_args(args: argparse.Namespace) -> List[Dict]:
     """Build configuration dictionary from command line arguments."""
@@ -314,7 +352,7 @@ async def run_dynamic_composer(args: argparse.Namespace, config: list[Dict]) -> 
     if args.auth_type == "oauth":
         logger.info("Detected --auth_type oauth")
         settings = ServerSettings()
-        mcp = await create_mcp_server(settings)
+        mcp =  create_mcp_server(settings)
 
     else:
         logger.info("Running MCP Composer without OAuth")
@@ -330,9 +368,50 @@ async def run_dynamic_composer(args: argparse.Namespace, config: list[Dict]) -> 
 
     if args.sse_url:
         logger.info("mounting Remote server into MCP composer")
-        remote_proxy = MCPComposer.as_proxy(
-            ProxyClient(args.sse_url), name="local-stdio"
-        )
+        remote_url = args.sse_url
+        auth = None
+        remote_proxy = None
+        if args.remote_auth_type == "oauth":
+            remote_settings = ServerSettings(prefix="REMOTE_OAUTH_")
+            auth = SimpleOAuthProvider(remote_settings)
+            # Set up authentication if provided
+            logger.info("Created remote client with OAuth")
+            #remote_proxy = FastMCP( auth=auth).as_proxy(
+               # ProxyClient(remote_url), name="local-stdio"
+            #)
+            #remote_proxy.auth = auth  # type: ignore
+            remote_proxy = MCPComposer("composer", auth=auth)
+            await remote_proxy._tool_manager.disable_tools(["all"])
+        
+        elif args.client_auth_type == "oauth":
+            client_issuer = get_issuer(remote_url)
+            client_scope="openid"
+            client_id= None # "mcp-composer-client"
+            token = await oauth_pkce_login_async(client_issuer, client_scope, client_id)
+            access_token = token.get("access_token")
+            if not access_token:
+                raise RuntimeError("OAuth succeeded but no access_token was returned.")
+
+            # Prefer passing Authorization header via ProxyClient if supported
+            auth_headers = {"Authorization": f"Bearer {access_token}"}
+
+            # If ProxyClient supports headers:
+            transport = None
+            # Prefer SSE if you’re connecting to /sse
+            if remote_url.endswith("/sse"):
+                # Newer fastmcp builds
+                transport = SSETransport(remote_url, headers=auth_headers)          #
+            else:
+                transport = StreamableHttpTransport(remote_url, headers=auth_headers)
+
+            # Now create the proxy **from the transport**, not from ProxyClient
+            remote_proxy = MCPComposer.as_proxy(transport, name="remote-oauth")
+            # here we need to implement client oauth
+        else:
+            logger.info("Created remote client without OAuth")
+            remote_proxy = MCPComposer.as_proxy(
+                ProxyClient(remote_url), name="local-stdio"
+            )
         await mcp.import_server(remote_proxy)
 
     ##mcp.add_middleware(ListFilteredTool(mcp))
@@ -355,21 +434,31 @@ async def run_dynamic_composer(args: argparse.Namespace, config: list[Dict]) -> 
 def main() -> None:
     """Main entry point for the MCP Composer CLI."""
     logger.info("Starting MCP Composer CLI...")
-    parser = _setup_args_parser()
-    args = parser.parse_args()
+    
+    # Check if first argument is a middleware command
+    if len(sys.argv) > 1 and sys.argv[1] in ['validate', 'list', 'add-middleware']:
+        # Use middleware parser
+        parser = _setup_middleware_parser()
+        args = parser.parse_args()
+        command = args.command
+    else:
+        # Use main parser
+        parser = _setup_args_parser()
+        args = parser.parse_args()
+        command = None
 
     # Handle middleware commands
-    if args.command == 'validate':
+    if command == 'validate':
         sys.exit(cmd_validate(args))
-    elif args.command == 'list':
+    elif command == 'list':
         sys.exit(cmd_list(args))
-    elif args.command == 'add-middleware':
+    elif command == 'add-middleware':
         sys.exit(cmd_add_middleware(args))
-    elif args.command is None:
+    elif command is None:
         # No command specified, run the main MCP Composer
         pass
     else:
-        logger.error("Unknown command: %s", args.command)
+        logger.error("Unknown command: %s", command)
         sys.exit(1)
 
     # Set SERVER_CONFIG_FILE_PATH first so it's available for other env vars

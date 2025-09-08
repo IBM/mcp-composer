@@ -19,7 +19,8 @@ def test_main_runs_with_valid_args(mock_setup_parser):
     mock_setup_parser.return_value = mock_parser
     with (
         patch(
-            "mcp_composer.core.utils.cli.build_config_from_args", return_value=[{"id": "x"}]
+            "mcp_composer.core.utils.cli.build_config_from_args",
+            return_value=[{"id": "x"}],
         ) as mock_build_config,
         patch("mcp_composer.core.utils.cli.run_dynamic_composer") as mock_run_composer,
     ):

@@ -9,7 +9,7 @@ from mcp_composer.core.tools.graphql import (
     create_tools,
     GRAPHQL_INTROSPECTION_QUERY,
     config,
-    http_client
+    http_client,
 )
 
 
@@ -31,46 +31,48 @@ class TestGraphQL:
                             "args": [
                                 {
                                     "name": "code",
-                                    "type": {"name": "String", "kind": "SCALAR"}
+                                    "type": {"name": "String", "kind": "SCALAR"},
                                 }
                             ],
-                            "type": {"name": "Country", "kind": "OBJECT"}
+                            "type": {"name": "Country", "kind": "OBJECT"},
                         },
                         {
                             "name": "countries",
                             "args": [],
-                            "type": {"name": "Country", "kind": "LIST"}
-                        }
-                    ]
+                            "type": {"name": "Country", "kind": "LIST"},
+                        },
+                    ],
                 },
-                {
-                    "name": "Country",
-                    "kind": "OBJECT",
-                    "fields": []
-                }
-            ]
+                {"name": "Country", "kind": "OBJECT", "fields": []},
+            ],
         }
 
     @pytest.mark.asyncio
     async def test_fetch_graphql_schema_success(self):
         """Test successful schema fetching"""
         mock_response = Mock()
-        mock_response.json.return_value = {"data": {"__schema": {"queryType": {"name": "Query"}}}}
+        mock_response.json.return_value = {
+            "data": {"__schema": {"queryType": {"name": "Query"}}}
+        }
         mock_response.raise_for_status.return_value = None
 
-        with patch.object(http_client, 'post', return_value=mock_response):
+        with patch.object(http_client, "post", return_value=mock_response):
             result = await fetch_graphql_schema()
 
             assert result == {"queryType": {"name": "Query"}}
-            http_client.post.assert_called_once_with("", json={"query": GRAPHQL_INTROSPECTION_QUERY})
+            http_client.post.assert_called_once_with(
+                "", json={"query": GRAPHQL_INTROSPECTION_QUERY}
+            )
 
     @pytest.mark.asyncio
     async def test_fetch_graphql_schema_http_error(self):
         """Test schema fetching with HTTP error"""
         mock_response = Mock()
-        mock_response.raise_for_status.side_effect = httpx.HTTPStatusError("404", request=Mock(), response=mock_response)
+        mock_response.raise_for_status.side_effect = httpx.HTTPStatusError(
+            "404", request=Mock(), response=mock_response
+        )
 
-        with patch.object(http_client, 'post', return_value=mock_response):
+        with patch.object(http_client, "post", return_value=mock_response):
             with pytest.raises(httpx.HTTPStatusError):
                 await fetch_graphql_schema()
 
@@ -78,10 +80,12 @@ class TestGraphQL:
     async def test_create_tools_with_args(self, mock_schema):
         """Test creating tools with arguments"""
         mock_response = Mock()
-        mock_response.json.return_value = {"data": {"country": {"__typename": "Country"}}}
+        mock_response.json.return_value = {
+            "data": {"country": {"__typename": "Country"}}
+        }
         mock_response.raise_for_status.return_value = None
 
-        with patch.object(http_client, 'post', return_value=mock_response):
+        with patch.object(http_client, "post", return_value=mock_response):
             tools = await create_tools(mock_schema)
 
             assert len(tools) == 2
@@ -95,10 +99,12 @@ class TestGraphQL:
     async def test_create_tools_without_args(self, mock_schema):
         """Test creating tools without arguments"""
         mock_response = Mock()
-        mock_response.json.return_value = {"data": {"countries": {"__typename": "Country"}}}
+        mock_response.json.return_value = {
+            "data": {"countries": {"__typename": "Country"}}
+        }
         mock_response.raise_for_status.return_value = None
 
-        with patch.object(http_client, 'post', return_value=mock_response):
+        with patch.object(http_client, "post", return_value=mock_response):
             tools = await create_tools(mock_schema)
 
             # Test the second tool (countries without args)
@@ -110,9 +116,11 @@ class TestGraphQL:
     async def test_create_tools_http_error(self, mock_schema):
         """Test tool execution with HTTP error"""
         mock_response = Mock()
-        mock_response.raise_for_status.side_effect = httpx.HTTPStatusError("500", request=Mock(), response=mock_response)
+        mock_response.raise_for_status.side_effect = httpx.HTTPStatusError(
+            "500", request=Mock(), response=mock_response
+        )
 
-        with patch.object(http_client, 'post', return_value=mock_response):
+        with patch.object(http_client, "post", return_value=mock_response):
             tools = await create_tools(mock_schema)
             country_tool = tools[0]
 
@@ -139,8 +147,8 @@ class TestGraphQL:
     def test_http_client_initialization(self):
         """Test that HTTP client is properly initialized"""
         assert http_client is not None
-        assert hasattr(http_client, 'base_url')
-        assert hasattr(http_client, 'headers')
+        assert hasattr(http_client, "base_url")
+        assert hasattr(http_client, "headers")
 
     @pytest.mark.asyncio
     async def test_tool_execution_with_args(self, mock_schema):
@@ -149,7 +157,7 @@ class TestGraphQL:
         mock_response.json.return_value = {"data": {"country": {"name": "Canada"}}}
         mock_response.raise_for_status.return_value = None
 
-        with patch.object(http_client, 'post', return_value=mock_response):
+        with patch.object(http_client, "post", return_value=mock_response):
             tools = await create_tools(mock_schema)
             country_tool = tools[0]
 
@@ -168,7 +176,7 @@ class TestGraphQL:
         mock_response.json.return_value = {"data": {"countries": [{"name": "Canada"}]}}
         mock_response.raise_for_status.return_value = None
 
-        with patch.object(http_client, 'post', return_value=mock_response):
+        with patch.object(http_client, "post", return_value=mock_response):
             tools = await create_tools(mock_schema)
             countries_tool = tools[1]
 
@@ -178,4 +186,4 @@ class TestGraphQL:
             # Access the content from the ToolResult and parse JSON
             result_data = json.loads(result.content[0].text)
             assert result_data == {"data": {"countries": [{"name": "Canada"}]}}
-            http_client.post.assert_called_once() 
+            http_client.post.assert_called_once()

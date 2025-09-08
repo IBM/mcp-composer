@@ -1,6 +1,10 @@
 import pytest
 from mcp_composer.core.utils.validator import ServerConfigValidator
-from mcp_composer.core.utils.validator import ConfigKey, MemberServerType, ValidationError
+from mcp_composer.core.utils.validator import (
+    ConfigKey,
+    MemberServerType,
+    ValidationError,
+)
 
 
 class TestGraphQLConfigValidation:

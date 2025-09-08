@@ -29,66 +29,73 @@ class ServerSettings(BaseSettings):
     """Settings for the simple OAuth MCP server."""
 
     model_config = SettingsConfigDict(env_prefix="OAUTH_")
-    
+
     # Server settings - these will be loaded from OAUTH_HOST, OAUTH_PORT, etc.
     host: str = ""
     port: str = ""
     server_url: AnyHttpUrl = AnyHttpUrl("http://localhost:8080")
-    
+
     # OAuth settings - these will be loaded from OAUTH_CLIENT_ID, OAUTH_CLIENT_SECRET, etc.
     client_id: str = ""
     client_secret: str = ""
     callback_path: str = ""
-    
+
     # OAuth URLs - these will be loaded from OAUTH_AUTH_URL, OAUTH_TOKEN_URL, etc.
     auth_url: str = ""
     token_url: str = ""
-    
+
     # Scopes - these will be loaded from OAUTH_MCP_SCOPE, OAUTH_PROVIDER_SCOPE
     mcp_scope: str = ""
     scope: str = ""
 
-    def __init__(self, **data):
-        """Initialize settings with values from environment variables."""
+    def __init__(self, prefix: str = "OAUTH_", **data):
+        """Initialize settings with values from environment variables.
+        
+        Args:
+            prefix: Prefix for environment variables (default: "OAUTH_")
+            **data: Additional data to override environment variables
+        """
         # Explicitly load environment variables before calling super().__init__
         env_data = {}
         for key, value in os.environ.items():
-            if key.startswith('OAUTH_'):
-                # Remove the OAUTH_ prefix and map to correct field names
-                if key == 'OAUTH_PROVIDER_SCOPE':
+            if key.startswith(prefix):
+                # Remove the prefix and map to correct field names
+                if key == f'{prefix}PROVIDER_SCOPE':
                     field_name = 'scope'
-                elif key == 'OAUTH_MCP_SCOPE':
+                elif key == f'{prefix}MCP_SCOPE':
                     field_name = 'mcp_scope'
                 else:
-                    field_name = key[6:].lower()  # e.g., OAUTH_HOST -> host
-                
+                    field_name = key[len(prefix):].lower()  # e.g., OAUTH_HOST -> host
+
                 if field_name == 'server_url':
                     env_data[field_name] = AnyHttpUrl(value)
                 else:
                     env_data[field_name] = value
-        
+
         # Merge with any explicitly passed data
         env_data.update(data)
-        
+
         super().__init__(**env_data)
-        
+
         # Validate that required OAuth settings are provided when OAuth is enabled
-        if os.getenv("ENABLE_OAUTH", "False").lower() == "true":
+        # For remote OAuth, we use a different environment variable to check if enabled
+        enable_var = f'{prefix.rstrip("_")}_ENABLED' if prefix != "OAUTH_" else "ENABLE_OAUTH"
+        if os.getenv(enable_var, "False").lower() == "true":
             # Check if all required environment variables are set
             required_env_vars = [
-                "OAUTH_HOST", "OAUTH_PORT", "OAUTH_SERVER_URL", "OAUTH_CLIENT_ID", 
-                "OAUTH_CLIENT_SECRET", "OAUTH_CALLBACK_PATH", "OAUTH_AUTH_URL", 
-                "OAUTH_TOKEN_URL", "OAUTH_MCP_SCOPE", "OAUTH_PROVIDER_SCOPE"
+                f"{prefix}HOST", f"{prefix}PORT", f"{prefix}SERVER_URL", f"{prefix}CLIENT_ID",
+                f"{prefix}CLIENT_SECRET", f"{prefix}CALLBACK_PATH", f"{prefix}AUTH_URL",
+                f"{prefix}TOKEN_URL", f"{prefix}MCP_SCOPE", f"{prefix}PROVIDER_SCOPE"
             ]
-            
+
             missing_vars = []
             for var in required_env_vars:
                 if not os.environ.get(var):
                     missing_vars.append(var)
-            
+
             if missing_vars:
                 raise NotFoundError(
-                    f"Failed to load OAuth settings. Missing required environment variables: {missing_vars}"
+                    f"Failed to load OAuth settings with prefix '{prefix}'. Missing required environment variables: {missing_vars}"
                 )
 
 
@@ -157,6 +164,7 @@ class SimpleOAuthProvider(OAuthProvider):
             raise HTTPException(400, "Invalid state parameter")
 
         redirect_uri = state_data["redirect_uri"]
+        logger.info(f"Handling callback with redirect_uri: {redirect_uri}")
         code_challenge = state_data["code_challenge"]
         redirect_uri_provided_explicitly = (
             state_data["redirect_uri_provided_explicitly"] == "True"

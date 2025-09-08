@@ -21,7 +21,7 @@ def server_config():
     return {
         "id": "mcp-stock-info",
         "type": "http",
-        "endpoint": "https://mcp-stock-info.1vgzmntiwjzl.eu-es.codeengine.appdomain.cloud/mcp"
+        "endpoint": "https://mcp-stock-info.1vgzmntiwjzl.eu-es.codeengine.appdomain.cloud/mcp",
     }
 
 
@@ -119,52 +119,64 @@ async def test_composer_initializes_without_any_config():
     import tempfile
     import json
     from pathlib import Path
-    
+
     # Clear any existing SERVER_CONFIG_FILE_PATH environment variable
     original_env = os.environ.get("SERVER_CONFIG_FILE_PATH")
     if "SERVER_CONFIG_FILE_PATH" in os.environ:
         del os.environ["SERVER_CONFIG_FILE_PATH"]
-    
+
     try:
         # Create a temporary directory to test file creation
         with tempfile.TemporaryDirectory() as temp_dir:
             # Change to temp directory to avoid conflicts
             original_cwd = os.getcwd()
             os.chdir(temp_dir)
-            
+
             try:
                 # This should not raise any errors during initialization
                 composer = MCPComposer("composer", config=None, database_config=None)
-                
+
                 # Should have basic composer tools available
                 tools = await composer.get_tools()
-                assert isinstance(tools, dict), "Composer should have basic tools available"
+                assert isinstance(
+                    tools, dict
+                ), "Composer should have basic tools available"
                 assert len(tools) > 0, "Composer should have at least some basic tools"
-                
+
                 # Should have no member servers mounted
                 mounted_servers = composer._server_manager.list_member_servers()
-                assert mounted_servers == [], "Composer should start with no member servers when no config provided"
-                
+                assert (
+                    mounted_servers == []
+                ), "Composer should start with no member servers when no config provided"
+
                 # Should have no database configs loaded
-                assert len(composer._db_configs) == 0, "No database configs should be loaded when no database provided"
-                assert len(composer._config) == 0, "No configs should be loaded when none provided"
-                
+                assert (
+                    len(composer._db_configs) == 0
+                ), "No database configs should be loaded when no database provided"
+                assert (
+                    len(composer._config) == 0
+                ), "No configs should be loaded when none provided"
+
                 # Should create member_servers.json file automatically
                 member_servers_file = Path("member_servers.json")
-                assert member_servers_file.exists(), "member_servers.json should be created automatically"
-                
+                assert (
+                    member_servers_file.exists()
+                ), "member_servers.json should be created automatically"
+
                 # File should contain empty array
                 with open(member_servers_file, "r", encoding="utf-8") as f:
                     file_content = json.load(f)
-                assert file_content == [], "member_servers.json should contain empty array initially"
-                
+                assert (
+                    file_content == []
+                ), "member_servers.json should contain empty array initially"
+
                 # Should be able to call setup_member_servers without errors (it will just log a warning)
                 await composer.setup_member_servers()
-                
+
             finally:
                 # Restore original working directory
                 os.chdir(original_cwd)
-                
+
     finally:
         # Restore original environment variable
         if original_env is not None:
@@ -177,52 +189,60 @@ async def test_composer_initializes_when_file_creation_fails():
     import os
     import tempfile
     from pathlib import Path
-    
+
     # Clear any existing SERVER_CONFIG_FILE_PATH environment variable
     original_env = os.environ.get("SERVER_CONFIG_FILE_PATH")
     if "SERVER_CONFIG_FILE_PATH" in os.environ:
         del os.environ["SERVER_CONFIG_FILE_PATH"]
-    
+
     try:
         # Create a temporary directory to test file creation
         with tempfile.TemporaryDirectory() as temp_dir:
             # Change to temp directory to avoid conflicts
             original_cwd = os.getcwd()
             os.chdir(temp_dir)
-            
+
             # Create a read-only directory to simulate permission issues
             read_only_dir = Path("readonly_dir")
             read_only_dir.mkdir()
-            
+
             # Set the directory to read-only (this will prevent file creation)
             os.chmod(read_only_dir, 0o444)  # Read-only for all users
-            
+
             try:
                 # Try to initialize composer with a path in the read-only directory
                 # This should fail to create the file but not crash the composer
                 composer = MCPComposer("composer", config=None, database_config=None)
-                
+
                 # Should have basic composer tools available
                 tools = await composer.get_tools()
-                assert isinstance(tools, dict), "Composer should have basic tools available"
+                assert isinstance(
+                    tools, dict
+                ), "Composer should have basic tools available"
                 assert len(tools) > 0, "Composer should have at least some basic tools"
-                
+
                 # Should have no member servers mounted
                 mounted_servers = composer._server_manager.list_member_servers()
-                assert mounted_servers == [], "Composer should start with no member servers when no config provided"
-                
+                assert (
+                    mounted_servers == []
+                ), "Composer should start with no member servers when no config provided"
+
                 # Should have no database configs loaded
-                assert len(composer._db_configs) == 0, "No database configs should be loaded when no database provided"
-                assert len(composer._config) == 0, "No configs should be loaded when none provided"
-                
+                assert (
+                    len(composer._db_configs) == 0
+                ), "No database configs should be loaded when no database provided"
+                assert (
+                    len(composer._config) == 0
+                ), "No configs should be loaded when none provided"
+
                 # Should be able to call setup_member_servers without errors (it will just log a warning)
                 await composer.setup_member_servers()
-                
+
                 # The file should not exist due to permission issues
                 member_servers_file = Path("member_servers.json")
                 # Note: We don't assert file existence here since it may or may not be created
                 # depending on the timing and OS behavior
-                
+
             finally:
                 # Restore original working directory
                 os.chdir(original_cwd)
@@ -231,7 +251,7 @@ async def test_composer_initializes_when_file_creation_fails():
                     os.chmod(read_only_dir, 0o755)  # Make writable again
                 except:
                     pass
-                
+
     finally:
         # Restore original environment variable
         if original_env is not None:
@@ -244,43 +264,51 @@ async def test_composer_initializes_with_invalid_file_path():
     import os
     import tempfile
     from pathlib import Path
-    
+
     # Set an invalid file path that will cause file creation to fail
     invalid_path = "/invalid/path/that/does/not/exist/member_servers.json"
     original_env = os.environ.get("SERVER_CONFIG_FILE_PATH")
     os.environ["SERVER_CONFIG_FILE_PATH"] = invalid_path
-    
+
     try:
         # Create a temporary directory to test file creation
         with tempfile.TemporaryDirectory() as temp_dir:
             # Change to temp directory to avoid conflicts
             original_cwd = os.getcwd()
             os.chdir(temp_dir)
-            
+
             try:
                 # This should not raise any errors during initialization, even with invalid path
                 composer = MCPComposer("composer", config=None, database_config=None)
-                
+
                 # Should have basic composer tools available
                 tools = await composer.get_tools()
-                assert isinstance(tools, dict), "Composer should have basic tools available"
+                assert isinstance(
+                    tools, dict
+                ), "Composer should have basic tools available"
                 assert len(tools) > 0, "Composer should have at least some basic tools"
-                
+
                 # Should have no member servers mounted
                 mounted_servers = composer._server_manager.list_member_servers()
-                assert mounted_servers == [], "Composer should start with no member servers when no config provided"
-                
+                assert (
+                    mounted_servers == []
+                ), "Composer should start with no member servers when no config provided"
+
                 # Should have no database configs loaded
-                assert len(composer._db_configs) == 0, "No database configs should be loaded when no database provided"
-                assert len(composer._config) == 0, "No configs should be loaded when none provided"
-                
+                assert (
+                    len(composer._db_configs) == 0
+                ), "No database configs should be loaded when no database provided"
+                assert (
+                    len(composer._config) == 0
+                ), "No configs should be loaded when none provided"
+
                 # Should be able to call setup_member_servers without errors (it will just log a warning)
                 await composer.setup_member_servers()
-                
+
             finally:
                 # Restore original working directory
                 os.chdir(original_cwd)
-                
+
     finally:
         # Restore original environment variable
         if original_env is not None:
@@ -294,20 +322,26 @@ async def test_composer_uses_local_file_adapter_when_no_database_config(server_c
     """Test that MCP composer uses LocalFileAdapter when no database config is provided."""
     # This should not raise any errors and should use LocalFileAdapter
     composer = MCPComposer("composer", config=[server_config], database_config=None)
-    
+
     # Should be able to call setup_member_servers without errors
     await composer.setup_member_servers()
-    
+
     # Should have basic composer tools available
     tools = await composer.get_tools()
     assert isinstance(tools, dict), "Composer should have basic tools available"
     assert len(tools) > 0, "Composer should have at least some basic tools"
-    
+
     # Should have the server from config mounted
     mounted_servers = composer._server_manager.list_member_servers()
     assert len(mounted_servers) == 1, "Composer should mount server from config"
-    assert mounted_servers[0]["id"] == "mcp-stock-info", "Should have the correct server mounted"
-    
+    assert (
+        mounted_servers[0]["id"] == "mcp-stock-info"
+    ), "Should have the correct server mounted"
+
     # Should have database configs loaded (from LocalFileAdapter)
-    assert len(composer._db_configs) >= 0, "Database configs should be loaded (even if empty)"
-    assert len(composer._config) == 1, "One config should be loaded from the config parameter"
+    assert (
+        len(composer._db_configs) >= 0
+    ), "Database configs should be loaded (even if empty)"
+    assert (
+        len(composer._config) == 1
+    ), "One config should be loaded from the config parameter"

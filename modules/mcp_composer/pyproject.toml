@@ -46,6 +46,7 @@ dev = [
     "coverage==7.5",
     "bandit==1.7.5",
     "twine==6.1.0",
+    "debugpy>=1.8.16",
 ]
 
 [project.optional-dependencies]

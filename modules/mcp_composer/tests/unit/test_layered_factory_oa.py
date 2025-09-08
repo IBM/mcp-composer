@@ -17,7 +17,12 @@ import os
 
 from mcp_composer.core.member_servers.layered_factory_oa import LayeredOpenAPIFactory
 from mcp_composer.core.member_servers.layered_constants import (
-    SERVICE_KEYS, PARAMETER_KEYS, SCHEMA_KEYS, OPERATION_KEYS, DEFAULT_VALUES, RESPONSE_KEYS
+    SERVICE_KEYS,
+    PARAMETER_KEYS,
+    SCHEMA_KEYS,
+    OPERATION_KEYS,
+    DEFAULT_VALUES,
+    RESPONSE_KEYS,
 )
 
 
@@ -42,15 +47,15 @@ class TestLayeredOpenAPIFactory:
                                 "in": "path",
                                 "required": True,
                                 "description": "Test ID",
-                                "schema": {"type": "string"}
+                                "schema": {"type": "string"},
                             },
                             {
                                 "name": "filter",
                                 "in": "query",
                                 "required": False,
                                 "description": "Filter parameter",
-                                "schema": {"type": "string"}
-                            }
+                                "schema": {"type": "string"},
+                            },
                         ],
                         "requestBody": {
                             "content": {
@@ -70,13 +75,11 @@ class TestLayeredOpenAPIFactory:
                                             "$ref": "#/components/schemas/TestResponse"
                                         }
                                     }
-                                }
+                                },
                             },
-                            "400": {
-                                "description": "Bad Request"
-                            }
+                            "400": {"description": "Bad Request"},
                         },
-                        "tags": ["test", "data"]
+                        "tags": ["test", "data"],
                     }
                 }
             },
@@ -86,19 +89,19 @@ class TestLayeredOpenAPIFactory:
                         "type": "object",
                         "properties": {
                             "name": {"type": "string"},
-                            "value": {"type": "integer"}
+                            "value": {"type": "integer"},
                         },
-                        "required": ["name"]
+                        "required": ["name"],
                     },
                     "TestResponse": {
                         "type": "object",
                         "properties": {
                             "id": {"type": "string"},
-                            "data": {"type": "object"}
-                        }
-                    }
+                            "data": {"type": "object"},
+                        },
+                    },
                 }
-            }
+            },
         }
 
     @pytest.fixture
@@ -150,10 +153,10 @@ class TestLayeredOpenAPIFactory:
                 "name": "test_param",
                 "in": "query",
                 "required": True,
-                "schema": {"type": "string"}
+                "schema": {"type": "string"},
             }
         ]
-        
+
         result = layered_factory._extract_parameter_schemas(parameters)
         assert len(result) == 1
         assert result[0]["name"] == "test_param"
@@ -167,14 +170,12 @@ class TestLayeredOpenAPIFactory:
                 "application/json": {
                     "schema": {
                         "type": "object",
-                        "properties": {
-                            "name": {"type": "string"}
-                        }
+                        "properties": {"name": {"type": "string"}},
                     }
                 }
             }
         }
-        
+
         result = layered_factory._extract_request_body_schema(request_body)
         assert result is not None
         assert "type" in result
@@ -184,16 +185,10 @@ class TestLayeredOpenAPIFactory:
         responses = {
             "200": {
                 "description": "Success",
-                "content": {
-                    "application/json": {
-                        "schema": {
-                            "type": "object"
-                        }
-                    }
-                }
+                "content": {"application/json": {"schema": {"type": "object"}}},
             }
         }
-        
+
         result = layered_factory._extract_response_schemas(responses)
         assert result is not None
 
@@ -209,18 +204,24 @@ class TestLayeredOpenAPIFactory:
     def test_should_include_operation(self, layered_factory):
         """Test operation inclusion logic."""
         # Test with no custom routes (should include all)
-        assert layered_factory._should_include_operation("GET", "/test/endpoint") is True
+        assert (
+            layered_factory._should_include_operation("GET", "/test/endpoint") is True
+        )
 
     def test_matches_pattern(self, layered_factory):
         """Test pattern matching."""
         # Test exact match
-        assert layered_factory._matches_pattern("/test/endpoint", "/test/endpoint") is True
-        
+        assert (
+            layered_factory._matches_pattern("/test/endpoint", "/test/endpoint") is True
+        )
+
         # Test regex pattern
         assert layered_factory._matches_pattern("/test/endpoint", ".*endpoint") is True
-        
+
         # Test non-match
-        assert layered_factory._matches_pattern("/test/endpoint", "/other/path") is False
+        assert (
+            layered_factory._matches_pattern("/test/endpoint", "/other/path") is False
+        )
 
     def test_get_type_info(self, layered_factory):
         """Test get_type_info method."""
@@ -269,7 +270,7 @@ class TestLayeredOpenAPIFactory:
         request = {
             "path_params": {"id": "123"},
             "query_params": {"filter": "test"},
-            "body": {"name": "test", "value": 42}
+            "body": {"name": "test", "value": 42},
         }
 
         result = await layered_factory.make_tool_call("get_test_data", request)
@@ -297,21 +298,13 @@ class TestLayeredOpenAPIFactory:
     def test_layered_factory_with_custom_routes(self, mock_openapi_spec, mock_client):
         """Test LayeredOpenAPIFactory with custom routes."""
         from fastmcp.server.openapi import RouteMap, MCPType
-        
-        custom_routes = [
-            RouteMap(
-                methods=["GET"],
-                pattern=".*",
-                mcp_type=MCPType.TOOL
-            )
-        ]
-        
+
+        custom_routes = [RouteMap(methods=["GET"], pattern=".*", mcp_type=MCPType.TOOL)]
+
         factory = LayeredOpenAPIFactory(
-            mock_openapi_spec, 
-            mock_client, 
-            custom_routes=custom_routes
+            mock_openapi_spec, mock_client, custom_routes=custom_routes
         )
-        
+
         assert factory.custom_routes == custom_routes
 
     def test_layered_factory_instructions(self, layered_factory):
@@ -320,4 +313,7 @@ class TestLayeredOpenAPIFactory:
         assert "get_service_info" in instructions
         assert "get_type_info" in instructions
         assert "make_tool_call" in instructions
-        assert "Layered Tool Pattern" in instructions or "three main capabilities" in instructions
+        assert (
+            "Layered Tool Pattern" in instructions
+            or "three main capabilities" in instructions
+        )
