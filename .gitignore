@@ -37,3 +37,4 @@ docs/.vitepress/cache
 docs/node_modules/
 .mypy_cache/*
 .coverage
+modules/mcp_composer/tests/integration/*

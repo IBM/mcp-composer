@@ -37,6 +37,7 @@ class ConfigKey(str, Enum):
     ARGS = "args"
     ENV = "env"
     CWD = "cwd"
+    LAYERED = "layered"
 
 
 

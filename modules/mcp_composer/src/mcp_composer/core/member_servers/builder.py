@@ -6,6 +6,7 @@ import json
 import os
 from typing import Dict
 import jsonref
+from typing import Dict
 import httpx
 import mcp_composer.core.utils.patch_openapi_tool
 from fastmcp import FastMCP, Client
@@ -27,6 +28,8 @@ from mcp_composer.core.utils import (
 )
 from mcp_composer.core.auth_handler import DynamicTokenClient, DynamicTokenManager
 from mcp_composer.core.tools.graphql_tool import GraphQLTool
+from mcp_composer.core.member_servers.layered_factory_oa import LayeredOpenAPIFactory
+from mcp_composer.core.member_servers.layered_constants import DEFAULT_EXCLUDE_CONFIG
 
 logger = LoggerFactory.get_logger()
 
@@ -235,10 +238,7 @@ class MCPServerBuilder:
                 headers[ConfigKey.AUTH_HEADER.value] = (
                     f"{auth_header}"
                 )
-                logger.info(
-                    "the url is '%s'",
-                    base_url,
-                )
+                logger.info("the url is '%s'",base_url)
                 http_client = httpx.AsyncClient(base_url=base_url, headers=headers)
 
             case AuthStrategy.JSESSIONID.value:
@@ -273,7 +273,25 @@ class MCPServerBuilder:
 
         # QUICK FIX TO SCHEMA UNRAVELING ISSUE BELOW
         spec = jsonref.loads(json.dumps(spec), load_on_repr=True)
-        mcp = FastMCP.from_openapi(spec, client=http_client, route_maps=custom_mappings)  # type: ignore
+
+        # Check if layered is enabled in the OPEN_API configuration
+        if openapi_config.get(ConfigKey.LAYERED, False):
+            exclude_all_route = await load_custom_mappings_from_json(DEFAULT_EXCLUDE_CONFIG)
+            # Ensure spec is a dict and http_client is not None
+            if not isinstance(spec, dict):
+                raise ValueError("OpenAPI spec must be a dictionary")
+            if http_client is None:
+                raise ValueError("HTTP client cannot be None")
+
+            mcp = LayeredOpenAPIFactory(
+                openapi_spec=spec,
+                client=http_client,
+                custom_routes=custom_mappings,
+                custom_routes_exclude_all=exclude_all_route
+            )
+        else:
+            # Default behavior when layered is not enabled
+            mcp = FastMCP.from_openapi(spec, client=http_client, route_maps=custom_mappings)  # type: ignore
         return mcp
 
     async def _build_from_graphql(self) -> FastMCP:

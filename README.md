@@ -18,6 +18,7 @@
   - [Prerequisites](#prerequisites)
   - [Setup](#setup)
   - [Use as Tool](#use-as-tool)
+- [Development with Makefile](#development-with-makefile)
 - [Usage](#usage)
 - [Key Features](#key-features)
   - [MCP Composer Servers](#mcp-composer-servers)
@@ -26,7 +27,7 @@
   - [MCP Composer Prompts](#mcp-composer-prompts)
 - [Demo using MCP Inspector](#demo-using-mcp-inspector)
 - [MCP Composer Client with Chatbot UI](#mcp-composer-client-with-chatbot-ui)
-- ***
+
 
 ## Overview
 
@@ -208,6 +209,86 @@ uv pip install -e ../mcp-composer
    ```bash:
    uv tool uninstall mcp-composer
    ```
+
+## Development with Makefile
+
+The MCP Composer project includes a comprehensive Makefile that provides convenient commands for development tasks, quality assurance, and package management.
+
+### Quick Start
+
+Run all quality assurance checks in sequence:
+```bash
+make all
+```
+
+### Development Tasks
+
+#### Code Quality
+- **`make format`** - Format code with black
+- **`make lint`** - Lint code with ruff
+- **`make type-check`** - Run type checks with mypy
+- **`make test`** - Run tests with coverage
+- **`make coverage`** - Generate coverage report
+- **`make check`** - Run all checks in sequence
+
+#### Module Testing
+- **`make test-module module=<module_name>`** - Run unit tests for a specific module
+- **`make test-modules`** - Run unit tests for all modules
+
+#### Cleanup
+- **`make clean`** - Clean up generated files and caches
+
+### PyPI Release Management
+
+#### Build and Release
+- **`make build module=<module_name> version=<x.y.z>`** - Build wheel for a specific module
+- **`make check-release module=<module_name> version=<x.y.z>`** - Verify wheel with twine
+- **`make upload-testpypi module=<module_name> version=<x.y.z>`** - Upload to TestPyPI
+- **`make upload-pypi module=<module_name> version=<x.y.z>`** - Upload to PyPI
+
+#### Environment Status
+- **`make status`** - Show environment status for releases
+
+### Examples
+
+```bash
+# Run all QA checks
+make all
+
+# Test a specific module
+make test-module module=mcp_composer
+
+# Build a module for release
+make build module=mcp_composer version=1.0.0
+
+# Check release artifacts
+make check-release module=mcp_composer version=1.0.0
+
+# Upload to TestPyPI
+make upload-testpypi module=mcp_composer version=1.0.0
+
+# Clean up development artifacts
+make clean
+```
+
+### Prerequisites for Releases
+
+For PyPI uploads, you'll need to set environment variables:
+
+```bash
+# For TestPyPI
+export TEST_TWINE_USERNAME="your_test_username"
+export TEST_TWINE_PASSWORD="your_test_password"
+
+# For PyPI
+export TWINE_USERNAME="your_username"
+export TWINE_PASSWORD="your_password"
+```
+
+For more detailed information about available commands, run:
+```bash
+make help
+```
 
 ## Usage
 
