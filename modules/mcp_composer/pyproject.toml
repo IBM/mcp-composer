@@ -24,7 +24,7 @@ dependencies = [
     "hvac==2.3.0",
     "types-requests>=2.32.4.20250611",
     "jsonref>=1.1.0",
-    "deepdiff>=8.6.0",
+    "deepdiff>=8.6.1",
     "scikit-learn>=1.7.1",
 ]
 
