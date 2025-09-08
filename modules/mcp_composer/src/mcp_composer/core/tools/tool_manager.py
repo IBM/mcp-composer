@@ -100,13 +100,11 @@ class MCPToolManager(ToolManager):
 
     async def load_custom_tools(self):
         """Load tools using saved OpenAPI, Curl, and Python script."""
-
         try:
             if custom_tools:
                 for name, func in inspect.getmembers(custom_tools, inspect.isfunction):
                     logger.info("Adding tool from custom tool folder: %s", name)
                     self.add_tool(Tool.from_function(func))
-
             # Load tools from curl commands
             for tool_fn in await generate_tool_from_curl():
                 self.add_tool(Tool.from_function(tool_fn))

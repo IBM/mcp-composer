@@ -3,6 +3,7 @@ MCP Composer: A dynamic orchestrator for mounting and managing member MCP server
 Extends FastMCP with runtime composition, tool management, and database-backed config.
 """
 
+import os
 import sys
 from typing import Any, Dict, Optional, Union
 from dotenv import load_dotenv
@@ -22,10 +23,11 @@ from mcp_composer.core.member_servers import (
     MCPServerBuilder,
 )
 from mcp_composer.core.settings.version_control_manager import ConfigManager
+from mcp_composer.core.utils.custom_tool import DynamicToolGenerator, OpenApiTool
 from mcp_composer.store.database import DatabaseInterface
 from mcp_composer.store.cloudant_adapter import CloudantAdapter
 from mcp_composer.store.local_file_adapter import LocalFileAdapter
-from mcp_composer.core.utils.tools import tool_from_open_api, tool_from_script
+from mcp_composer.core.utils.tools import tool_from_curl, tool_from_open_api, tool_from_script
 from mcp_composer.core.prompts import MCPPromptManager
 from mcp_composer.core.resources import MCPResourceManager
 
@@ -42,16 +44,14 @@ class MCPComposer(FastMCP):
 
     def __init__(
         self,
-        name: str = "MCPComposer",
+        name: str = "",
         config: Optional[list[dict]] = None,
         database_config: Optional[Union[Dict[str, Any], DatabaseInterface]] = None,
         version_adapter_config: Optional[Dict[str, Any]] = None,
         auth: OAuthProvider | None = None,
     ):
         super().__init__(name=name, auth=auth)
-        self._config_manager = ConfigManager(
-            get_version_adapter(version_adapter_config)
-        )
+        self._config_manager = ConfigManager(get_version_adapter(version_adapter_config))
 
         database = None
         if database_config:
@@ -61,9 +61,7 @@ class MCPComposer(FastMCP):
                 elif database_config.get("type") == "cloudant":
                     required_keys = ["api_key", "service_url"]
                     if not all(k in database_config for k in required_keys):
-                        raise ValueError(
-                            "Missing required Cloudant config keys: api_key, service_url"
-                        )
+                        raise ValueError("Missing required Cloudant config keys: api_key, service_url")
 
                     database = CloudantAdapter(
                         api_key=database_config["api_key"],
@@ -71,9 +69,7 @@ class MCPComposer(FastMCP):
                         db_name=database_config.get("db_name", "mcp_servers"),
                     )
                 else:
-                    logger.warning(
-                        "Unsupported database type: %s", database_config.get("type")
-                    )
+                    logger.warning("Unsupported database type: %s", database_config.get("type"))
             except Exception as e:
                 logger.error("Failed to initialize database: %s", e)
                 raise
@@ -81,18 +77,10 @@ class MCPComposer(FastMCP):
             database = LocalFileAdapter()
             logger.info("No database config provided, using local file storage")
 
-        self._server_manager = ServerManager(
-            database=database, config_manager=self._config_manager
-        )
-        self._tool_manager = MCPToolManager(
-            composer=self, server_manager=self._server_manager, database=database
-        )
-        self._resource_manager = MCPResourceManager(
-            server_manager=self._server_manager, database=database
-        )
-        self._prompt_manager = MCPPromptManager(
-            server_manager=self._server_manager, database=database
-        )
+        self._server_manager = ServerManager(database=database, config_manager=self._config_manager)
+        self._tool_manager = MCPToolManager(composer=self, server_manager=self._server_manager, database=database)
+        self._resource_manager = MCPResourceManager(server_manager=self._server_manager, database=database)
+        self._prompt_manager = MCPPromptManager(server_manager=self._server_manager, database=database)
 
         self._db_configs: list[dict] = self._server_manager.load_all_servers_db()
         self._config: list[dict] = []
@@ -107,7 +95,7 @@ class MCPComposer(FastMCP):
                 logger.error("Validation error: %s", e)
                 sys.exit(1)
 
-        # Server Management Tools
+        # Define tool categories
         server_tools = [
             self.register_mcp_server,
             self.update_mcp_server_config,
@@ -115,24 +103,32 @@ class MCPComposer(FastMCP):
             self.member_health,
             self.activate_mcp_server,
             self.deactivate_mcp_server,
-            self.add_tools,
-            self.add_tools_from_openapi,
             self._server_manager.list_member_servers,
         ]
 
-        # Tool Management Tools
+        # Tools which will add tools dynamically from Python script
+        # Curl command and OpenAPI specification
+        dynamic_tool_generator = []
+        if os.getenv("ENABLE_ADD_TOOLS_USING_PYTHON").lower() == "true":
+            dynamic_tool_generator = [
+                self.add_tools_from_python,
+            ]
+
         tool_management_tools = [
             self._tool_manager.get_tool_config_by_name,
             self._tool_manager.get_tool_config_by_server,
             self._tool_manager.disable_tools,
             self._tool_manager.enable_tools,
-            # Uncomment if needed:
+            self._tool_manager.update_tool_description,
+            self.add_tools_from_curl,
+            self.add_tools_from_openapi,
+            self.rollback_openapi_tool_version,
+            self.rollback_curl_tool_version,
+            # Optional tools:
             # self._tool_manager.disable_tools_by_server,
             # self._tool_manager.enable_tools_by_server,
-            self._tool_manager.update_tool_description,
         ]
 
-        # Prompt Management Tools
         prompt_tools = [
             self.add_prompts,
             self.get_all_prompts,
@@ -142,7 +138,6 @@ class MCPComposer(FastMCP):
             self.enable_prompts,
         ]
 
-        # Resource Management Tools
         resource_tools = [
             self.create_resource,
             self.create_resource_template,
@@ -154,19 +149,20 @@ class MCPComposer(FastMCP):
             self.enable_resources,
         ]
 
+        # Combine all tools into a single list
+        all_tools = server_tools + dynamic_tool_generator + tool_management_tools + prompt_tools + resource_tools
+
         # Register all tools
-        for tool_func in (
-            server_tools + tool_management_tools + prompt_tools + resource_tools
-        ):
+        for tool_func in all_tools:
             self.add_tool(Tool.from_function(tool_func))
 
     async def _load_custom_tools(self):
         """Load tools using saved OpenAPI, Curl, and Python script."""
         server_data = await self._tool_manager.load_custom_tools()
         for name, client in server_data.items():
-            await self.import_server(
+            self.mount(
                 self.from_openapi(client[0], client[1]),  # type: ignore
-                name,
+                prefix=name,
             )
 
     async def _mount_member_server(self, config: dict) -> str:
@@ -210,6 +206,7 @@ class MCPComposer(FastMCP):
         Mount multiple servers from a JSON list in self.config.
         This runs at startup or from manual trigger.
         """
+        await self._load_custom_tools()
         all_configs = self._config + self._db_configs
         if not all_configs:
             logger.warning("No server configurations found to mount.")
@@ -227,9 +224,7 @@ class MCPComposer(FastMCP):
             server_type = cfg.get("type")
 
             if server_type == "composer":
-                self._tool_manager._disabled_tools = cfg.get(
-                    "disabled_tools", []
-                )  # pylint: disable=W0212
+                self._tool_manager._disabled_tools = cfg.get("disabled_tools", [])  # pylint: disable=W0212
                 logger.info("Disabled tool list in composer: %s", cfg)
                 continue
 
@@ -238,9 +233,7 @@ class MCPComposer(FastMCP):
                 continue
 
             if cfg.get("status") == "deactivated":
-                logger.info(
-                    "Server '%s' is marked deactivated, skipping mount.", server_id
-                )
+                logger.info("Server '%s' is marked deactivated, skipping mount.", server_id)
                 continue
 
             if server_id in seen_ids:
@@ -254,14 +247,11 @@ class MCPComposer(FastMCP):
 
             await self._mount_member_server(cfg)
             seen_ids.add(server_id)
-        await self._load_custom_tools()
 
     async def register_mcp_server(self, config: dict) -> str:
         """Register a single server."""
         logger.info("Registering single server: %s", config)
-        return await self._server_manager.register_server(
-            config=config, mount_callback=self.mount
-        )
+        return await self._server_manager.register_server(config=config, mount_callback=self.mount)
 
     async def update_mcp_server_config(self, server_id: str, new_config: dict) -> str:
         """Update the configuration of an existing member server."""
@@ -295,33 +285,48 @@ class MCPComposer(FastMCP):
 
     async def activate_mcp_server(self, server_id: str) -> str:
         """Reactivates a previously deactivated member server."""
-        return await self._server_manager.activate_server(
-            server_id=server_id, mount_callback=self.mount
-        )
+        return await self._server_manager.activate_server(server_id=server_id, mount_callback=self.mount)
 
     async def deactivate_mcp_server(self, server_id: str) -> str:
         """Deactivates a member server by unmounting it and marking it as deactivated."""
-        return self._server_manager.deactivate_server(
-            server_id=server_id, unmount_callback=self._tool_manager.unmount
-        )
+        return self._server_manager.deactivate_server(server_id=server_id, unmount_callback=self._tool_manager.unmount)
 
-    async def add_tools(self, tool_config: dict) -> str:
+    async def add_tools_from_curl(self, tool_config: dict) -> str:
+        """Create a tool from a curl command."""
+        fn = await tool_from_curl(tool_config)
+        if fn:
+            self.add_tool(Tool.from_function(fn))
+        return "Successfully added tools"
+
+    async def add_tools_from_python(self, tool_config: dict) -> str:
         """Create a tool from a python script."""
         fn = await tool_from_script(tool_config)
         if fn:
             self.add_tool(Tool.from_function(fn))
         return "Successfully added tools"
 
-    async def add_tools_from_openapi(
-        self, openapi_spec: dict, auth_config: dict | None = None
-    ) -> str:
+    async def add_tools_from_openapi(self, openapi_spec: dict, auth_config: dict | None = None) -> str:
         """Create a tool from OpenAPI Specification"""
         server_name, client = await tool_from_open_api(openapi_spec, auth_config)
-        await self.import_server(
+        self.mount(
             self.from_openapi(openapi_spec, client),  # type: ignore
-            server_name,
+            prefix=server_name,
         )
         return "Successfully added tools"
+
+    async def rollback_openapi_tool_version(self, name: str, version: str) -> str:
+        """Rollback to the specific version of OpenAPI"""
+        OpenApiTool.set_rollback_version(name, version)
+        self._tool_manager.unmount(name)
+        await self._load_custom_tools()
+        return f"OpenAPI tools successfully roll backed to version: {version}"
+
+    async def rollback_curl_tool_version(self, name: str, version: str) -> str:
+        """Rollback to the specific version of OpenAPI"""
+        DynamicToolGenerator.set_rollback_version(name, version)
+        self.remove_tool(name)
+        await self._load_custom_tools()
+        return f"Successfully roll backed to version: {version}"
 
     def add_prompts(self, prompt_config: Union[dict, list[dict]]) -> list[str]:
         """
