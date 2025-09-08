@@ -30,6 +30,11 @@ class ConfigKey(str, Enum):
     TOKEN_TYPE = "token_type"
     MEDIA_TYPE = "media_type"
     MEDIA_TYPE_JSON = "json"
+    # OAuth configuration keys
+    CLIENT_ID = "clientId"
+    CLIENT_SECRET = "clientSecret"
+    REFRESH_TOKEN = "refreshToken"
+    SCOPE = "scope"
     GRAPHQL = "graphql"
     SCHEMA_FILEPATH = "schema_filepath"
     PROMPT_PATH = "prompt_path"
@@ -132,7 +137,7 @@ class ServerConfigValidator:
             AuthStrategy.APITOKEN.lower(): ["token"],
             AuthStrategy.BEARER: ["token"],
             AuthStrategy.DYNAMIC_BEARER: ["apikey", "token_url"],
-            AuthStrategy.OAUTH: ["client_id", "client_secret", "token_url"],
+            AuthStrategy.OAUTH: ["client_id", "client_secret", "token_url"]
         }
 
         # Check if strategy is supported

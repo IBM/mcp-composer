@@ -8,6 +8,7 @@ from typing import Dict
 import jsonref
 from typing import Dict
 import httpx
+import os
 import mcp_composer.core.utils.patch_openapi_tool
 from fastmcp import FastMCP, Client
 from fastmcp.client.auth import OAuth
@@ -26,7 +27,13 @@ from mcp_composer.core.utils import (
     build_prompt_from_dict,
     load_spec_from_url,
 )
-from mcp_composer.core.auth_handler import DynamicTokenClient, DynamicTokenManager
+from mcp_composer.core.auth_handler import (
+    DynamicTokenClient,
+    DynamicTokenManager,
+    build_oauth_client,
+    OAuthRefreshClient,
+    resolve_env_value,
+)
 from mcp_composer.core.tools.graphql_tool import GraphQLTool
 from mcp_composer.core.member_servers.layered_factory_oa import LayeredOpenAPIFactory
 from mcp_composer.core.member_servers.layered_constants import DEFAULT_EXCLUDE_CONFIG
@@ -210,6 +217,27 @@ class MCPServerBuilder:
                     api_key=auth_config.get(ConfigKey.APIKEY),
                     media_type=auth_config.get(ConfigKey.MEDIA_TYPE, ""),
                 )
+            case AuthStrategy.OAUTH:
+                logger.info("Setting up OAuth client with auto-refresh")
+                # Use the generic resolve_env_value function to handle ENV_* values
+                client_id = resolve_env_value(auth_config.get(ConfigKey.CLIENT_ID))
+                client_secret = resolve_env_value(auth_config.get(ConfigKey.CLIENT_SECRET))
+                token_url = auth_config.get(ConfigKey.Token_URL)
+                scope = auth_config.get(ConfigKey.SCOPE)
+                refresh_token_value = resolve_env_value(auth_config.get(ConfigKey.REFRESH_TOKEN))
+
+                if not all([client_id, client_secret, token_url, refresh_token_value]):
+                    raise RuntimeError("Missing required OAuth configuration: client_id, client_secret, token_url, refresh_token")
+
+                http_client = OAuthRefreshClient(
+                    base_url=base_url,
+                    token_url=token_url,
+                    client_id=client_id,
+                    client_secret=client_secret,
+                    refresh_token=refresh_token_value,
+                    scope=scope
+                )
+
             case AuthStrategy.BEARER:
                 logger.info("Setting up header and client for bearer")
                 headers[ConfigKey.AUTH_HEADER.value] = (
