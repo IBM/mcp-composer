@@ -140,7 +140,7 @@ class TestCLI:
             pass_environment=False
         )
 
-        with pytest.raises(ValueError, match="--script-path is required for mode 'stdio'"):
+        with pytest.raises(ValueError, match="--script-path or --sse-url is required for mode 'stdio'"):
             build_config_from_args(args)
 
     def test_build_config_from_args_http_mode_no_endpoint(self):

@@ -38,7 +38,7 @@ class LayeredOpenAPIFactory(FastMCP):
                 custom_routes_exclude_all:list[RouteMap]  | None = None):
         # Initialize the parent FastMCP class first
         super().__init__(
-            name="Ogre OpenAPI FastMCP",
+            name="Layered OpenAPI FastMCP",
             instructions="""This MCP server provides access to OpenAPI-based tools with three main capabilities:
 
 1. **get_service_info** - Discover and list all available API operations/tools:

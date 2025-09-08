@@ -74,6 +74,7 @@ def test_build_config_from_args_stdio():
         id = "testid"
         script_path = "/tmp/server.py"
         directory = None
+        sse_url = None
 
     args = Args()
     config = build_config_from_args(args)
