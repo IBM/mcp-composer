@@ -61,10 +61,12 @@ class MCPComposer(FastMCP):
         )
 
         database = None
+        logger.info("looking for DB config MCP Composer with name: %s", name)
         env_db_config = self._get_database_config_from_env()
         effective_db_config = env_db_config or database_config
 
         if effective_db_config:
+            logger.info("Database configuration found: %s", effective_db_config)
             try:
                 if isinstance(effective_db_config, DatabaseInterface):
                     database = effective_db_config
@@ -97,6 +99,7 @@ class MCPComposer(FastMCP):
                 raise
         else:
             # No database config provided - check if local file storage is enabled via env
+            logger.info("No database configuration provided")
             use_local_file = os.getenv("MCP_USE_LOCAL_FILE_STORAGE", "false").strip().lower()
             if use_local_file in ("true", "1", "yes", "on"):
                 database = LocalFileAdapter()
@@ -214,6 +217,7 @@ class MCPComposer(FastMCP):
         """
         db_type = os.getenv("MCP_DATABASE_TYPE")
         if not db_type:
+            logger.info("No database type specified in environment variables")
             return None
 
         # Validate database type
