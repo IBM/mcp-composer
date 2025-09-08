@@ -27,11 +27,11 @@ class LocalFileAdapter(DatabaseInterface):
         if file_path is None:
             file_path = os.getenv("SERVER_CONFIG_FILE_PATH", "member_servers.json")
         self._file_path = Path(file_path)
-        logger.info("Using local file storage: %s", self._file_path)
-        
+        logger.info("Using local file storage for configuration storage: %s", self._file_path)
+
         # Initialize file availability flag to False (pessimistic approach)
         self._file_available = False
-        
+
         self._ensure_file_exists()
 
     def _ensure_file_exists(self) -> None:
@@ -56,7 +56,7 @@ class LocalFileAdapter(DatabaseInterface):
         if not self._file_available:
             logger.debug("File not available, returning empty data")
             return []
-        
+
         try:
             with open(self._file_path, "r", encoding="utf-8") as f:
                 return json.load(f)
@@ -72,7 +72,7 @@ class LocalFileAdapter(DatabaseInterface):
         if not self._file_available:
             logger.debug("File not available, skipping write operation")
             return
-        
+
         try:
             with open(self._file_path, "w", encoding="utf-8") as f:
                 json.dump(data, f, indent=2)
