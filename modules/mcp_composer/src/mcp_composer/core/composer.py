@@ -61,32 +61,48 @@ class MCPComposer(FastMCP):
         )
 
         database = None
-        if database_config:
+        env_db_config = self._get_database_config_from_env()
+        effective_db_config = env_db_config or database_config
+
+        if effective_db_config:
             try:
-                if isinstance(database_config, DatabaseInterface):
-                    database = database_config
-                elif database_config.get("type") == "cloudant":
+                if isinstance(effective_db_config, DatabaseInterface):
+                    database = effective_db_config
+                    logger.info("Database configuration loaded successfully (Custom Database Interface)")
+                elif effective_db_config.get("type") == "cloudant":
                     required_keys = ["api_key", "service_url"]
-                    if not all(k in database_config for k in required_keys):
-                        raise ValueError(
-                            "Missing required Cloudant config keys: api_key, service_url"
-                        )
+                    if not all(k in effective_db_config for k in required_keys):
+                        error_msg = "Missing required Cloudant config keys: api_key, service_url"
+                        logger.error("Database configuration error: %s", error_msg)
+                        raise ValueError(error_msg)
 
                     database = CloudantAdapter(
-                        api_key=database_config["api_key"],
-                        service_url=database_config["service_url"],
-                        db_name=database_config.get("db_name", "mcp_servers"),
+                        api_key=effective_db_config["api_key"],
+                        service_url=effective_db_config["service_url"],
+                        db_name=effective_db_config.get("db_name", "mcp_servers"),
                     )
+                    logger.info("Database configuration loaded successfully (Cloudant)")
+                elif effective_db_config.get("type") == "local_file":
+                    # Only use LocalFileAdapter if explicitly configured
+                    database = LocalFileAdapter(
+                        file_path=effective_db_config.get("file_path")
+                    )
+                    logger.info("Database configuration loaded successfully (Local File)")
                 else:
-                    logger.warning(
-                        "Unsupported database type: %s", database_config.get("type")
-                    )
+                    error_msg = f"Unsupported database type: {effective_db_config.get('type')}"
+                    logger.error("Database configuration error: %s", error_msg)
+                    raise ValueError(error_msg)
             except Exception as e:
                 logger.error("Failed to initialize database: %s", e)
                 raise
-        else:  # No database config provided
-            database = LocalFileAdapter()
-            logger.info("No database config provided, using local file storage")
+        else:
+            # No database config provided - check if local file storage is enabled via env
+            use_local_file = os.getenv("MCP_USE_LOCAL_FILE_STORAGE", "false").strip().lower()
+            if use_local_file in ("true", "1", "yes", "on"):
+                database = LocalFileAdapter()
+                logger.info("Local file storage enabled via environment variable")
+            else:
+                logger.info("No database configured - running without persistent storage")
 
         self._server_manager = ServerManager(
             database=database, config_manager=self._config_manager
@@ -182,6 +198,70 @@ class MCPComposer(FastMCP):
         for tool_func in all_tools:
             self.add_tool(Tool.from_function(tool_func))
 
+    def _get_database_config_from_env(self) -> Optional[Dict[str, Any]]:
+        """
+        Get database configuration from environment variables.
+
+        Environment variables:
+        - MCP_DATABASE_TYPE: Type of database ("cloudant" or "local_file")
+        - MCP_DATABASE_API_KEY: API key for Cloudant (required for cloudant type)
+        - MCP_DATABASE_SERVICE_URL: Service URL for Cloudant (required for cloudant type)
+        - MCP_DATABASE_DB_NAME: Database name (optional, defaults to "mcp_servers")
+        - MCP_DATABASE_FILE_PATH: File path for local file storage (optional for local_file type)
+
+        Returns:
+            Dict containing database configuration or None if no env config found
+        """
+        db_type = os.getenv("MCP_DATABASE_TYPE")
+        if not db_type:
+            return None
+
+        # Validate database type
+        db_type = db_type.strip().lower()
+        if db_type not in ["cloudant", "local_file"]:
+            logger.warning("Unsupported database type in environment: %s. Supported types: cloudant, local_file", db_type)
+            return None
+
+        config = {"type": db_type}
+
+        if db_type == "cloudant":
+            api_key = os.getenv("MCP_DATABASE_API_KEY")
+            service_url = os.getenv("MCP_DATABASE_SERVICE_URL")
+
+            # Validate required fields - fail fast on missing required fields
+            if not api_key or not api_key.strip():
+                error_msg = "Cloudant database type specified but MCP_DATABASE_API_KEY is missing or empty"
+                logger.error("Database configuration error: %s", error_msg)
+                raise ValueError(error_msg)
+            if not service_url or not service_url.strip():
+                error_msg = "Cloudant database type specified but MCP_DATABASE_SERVICE_URL is missing or empty"
+                logger.error("Database configuration error: %s", error_msg)
+                raise ValueError(error_msg)
+
+            # Validate service URL format - fail fast on invalid format
+            if not service_url.startswith(("http://", "https://")):
+                error_msg = f"Invalid service URL format: {service_url}. Must start with http:// or https://"
+                logger.error("Database configuration error: %s", error_msg)
+                raise ValueError(error_msg)
+
+            config.update({
+                "api_key": api_key.strip(),
+                "service_url": service_url.strip(),
+                "db_name": os.getenv("MCP_DATABASE_DB_NAME", "mcp_servers").strip()
+            })
+            logger.info("Database configuration loaded from environment variables (Cloudant)")
+
+        elif db_type == "local_file":
+            file_path = os.getenv("MCP_DATABASE_FILE_PATH")
+            if file_path and file_path.strip():
+                # Validate file path format - warn but don't fail for file extensions
+                if not file_path.strip().endswith(('.json', '.db', '.sqlite')):
+                    logger.warning("File path should end with .json, .db, or .sqlite: %s", file_path)
+                config["file_path"] = file_path.strip()
+            logger.info("Database configuration loaded from environment variables (Local File)")
+
+        return config
+
     async def _load_custom_tools(self):
         """Load tools using saved OpenAPI, Curl, and Python script."""
         server_data = await self._tool_manager.load_custom_tools()
@@ -276,7 +356,11 @@ class MCPComposer(FastMCP):
                 seen_ids.add(server_id)
                 continue
 
-            await self._mount_member_server(cfg)
+            result = await self._mount_member_server(cfg)
+            if result.startswith("Failed to mount server"):
+                logger.error("Failed to mount server '%s': %s", server_id, result)
+            else:
+                logger.info("Successfully mounted server '%s'", server_id)
             seen_ids.add(server_id)
 
     async def register_mcp_server(self, config: dict) -> str:

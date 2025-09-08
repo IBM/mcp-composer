@@ -109,11 +109,39 @@ include = ["mcp_composer"]
    
    The MCP Composer supports multiple database backends for storing server configurations, tools, prompts, and resources:
    
-   **Default Behavior**: If no database configuration is provided, MCP Composer uses local file storage (`LocalFileAdapter`).
+   **Default Behavior**: If no database configuration is provided, MCP Composer runs without persistent storage (no database).
    
-   **Cloudant Database Configuration**:
+   **Environment Variable Configuration (Recommended)**:
    
-   To use IBM Cloudant as the database backend, provide a `database_config` dictionary when initializing MCPComposer:
+   You can configure the database using environment variables, which take priority over programmatic configuration:
+   
+   ```bash
+   # For Cloudant database
+   export MCP_DATABASE_TYPE="cloudant"
+   export MCP_DATABASE_API_KEY="your_cloudant_api_key"
+   export MCP_DATABASE_SERVICE_URL="https://your-cloudant-instance.cloudantnosqldb.appdomain.cloud"
+   export MCP_DATABASE_DB_NAME="mcp_servers"  # Optional, defaults to "mcp_servers"
+   
+   # For local file storage
+   export MCP_DATABASE_TYPE="local_file"
+   export MCP_DATABASE_FILE_PATH="/path/to/your/servers.json"  # Optional
+   
+   # Enable local file storage when no other database config is provided
+   export MCP_USE_LOCAL_FILE_STORAGE="true"
+   ```
+   
+   **Environment Variables**:
+   - `MCP_DATABASE_TYPE`: Database type (`"cloudant"` or `"local_file"`)
+   - `MCP_DATABASE_API_KEY`: API key for Cloudant (required for cloudant type)
+   - `MCP_DATABASE_SERVICE_URL`: Service URL for Cloudant (required for cloudant type)
+   - `MCP_DATABASE_DB_NAME`: Database name (optional, defaults to `"mcp_servers"`)
+   - `MCP_DATABASE_FILE_PATH`: File path for local storage (optional for local_file type)
+   - `MCP_USE_LOCAL_FILE_STORAGE`: Set to `"true"` to enable local file storage when no other config is provided
+
+   
+   **Programmatic Database Configuration**:
+   
+   You can also provide a `database_config` dictionary when initializing MCPComposer:
    
    ```python
    from mcp_composer import MCPComposer
@@ -132,10 +160,27 @@ include = ["mcp_composer"]
    )
    ```
    
+   **Local File Storage Configuration**:
+   
+   ```python
+   from mcp_composer import MCPComposer
+   
+   # Local file storage configuration
+   database_config = {
+       "type": "local_file",
+       "file_path": "/path/to/your/servers.json"  # Optional
+   }
+   
+   composer = MCPComposer(
+       name="my-composer",
+       database_config=database_config
+   )
+   ```
+   
    **Required Cloudant Parameters**:
    - `type`: Must be set to `"cloudant"`
    - `api_key`: Your IBM Cloudant API key
-   - `service_url`: Your Cloudant service URL
+   - `service_url`: Your Cloudant service URL (must start with `http://` or `https://`)
    
    **Optional Cloudant Parameters**:
    - `db_name`: Database name (defaults to `"mcp_servers"`)
@@ -158,7 +203,12 @@ include = ["mcp_composer"]
    )
    ```
    
-   **Error Handling**: If Cloudant configuration is provided but missing required keys (`api_key` or `service_url`), the composer will raise a `ValueError` with a descriptive error message.
+   **Configuration Priority**:
+   1. Environment variables (highest priority)
+   2. Programmatic configuration
+   3. No database (default behavior)
+   
+   **Error Handling**: If database configuration is provided but missing required keys or has invalid values, the composer will log warnings and fall back to no database configuration.
 
 6. Synchronize the environment.
    
@@ -362,6 +412,8 @@ uvx mcp-composer -sseurl --sse-url <url to remote sse mcp server> --auth_type oa
 - Automatically forwards each request to the correct upstream server or tool.
 - List tools and metadata by name or server.
 - **Database Support**: Configurable database backends including IBM Cloudant and local file storage for persistent server configurations, tools, prompts, and resources.
+- **Environment Variable Configuration**: Database configuration through environment variables with validation and fallback support.
+- **Database Configuration Validation**: Strict validation of database configuration with fail-fast behavior to prevent startup with invalid database settings.
 
 ### MCP Composer Servers
 
@@ -452,12 +504,32 @@ This will create a FastMCP server instance with a GraphQL tool registered, allow
 
 When initializing MCPComposer, you can configure the database backend for persistent storage of server configurations:
 
-**Example with Cloudant Database**:
+**Example with Environment Variables (Recommended)**:
+
+```bash
+# Set environment variables
+export MCP_DATABASE_TYPE="cloudant"
+export MCP_DATABASE_API_KEY="your_cloudant_api_key"
+export MCP_DATABASE_SERVICE_URL="https://your-cloudant-instance.cloudantnosqldb.appdomain.cloud"
+export MCP_DATABASE_DB_NAME="mcp_servers"
+```
 
 ```python
 from mcp_composer import MCPComposer
 
-# Configure Cloudant database
+# Initialize composer - database config will be loaded from environment variables
+composer = MCPComposer(name="my-composer")
+
+# Server configurations will be automatically persisted to Cloudant
+await composer.setup_member_servers()
+```
+
+**Example with Programmatic Cloudant Configuration**:
+
+```python
+from mcp_composer import MCPComposer
+
+# Configure Cloudant database programmatically
 database_config = {
     "type": "cloudant",
     "api_key": "your_cloudant_api_key",
@@ -475,15 +547,47 @@ composer = MCPComposer(
 await composer.setup_member_servers()
 ```
 
-**Example with Local File Storage (Default)**:
+**Example with Local File Storage**:
+
+```bash
+# Option 1: Using environment variables
+export MCP_DATABASE_TYPE="local_file"
+export MCP_DATABASE_FILE_PATH="/path/to/servers.json"
+
+# Option 2: Enable local file storage when no other config is provided
+export MCP_USE_LOCAL_FILE_STORAGE="true"
+```
 
 ```python
 from mcp_composer import MCPComposer
 
-# No database_config provided - uses local file storage
+# Option 1: Environment variables will be used automatically
 composer = MCPComposer(name="my-composer")
 
+# Option 2: Programmatic configuration
+database_config = {
+    "type": "local_file",
+    "file_path": "/path/to/servers.json"  # Optional
+}
+
+composer = MCPComposer(
+    name="my-composer",
+    database_config=database_config
+)
+
 # Server configurations will be stored locally
+await composer.setup_member_servers()
+```
+
+**Example with No Database (Default)**:
+
+```python
+from mcp_composer import MCPComposer
+
+# No database configuration - runs without persistent storage
+composer = MCPComposer(name="my-composer")
+
+# Server configurations will not be persisted
 await composer.setup_member_servers()
 ```
 
@@ -1077,3 +1181,61 @@ Follow instruction in [Demo-Chatbot-UI](https://github.ibm.com/ai-elite/mcp-comp
    uv add /full/path/to/mcp-composer --frozen
    uv pip install -e /full/path/to/mcp-composer
    ```
+
+5. **Database configuration not working**
+   - **Cause**: Invalid environment variables or missing required parameters
+   - **Solution**: Check environment variable format and required parameters
+   ```bash
+   # Check environment variables
+   echo $MCP_DATABASE_TYPE
+   echo $MCP_DATABASE_API_KEY
+   echo $MCP_DATABASE_SERVICE_URL
+   
+   # For Cloudant, ensure URL starts with http:// or https://
+   export MCP_DATABASE_SERVICE_URL="https://your-instance.cloudantnosqldb.appdomain.cloud"
+   
+   # For local file storage, ensure file path is valid
+   export MCP_DATABASE_FILE_PATH="/path/to/valid/file.json"
+   ```
+
+6. **Environment variables not taking effect**
+   - **Cause**: Environment variables not properly set or loaded
+   - **Solution**: Ensure environment variables are set before running the application
+   ```bash
+   # Set environment variables in your shell
+   export MCP_DATABASE_TYPE="cloudant"
+   export MCP_DATABASE_API_KEY="your_key"
+   export MCP_DATABASE_SERVICE_URL="https://your-instance.cloudantnosqldb.appdomain.cloud"
+   
+   # Or add them to your .env file
+   echo "MCP_DATABASE_TYPE=cloudant" >> .env
+   echo "MCP_DATABASE_API_KEY=your_key" >> .env
+   echo "MCP_DATABASE_SERVICE_URL=https://your-instance.cloudantnosqldb.appdomain.cloud" >> .env
+   ```
+
+7. **Server fails to start with database configuration errors**
+   - **Cause**: Invalid database configuration (missing required fields, invalid URLs, etc.)
+   - **Solution**: Fix the database configuration errors
+   ```bash
+   # Check the error logs for specific database configuration issues
+   # Common issues: missing API keys, invalid service URLs, unsupported database types
+   
+   # For Cloudant, ensure all required fields are set:
+   export MCP_DATABASE_TYPE="cloudant"
+   export MCP_DATABASE_API_KEY="your_valid_api_key"
+   export MCP_DATABASE_SERVICE_URL="https://your-instance.cloudantnosqldb.appdomain.cloud"
+   
+   # For local file storage:
+   export MCP_DATABASE_TYPE="local_file"
+   export MCP_DATABASE_FILE_PATH="/path/to/valid/file.json"
+   ```
+
+8. **Server starts but some servers are not mounted**
+   - **Cause**: Individual server configuration errors (unsupported types, invalid endpoints, etc.)
+   - **Solution**: Check logs for mount errors and fix the problematic server configurations
+   ```bash
+   # Look for "Failed to mount server" messages in the logs
+   # Fix the specific server configurations that are failing
+   # Server will continue to run with successfully mounted servers
+   ```
+
