@@ -13,7 +13,7 @@ async def main():
     Raises:
         ValueError: _description_
     """
-    mode = os.getenv("MCP_MODE", "http").lower()
+    mode = os.getenv("MCP_MODE", "sse").lower()
     gw.add_middleware(ListFilteredTool(gw))
     await gw.setup_member_servers()
 
