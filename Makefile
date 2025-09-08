@@ -117,22 +117,9 @@ status:
 	@echo "📦 Preparing release for mcp_composer..."
 	@echo "📁 Python: $$(python --version)"
 	@echo "📂 Virtualenv: $$(which python)"
+	@echo "🔧 Uv: $$(uv --version)"
 
 build:
-	@if [ -z "$(module)" ] || [ -z "$(version)" ]; then \
-	  echo "❌ Usage: make build module=<module_name> version=<x.y.z>"; exit 1; \
-	fi
-	@if git rev-parse "v$(version)" >/dev/null 2>&1; then \
-	  echo "⚠️  Git tag v$(version) already exists, reusing..."; \
-	else \
-	  echo "🏷️  Creating git tag v$(version)..."; \
-	  git tag v$(version); \
-	fi
-	@echo "🔨 Building wheel for $(module) (version $(version))..."
-	cd modules/$(module) && uv sync && uv build --wheel  .
-	@echo "✅ Wheel(s) for $(module) in modules/$(module)/dist/"
-
-build-with-tag:
 	@if [ -z "$(module)" ] || [ -z "$(version)" ]; then \
 	  echo "❌ Usage: make build module=<module_name> version=<x.y.z>"; exit 1; \
 	fi
