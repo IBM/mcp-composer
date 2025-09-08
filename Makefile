@@ -132,6 +132,24 @@ build:
 	cd modules/$(module) && uv sync && uv build --wheel  .
 	@echo "✅ Wheel(s) for $(module) in modules/$(module)/dist/"
 
+build-with-tag:
+	@if [ -z "$(module)" ] || [ -z "$(version)" ]; then \
+	  echo "❌ Usage: make build module=<module_name> version=<x.y.z>"; exit 1; \
+	fi
+	@set -e; \
+	if git rev-parse "v$(version)" >/dev/null 2>&1; then \
+	  echo "⚠️  Git tag v$(version) already exists; building from the tag..."; \
+	  git fetch --tags --force --prune; \
+	  prev_branch=$$(git rev-parse --abbrev-ref HEAD); \
+	  git switch --detach "v$(version)"; \
+	  ( cd modules/$(module) && uv sync && uv build --wheel . ); \
+	  git switch "$$prev_branch" >/dev/null 2>&1 || git switch -; \
+	else \
+	  echo "🏷️  Creating git tag v$(version) on current HEAD..."; \
+	  git tag -a "v$(version)" -m "$(module) $(version)"; \
+	  ( cd modules/$(module) && uv sync && uv build --wheel . ); \
+	fi
+	@echo "✅ Wheel(s) for $(module) in modules/$(module)/dist/"
 
 check-release:
 	@if [ -z "$(module)" ] || [ -z "$(version)" ]; then \
