@@ -93,7 +93,7 @@ async def test_corrupt_entry_does_not_crash_composer(fake_db):
 async def test_empty_database_loads_no_servers(fake_db):
     composer = MCPComposer("composer", database_config=fake_db)
     await composer.setup_member_servers()
-    mounted_servers = composer._server_manager.list_member_servers()
+    mounted_servers = composer._server_manager.list_servers()
     assert mounted_servers == [], "Composer should start cleanly with empty DB"
 
 
@@ -144,7 +144,7 @@ async def test_composer_initializes_without_any_config():
                 assert len(tools) > 0, "Composer should have at least some basic tools"
 
                 # Should have no member servers mounted
-                mounted_servers = composer._server_manager.list_member_servers()
+                mounted_servers = composer._server_manager.list_servers()
                 assert (
                     mounted_servers == []
                 ), "Composer should start with no member servers when no config provided"
@@ -222,7 +222,7 @@ async def test_composer_initializes_when_file_creation_fails():
                 assert len(tools) > 0, "Composer should have at least some basic tools"
 
                 # Should have no member servers mounted
-                mounted_servers = composer._server_manager.list_member_servers()
+                mounted_servers = composer._server_manager.list_servers()
                 assert (
                     mounted_servers == []
                 ), "Composer should start with no member servers when no config provided"
@@ -289,7 +289,7 @@ async def test_composer_initializes_with_invalid_file_path():
                 assert len(tools) > 0, "Composer should have at least some basic tools"
 
                 # Should have no member servers mounted
-                mounted_servers = composer._server_manager.list_member_servers()
+                mounted_servers = composer._server_manager.list_servers()
                 assert (
                     mounted_servers == []
                 ), "Composer should start with no member servers when no config provided"
@@ -332,7 +332,7 @@ async def test_composer_uses_local_file_adapter_when_no_database_config(server_c
     assert len(tools) > 0, "Composer should have at least some basic tools"
 
     # Should have the server from config mounted
-    mounted_servers = composer._server_manager.list_member_servers()
+    mounted_servers = composer._server_manager.list_servers()
     assert len(mounted_servers) == 1, "Composer should mount server from config"
     assert (
         mounted_servers[0]["id"] == "mcp-stock-info"

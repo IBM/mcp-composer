@@ -24,6 +24,7 @@ from mcp_composer.core.member_servers import (
 )
 from mcp_composer.core.settings.version_control_manager import ConfigManager
 from mcp_composer.core.utils.custom_tool import DynamicToolGenerator, OpenApiTool
+from mcp_composer.core.utils.utils import get_endpoint_from_config
 from mcp_composer.store.database import DatabaseInterface
 from mcp_composer.store.cloudant_adapter import CloudantAdapter
 from mcp_composer.store.local_file_adapter import LocalFileAdapter
@@ -83,7 +84,7 @@ class MCPComposer(FastMCP):
             except Exception as e:
                 logger.error("Failed to initialize database: %s", e)
                 raise
-        else: # No database config provided
+        else:  # No database config provided
             database = LocalFileAdapter()
             logger.info("No database config provided, using local file storage")
 
@@ -121,7 +122,7 @@ class MCPComposer(FastMCP):
             self.member_health,
             self.activate_mcp_server,
             self.deactivate_mcp_server,
-            self._server_manager.list_member_servers,
+            self._server_manager.list_servers,
         ]
 
         # Tools which will add tools dynamically from Python script
@@ -203,6 +204,7 @@ class MCPComposer(FastMCP):
 
             member = MemberMCPServer(
                 id=server_id,
+                endpoint=get_endpoint_from_config(config),
                 type=config["type"],
                 config=config,
                 label=config.get("label", ""),

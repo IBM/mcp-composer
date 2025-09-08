@@ -2,7 +2,7 @@
 from enum import Enum
 from typing import Optional, Dict, Any, Annotated
 import pydantic_core
-from pydantic import BaseModel, Field, BeforeValidator
+from pydantic import BaseModel, Field, BeforeValidator, HttpUrl
 from fastmcp import FastMCP
 from fastmcp.utilities.components import (
     _convert_set_default_none,
@@ -17,6 +17,8 @@ def default_serializer(data: Any) -> str:
 
 
 class HealthStatus(str, Enum):
+    """Server health status"""
+
     healthy = "OK"
     unhealthy = "Down"
 
@@ -29,6 +31,7 @@ class MemberMCPServer(BaseModel):
 
     id: str = Field(..., description="Unique ID of the mounted MCP server")
     type: str = Field(..., description="Server type: openapi, client, fastapi, etc.")
+    endpoint: Optional[HttpUrl] = Field(None, description="URL of the MCP server")
     label: Optional[str] = Field(None, description="Human-friendly label")
     tags: Annotated[set[str], BeforeValidator(_convert_set_default_none)] = Field(
         default_factory=set, description="Tags for the tool"

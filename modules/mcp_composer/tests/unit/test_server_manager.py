@@ -1,5 +1,7 @@
-import pytest
+"""test_server_manager.py"""
+
 from unittest.mock import MagicMock, patch, AsyncMock
+import pytest
 from mcp_composer.core.member_servers.server_manager import ServerManager
 from fastmcp.exceptions import NotFoundError, ToolError
 from mcp_composer.core.utils.exceptions import ToolDisableError
@@ -281,7 +283,7 @@ async def test_member_health():
         mock_health.assert_called_once_with(config)
 
 
-def test_list_member_servers():
+def test_list_servers():
     """Test listing member servers."""
     manager = ServerManager()
     mock_member_server = MagicMock()
@@ -292,7 +294,7 @@ def test_list_member_servers():
     manager._database = MagicMock()
     manager._database.load_all_servers.return_value = [{"id": "test_server"}]
 
-    result = manager.list_member_servers()
+    result = manager.list_servers()
 
     # The method returns a list of dicts with server info
     assert len(result) == 1

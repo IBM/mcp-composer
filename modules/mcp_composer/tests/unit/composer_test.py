@@ -4,7 +4,7 @@ import unittest
 import logging
 import os
 import json
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, patch, AsyncMock
 from fastmcp.tools.tool import Tool
 
 from mcp_composer.core.member_servers.member_server import HealthStatus
@@ -12,6 +12,9 @@ from mcp_composer.core.utils.validator import ValidationError
 from mcp_composer.core.composer import MCPComposer
 from mcp_composer.store.database import DatabaseInterface
 from mcp_composer.core.utils.custom_tool import DynamicToolGenerator, OpenApiTool
+
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
 
 
 class TestData:
@@ -33,9 +36,9 @@ class TestComposer(unittest.IsolatedAsyncioTestCase):
         path = os.path.join(current_dir, "./../data/member_servers.json")
         # Assumes file is in the root or test dir
         with open(path, "r", encoding="utf-8") as f:
-            config = json.load(f)
+            self.config = json.load(f)
         self.fake_db = MagicMock(spec=DatabaseInterface)
-        self.fake_db.load_all_servers.return_value = config
+        self.fake_db.load_all_servers.return_value = self.config
         self.gw = MCPComposer("composer", database_config=self.fake_db)
         await self.gw.setup_member_servers()
 
@@ -48,17 +51,75 @@ class TestComposer(unittest.IsolatedAsyncioTestCase):
         gw = MCPComposer("composer")
         self.assertEqual(gw.name, "composer", "Should be composer")
 
-    async def test_composer_with_config(self):
+    def test_composer_with_config(self):
         """Test member servers mounted successfully"""
-        logger = logging.getLogger()
-        logger.setLevel(logging.DEBUG)
         try:
-            members = self.gw._server_manager.list_member_servers()
-            logger.info("All members are %s", members)
+            members = self.gw._server_manager.list_servers()
             self.assertEqual(len(members), 2, "Should have 2 members")
         except ValidationError as e:
             logger.info("Actual error message: %s", e)
             raise  # re-raise to keep test failing for now
+
+    async def test_server_list_with_endpoint(self):
+        """Ensure the member server list contains the endpoint and type"""
+
+        open_api = {
+            "id": "mcp_instana",
+            "type": "openapi",
+            "open_api": {
+                "spec_filepath": "./spec/instana-openapi.json",
+                "endpoint": "http://instana.io",
+            },
+            "auth_strategy": "basic",
+            "auth": {
+                "username": "xxxx",
+                "password": "xxxx",
+            },
+        }
+
+        graphql = {
+            "id": "mcp_graphql",
+            "type": "graphql",
+            "graphql": {"endpoint": "http://graphql.io"},
+        }
+
+        expected_types = [ser["type"] for ser in self.config]
+        expected_types.extend(["openapi", "graphql"])
+
+        expected_endpoints = [ser["endpoint"] for ser in self.config]
+        expected_endpoints.extend(["http://instana.io", "http://graphql.io"])
+
+        with patch.object(
+            self.gw, "register_mcp_server", new_callable=AsyncMock
+        ) as mock_register:
+            # Mock registration
+            await self.gw.register_mcp_server(config=open_api)
+            await self.gw.register_mcp_server(config=graphql)
+
+            # Optionally assert calls were made correctly
+            mock_register.assert_any_call(config=open_api)
+            mock_register.assert_any_call(config=graphql)
+            assert mock_register.call_count == 2
+
+            try:
+                # Still call list_servers (assumed not mocked)
+                members = self.gw._server_manager.list_servers()
+                logger.info("All members: %s", members)
+
+                for member in members:
+                    self.assertIn(
+                        member["type"],
+                        expected_types,
+                        f"Unexpected member type: {member['type']}",
+                    )
+                    self.assertIn(
+                        member["endpoint"],
+                        expected_endpoints,
+                        f"Unexpected endpoint: {member['endpoint']}",
+                    )
+            except ValidationError as e:
+                logger.error("Validation error occurred: %s", e)
+                raise
 
     async def test_get_tools(self):
         """Make sure the composer returns the list of tools"""

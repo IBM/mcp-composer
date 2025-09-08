@@ -13,12 +13,14 @@ import httpx
 from aiohttp import ClientConnectorError
 from fastmcp.prompts.prompt import Prompt, PromptArgument
 from fastmcp.server.openapi import MCPType, RouteMap
+from pydantic import HttpUrl
 
 from mcp_composer.core.member_servers.member_server import HealthStatus, MemberMCPServer
 from mcp_composer.core.settings.adapters import ADAPTER_REGISTRY
 from mcp_composer.core.settings.base_adapter import SecretAdapter
 from mcp_composer.core.utils.exceptions import MemberServerError
 from mcp_composer.core.utils.logger import LoggerFactory
+from mcp_composer.core.utils.validator import MemberServerType, ConfigKey
 
 logger = LoggerFactory.get_logger()
 
@@ -60,6 +62,7 @@ async def load_custom_mappings_from_json(json_data: str | list[dict]) -> list[Ro
 
 
 async def load_spec_from_url(base_url, openapi_spec_url):
+    """Load json from url"""
     logger.info("Downloading the json spec for the open api")
     async with httpx.AsyncClient(base_url=base_url) as client:
         response = await client.get(openapi_spec_url)
@@ -69,6 +72,7 @@ async def load_spec_from_url(base_url, openapi_spec_url):
 
 
 async def load_json(filepath):
+    """Load json from local"""
     with open(filepath, "r", encoding="utf-8-sig") as file:
         data = json.load(file)
         return data
@@ -77,6 +81,7 @@ async def load_json(filepath):
 async def get_member_health(
     server_config: list[MemberMCPServer],
 ) -> list[dict]:
+    """Fetch server status"""
     try:
         async with aiohttp.ClientSession(trust_env=True) as session:
             tasks = {
@@ -115,6 +120,7 @@ async def get_member_health(
 
 
 def get_server_doc_info(doc: dict) -> tuple[list[str], dict[str, str]]:
+    """Get server tools details"""
     disabled_tools = []
     tools_description = {}
     if doc:
@@ -124,12 +130,14 @@ def get_server_doc_info(doc: dict) -> tuple[list[str], dict[str, str]]:
 
 
 def extract_imported_modules(script: str):
+    """Get import module names from the python script"""
     # Naive regex for finding `import` and `from ... import`
     pattern = r"^\s*(?:import|from)\s+([\w_]+)"
     return list(set(re.findall(pattern, script, re.MULTILINE)))
 
 
 def ensure_dependencies_installed(dependencies):
+    """Install the python packages mentioned in the python script"""
     for package in dependencies:
         if importlib.util.find_spec(package) is None:
             logger.info("Installing missing package: %s", package)
@@ -238,6 +246,7 @@ def _build_prompt_arguments(arguments: list[Any]) -> list[Any]:
 
 
 def get_version_adapter(config: Optional[Dict[str, Any]] = None) -> SecretAdapter:
+    """Return adapter version"""
     if config:
         adapter_type = config.get("type", "file").lower()
         adapter_args = {k: v for k, v in config.items() if k != "type"}
@@ -258,3 +267,28 @@ def get_version_adapter(config: Optional[Dict[str, Any]] = None) -> SecretAdapte
         raise ValueError(f"Unsupported version adapter type: {adapter_type}")
 
     return adapter_factory(**adapter_args)
+
+
+def get_endpoint_from_config(config: Dict[str, Any]) -> Optional[HttpUrl]:
+    """Get the endpoint from config for different server types: HTTP, SSE, OpenAPI, etc."""
+
+    server_type = config.get("type")
+
+    if server_type in {
+        MemberServerType.HTTP,
+        MemberServerType.SSE,
+        MemberServerType.STDIO,
+        MemberServerType.CLIENT,
+    }:
+        endpoint = config.get("endpoint")
+
+    elif server_type == MemberServerType.OPENAPI:
+        endpoint = config.get(ConfigKey.OPEN_API, {}).get(ConfigKey.ENDPOINT)
+
+    elif server_type == MemberServerType.GRAPHQL:
+        endpoint = config.get(ConfigKey.GRAPHQL, {}).get(ConfigKey.ENDPOINT)
+
+    else:
+        endpoint = None
+
+    return endpoint
