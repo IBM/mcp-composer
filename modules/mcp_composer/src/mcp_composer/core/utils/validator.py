@@ -28,6 +28,9 @@ class ConfigKey(str, Enum):
     PASSWORD = "password"
     LOGIN_URL = "login_url"
     TOKEN_TYPE = "token_type"
+    TOKEN_GEN_AUTH_METHOD = "token_gen_auth_method"
+    TOKEN_GEN_METHOD = "token_gen_method"
+    SECRET = "secret"
     MEDIA_TYPE = "media_type"
     MEDIA_TYPE_JSON = "json"
     # OAuth configuration keys

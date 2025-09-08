@@ -178,6 +178,10 @@ upload-testpypi:
 	    uv run twine upload --repository testpypi $$ARTS \
 	)
 
+run-mcp-inspector-local:
+	@echo "🔒 Running security checks with safety..."
+	npx @modelcontextprotocol/inspector
+
 upload-pypi:
 	@if [ -z "$(module)" ] || [ -z "$(version)" ]; then \
 	  echo "❌ Usage: make upload-pypi module=<module_name> version=<x.y.z>"; exit 1; \
