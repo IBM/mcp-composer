@@ -105,7 +105,62 @@ include = ["mcp_composer"]
    
    **Note**: If you don't set up the `.env` file, you'll get a `KeyError: 'SERVER_CONFIG_FILE_PATH'` error when trying to import the module.
 
-5. Synchronize the environment.
+5. **Database Configuration (Optional)**
+   
+   The MCP Composer supports multiple database backends for storing server configurations, tools, prompts, and resources:
+   
+   **Default Behavior**: If no database configuration is provided, MCP Composer uses local file storage (`LocalFileAdapter`).
+   
+   **Cloudant Database Configuration**:
+   
+   To use IBM Cloudant as the database backend, provide a `database_config` dictionary when initializing MCPComposer:
+   
+   ```python
+   from mcp_composer import MCPComposer
+   
+   # Cloudant configuration
+   database_config = {
+       "type": "cloudant",
+       "api_key": "your_cloudant_api_key",
+       "service_url": "https://your-cloudant-instance.cloudantnosqldb.appdomain.cloud",
+       "db_name": "mcp_servers"  # Optional, defaults to "mcp_servers"
+   }
+   
+   composer = MCPComposer(
+       name="my-composer",
+       database_config=database_config
+   )
+   ```
+   
+   **Required Cloudant Parameters**:
+   - `type`: Must be set to `"cloudant"`
+   - `api_key`: Your IBM Cloudant API key
+   - `service_url`: Your Cloudant service URL
+   
+   **Optional Cloudant Parameters**:
+   - `db_name`: Database name (defaults to `"mcp_servers"`)
+   
+   **Custom Database Interface**:
+   
+   You can also provide a custom database implementation by passing a `DatabaseInterface` instance:
+   
+   ```python
+   from mcp_composer.store.database import DatabaseInterface
+   
+   class MyCustomDatabase(DatabaseInterface):
+       # Implement required methods
+       pass
+   
+   custom_db = MyCustomDatabase()
+   composer = MCPComposer(
+       name="my-composer",
+       database_config=custom_db
+   )
+   ```
+   
+   **Error Handling**: If Cloudant configuration is provided but missing required keys (`api_key` or `service_url`), the composer will raise a `ValueError` with a descriptive error message.
+
+6. Synchronize the environment.
    
    **First time setup**: Run this to create the initial `uv.lock` file:
    ```bash
@@ -122,16 +177,16 @@ include = ["mcp_composer"]
    rm uv.lock && uv sync # Refresh child dependencies, commit uv.lock
    ```
 
-6. Add a new dependency; automatically creates a virtual environment if necessary
+7. Add a new dependency; automatically creates a virtual environment if necessary
 
    ```bash
    uv add <my-package>
    ```
-7. Leverage the project's virtual environment:
+8. Leverage the project's virtual environment:
    ```
    uv run <command&args>
    ```
-8. Test if MCP Composer is installed successfully or not
+9. Test if MCP Composer is installed successfully or not
 
    ```bash
    uv run python -c "import mcp_composer; print(mcp_composer.__version__)"
@@ -306,6 +361,7 @@ uvx mcp-composer -sseurl --sse-url <url to remote sse mcp server> --auth_type oa
 - Handles multiple authentication strategies.
 - Automatically forwards each request to the correct upstream server or tool.
 - List tools and metadata by name or server.
+- **Database Support**: Configurable database backends including IBM Cloudant and local file storage for persistent server configurations, tools, prompts, and resources.
 
 ### MCP Composer Servers
 
@@ -391,6 +447,51 @@ mcp_server = await builder.build()
 ```
 
 This will create a FastMCP server instance with a GraphQL tool registered, allowing you to interact with the GraphQL API through MCP Composer.
+
+#### Database Configuration for Server Management
+
+When initializing MCPComposer, you can configure the database backend for persistent storage of server configurations:
+
+**Example with Cloudant Database**:
+
+```python
+from mcp_composer import MCPComposer
+
+# Configure Cloudant database
+database_config = {
+    "type": "cloudant",
+    "api_key": "your_cloudant_api_key",
+    "service_url": "https://your-cloudant-instance.cloudantnosqldb.appdomain.cloud",
+    "db_name": "mcp_servers"  # Optional
+}
+
+# Initialize composer with database configuration
+composer = MCPComposer(
+    name="my-composer",
+    database_config=database_config
+)
+
+# Server configurations will be automatically persisted to Cloudant
+await composer.setup_member_servers()
+```
+
+**Example with Local File Storage (Default)**:
+
+```python
+from mcp_composer import MCPComposer
+
+# No database_config provided - uses local file storage
+composer = MCPComposer(name="my-composer")
+
+# Server configurations will be stored locally
+await composer.setup_member_servers()
+```
+
+**Benefits of Database Configuration**:
+- **Persistence**: Server configurations, tools, prompts, and resources are saved across restarts
+- **Scalability**: Cloudant provides distributed storage for multi-instance deployments
+- **Management**: Tools for enabling/disabling tools, prompts, and resources per server
+- **Versioning**: Support for configuration versioning and rollback capabilities
 
 ### Command Line Interface (CLI)
 
