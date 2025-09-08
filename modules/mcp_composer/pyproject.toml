@@ -25,6 +25,7 @@ dependencies = [
     "types-requests>=2.32.4.20250611",
     "jsonref>=1.1.0",
     "deepdiff>=8.6.0",
+    "scikit-learn>=1.7.1",
 ]
 
 [dependency-groups]

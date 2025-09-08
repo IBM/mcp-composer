@@ -66,6 +66,12 @@ class TestComposer(unittest.IsolatedAsyncioTestCase):
         self.assertIsInstance(tools, dict)
         self.assertGreaterEqual(len(tools), 1)
 
+    async def test_filter_tool(self):
+        """Make sure the composer returns the list of tools"""
+        tools = await self.gw.filter_tool(keyword="get")
+        self.assertIsInstance(tools, dict)
+        self.assertGreaterEqual(len(tools), 3)
+
     async def test_member_health(self):
         """Ensure composer returns the health status of a member server"""
         health_statuses = [item["status"] for item in await self.gw.member_health()]
@@ -73,7 +79,9 @@ class TestComposer(unittest.IsolatedAsyncioTestCase):
 
     @patch.object(DynamicToolGenerator, "_ensure_base_file")
     @patch.object(DynamicToolGenerator, "_write_function_to_file")
-    async def test_generate_tool_from_script(self, mock_write_function, mock_ensure_base_file):
+    async def test_generate_tool_from_script(
+        self, mock_write_function, mock_ensure_base_file
+    ):
         """Ensure the tools are created successfully using a cURL command and a Python script."""
         script_input = {
             "name": "sum",
@@ -94,7 +102,9 @@ class TestComposer(unittest.IsolatedAsyncioTestCase):
 
         await self.gw.add_tools_from_python(script_input)
         mock_ensure_base_file._ensure_base_file()
-        mock_write_function.assert_called_with(script_input["name"], script_input["script_config"]["value"])
+        mock_write_function.assert_called_with(
+            script_input["name"], script_input["script_config"]["value"]
+        )
 
         await self.gw.add_tools_from_curl(curl_input)
         tools = await self.gw.get_tools()
@@ -120,7 +130,9 @@ class TestComposer(unittest.IsolatedAsyncioTestCase):
 
     @patch.object(MCPComposer, "rollback_openapi_tool_version")
     @patch.object(OpenApiTool, "write_versioned_openapi")
-    async def test_tool_from_openapi_rollback(self, mock_write_versioned_openapi, mock_rollback_openapi_tool_version):
+    async def test_tool_from_openapi_rollback(
+        self, mock_write_versioned_openapi, mock_rollback_openapi_tool_version
+    ):
         """If a rollback version is specified, ensure that tools are loaded from that version"""
 
         # Add the first and second versions of the OpenAPI tool
@@ -134,7 +146,9 @@ class TestComposer(unittest.IsolatedAsyncioTestCase):
         await self.gw.rollback_openapi_tool_version("HelloWorld_API", "1.0.1")
 
         # Assert that rollback was called with correct args
-        mock_rollback_openapi_tool_version.assert_called_once_with("HelloWorld_API", "1.0.1")
+        mock_rollback_openapi_tool_version.assert_called_once_with(
+            "HelloWorld_API", "1.0.1"
+        )
 
         # Retrieve tools and assert tool versions
         tools = await self.gw.get_tools()
@@ -175,7 +189,10 @@ class TestComposer(unittest.IsolatedAsyncioTestCase):
     @patch.object(DynamicToolGenerator, "write_curl_to_file")
     @patch.object(MCPComposer, "rollback_curl_tool_version")
     async def test_tool_from_curl_rollback(
-        self, mock_write_curl_to_file, mock_rollback_curl_tool_version, mock_ensure_base_file
+        self,
+        mock_write_curl_to_file,
+        mock_rollback_curl_tool_version,
+        mock_ensure_base_file,
     ):
         """If a rollback version is specified, ensure that tools are loaded from that version"""
         curl_input = {
@@ -202,7 +219,9 @@ class TestComposer(unittest.IsolatedAsyncioTestCase):
         await self.gw.add_tools_from_curl(curl_input_v1)
         await self.gw.rollback_curl_tool_version("HelloWorld_API", "1.0.1")
         mock_write_curl_to_file.assert_called()
-        mock_rollback_curl_tool_version.rollback_curl_tool_version("HelloWorld_API", "1.0.1")
+        mock_rollback_curl_tool_version.rollback_curl_tool_version(
+            "HelloWorld_API", "1.0.1"
+        )
 
         tools = await self.gw.get_tools()
         self.assertIsInstance(tools.get("event_test"), Tool)
