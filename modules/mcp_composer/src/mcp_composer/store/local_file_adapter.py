@@ -28,6 +28,10 @@ class LocalFileAdapter(DatabaseInterface):
             file_path = os.getenv("SERVER_CONFIG_FILE_PATH", "member_servers.json")
         self._file_path = Path(file_path)
         logger.info("Using local file storage: %s", self._file_path)
+        
+        # Initialize file availability flag to False (pessimistic approach)
+        self._file_available = False
+        
         self._ensure_file_exists()
 
     def _ensure_file_exists(self) -> None:
