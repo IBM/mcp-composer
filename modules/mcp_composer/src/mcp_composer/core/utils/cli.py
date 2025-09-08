@@ -181,7 +181,6 @@ def _add_middleware_command(parser: argparse.ArgumentParser) -> argparse.Argumen
 
 def _setup_args_parser() -> argparse.ArgumentParser:
     """Main entry point for the MCP Composer CLI."""
-    logger.info("Starting MCP Composer CLI...")
 
     parser = argparse.ArgumentParser(
         description="Run MCP Composer with dynamically constructed config",
@@ -287,8 +286,9 @@ def build_config_from_args(args: argparse.Namespace) -> List[Dict]:
             # The server will be started directly without member servers
             config = {}
     elif args.mode == MemberServerType.STDIO:
-        if not args.script_path:
-            raise ValueError("--script-path is required for mode 'stdio'")
+        if not args.script_path or args.sse_url:
+            raise ValueError("--script-path or --sse-url is required for mode 'stdio'")
+
         config = {
             "id": args.id,
             "type": MemberServerType.STDIO,
@@ -315,6 +315,7 @@ async def run_dynamic_composer(args: argparse.Namespace, config: list[Dict]) -> 
         logger.info("Detected --auth_type oauth")
         settings = ServerSettings()
         mcp = await create_mcp_server(settings)
+
     else:
         logger.info("Running MCP Composer without OAuth")
         mcp = MCPComposer("composer", config=config)  # type: ignore
@@ -328,7 +329,7 @@ async def run_dynamic_composer(args: argparse.Namespace, config: list[Dict]) -> 
             mcp.remove_tool(name)
 
     if args.sse_url:
-        logger.info("mounting SSE server into MCP composer")
+        logger.info("mounting Remote server into MCP composer")
         remote_proxy = MCPComposer.as_proxy(
             ProxyClient(args.sse_url), name="local-stdio"
         )

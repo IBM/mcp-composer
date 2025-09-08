@@ -73,9 +73,12 @@ class MCPComposer(FastMCP):
             except Exception as e:
                 logger.error("Failed to initialize database: %s", e)
                 raise
-        else:
+        elif config:
             database = LocalFileAdapter()
             logger.info("No database config provided, using local file storage")
+
+        else: # No database and no config provided
+            logger.warning("No database or config provided, running without persistence")
 
         self._server_manager = ServerManager(database=database, config_manager=self._config_manager)
         self._tool_manager = MCPToolManager(composer=self, server_manager=self._server_manager, database=database)
@@ -109,7 +112,7 @@ class MCPComposer(FastMCP):
         # Tools which will add tools dynamically from Python script
         # Curl command and OpenAPI specification
         dynamic_tool_generator = []
-        if os.getenv("ENABLE_ADD_TOOLS_USING_PYTHON").lower() == "true":
+        if os.getenv("ENABLE_ADD_TOOLS_USING_PYTHON", "false").lower() == "true":
             dynamic_tool_generator = [
                 self.add_tools_from_python,
             ]
