@@ -26,6 +26,8 @@ dependencies = [
     "jsonref>=1.1.0",
     "deepdiff>=8.6.0",
     "scikit-learn>=1.7.1",
+    "typer>=0.17.3",
+    "python-daemon>=3.1.2",
 ]
 
 [dependency-groups]
