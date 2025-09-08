@@ -34,11 +34,12 @@ class LocalFileAdapter(DatabaseInterface):
         """Ensure the file exists, create it if it doesn't. Fail gracefully if creation fails."""
         if not self._file_path.exists():
             try:
+                logger.info("Creating member_servers.json file")
                 self._file_path.parent.mkdir(parents=True, exist_ok=True)
                 with open(self._file_path, "w", encoding="utf-8") as f:
                     json.dump([], f)
                 logger.info("Successfully created member_servers.json file")
-            except (OSError, IOError) as e:
+            except Exception as e:
                 logger.warning("Failed to create member_servers.json file: %s. Continuing without file persistence.", e)
                 # Set a flag to indicate file operations are not available
                 self._file_available = False
@@ -57,7 +58,7 @@ class LocalFileAdapter(DatabaseInterface):
                 return json.load(f)
         except (json.JSONDecodeError, FileNotFoundError):
             return []
-        except (OSError, IOError) as e:
+        except Exception as e:
             logger.warning("Failed to read from member_servers.json file: %s", e)
             # Mark file as unavailable for future operations
             self._file_available = False
@@ -71,7 +72,7 @@ class LocalFileAdapter(DatabaseInterface):
         try:
             with open(self._file_path, "w", encoding="utf-8") as f:
                 json.dump(data, f, indent=2)
-        except (OSError, IOError) as e:
+        except Exception as e:
             logger.warning("Failed to write to member_servers.json file: %s", e)
             # Mark file as unavailable for future operations
             self._file_available = False
