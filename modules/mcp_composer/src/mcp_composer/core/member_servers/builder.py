@@ -211,12 +211,7 @@ class MCPServerBuilder:
                 )
 
             case AuthStrategy.DYNAMIC_BEARER:
-                http_client = DynamicTokenClient(
-                    base_url=base_url,
-                    token_url=auth_config.get(ConfigKey.Token_URL),
-                    api_key=auth_config.get(ConfigKey.APIKEY),
-                    media_type=auth_config.get(ConfigKey.MEDIA_TYPE, ""),
-                )
+                http_client = DynamicTokenClient(base_url,auth_config)
             case AuthStrategy.OAUTH:
                 logger.info("Setting up OAuth client with auto-refresh")
                 # Use the generic resolve_env_value function to handle ENV_* values
