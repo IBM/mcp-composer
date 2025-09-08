@@ -71,7 +71,7 @@ class DynamicTokenClient(httpx.AsyncClient):
 
                 try:
                     auth = httpx.BasicAuth(str(_id), str(_secret))
-                    if self.auth_data.get(ConfigKey.TOKEN_GEN_AUTH_METHOD,"get").lower()=="post":
+                    if self.auth_data.get(ConfigKey.TOKEN_GEN_METHOD,"get").lower()=="post":
                         response = await super().post(token_url, headers=headers, auth=auth)
                     else:
                         response = await super().get(token_url, headers=headers, auth=auth)
