@@ -2,11 +2,12 @@
 
 The MCP Composer is a [FastMCP](https://github.com/jlowin/fastmcp) based Composer that manages multiple MCP servers and tools.
 Servers and tools can be registered at runtime using structured JSON configurations.
-The MCP Composer serves as an orchestrator for tool execution and forwards tool requests to the correct upstream MCP server or interface.
 
-The MCP Composer supports multiple tool types, such as OpenAPI (REST), GraphQL, CLI-based tools, client SDKs, and nested MCP servers.
+[MCP Composer](https://ibm.github.io/mcp-composer/) serves as an orchestrator for tool execution and forwards tool requests to the correct upstream MCP server or interface.
 
-It also manages multiple MCP servers and tools with dynamic registration, authentication, and unified interface.
+It supports multiple tool types, such as OpenAPI (REST), GraphQL, CLI-based tools, client SDKs, and nested MCP servers.
+
+Also, you can manage multiple MCP servers and tools with dynamic registration, authentication, and unified interface.
 
 ## Features
 

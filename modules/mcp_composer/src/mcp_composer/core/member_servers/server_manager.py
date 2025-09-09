@@ -18,6 +18,7 @@ from mcp_composer.core.utils.exceptions import (
     ToolDuplicateError,
     ToolDisableError,
 )
+from mcp_composer.core.utils.utils import get_endpoint_from_config
 from mcp_composer.store.database import DatabaseInterface
 from mcp_composer.core.utils.tools import check_duplicate_tool
 from mcp_composer.core.utils.validator import ServerConfigValidator, ValidationError
@@ -221,7 +222,7 @@ class ServerManager:
         health_status = await get_member_health(server_config)
         return health_status
 
-    def list_member_servers(self) -> list[dict]:
+    def list_servers(self) -> list[dict]:
         """
         List status of all member servers (active or deactivated).
         """
@@ -231,7 +232,9 @@ class ServerManager:
         return [
             {
                 "id": cfg["id"],
+                "type": cfg["type"],
                 "server_name": (self.get(cfg["id"]).get_server().name if self.has_member_server(cfg["id"]) else "N/A"),
+                "endpoint": (get_endpoint_from_config(cfg) if self.has_member_server(cfg["id"]) else "N/A"),
                 "status": self.get_server_status(cfg["id"]),
             }
             for cfg in configs

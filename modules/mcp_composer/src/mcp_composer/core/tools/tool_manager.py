@@ -4,6 +4,9 @@ from __future__ import annotations
 import inspect
 from typing import TYPE_CHECKING, Optional
 
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.metrics.pairwise import cosine_similarity
+
 from fastmcp.tools import ToolManager
 from fastmcp.tools.tool import Tool
 from fastmcp.settings import DuplicateBehavior
@@ -100,13 +103,11 @@ class MCPToolManager(ToolManager):
 
     async def load_custom_tools(self):
         """Load tools using saved OpenAPI, Curl, and Python script."""
-
         try:
             if custom_tools:
                 for name, func in inspect.getmembers(custom_tools, inspect.isfunction):
                     logger.info("Adding tool from custom tool folder: %s", name)
                     self.add_tool(Tool.from_function(func))
-
             # Load tools from curl commands
             for tool_fn in await generate_tool_from_curl():
                 self.add_tool(Tool.from_function(tool_fn))
@@ -283,3 +284,42 @@ class MCPToolManager(ToolManager):
             server_id,
         )
         return f"Updated {tool} with description: {description}"
+
+    async def filter_tool_by_keyword(self, keyword: str):
+        """
+        Filter tools by keyword using cosine similarity (based on TF-IDF vectorization).
+        Returns tools sorted by similarity score (highest first).
+        """
+        logger.info("Filter tools by using keyword: %s", keyword)
+        tools = self.filter_tools(
+            await self.get_tools()
+        )  # Get dict of tools: {name: tool}
+        tool_names = list(tools.keys())
+
+        # Create corpus: keyword + all tool names
+        corpus = [keyword] + tool_names
+
+        # TF-IDF vectorization
+        vectorizer = TfidfVectorizer(analyzer="char_wb", ngram_range=(2, 4)).fit(corpus)
+        vectors = vectorizer.transform(corpus)
+
+        # Compute cosine similarity between keyword and all tool names
+        keyword_vector = vectors[0]
+        tool_vectors = vectors[1:]
+        similarities = cosine_similarity(keyword_vector, tool_vectors).flatten()
+
+        # Pair tool names with similarity scores
+        scored_tools = sorted(
+            zip(tool_names, similarities), key=lambda x: x[1], reverse=True
+        )
+        # You can apply a threshold (e.g., 0.1) to filter out very dissimilar tools if needed
+        similarity_threshold = 0.1
+        filtered_tools = {
+            name: tools[name]
+            for name, score in scored_tools
+            if score >= similarity_threshold
+        }
+        logger.info(
+            "Filtered tools list by using keyword '%s': %s", keyword, filtered_tools
+        )
+        return filtered_tools

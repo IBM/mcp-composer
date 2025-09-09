@@ -37,3 +37,5 @@ docs/.vitepress/cache
 docs/node_modules/
 .mypy_cache/*
 .coverage
+modules/mcp_composer/tests/integration/*
+modules/mcp_composer/tests/specs/snow_table_api_latest_spec.json
