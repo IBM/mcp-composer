@@ -126,10 +126,11 @@ class MCPComposer(FastMCP):
             self._tool_manager.get_tool_config_by_server,
             self._tool_manager.disable_tools,
             self._tool_manager.enable_tools,
+            self._tool_manager.update_tool_description,
             # Uncomment if needed:
             # self._tool_manager.disable_tools_by_server,
             # self._tool_manager.enable_tools_by_server,
-            self._tool_manager.update_tool_description,
+
         ]
 
         # Prompt Management Tools
@@ -260,7 +261,7 @@ class MCPComposer(FastMCP):
         """Register a single server."""
         logger.info("Registering single server: %s", config)
         return await self._server_manager.register_server(
-            config=config, mount_callback=self.mount
+            config=config, mcp_composer=self
         )
 
     async def update_mcp_server_config(self, server_id: str, new_config: dict) -> str:
