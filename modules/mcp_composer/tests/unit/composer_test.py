@@ -6,6 +6,7 @@ import os
 import json
 from unittest.mock import MagicMock, patch, AsyncMock
 from fastmcp.tools.tool import Tool
+from fastmcp.exceptions import ToolError
 
 from mcp_composer.core.member_servers.member_server import HealthStatus
 from mcp_composer.core.utils.validator import ValidationError
@@ -60,6 +61,15 @@ class TestComposer(unittest.IsolatedAsyncioTestCase):
             logger.info("Actual error message: %s", e)
             raise  # re-raise to keep test failing for now
 
+    async def test_tool_description_validation(self):
+        """Ensure external server is not mounted when tools do not have descriptions"""
+        composer = MCPComposer("composer")
+
+        with self.assertRaises(ToolError) as context:
+            await composer.register_mcp_server(self.config[0])
+
+        self.assertIn("Failed to register server: ", str(context.exception))
+
     async def test_server_list_with_endpoint(self):
         """Ensure the member server list contains the endpoint and type"""
 
@@ -89,9 +99,7 @@ class TestComposer(unittest.IsolatedAsyncioTestCase):
         expected_endpoints = [ser["endpoint"] for ser in self.config]
         expected_endpoints.extend(["http://instana.io", "http://graphql.io"])
 
-        with patch.object(
-            self.gw, "register_mcp_server", new_callable=AsyncMock
-        ) as mock_register:
+        with patch.object(self.gw, "register_mcp_server", new_callable=AsyncMock) as mock_register:
             # Mock registration
             await self.gw.register_mcp_server(config=open_api)
             await self.gw.register_mcp_server(config=graphql)
@@ -140,9 +148,7 @@ class TestComposer(unittest.IsolatedAsyncioTestCase):
 
     @patch.object(DynamicToolGenerator, "_ensure_base_file")
     @patch.object(DynamicToolGenerator, "_write_function_to_file")
-    async def test_generate_tool_from_script(
-        self, mock_write_function, mock_ensure_base_file
-    ):
+    async def test_generate_tool_from_script(self, mock_write_function, mock_ensure_base_file):
         """Ensure the tools are created successfully using a cURL command and a Python script."""
         script_input = {
             "name": "sum",
@@ -163,9 +169,7 @@ class TestComposer(unittest.IsolatedAsyncioTestCase):
 
         await self.gw.add_tools_from_python(script_input)
         mock_ensure_base_file._ensure_base_file()
-        mock_write_function.assert_called_with(
-            script_input["name"], script_input["script_config"]["value"]
-        )
+        mock_write_function.assert_called_with(script_input["name"], script_input["script_config"]["value"])
 
         await self.gw.add_tools_from_curl(curl_input)
         tools = await self.gw.get_tools()
@@ -191,9 +195,7 @@ class TestComposer(unittest.IsolatedAsyncioTestCase):
 
     @patch.object(MCPComposer, "rollback_openapi_tool_version")
     @patch.object(OpenApiTool, "write_versioned_openapi")
-    async def test_tool_from_openapi_rollback(
-        self, mock_write_versioned_openapi, mock_rollback_openapi_tool_version
-    ):
+    async def test_tool_from_openapi_rollback(self, mock_write_versioned_openapi, mock_rollback_openapi_tool_version):
         """If a rollback version is specified, ensure that tools are loaded from that version"""
 
         # Add the first and second versions of the OpenAPI tool
@@ -207,9 +209,7 @@ class TestComposer(unittest.IsolatedAsyncioTestCase):
         await self.gw.rollback_openapi_tool_version("HelloWorld_API", "1.0.1")
 
         # Assert that rollback was called with correct args
-        mock_rollback_openapi_tool_version.assert_called_once_with(
-            "HelloWorld_API", "1.0.1"
-        )
+        mock_rollback_openapi_tool_version.assert_called_once_with("HelloWorld_API", "1.0.1")
 
         # Retrieve tools and assert tool versions
         tools = await self.gw.get_tools()
@@ -280,9 +280,7 @@ class TestComposer(unittest.IsolatedAsyncioTestCase):
         await self.gw.add_tools_from_curl(curl_input_v1)
         await self.gw.rollback_curl_tool_version("HelloWorld_API", "1.0.1")
         mock_write_curl_to_file.assert_called()
-        mock_rollback_curl_tool_version.rollback_curl_tool_version(
-            "HelloWorld_API", "1.0.1"
-        )
+        mock_rollback_curl_tool_version.rollback_curl_tool_version("HelloWorld_API", "1.0.1")
 
         tools = await self.gw.get_tools()
         self.assertIsInstance(tools.get("event_test"), Tool)
