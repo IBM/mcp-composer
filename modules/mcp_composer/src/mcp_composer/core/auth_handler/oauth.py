@@ -18,6 +18,7 @@ from mcp.shared.auth import OAuthClientInformationFull, OAuthToken
 from pydantic import AnyHttpUrl, AnyUrl
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from starlette.exceptions import HTTPException
+from urllib.parse import quote
 
 from mcp_composer.core.utils import LoggerFactory
 
@@ -147,10 +148,12 @@ class SimpleOAuthProvider(OAuthProvider):
         }
 
         # Build oauth authorization URL
+        redirect_uri = quote(self.settings.callback_path, safe='')
+
         auth_url = (
             f"{self.settings.auth_url}"
             f"?client_id={self.settings.client_id}"
-            f"&redirect_uri={self.settings.callback_path}"
+            f"&redirect_uri={redirect_uri}"
             f"&scope={self.settings.scope}"
             f"&state={state}"
             f"&response_type=code"

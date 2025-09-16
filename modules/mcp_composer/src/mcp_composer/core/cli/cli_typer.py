@@ -22,10 +22,10 @@ from mcp_composer import MCPComposer
 from mcp_composer.core.auth_handler.oauth import ServerSettings, SimpleOAuthProvider
 from mcp_composer.core.utils import MemberServerType
 from mcp_composer.core.utils.logger import LoggerFactory
-from .oauth_cli_utils import create_mcp_server, oauth_pkce_login_async, get_issuer
+from mcp_composer.core.utils.oauth_cli_utils import create_mcp_server, oauth_pkce_login_async, get_issuer
 
 # Import command modules
-from .commands import middleware_commands, composer_commands
+from mcp_composer.core.cli.commands import middleware_commands, composer_commands
 
 # Load environment variables
 load_dotenv()
@@ -115,11 +115,6 @@ def main_callback(
         help="Disable composer tools (disabled by default)"
     )] = None,
 
-    env: Annotated[Optional[List[str]], Option(
-        "--env", "-e",
-        help="Environment variables (format: KEY VALUE). Can be used multiple times."
-    )] = None,
-
     pass_environment: Annotated[Optional[bool], Option(
         "--pass-environment/--no-pass-environment",
         help="Pass through all environment variables when spawning all server processes"
@@ -133,6 +128,11 @@ def main_callback(
     client_auth_type: Annotated[Optional[str], Option(
         "--client_auth_type",
         help="Authentication type for client (oauth or none)"
+    )] = None,
+
+    env: Annotated[Optional[List[str]], Option(
+        "--env", "-e",
+        help="Environment variables (format: KEY=VALUE). Can be used multiple times."
     )] = None,
 ) -> None:
     """Main callback to handle direct command execution matching original CLI."""
@@ -153,8 +153,6 @@ def main_callback(
         client_auth_type = "none"
     if disable_composer_tools is None:
         disable_composer_tools = False
-    if env is None:
-        env = []
     if pass_environment is None:
         pass_environment = False
 
@@ -165,16 +163,16 @@ def main_callback(
 
     base_env: Dict[str, str] = {}
 
-    # Add environment variables from --env arguments (original format: KEY VALUE)
+    # Add environment variables from --env arguments (preprocessed to KEY=VALUE format)
     if env:
-        if len(env) % 2 != 0:
-            raise typer.BadParameter("Environment variables must be provided as KEY VALUE pairs")
-        for i in range(0, len(env), 2):
-            key = env[i]
-            value = env[i + 1]
-            base_env[key] = value
-            os.environ[key] = value
-            logger.info("Setting environment variable from --env: %s=%s", key, os.environ[key])
+        for env_var in env:
+            if "=" in env_var:
+                key, value = env_var.split("=", 1)
+                base_env[key] = value
+                os.environ[key] = value
+                logger.info("Setting environment variable from --env: %s=%s", key, os.environ[key])
+            else:
+                raise typer.BadParameter(f"Environment variable must be in format KEY=VALUE, got: {env_var}")
 
     # Pass through all environment variables if requested
     if pass_environment:
@@ -642,6 +640,29 @@ def info() -> None:
 def main() -> None:
     """Main entry point for the MCP Composer CLI."""
     logger.info("Starting MCP Composer CLI...")
+    
+    # Pre-process command line arguments to handle --env KEY VALUE format
+    import sys
+    processed_args = []
+    i = 0
+    while i < len(sys.argv):
+        if sys.argv[i] in ["--env", "-e"] and i + 2 < len(sys.argv):
+            # Convert --env KEY VALUE to --env KEY=VALUE
+            key = sys.argv[i + 1]
+            value = sys.argv[i + 2]
+            processed_args.append("--env")
+            processed_args.append(f"{key}={value}")
+            logger.info(f"Converted --env {key} {value} to --env {key}={value}")
+            i += 3
+        else:
+            processed_args.append(sys.argv[i])
+            i += 1
+    
+    # Update sys.argv with processed arguments
+    logger.info(f"Original args: {sys.argv}")
+    sys.argv = processed_args
+    logger.info(f"Processed args: {sys.argv}")
+    
     app()
 
 
