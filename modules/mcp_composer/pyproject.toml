@@ -61,7 +61,7 @@ tracing = [
 ]
 
 [project.scripts]
-mcp-composer = "mcp_composer.core.utils.cli:main"
+mcp-composer = "mcp_composer.core.cli.cli_main:main"
 
 [build-system]
 requires = ["hatchling", "uv-dynamic-versioning>=0.7.0"]
