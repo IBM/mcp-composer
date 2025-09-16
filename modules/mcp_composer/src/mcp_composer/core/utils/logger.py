@@ -19,6 +19,7 @@ class LoggerFactory:
 
         # Set the logger level
         logger.setLevel(log_level)
+        logger.propagate = False
 
         # Only add handlers if the logger doesn't have any handlers
         if not logger.handlers:

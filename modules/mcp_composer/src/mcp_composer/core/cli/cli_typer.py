@@ -134,6 +134,16 @@ def main_callback(
         "--env", "-e",
         help="Environment variables (format: KEY=VALUE). Can be used multiple times."
     )] = None,
+
+    log_level: Annotated[Optional[str], Option(
+        "--log-level",
+        help="Set the logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL)"
+    )] = None,
+
+    timeout: Annotated[Optional[int], Option(
+        "--timeout",
+        help="Set timeout in seconds for server operations and connections (optional - no timeout by default)"
+    )] = None,
 ) -> None:
     """Main callback to handle direct command execution matching original CLI."""
     # Only run server if mode is provided (direct command execution)
@@ -156,10 +166,44 @@ def main_callback(
     if pass_environment is None:
         pass_environment = False
 
+    # Set timeout if provided
+    if timeout is not None:
+        if timeout <= 0:
+            logger.error("Timeout must be a positive number, got: %s", timeout)
+            raise typer.Exit(1)
+        logger.info("Set timeout to %d seconds", timeout)
+    else:
+        logger.info("No timeout specified - server will run indefinitely")
+
+    # Set logging level if provided
+    if log_level:
+        import logging
+        numeric_level = getattr(logging, log_level.upper(), None)
+        if not isinstance(numeric_level, int):
+            logger.error("Invalid log level: %s. Valid levels are: DEBUG, INFO, WARNING, ERROR, CRITICAL", log_level)
+            raise typer.Exit(1)
+        # Set level on the specific logger, not the root logger
+        logger.setLevel(numeric_level)
+        # Also set the root logger to prevent propagation issues
+        logging.getLogger().setLevel(numeric_level)
+        logger.info("Set logging level to %s", log_level.upper())
+
     # Set SERVER_CONFIG_FILE_PATH if provided
     if config_path:
         logger.info("Setting SERVER_CONFIG_FILE_PATH to %s", config_path)
         os.environ["SERVER_CONFIG_FILE_PATH"] = config_path
+
+    # Load config from file if provided
+    config = None
+    if config_path:
+        try:
+            import json
+            with open(config_path, "r", encoding="utf-8") as f:
+                config = json.load(f)
+            logger.info("Loaded %d server configurations from %s", len(config), config_path)
+        except Exception as e:
+            logger.error("Failed to load config file %s: %s", config_path, e)
+            raise typer.Exit(1)
 
     base_env: Dict[str, str] = {}
 
@@ -181,7 +225,8 @@ def main_callback(
         os.environ.update(base_env)
 
     # Build configuration
-    config = []
+    if config is None:
+        config = []
     try:
         if endpoint or script_path:
             config = build_config_from_args(mode, endpoint, script_path, directory, id)
@@ -197,6 +242,7 @@ def main_callback(
             disable_composer_tools=disable_composer_tools,
             host=host,
             port=port,
+            timeout=timeout,
         ))
 
     except Exception as e:
@@ -217,14 +263,14 @@ def validate_middleware(
     try:
         from mcp_composer.core.utils.middleware_cli import cmd_validate
         import argparse
-        
+
         # Create a mock args object
         args = argparse.Namespace()
         args.path = path
         args.ensure_imports = ensure_imports
         args.format = format
         args.show_middlewares = show_middlewares
-        
+
         sys.exit(cmd_validate(args))
     except ImportError:
         typer.echo("Middleware CLI functions not available", err=True)
@@ -242,14 +288,14 @@ def list_middlewares(
     try:
         from mcp_composer.core.utils.middleware_cli import cmd_list
         import argparse
-        
+
         # Create a mock args object
         args = argparse.Namespace()
         args.config = config
         args.ensure_imports = ensure_imports
         args.format = format
         args.all = all
-        
+
         sys.exit(cmd_list(args))
     except ImportError:
         typer.echo("Middleware CLI functions not available", err=True)
@@ -282,7 +328,7 @@ def add_middleware(
     try:
         from mcp_composer.core.utils.middleware_cli import cmd_add_middleware
         import argparse
-        
+
         # Create a mock args object
         args = argparse.Namespace()
         args.config = config
@@ -304,7 +350,7 @@ def add_middleware(
         args.ensure_imports = ensure_imports
         args.dry_run = dry_run
         args.show_middlewares = show_middlewares
-        
+
         sys.exit(cmd_add_middleware(args))
     except ImportError:
         typer.echo("Middleware CLI functions not available", err=True)
@@ -369,9 +415,11 @@ async def run_dynamic_composer(
     disable_composer_tools: bool = False,
     host: str = "0.0.0.0",
     port: int = 9000,
+    timeout: Optional[int] = None,
 ) -> None:
     """Run MCP Composer with dynamically constructed configuration."""
     logger.info("Running MCP Composer with dynamic configuration... %s", auth_type)
+
     mcp = None
 
     if auth_type == "oauth":
@@ -437,18 +485,36 @@ async def run_dynamic_composer(
 
     await mcp.setup_member_servers()
 
-    if mode == MemberServerType.STDIO:
-        await mcp.run_stdio_async()
-    elif mode == MemberServerType.SSE:
-        await mcp.run_sse_async(
-            host=host, port=port, log_level="debug", path="/sse"
-        )
-    elif mode == MemberServerType.HTTP:
-        await mcp.run_http_async(
-            host=host, port=port, log_level="debug", path="/mcp"
-        )
-    else:
-        raise ValueError(f"Unknown config type: {mode}")
+    try:
+        if mode == MemberServerType.STDIO:
+            if timeout is not None:
+                await asyncio.wait_for(mcp.run_stdio_async(), timeout=timeout)
+            else:
+                await mcp.run_stdio_async()
+        elif mode == MemberServerType.SSE:
+            if timeout is not None:
+                await asyncio.wait_for(
+                    mcp.run_sse_async(host=host, port=port, log_level="debug", path="/sse"),
+                    timeout=timeout
+                )
+            else:
+                await mcp.run_sse_async(host=host, port=port, log_level="debug", path="/sse")
+        elif mode == MemberServerType.HTTP:
+            if timeout is not None:
+                await asyncio.wait_for(
+                    mcp.run_http_async(host=host, port=port, log_level="debug", path="/mcp"),
+                    timeout=timeout
+                )
+            else:
+                await mcp.run_http_async(host=host, port=port, log_level="debug", path="/mcp")
+        else:
+            raise ValueError(f"Unknown config type: {mode}")
+    except asyncio.TimeoutError:
+        logger.error("Server operation timed out after %d seconds", timeout)
+        raise typer.Exit(1)
+    except Exception as e:
+        logger.error("Server operation failed: %s", e)
+        raise typer.Exit(1)
 
 
 @app.command("run")
@@ -573,6 +639,18 @@ def run_composer(
         logger.info("Setting SERVER_CONFIG_FILE_PATH to %s", config_path)
         os.environ["SERVER_CONFIG_FILE_PATH"] = config_path
 
+    # Load config from file if provided
+    config = None
+    if config_path:
+        try:
+            import json
+            with open(config_path, "r", encoding="utf-8") as f:
+                config = json.load(f)
+            logger.info("Loaded %d server configurations from %s", len(config), config_path)
+        except Exception as e:
+            logger.error("Failed to load config file %s: %s", config_path, e)
+            raise typer.Exit(1)
+
     # Handle environment variables
     base_env: Dict[str, str] = {}
 
@@ -592,7 +670,8 @@ def run_composer(
         os.environ.update(base_env)
 
     # Build configuration
-    config = []
+    if config is None:
+        config = []
     try:
         if endpoint or script_path:
             config = build_config_from_args(mode, endpoint, script_path, directory, id)
