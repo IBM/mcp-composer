@@ -646,14 +646,25 @@ def main() -> None:
     processed_args = []
     i = 0
     while i < len(sys.argv):
-        if sys.argv[i] in ["--env", "-e"] and i + 2 < len(sys.argv):
-            # Convert --env KEY VALUE to --env KEY=VALUE
-            key = sys.argv[i + 1]
-            value = sys.argv[i + 2]
-            processed_args.append("--env")
-            processed_args.append(f"{key}={value}")
-            logger.info(f"Converted --env {key} {value} to --env {key}={value}")
-            i += 3
+        if sys.argv[i] in ["--env", "-e"] and i + 1 < len(sys.argv):
+            # Check if next argument is in KEY=VALUE format
+            if "=" in sys.argv[i + 1]:
+                # Already in KEY=VALUE format, keep as is
+                processed_args.append(sys.argv[i])
+                processed_args.append(sys.argv[i + 1])
+                i += 2
+            elif i + 2 < len(sys.argv):
+                # Convert --env KEY VALUE to --env KEY=VALUE
+                key = sys.argv[i + 1]
+                value = sys.argv[i + 2]
+                processed_args.append("--env")
+                processed_args.append(f"{key}={value}")
+                logger.info(f"Converted --env {key} {value} to --env {key}={value}")
+                i += 3
+            else:
+                # Invalid format, keep as is
+                processed_args.append(sys.argv[i])
+                i += 1
         else:
             processed_args.append(sys.argv[i])
             i += 1
