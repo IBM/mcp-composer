@@ -347,28 +347,6 @@ async def run_dynamic_composer(args: argparse.Namespace, config: list[Dict]) -> 
     mcp = None
     if args.auth_type == "oauth":
         logger.info("Detected --auth_type oauth")
-
-        # Set up OAuth environment variables if not already set
-        oauth_env_vars = {
-            "ENABLE_OAUTH": "true",
-            "OAUTH_HOST": args.host,
-            "OAUTH_PORT": str(args.port),
-            "OAUTH_SERVER_URL": f"http://{args.host}:{args.port}",
-            "OAUTH_CLIENT_ID": "mcp-composer-client",
-            "OAUTH_CLIENT_SECRET": "mcp-composer-secret",
-            "OAUTH_CALLBACK_PATH": f"http://{args.host}:{args.port}/callback",
-            "OAUTH_AUTH_URL": f"http://{args.host}:{args.port}/auth",
-            "OAUTH_TOKEN_URL": f"http://{args.host}:{args.port}/token",
-            "OAUTH_MCP_SCOPE": "mcp:read mcp:write",
-            "OAUTH_PROVIDER_SCOPE": "openid profile email",
-        }
-
-        # Set environment variables if not already set
-        for key, value in oauth_env_vars.items():
-            if not os.environ.get(key):
-                os.environ[key] = value
-                logger.info("Set OAuth environment variable: %s=%s", key, value)
-
         settings = ServerSettings()
         mcp = create_mcp_server(settings)
 
