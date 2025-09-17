@@ -134,17 +134,17 @@ mcp-composer --mode http \
   --port 9000 \
   --disable-composer-tools \
   --auth_type oauth \
-  --env ENABLE_OAUTH=True \
-  --env OAUTH_HOST=localhost \
-  --env OAUTH_PORT=9000 \
-  --env OAUTH_SERVER_URL=http://localhost:9000 \
-  --env OAUTH_CALLBACK_PATH=http://localhost:9000/auth/idaas/callback \
-  --env OAUTH_CLIENT_ID=ZTk0NzkyYmUtMWJlYS00 \
-  --env OAUTH_CLIENT_SECRET=MDM1NzhjNWQtYjJmYy00 \
-  --env OAUTH_AUTH_URL=https://preprod.login.w3.ibm.com/v1.0/endpoint/default/authorize \
-  --env OAUTH_TOKEN_URL=https://preprod.login.w3.ibm.com/v1.0/endpoint/default/token \
-  --env OAUTH_MCP_SCOPE=user \
-  --env OAUTH_PROVIDER_SCOPE=openid
+  --env ENABLE_OAUTH True \
+  --env OAUTH_HOST localhost \
+  --env OAUTH_PORT 9000 \
+  --env OAUTH_SERVER_URL http://localhost:9000 \
+  --env OAUTH_CALLBACK_PATH http://localhost:9000/auth/idaas/callback \
+  --env OAUTH_CLIENT_ID your_client_id \
+  --env OAUTH_CLIENT_SECRET your_client_secret \
+  --env OAUTH_AUTH_URL https://preprod.login.w3.ibm.com/v1.0/endpoint/default/authorize \
+  --env OAUTH_TOKEN_URL https://preprod.login.w3.ibm.com/v1.0/endpoint/default/token \
+  --env OAUTH_MCP_SCOPE user \
+  --env OAUTH_PROVIDER_SCOPE openid
 ```
 
 #### STDIO Mode
