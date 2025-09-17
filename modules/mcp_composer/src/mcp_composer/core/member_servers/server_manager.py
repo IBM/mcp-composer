@@ -83,7 +83,11 @@ class ServerManager:
             builder = MCPServerBuilder(config)
             sub_mcp = await builder.build()
 
-            mcp_composer.mount(sub_mcp, server_id)
+            # Handle both cases: mcp_composer as object or as callback function
+            if hasattr(mcp_composer, 'mount'):
+                mcp_composer.mount(sub_mcp, server_id)
+            else:
+                mcp_composer(sub_mcp, server_id)
             tools = await sub_mcp.get_tools()
             missing_description_tools = [
                 tool.name if hasattr(tool, "name") else str(tool)

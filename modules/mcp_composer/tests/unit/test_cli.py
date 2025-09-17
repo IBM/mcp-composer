@@ -12,6 +12,7 @@ sys.path.insert(
 from mcp_composer.core.utils.cli import (
     _setup_args_parser,
     _add_arguments_to_parser,
+    _setup_middleware_parser,
     build_config_from_args,
     run_dynamic_composer,
     main,
@@ -24,12 +25,24 @@ class TestCLI:
     def setup_method(self):
         """Set up test fixtures."""
         self.parser = _setup_args_parser()
-        self.subparsers = [
-            action for action in self.parser._actions if action.dest == "command"
+        # The main parser doesn't have subparsers - middleware commands are in a separate parser
+        # Check that the parser has the expected arguments instead
+        self.expected_args = [
+            'mode', 'id', 'endpoint', 'config_path', 'directory', 'script_path',
+            'host', 'port', 'auth_type', 'sse_url', 'disable_composer_tools',
+            'env', 'pass_environment', 'remote_auth_type', 'client_auth_type'
         ]
-        assert len(self.subparsers) == 1
-        self.subparser = self.subparsers[0]
-        assert self.subparser.choices is not None
+
+    def _get_middleware_subparser(self):
+        """Helper method to get the middleware subparser."""
+        middleware_parser = _setup_middleware_parser()
+        subparsers = [
+            action for action in middleware_parser._actions if action.dest == "command"
+        ]
+        assert len(subparsers) == 1
+        subparser = subparsers[0]
+        assert subparser.choices is not None
+        return subparser
 
     def test_setup_args_parser(self):
         """Test setting up the argument parser."""
@@ -37,6 +50,9 @@ class TestCLI:
 
         assert parser is not None
         assert parser.description is not None
+        # Check that all expected arguments are present
+        for arg_name in self.expected_args:
+            assert any(action.dest == arg_name for action in parser._actions), f"Missing argument: {arg_name}"
 
     def test_add_arguments_to_parser(self):
         """Test adding arguments to the parser."""
@@ -49,7 +65,7 @@ class TestCLI:
         assert "--port" in help_text
         assert "--id" in help_text
         assert "--endpoint" in help_text
-        assert "--script_path" in help_text
+        assert "--script-path" in help_text
 
     def test_build_config_from_args_http_mode(self):
         """Test building config from args in HTTP mode."""
@@ -416,6 +432,7 @@ class TestCLI:
             auth_type=None,
             sse_url="http://localhost:8001/sse",
             remote_auth_type="none",
+            client_auth_type="none",
             disable_composer_tools=False,
             env=[],
             pass_environment=False,
@@ -428,7 +445,7 @@ class TestCLI:
             "mcp_composer.core.utils.cli.MCPComposer"
         ) as mock_composer_class, patch(
             "mcp_composer.core.utils.cli.ProxyClient"
-        ) as mock_proxy_client, patch(
+        ), patch(
             "mcp_composer.core.utils.cli.MCPComposer.as_proxy"
         ) as mock_as_proxy:
 
@@ -510,6 +527,7 @@ class TestCLI:
             auth_type="oauth",
             sse_url=None,
             remote_auth_type="none",
+            client_auth_type="none",
             disable_composer_tools=True,
             env=[],
             pass_environment=False,
@@ -567,6 +585,7 @@ class TestCLI:
             auth_type="oauth",
             sse_url=None,
             remote_auth_type="none",
+            client_auth_type="none",
             disable_composer_tools=True,
             env=[],
             pass_environment=False,
@@ -817,15 +836,24 @@ class TestCLI:
 
     def test_middleware_commands_in_parser(self):
         """Test that middleware commands are properly added to the parser."""
+        # Use the middleware parser for middleware commands
+        middleware_parser = _setup_middleware_parser()
+        subparsers = [
+            action for action in middleware_parser._actions if action.dest == "command"
+        ]
+        assert len(subparsers) == 1
+        subparser = subparsers[0]
+        assert subparser.choices is not None
         # Check that middleware subcommands are added
-        assert "validate" in self.subparser.choices
-        assert "list" in self.subparser.choices
-        assert "add-middleware" in self.subparser.choices
+        assert "validate" in subparser.choices
+        assert "list" in subparser.choices
+        assert "add-middleware" in subparser.choices
 
     def test_validate_command_help(self):
         """Test validate command help text."""
-        # Use the subparser from the first test
-        validate_parser = self.subparser.choices["validate"]
+        # Use the subparser from the middleware parser
+        subparser = self._get_middleware_subparser()
+        validate_parser = subparser.choices["validate"]
         help_text = validate_parser.format_help()
 
         assert "validate" in help_text
@@ -835,9 +863,8 @@ class TestCLI:
 
     def test_list_command_help(self):
         """Test list command help text."""
-        parser = _setup_args_parser()
-
-        list_parser = self.subparser.choices["list"]
+        subparser = self._get_middleware_subparser()
+        list_parser = subparser.choices["list"]
         help_text = list_parser.format_help()
 
         assert "list" in help_text
@@ -847,7 +874,8 @@ class TestCLI:
 
     def test_add_middleware_command_help(self):
         """Test add-middleware command help text."""
-        add_parser = self.subparser.choices["add-middleware"]
+        subparser = self._get_middleware_subparser()
+        add_parser = subparser.choices["add-middleware"]
         help_text = add_parser.format_help()
 
         assert "add-middleware" in help_text
@@ -862,7 +890,8 @@ class TestCLI:
         """Test that middleware commands have required arguments."""
         # Test validate command
 
-        validate_parser = self.subparser.choices["validate"]
+        subparser = self._get_middleware_subparser()
+        validate_parser = subparser.choices["validate"]
         validate_args = [
             action.dest
             for action in validate_parser._actions
@@ -871,14 +900,16 @@ class TestCLI:
         assert "path" in validate_args
 
         # Test list command
-        list_parser = self.subparser.choices["list"]
+        subparser = self._get_middleware_subparser()
+        list_parser = subparser.choices["list"]
         list_args = [
             action.dest for action in list_parser._actions if hasattr(action, "dest")
         ]
         assert "config" in list_args
 
         # Test add-middleware command
-        add_parser = self.subparser.choices["add-middleware"]
+        subparser = self._get_middleware_subparser()
+        add_parser = subparser.choices["add-middleware"]
         add_args = [
             action.dest for action in add_parser._actions if hasattr(action, "dest")
         ]
@@ -889,7 +920,8 @@ class TestCLI:
     def test_middleware_command_optional_arguments(self):
         """Test that middleware commands have correct optional arguments."""
         # Test validate command options
-        validate_parser = self.subparser.choices["validate"]
+        subparser = self._get_middleware_subparser()
+        validate_parser = subparser.choices["validate"]
         validate_options = [
             action.dest
             for action in validate_parser._actions
@@ -900,7 +932,8 @@ class TestCLI:
         assert "show_middlewares" in validate_options
 
         # Test list command options
-        list_parser = self.subparser.choices["list"]
+        subparser = self._get_middleware_subparser()
+        list_parser = subparser.choices["list"]
         list_options = [
             action.dest for action in list_parser._actions if hasattr(action, "dest")
         ]
@@ -909,7 +942,8 @@ class TestCLI:
         assert "ensure_imports" in list_options
 
         # Test add-middleware command options
-        add_parser = self.subparser.choices["add-middleware"]
+        subparser = self._get_middleware_subparser()
+        add_parser = subparser.choices["add-middleware"]
         add_options = [
             action.dest for action in add_parser._actions if hasattr(action, "dest")
         ]
@@ -927,21 +961,24 @@ class TestCLI:
 
         # Test validate command argument types
 
-        validate_parser = self.subparser.choices["validate"]
+        subparser = self._get_middleware_subparser()
+        validate_parser = subparser.choices["validate"]
         path_action = next(
             action for action in validate_parser._actions if action.dest == "path"
         )
         assert path_action.type is None  # Should be string by default
 
         # Test list command argument types
-        list_parser = self.subparser.choices["list"]
+        subparser = self._get_middleware_subparser()
+        list_parser = subparser.choices["list"]
         config_action = next(
             action for action in list_parser._actions if action.dest == "config"
         )
         assert config_action.type is None  # Should be string by default
 
         # Test add-middleware command argument types
-        add_parser = self.subparser.choices["add-middleware"]
+        subparser = self._get_middleware_subparser()
+        add_parser = subparser.choices["add-middleware"]
         priority_action = next(
             action for action in add_parser._actions if action.dest == "priority"
         )
@@ -949,16 +986,16 @@ class TestCLI:
 
     def test_middleware_command_choices(self):
         """Test that middleware command arguments have correct choices."""
-        parser = _setup_args_parser()
-
-        validate_parser = self.subparser.choices["validate"]
+        subparser = self._get_middleware_subparser()
+        validate_parser = subparser.choices["validate"]
         format_action = next(
             action for action in validate_parser._actions if action.dest == "format"
         )
         assert format_action.choices == ["text", "json"]
 
         # Test add-middleware command mode choices
-        add_parser = self.subparser.choices["add-middleware"]
+        subparser = self._get_middleware_subparser()
+        add_parser = subparser.choices["add-middleware"]
         mode_action = next(
             action for action in add_parser._actions if action.dest == "mode"
         )
@@ -966,11 +1003,10 @@ class TestCLI:
 
     def test_middleware_command_defaults(self):
         """Test that middleware command arguments have correct default values."""
-        parser = _setup_args_parser()
-
         # Test add-middleware command defaults
 
-        add_parser = self.subparser.choices["add-middleware"]
+        subparser = self._get_middleware_subparser()
+        add_parser = subparser.choices["add-middleware"]
 
         version_action = next(
             action for action in add_parser._actions if action.dest == "version"
@@ -989,9 +1025,8 @@ class TestCLI:
 
     def test_middleware_command_required_flags(self):
         """Test that middleware command required flags are properly set."""
-        parser = _setup_args_parser()
-
-        add_parser = self.subparser.choices["add-middleware"]
+        subparser = self._get_middleware_subparser()
+        add_parser = subparser.choices["add-middleware"]
 
         config_action = next(
             action for action in add_parser._actions if action.dest == "config"
@@ -1014,7 +1049,8 @@ class TestCLI:
 
         # Test validate command help texts
 
-        validate_parser = self.subparser.choices["validate"]
+        subparser = self._get_middleware_subparser()
+        validate_parser = subparser.choices["validate"]
         ensure_imports_action = next(
             action
             for action in validate_parser._actions
@@ -1026,14 +1062,16 @@ class TestCLI:
         )
 
         # Test list command help texts
-        list_parser = self.subparser.choices["list"]
+        subparser = self._get_middleware_subparser()
+        list_parser = subparser.choices["list"]
         all_action = next(
             action for action in list_parser._actions if action.dest == "all"
         )
         assert "Show all middlewares" in all_action.help
 
         # Test add-middleware command help texts
-        add_parser = self.subparser.choices["add-middleware"]
+        subparser = self._get_middleware_subparser()
+        add_parser = subparser.choices["add-middleware"]
         description_action = next(
             action for action in add_parser._actions if action.dest == "description"
         )
@@ -1041,9 +1079,8 @@ class TestCLI:
 
     def test_middleware_command_nargs(self):
         """Test that middleware command arguments have correct nargs."""
-        parser = _setup_args_parser()
-
-        add_parser = self.subparser.choices["add-middleware"]
+        subparser = self._get_middleware_subparser()
+        add_parser = subparser.choices["add-middleware"]
 
         applied_hooks_action = next(
             action for action in add_parser._actions if action.dest == "applied_hooks"
@@ -1063,21 +1100,24 @@ class TestCLI:
 
         # Test validate command metavars
 
-        validate_parser = self.subparser.choices["validate"]
+        subparser = self._get_middleware_subparser()
+        validate_parser = subparser.choices["validate"]
         path_action = next(
             action for action in validate_parser._actions if action.dest == "path"
         )
         assert path_action.metavar is None  # No metavar set
 
         # Test list command metavars
-        list_parser = self.subparser.choices["list"]
+        subparser = self._get_middleware_subparser()
+        list_parser = subparser.choices["list"]
         config_action = next(
             action for action in list_parser._actions if action.dest == "config"
         )
         assert config_action.metavar is None  # No metavar set
 
         # Test add-middleware command metavars
-        add_parser = self.subparser.choices["add-middleware"]
+        subparser = self._get_middleware_subparser()
+        add_parser = subparser.choices["add-middleware"]
         config_action = next(
             action for action in add_parser._actions if action.dest == "config"
         )

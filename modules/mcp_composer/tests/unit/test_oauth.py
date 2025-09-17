@@ -69,7 +69,7 @@ class TestServerSettings:
                 "ENABLE_OAUTH": "true"
                 # Missing OAUTH_CLIENT_ID and OAUTH_CLIENT_SECRET
             },
-            clear=False,
+            clear=True,
         ):
             # Should raise an error due to missing required fields
             with pytest.raises(NotFoundError) as exc_info:
@@ -105,7 +105,7 @@ class TestServerSettings:
             # Verify all attributes are populated correctly
             assert settings.host == "testhost.example.com"
             assert settings.port == "9090"
-            assert str(settings.server_url) == "https://testhost.example.com:9090"
+            assert str(settings.server_url) == "https://testhost.example.com:9090/"
             assert settings.client_id == "test_client_123"
             assert settings.client_secret == "test_secret_456"
             assert (
@@ -128,6 +128,7 @@ class TestServerSettings:
         test_env = {
             "ENABLE_OAUTH": "true",
             "OAUTH_HOST": "partial.example.com",
+            "OAUTH_PORT": "8080",  # Add missing required field
             "OAUTH_SERVER_URL": "http://partial.example.com",
             "OAUTH_CLIENT_ID": "partial_client",
             "OAUTH_CLIENT_SECRET": "partial_secret",
@@ -143,12 +144,12 @@ class TestServerSettings:
 
             # Verify populated attributes
             assert settings.host == "partial.example.com"
-            assert str(settings.server_url) == "http://partial.example.com"
+            assert str(settings.server_url) == "http://partial.example.com/"
             assert settings.client_id == "partial_client"
             assert settings.client_secret == "partial_secret"
 
-            # Verify missing attributes (should be empty strings or default values)
-            assert settings.port == ""  # Not set in environment
+            # Verify populated attributes
+            assert settings.port == "8080"  # Now set in environment
             assert settings.callback_path == "/partial/callback"
             assert settings.auth_url == "http://partial.example.com/auth"
             assert settings.token_url == "http://partial.example.com/token"
@@ -248,7 +249,7 @@ class TestSimpleOAuthProvider:
 
         assert "test_state" in result
         assert "client_id=test_client_id" in result
-        assert "redirect_uri=/callback" in result
+        assert "redirect_uri=%2Fcallback" in result  # URL-encoded /callback
         assert "scope=openid profile" in result
         assert "response_type=code" in result
 

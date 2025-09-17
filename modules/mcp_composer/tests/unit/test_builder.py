@@ -223,6 +223,7 @@ async def test_build_from_openapi_with_spec_filepath():
         patch(
             "mcp_composer.core.member_servers.builder.httpx.AsyncClient"
         ) as mock_client,
+        patch.dict("os.environ", {"MCP_COMPOSER_MODE": "dev"}),
     ):
         mock_load_json.return_value = {"openapi": "3.0.0"}
         mock_load_mappings.return_value = []
@@ -539,7 +540,10 @@ async def test_build_from_openapi_no_spec():
         },
     }
     builder = MCPServerBuilder(config)
-    with pytest.raises(NotImplementedError, match="Spec is missing"):
+    with (
+        patch.dict("os.environ", {"MCP_COMPOSER_MODE": "dev"}),
+        pytest.raises(NotImplementedError, match="Spec is missing"),
+    ):
         await builder._build_from_openapi()
 
 
@@ -931,6 +935,7 @@ async def test_layered_enabled_returns_only_three_tools():
         patch(
             "mcp_composer.core.member_servers.builder.httpx.AsyncClient"
         ) as mock_client,
+        patch.dict("os.environ", {"MCP_COMPOSER_MODE": "dev"}),
     ):
         # Mock the spec loading
         mock_load_json.return_value = mock_spec
@@ -1024,6 +1029,7 @@ async def test_layered_disabled_uses_fastmcp():
         patch(
             "mcp_composer.core.member_servers.builder.httpx.AsyncClient"
         ) as mock_client,
+        patch.dict("os.environ", {"MCP_COMPOSER_MODE": "dev"}),
     ):
         # Mock the spec loading
         mock_load_json.return_value = mock_spec

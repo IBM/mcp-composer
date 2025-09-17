@@ -14,34 +14,40 @@ class TestDynamicTokenClient:
     @pytest.fixture
     def mock_client(self):
         """Create a mock DynamicTokenClient"""
+        auth_data = {
+            ConfigKey.Token_URL: "https://auth.example.com/token",
+            ConfigKey.APIKEY: "test-api-key",
+            ConfigKey.TOKEN_GEN_AUTH_METHOD: "jwt"
+        }
         return DynamicTokenClient(
             base_url="https://api.example.com",
-            token_url="https://auth.example.com/token",
-            api_key="test-api-key",
-            media_type=ConfigKey.MEDIA_TYPE_JSON,
+            auth_data=auth_data,
         )
 
     @pytest.fixture
     def mock_client_iam(self):
         """Create a mock DynamicTokenClient with IAM media type"""
+        auth_data = {
+            ConfigKey.Token_URL: "https://auth.example.com/token",
+            ConfigKey.APIKEY: "test-api-key",
+            ConfigKey.TOKEN_GEN_AUTH_METHOD: "iam"
+        }
         return DynamicTokenClient(
             base_url="https://api.example.com",
-            token_url="https://auth.example.com/token",
-            api_key="test-api-key",
-            media_type="application/x-www-form-urlencoded",
+            auth_data=auth_data,
         )
 
     def test_dynamic_token_client_initialization(self, mock_client):
         """Test DynamicTokenClient initialization"""
-        assert mock_client.token_url == "https://auth.example.com/token"
-        assert mock_client.apikey == "test-api-key"
-        assert mock_client.media_type == ConfigKey.MEDIA_TYPE_JSON
+        assert mock_client.auth_data[ConfigKey.Token_URL] == "https://auth.example.com/token"
+        assert mock_client.auth_data[ConfigKey.APIKEY] == "test-api-key"
+        assert mock_client.auth_data[ConfigKey.TOKEN_GEN_AUTH_METHOD] == "jwt"
         assert mock_client._access_token is None
         assert mock_client._expires_at == 0
 
     def test_dynamic_token_client_initialization_iam(self, mock_client_iam):
         """Test DynamicTokenClient initialization with IAM media type"""
-        assert mock_client_iam.media_type == "application/x-www-form-urlencoded"
+        assert mock_client_iam.auth_data[ConfigKey.TOKEN_GEN_AUTH_METHOD] == "iam"
 
     @pytest.mark.asyncio
     async def test_refresh_token_json_success(self, mock_client):
@@ -75,22 +81,22 @@ class TestDynamicTokenClient:
     @pytest.mark.asyncio
     async def test_refresh_token_missing_apikey(self, mock_client):
         """Test token refresh with missing apikey"""
-        mock_client.apikey = None
+        mock_client.auth_data[ConfigKey.APIKEY] = None
 
         with pytest.raises(
             ValueError,
-            match="Missing 'apikey' or 'token_url' in headers for token refresh.",
+            match="Either apikey or \\(id and secret\\) must be provided in auth_data\\.",
         ):
             await mock_client._refresh_token()
 
     @pytest.mark.asyncio
     async def test_refresh_token_missing_token_url(self, mock_client):
         """Test token refresh with missing token_url"""
-        mock_client.token_url = None
+        mock_client.auth_data[ConfigKey.Token_URL] = None
 
         with pytest.raises(
             ValueError,
-            match="Missing 'apikey' or 'token_url' in headers for token refresh.",
+            match="token_url must be provided in auth_data\\.",
         ):
             await mock_client._refresh_token()
 
@@ -98,6 +104,7 @@ class TestDynamicTokenClient:
     async def test_refresh_token_http_error(self, mock_client):
         """Test token refresh with HTTP error"""
         mock_response = Mock()
+        mock_response.json.return_value = {"error": "unauthorized"}
         mock_response.raise_for_status.side_effect = httpx.HTTPStatusError(
             "401", request=Mock(), response=mock_response
         )

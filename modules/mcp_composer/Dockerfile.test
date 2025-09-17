@@ -1,0 +1,48 @@
+ARG BUILDER_IMAGE=icr.io/ibm-dreadnought-prod-images/ubi9/python312-builder
+ARG DREADNOUGHT_PYTHON312_TAG=v9.6.27
+
+FROM ${BUILDER_IMAGE}:${DREADNOUGHT_PYTHON312_TAG}
+
+ENV ENABLE_PACKAGE_MANAGER=true
+
+USER root
+
+# Install system dependencies required for testing
+RUN dnf install -y \
+    gcc-c++ \
+    python3.12 \
+    python3.12-devel \
+    python3-devel \
+    && g++ --version
+
+RUN find / -name Python.h || true
+
+ENV CXXFLAGS="-std=c++11"
+
+# Install uv package manager
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
+
+WORKDIR /app
+
+RUN mkdir -p /app && chmod -R 0777 /app
+RUN mkdir -p /.cache/uv && chmod -R 0777 /.cache/uv
+
+# Copy dependency files
+COPY pyproject.toml uv.lock ./
+
+# Copy source code first
+COPY . /app
+
+RUN chmod -R 0777 /app
+
+# Install dependencies including dev dependencies for testing
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv sync --locked --no-install-project --group dev
+
+# Set environment variables
+ENV PATH="/app/.venv/bin:$PATH"
+ENV UV_CACHE_DIR=/.cache/uv
+ENV PYTHONPATH=/app/src
+
+# Default command runs tests (can be overridden)
+CMD ["uv", "run", "pytest", "tests/unit/", "-v", "--tb=short"]

@@ -15,7 +15,7 @@ async def main():
     Raises:
         ValueError: _description_
     """
-    mode = os.getenv("MCP_MODE", "sse").lower()
+    mode = os.getenv("MCP_MODE", "stdio").lower()
     gw.add_middleware(ListFilteredTool(gw))
     gw.disable_composer_tool(["member_health"])
     await gw.setup_member_servers()

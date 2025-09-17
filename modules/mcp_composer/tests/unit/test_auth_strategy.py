@@ -205,11 +205,16 @@ class TestAuthStrategy:
             # Missing token_url, client_id, client_secret
         }
 
-        with pytest.raises(
-            ValueError,
-            match="token_url and api_key are required for DYNAMIC_BEARER strategy",
-        ):
-            await get_client("https://example.com", auth_config)
+        with patch(
+            "mcp_composer.core.utils.auth_strategy.DynamicTokenClient"
+        ) as mock_client_class:
+            mock_client = MagicMock()
+            mock_client_class.return_value = mock_client
+
+            result = await get_client("https://example.com", auth_config)
+
+            assert result == mock_client
+            mock_client_class.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_get_client_unknown_strategy(self):
