@@ -13,7 +13,7 @@ from fastmcp.settings import DuplicateBehavior
 
 
 from mcp_composer.core.member_servers.member_server import HealthStatus, MemberMCPServer
-from mcp_composer.core.utils.exceptions import ToolDuplicateError
+from mcp_composer.core.utils.exceptions import ToolDisableError, ToolDuplicateError
 from mcp_composer.store.database import DatabaseInterface
 from mcp_composer.core.utils import LoggerFactory, get_server_doc_info
 from mcp_composer.core.member_servers import ServerManager
@@ -60,6 +60,18 @@ class MCPToolManager(ToolManager):
             if mounted_server.prefix == server_id:
                 del self._mounted_servers[idx]
 
+    async def has_tool(self, key: str | list[str]) -> bool:
+        """Check if one or more tools exist by name."""
+        tools = await self.get_tools()
+
+        if isinstance(key, str):
+            # Single key: short-circuit search
+            return any(tool.name == key for tool in tools.values())
+
+        # Multiple keys: build set once, then check
+        tool_names = {tool.name for tool in tools.values()}
+        return any(k in tool_names for k in key)
+
     def filter_tools(self, tools: dict[str, Tool]) -> dict[str, Tool]:
         """Filter tools by performing the following actions for a member server,
         if it exists
@@ -91,7 +103,7 @@ class MCPToolManager(ToolManager):
 
             filtered_tools = {}
             for name, tool in tools.items():
-                if name in remove_set:
+                if tool.name in remove_set:
                     continue
                 if name in description_updates:
                     tool.description = description_updates[name]
@@ -131,7 +143,8 @@ class MCPToolManager(ToolManager):
         for mounted_server in self._mounted_servers:
             if mounted_server.prefix == server.id:
                 tools = await mounted_server.server.get_tools()
-                server_tools = {f"{server.id}_{k}": v for k, v in tools.items()}
+                # server_tools = {f"{server.id}_{k}": v for k, v in tools.items()}
+                server_tools = {k: v for k, v in tools.items()}
                 result = {
                     k: v
                     for k, v in server_tools.items()
@@ -152,12 +165,17 @@ class MCPToolManager(ToolManager):
     ) -> dict[str, Tool]:
         """Get all tools by key."""
         tools: dict[str, Tool] = {}
+        remove = []
+        composer_doc = self._server_manager.get_document(self._composer.name)
+        if composer_doc:
+            remove, description = get_server_doc_info(composer_doc)
+            logger.info("Found disabled tools in composer: %s", remove)
 
         # Case 1: Specific server
         if server_id:
             server = self._server_manager.get(server_id)
             doc = self._server_manager.get_document(server_id)
-            remove, description = get_server_doc_info(doc)
+            _, description = get_server_doc_info(doc)
             logger.info(
                 """Case 2: Fetch tools for server '%s'.
                 Removed: '%s'. Descriptions: '%s'""",
@@ -215,6 +233,10 @@ class MCPToolManager(ToolManager):
         """
         disable a tool or multiple tools
         """
+        for tool in tools:
+            if not await self.has_tool(tool):
+                raise ToolDisableError(f"Tool {tool} does not exist")
+
         if tools[0].lower() == "all":
             self._disabled_tools = ["all"]
             logger.info("Disabled all tools")
@@ -238,7 +260,7 @@ class MCPToolManager(ToolManager):
         disabled_tools = self._disabled_tools
         tools_to_remove = [tool for tool in tools if tool in disabled_tools]
         if not tools_to_remove:
-            raise ValueError("No tools disabled")
+            raise ValueError("Tool is not disabled")
         # Remove matching tools from disabled_tools
         self._disabled_tools = [
             tool for tool in disabled_tools if tool not in tools_to_remove

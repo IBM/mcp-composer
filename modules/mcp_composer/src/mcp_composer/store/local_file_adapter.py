@@ -16,7 +16,6 @@ load_dotenv(find_dotenv(".env"))
 logger = LoggerFactory.get_logger()
 
 
-
 class LocalFileAdapter(DatabaseInterface):
     """Local file storage"""
 
@@ -27,7 +26,9 @@ class LocalFileAdapter(DatabaseInterface):
         if file_path is None:
             file_path = os.getenv("SERVER_CONFIG_FILE_PATH", "member_servers.json")
         self._file_path = Path(file_path)
-        logger.info("Using local file storage for configuration storage: %s", self._file_path)
+        logger.info(
+            "Using local file storage for configuration storage: %s", self._file_path
+        )
 
         # Initialize file availability flag to False (pessimistic approach)
         self._file_available = False
@@ -44,7 +45,10 @@ class LocalFileAdapter(DatabaseInterface):
                     json.dump([], f)
                 logger.info("Successfully created member_servers.json file")
             except Exception as e:
-                logger.warning("Failed to create member_servers.json file: %s. Continuing without file persistence.", e)
+                logger.warning(
+                    "Failed to create member_servers.json file: %s. Continuing without file persistence.",
+                    e,
+                )
                 # Set a flag to indicate file operations are not available
                 self._file_available = False
             else:
@@ -125,7 +129,8 @@ class LocalFileAdapter(DatabaseInterface):
                     server_id,
                     server_cfg,
                 )
-            return server_cfg
+                return server_cfg
+        logger.warning("Server ID (%s) not found in local config.", server_id)
         return {}
 
     def _update_disabled_tools(
