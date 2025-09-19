@@ -2,9 +2,7 @@ import asyncio
 import base64
 import hashlib
 import secrets
-import uuid
-import socket
-import webbrowser
+import uuid, socket, webbrowser
 from typing import Any
 from urllib.parse import urlparse, urlunparse
 import httpx
@@ -59,10 +57,8 @@ def sanitize_url(url: str) -> str:
     return urlunparse(parsed)
 
 def _get_free_port() -> int:
-    s = socket.socket()
-    s.bind(("127.0.0.1", 0))
-    port = s.getsockname()[1]
-    s.close()
+    s = socket.socket(); s.bind(("127.0.0.1", 0))
+    port = s.getsockname()[1]; s.close()
     return port
 
 
@@ -154,7 +150,6 @@ def create_mcp_server(settings: ServerSettings) -> MCPComposer:
     oauth_provider = SimpleOAuthProvider(settings)
     gw = MCPComposer("composer", auth=oauth_provider)
     callback_path = urlparse(settings.callback_path).path
-    logger.info("Registering OAuth callback at %s", callback_path)
 
     @gw.custom_route(f"{callback_path}", methods=["GET"])
     async def callback_handler(request: Request) -> Response:
@@ -217,8 +212,7 @@ async def oauth_pkce_login_async(issuer: str, scope: str = "openid", client_id: 
     """
 
     meta = await discover_oauth_metadata(issuer)
-    authz = meta["authorization_endpoint"]
-    token_ep = meta["token_endpoint"]
+    authz = meta["authorization_endpoint"]; token_ep = meta["token_endpoint"]
     if not authz or not token_ep:
         raise RuntimeError("Discovery missing authorization/token endpoints.")
 

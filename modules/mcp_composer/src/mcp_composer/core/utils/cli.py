@@ -207,11 +207,7 @@ def _setup_args_parser() -> argparse.ArgumentParser:
         mcp-composer --mode http --endpoint http://api.example.com
         mcp-composer --mode sse --endpoint http://localhost:8001/sse
         mcp-composer --mode stdio --script-path /path/to/server.py --id mcp-news
-        
-        Middleware commands:
-        mcp-composer validate middleware-config.json
-        mcp-composer add-middleware --config middleware-config.json --name Logger --kind mcp_composer.middleware.logging_middleware.LoggingMiddleware
-        
+
         Middleware commands:
         mcp-composer validate middleware-config.json
         mcp-composer add-middleware --config middleware-config.json --name Logger --kind mcp_composer.middleware.logging_middleware.LoggingMiddleware
@@ -352,7 +348,7 @@ async def run_dynamic_composer(args: argparse.Namespace, config: list[Dict]) -> 
     if args.auth_type == "oauth":
         logger.info("Detected --auth_type oauth")
         settings = ServerSettings()
-        mcp =  create_mcp_server(settings)
+        mcp = create_mcp_server(settings)
 
     else:
         logger.info("Running MCP Composer without OAuth")
@@ -382,7 +378,7 @@ async def run_dynamic_composer(args: argparse.Namespace, config: list[Dict]) -> 
             #remote_proxy.auth = auth  # type: ignore
             remote_proxy = MCPComposer("composer", auth=auth)
             await remote_proxy._tool_manager.disable_tools(["all"])
-        
+
         elif args.client_auth_type == "oauth":
             client_issuer = get_issuer(remote_url)
             client_scope="openid"
@@ -434,7 +430,7 @@ async def run_dynamic_composer(args: argparse.Namespace, config: list[Dict]) -> 
 def main() -> None:
     """Main entry point for the MCP Composer CLI."""
     logger.info("Starting MCP Composer CLI...")
-    
+
     # Check if first argument is a middleware command
     if len(sys.argv) > 1 and sys.argv[1] in ['validate', 'list', 'add-middleware']:
         # Use middleware parser

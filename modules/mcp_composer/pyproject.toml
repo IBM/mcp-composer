@@ -26,6 +26,8 @@ dependencies = [
     "jsonref>=1.1.0",
     "deepdiff>=8.6.1",
     "scikit-learn>=1.7.1",
+    "typer>=0.17.0",
+    "python-daemon>=3.1.2",
 ]
 
 [project.urls]
@@ -61,7 +63,7 @@ tracing = [
 ]
 
 [project.scripts]
-mcp-composer = "mcp_composer.core.utils.cli:main"
+mcp-composer = "mcp_composer.core.cli.cli_main:main"
 
 [build-system]
 requires = ["hatchling", "uv-dynamic-versioning>=0.7.0"]
