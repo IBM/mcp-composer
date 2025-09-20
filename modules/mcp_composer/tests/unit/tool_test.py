@@ -39,7 +39,7 @@ class TestTool(unittest.IsolatedAsyncioTestCase):
         tool_config = await self.gw._tool_manager.get_tool_config_by_name(
             name=TestData.TOOL_NAME_1
         )
-        self.assertEqual(tool_config[0]["name"], TestData.TOOL_NAME_WITHOUT_PREFIX)
+        self.assertEqual(tool_config[0]["name"], TestData.TOOL_NAME_1)
 
     async def test_get_tool_config_by_server(self):
         """Ensure tool config can be retrieved using server id"""

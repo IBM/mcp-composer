@@ -29,8 +29,12 @@ async def generate_tool_from_curl() -> List[Callable[[], Any]]:
     try:
         return DynamicToolGenerator.read_curl_from_file()
     except ToolGenerateError as e:
-        logger.exception("Failed to generate tool from saved curl config details: %s", e)
-        raise ToolGenerateError("Failed to generate tool from saved curl config details") from e
+        logger.exception(
+            "Failed to generate tool from saved curl config details: %s", e
+        )
+        raise ToolGenerateError(
+            "Failed to generate tool from saved curl config details"
+        ) from e
 
 
 async def generate_tool_from_open_api() -> Dict[str, Tuple[Dict[str, Any], Any]]:
@@ -38,8 +42,12 @@ async def generate_tool_from_open_api() -> Dict[str, Tuple[Dict[str, Any], Any]]
     try:
         return await OpenApiTool.read_openapi_from_file()
     except Exception as e:
-        logger.exception("Failed to generate tool from saved OpenAPI specification: %s", e)
-        raise ToolGenerateError("Failed to generate tool from saved OpenAPI specification") from e
+        logger.exception(
+            "Failed to generate tool from saved OpenAPI specification: %s", e
+        )
+        raise ToolGenerateError(
+            "Failed to generate tool from saved OpenAPI specification"
+        ) from e
 
 
 async def tool_from_curl(config: dict) -> Callable[[], Any]:
@@ -110,7 +118,9 @@ async def tool_from_open_api(
 
     except KeyError as e:
         logger.exception("Failed to generate tool from openapi:%s", e)
-        raise ToolGenerateError("Failed to generate tool from openapi: server url or title is missing") from e
+        raise ToolGenerateError(
+            "Failed to generate tool from openapi: server url or title is missing"
+        ) from e
 
     except Exception as e:
         logger.exception("Failed to generate tool from openapi:%s", e)
@@ -130,10 +140,10 @@ def tool_config(server_tools: dict[str, Tool], key: Optional[str] = None) -> lis
     Get tool configuration details by tool name or server
     """
     if key:
-        tool = server_tools.get(key)
-        if not tool:
+        tools = {tool.name: tool for tool in server_tools.values()}
+        if key not in tools:
             raise NotFoundError(f"Unknown tool: {key}")
-        return [format_tool(tool)]
+        return [format_tool(tools[key])]
 
     return [format_tool(tool) for tool in server_tools.values()]
 

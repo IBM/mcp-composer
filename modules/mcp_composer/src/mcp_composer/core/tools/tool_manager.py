@@ -99,8 +99,11 @@ class MCPToolManager(ToolManager):
                 if self._disabled_tools:
                     remove_set.update(self._disabled_tools)
                 if member.tools_description:
-                    description_updates.update(member.tools_description)
-
+                    updated_tool_description = {
+                        f"{member.id}_{key}": value
+                        for key, value in member.tools_description.items()
+                    }
+                    description_updates.update(updated_tool_description)
             filtered_tools = {}
             for name, tool in tools.items():
                 if tool.name in remove_set:
@@ -143,7 +146,7 @@ class MCPToolManager(ToolManager):
         for mounted_server in self._mounted_servers:
             if mounted_server.prefix == server.id:
                 tools = await mounted_server.server.get_tools()
-                # server_tools = {f"{server.id}_{k}": v for k, v in tools.items()}
+
                 server_tools = {k: v for k, v in tools.items()}
                 result = {
                     k: v
