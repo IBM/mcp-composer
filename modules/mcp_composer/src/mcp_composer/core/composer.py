@@ -35,6 +35,7 @@ from mcp_composer.core.utils.tools import (
 )
 from mcp_composer.core.prompts import MCPPromptManager
 from mcp_composer.core.resources import MCPResourceManager
+from mcp_composer.core.config.config_loader import ConfigLoader
 
 load_dotenv()
 
@@ -50,7 +51,7 @@ class MCPComposer(FastMCP):
     def __init__(
         self,
         name: str = "",
-        config: Optional[list[dict]] = None,
+        config: Optional[Union[list[dict], str]] = None,
         database_config: Optional[Union[Dict[str, Any], DatabaseInterface]] = None,
         version_adapter_config: Optional[Dict[str, Any]] = None,
         auth: OAuthProvider | None = None,
@@ -110,16 +111,25 @@ class MCPComposer(FastMCP):
 
         self._db_configs: list[dict] = self._server_manager.load_all_servers_db()
         self._config: list[dict] = []
+        self._unified_config_applied = False
+        self._unified_config = None
+        self._unified_config_type = None
+
         if config:
-            if not isinstance(config, list):
-                raise TypeError("Config must be a list of server configurations")
-            try:
-                AllServersValidator(config).validate_all()
-                self._config = config
-                logger.info("Merged %d configs supplied at launch", len(config))
-            except ValidationError as e:
-                logger.error("Validation error: %s", e)
-                sys.exit(1)
+            if isinstance(config, str):
+                # Handle unified configuration file path
+                self._process_unified_config(config)
+            elif isinstance(config, list):
+                # Handle traditional list of server configurations
+                try:
+                    AllServersValidator(config).validate_all()
+                    self._config = config
+                    logger.info("Merged %d configs supplied at launch", len(config))
+                except ValidationError as e:
+                    logger.error("Validation error: %s", e)
+                    sys.exit(1)
+            else:
+                raise TypeError("Config must be a list of server configurations or a file path string")
 
         # Define tool categories
         server_tools = [
@@ -252,6 +262,55 @@ class MCPComposer(FastMCP):
 
         return config
 
+    def _process_unified_config(self, config_path: str) -> None:
+        """Process unified configuration file with auto-detection."""
+        try:
+            # Create config loader and detect type
+            config_loader = ConfigLoader(self)
+            config_type = config_loader.detect_config_type(config_path)
+
+            # Load configuration using the same loader instance
+            unified_config = config_loader.load_from_file(config_path, config_type)
+
+            # Store configuration for later application
+            self._unified_config = unified_config
+            self._unified_config_type = config_type
+
+            # Extract server configs for backward compatibility
+            if unified_config.servers:
+                self._config = [server.model_dump() for server in unified_config.servers]
+                logger.info("Loaded %d servers from unified config", len(self._config))
+
+            self._unified_config_applied = True
+            logger.info("Successfully loaded unified configuration from %s", config_path)
+
+        except Exception as e:
+            logger.error("Failed to process unified configuration from %s: %s", config_path, e)
+            sys.exit(1)
+
+    async def _apply_unified_config(self) -> None:
+        """Apply the loaded unified configuration."""
+        try:
+            config_loader = ConfigLoader(self)
+            results = await config_loader.apply_config(self._unified_config)
+
+            # Log results
+            for section, result in results.items():
+                if result.get('total', 0) > 0:
+                    registered = len(result.get('registered', []))
+                    failed = len(result.get('failed', []))
+                    logger.info(f"Applied {section}: {registered} registered, {failed} failed")
+
+                    # Log failures
+                    for failure in result.get('failed', []):
+                        logger.error(f"Failed to apply {section}: {failure}")
+
+            logger.info("Successfully applied unified configuration")
+
+        except Exception as e:
+            logger.error(f"Failed to apply unified configuration: {e}")
+            raise
+
     async def _load_custom_tools(self):
         """Load tools using saved OpenAPI, Curl, and Python script."""
         server_data = await self._tool_manager.load_custom_tools()
@@ -304,6 +363,11 @@ class MCPComposer(FastMCP):
         This runs at startup or from manual trigger.
         """
         await self._load_custom_tools()
+
+        # Apply unified configuration if loaded
+        if self._unified_config_applied and self._unified_config:
+            await self._apply_unified_config()
+
         all_configs = self._config + self._db_configs
         if not all_configs:
             logger.warning("No server configurations found to mount.")

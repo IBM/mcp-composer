@@ -1,0 +1,175 @@
+{
+    "servers": [
+        {
+            "id": "mcp-stock-info",
+            "type": "http",
+            "endpoint": "https://mcp-stock-info.1vgzmntiwjzl.eu-es.codeengine.appdomain.cloud/mcp"
+        },
+        {
+            "id": "mcp-server-fetch",
+            "type": "sse",
+            "endpoint": "https://mcp-server-fetch.1vgzmntiwjzl.eu-es.codeengine.appdomain.cloud/sse"
+        }
+    ],
+    "middleware": [
+        {
+            "name": "PIIFilter",
+            "version": "0.0.0",
+            "kind": "mcp_composer.middleware.pii_middleware.SecretsAndPIIMiddleware",
+            "mode": "enabled",
+            "priority": 10,
+            "applied_hooks": [
+                "on_call_tool",
+                "on_read_resource",
+                "on_list_prompts"
+            ],
+            "config": {
+                "redact_inputs": true,
+                "redact_outputs": true,
+                "strategy": {
+                    "mode": "mask",
+                    "redaction_text": "[PII_REDACTED]"
+                },
+                "sensitive_keys": {
+                    "add": [
+                        "x-auth-token"
+                    ]
+                },
+                "patterns": {
+                    "add": [
+                        {
+                            "tag": "SLACK_BOT",
+                            "regex": "xoxb-[A-Za-z0-9-]{20,}"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "RateLimiter",
+            "kind": "mcp_composer.middleware.rate_limit_filter.RateLimitingMiddleware",
+            "mode": "enabled",
+            "priority": 20,
+            "applied_hooks": [
+                "on_call_tool"
+            ],
+            "config": {
+                "requests_per_minute": 120,
+                "burst_limit": 20,
+                "scope": "per_client",
+                "enforce": true
+            }
+        }
+    ],
+    "prompts": [
+        {
+            "name": "app_top_errors_yesterday",
+            "description": "Show top erroneous calls handled by an application since yesterday",
+            "template": "Show top erroneous calls handled by '{{ application }}' application since yesterday",
+            "arguments": [
+                {
+                    "name": "application",
+                    "type": "string",
+                    "required": true,
+                    "description": "The name of the application"
+                }
+            ]
+        },
+        {
+            "name": "hup_calls_perf_2h",
+            "description": "Show performance overview of all hup calls in the past 2 hours grouped by call name",
+            "template": "Show performance overview of all hup calls in the past 2 hours group by call name"
+        }
+    ],
+    "tools": {
+        "openapi_input": {
+            "openapi": "3.0.3",
+            "info": {
+                "title": "HelloWorld_API",
+                "description": "A simple API with one endpoint",
+                "version": "1.0.0"
+            },
+            "servers": [
+                {
+                    "url": "https://www.api.example.com/v1"
+                }
+            ],
+            "paths": {
+                "/hello": {
+                    "get": {
+                        "summary": "Returns a greeting message",
+                        "responses": {
+                            "200": {
+                                "description": "Successful response",
+                                "content": {
+                                    "application/json": {
+                                        "schema": {
+                                            "type": "object",
+                                            "properties": {
+                                                "message": {
+                                                    "type": "string",
+                                                    "example": "Hello, world!"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        },
+                        "operationId": "get greeting"
+                    }
+                }
+            }
+        },
+        "weather_api": {
+            "openapi": "3.0.3",
+            "info": {
+                "title": "Weather API",
+                "description": "Get weather information",
+                "version": "1.0.0"
+            },
+            "servers": [
+                {
+                    "url": "https://api.weather.com/v1"
+                }
+            ],
+            "paths": {
+                "/weather": {
+                    "get": {
+                        "summary": "Get current weather",
+                        "parameters": [
+                            {
+                                "name": "city",
+                                "in": "query",
+                                "required": true,
+                                "schema": {
+                                    "type": "string"
+                                }
+                            }
+                        ],
+                        "responses": {
+                            "200": {
+                                "description": "Successful response",
+                                "content": {
+                                    "application/json": {
+                                        "schema": {
+                                            "type": "object",
+                                            "properties": {
+                                                "temperature": {
+                                                    "type": "number"
+                                                },
+                                                "description": {
+                                                    "type": "string"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

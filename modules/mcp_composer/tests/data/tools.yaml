@@ -1,0 +1,63 @@
+openapi_input:
+  openapi: "3.0.3"
+  info:
+    title: "HelloWorld_API"
+    description: "A simple API with one endpoint"
+    version: "1.0.0"
+  servers:
+    - url: "https://www.api.example.com/v1"
+  paths:
+    "/hello":
+      get:
+        summary: "Returns a greeting message"
+        responses:
+          "200":
+            description: "Successful response"
+            content:
+              application/json:
+                schema:
+                  type: "object"
+                  properties:
+                    message:
+                      type: "string"
+                      example: "Hello, world!"
+        operationId: "get greeting"
+
+openapi_input_v1:
+  openapi: "3.0.3"
+  info:
+    title: "HelloWorld_API"
+    description: "A simple API with one endpoint"
+    version: "1.0.0"
+  servers:
+    - url: "https://www.api.example.com/v1"
+  paths:
+    "/hello":
+      get:
+        summary: "Returns a greeting message"
+        responses:
+          "200":
+            description: "Successful response"
+            content:
+              application/json:
+                schema:
+                  type: "object"
+                  properties:
+                    message:
+                      type: "string"
+                      example: "Hello, world!"
+        operationId: "get greeting_v1"
+
+jsonplaceholder_api:
+  name: "jsonplaceholder_api"
+  tool_type: "curl"
+  description: "Fetch posts from JSONPlaceholder API using curl"
+  curl_config:
+    value: "curl -X GET 'https://jsonplaceholder.typicode.com/posts/1' -H 'Accept: application/json'"
+
+weather_api:
+  name: "weather_api"
+  tool_type: "curl"
+  description: "Get weather information from OpenWeatherMap API"
+  curl_config:
+    value: "curl -X GET 'https://api.openweathermap.org/data/2.5/weather?q=London&appid=demo_key' -H 'Accept: application/json'"
