@@ -1,0 +1,1 @@
+import{_ as n,c as a,o as e,a2 as l}from"./chunks/framework.CulRYwFH.js";const d=JSON.parse('{"title":"CLI Usage","description":"","frontmatter":{},"headers":[],"relativePath":"guide/cli.md","filePath":"guide/cli.md"}'),p={name:"guide/cli.md"};function o(r,s,t,c,i,m){return e(),a("div",null,s[0]||(s[0]=[l("",86)]))}const y=n(p,[["render",o]]);export{d as __pageData,y as default};
