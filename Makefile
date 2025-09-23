@@ -7,10 +7,12 @@ REGISTRY_IMAGE_TAG_SHORT ?= $(shell git rev-parse --abbrev-ref HEAD | sed 's/[^a
 ROOT_IMAGE_NAME = mcp-composer-root
 SRC_APP_IMAGE_NAME = mcp-composer-app
 SRC_CLIENT_IMAGE_NAME = mcp-composer-client
+TEST_IMAGE_NAME = mcp-composer-test
 
 ROOT_IMAGE_URI = $(REGISTRY_URL)/$(REGISTRY_NAMESPACE)/$(ROOT_IMAGE_NAME):$(REGISTRY_IMAGE_TAG_SHORT)
 SRC_APP_IMAGE_URI = $(REGISTRY_URL)/$(REGISTRY_NAMESPACE)/$(SRC_APP_IMAGE_NAME):$(REGISTRY_IMAGE_TAG_SHORT)
 SRC_CLIENT_IMAGE_URI = $(REGISTRY_URL)/$(REGISTRY_NAMESPACE)/$(SRC_CLIENT_IMAGE_NAME):$(REGISTRY_IMAGE_TAG_SHORT)
+TEST_IMAGE_URI = $(REGISTRY_URL)/$(REGISTRY_NAMESPACE)/$(TEST_IMAGE_NAME):$(REGISTRY_IMAGE_TAG_SHORT)
 
 BUILD_ENGINE ?= docker
 BUILD_ENGINE_ARGS ?= --platform linux/amd64
@@ -203,13 +205,13 @@ upload-pypi:
 docker-test:
 	@echo "🧪 Running tests in Docker container..."
 	@echo "Building test container with all dependencies..."
-	$(BUILD_ENGINE) build $(BUILD_ENGINE_ARGS) $(BUILD_ARGS) \
-		-f modules/mcp_composer/Dockerfile.test -t mcp-composer-test:latest modules/mcp_composer
+	$(BUILD_ENGINE) build $(BUILD_ENGINE_ARGS) $(BUILD_ARGS) $(DREADNOUGHT_DOCKER_BUILD_ARGS) \
+		-f modules/mcp_composer/Dockerfile.test -t $(TEST_IMAGE_URI) modules/mcp_composer
 	@echo "Running test suite in container..."
 	$(BUILD_ENGINE) run --rm \
 		-w /app \
-		mcp-composer-test:latest \
-		/app/.venv/bin/pytest tests/unit/ -v --tb=short --ignore=tests/unit/test_oauth_callback.py
+		$(TEST_IMAGE_URI) \
+		uv run pytest tests/unit/ -v --tb=short --ignore=tests/unit/test_oauth_callback.py
 	@echo "✅ Docker test execution completed"
 
 # Show help
