@@ -132,6 +132,20 @@ include = ["mcp_composer"]
    export MCP_DATABASE_SERVICE_URL="https://your-cloudant-instance.cloudantnosqldb.appdomain.cloud"
    export MCP_DATABASE_DB_NAME="mcp_servers"  # Optional, defaults to "mcp_servers"
    
+   # For PostgreSQL database (URL method - recommended)
+   export MCP_DATABASE_TYPE="postgres"
+   export MCP_DATABASE_URL="postgresql://username:password@hostname:port/database"
+   export MCP_DATABASE_TABLE_NAME="mcp_servers"  # Optional, defaults to "mcp_servers"
+   
+   # For PostgreSQL database (individual parameters)
+   export MCP_DATABASE_TYPE="postgres"
+   export MCP_DATABASE_HOST="localhost"
+   export MCP_DATABASE_PORT="5432"
+   export MCP_DATABASE_DATABASE="your_database"
+   export MCP_DATABASE_USER="your_username"
+   export MCP_DATABASE_PASSWORD="your_password"
+   export MCP_DATABASE_TABLE_NAME="mcp_servers"  # Optional, defaults to "mcp_servers"
+   
    # For local file storage
    export MCP_DATABASE_TYPE="local_file"
    export MCP_DATABASE_FILE_PATH="/path/to/your/servers.json"  # Optional
@@ -141,10 +155,17 @@ include = ["mcp_composer"]
    ```
    
    **Environment Variables**:
-   - `MCP_DATABASE_TYPE`: Database type (`"cloudant"` or `"local_file"`)
+   - `MCP_DATABASE_TYPE`: Database type (`"cloudant"`, `"postgres"`, or `"local_file"`)
    - `MCP_DATABASE_API_KEY`: API key for Cloudant (required for cloudant type)
    - `MCP_DATABASE_SERVICE_URL`: Service URL for Cloudant (required for cloudant type)
    - `MCP_DATABASE_DB_NAME`: Database name (optional, defaults to `"mcp_servers"`)
+   - `MCP_DATABASE_URL`: PostgreSQL connection URL (preferred for postgres type)
+   - `MCP_DATABASE_HOST`: PostgreSQL host (required for postgres type if URL not provided)
+   - `MCP_DATABASE_PORT`: PostgreSQL port (optional for postgres type, defaults to 5432)
+   - `MCP_DATABASE_DATABASE`: PostgreSQL database name (required for postgres type if URL not provided)
+   - `MCP_DATABASE_USER`: PostgreSQL username (required for postgres type if URL not provided)
+   - `MCP_DATABASE_PASSWORD`: PostgreSQL password (required for postgres type if URL not provided)
+   - `MCP_DATABASE_TABLE_NAME`: PostgreSQL table name (optional for postgres type, defaults to "mcp_servers")
    - `MCP_DATABASE_FILE_PATH`: File path for local storage (optional for local_file type)
    - `MCP_USE_LOCAL_FILE_STORAGE`: Set to `"true"` to enable local file storage when no other config is provided
 
@@ -162,6 +183,40 @@ include = ["mcp_composer"]
        "api_key": "your_cloudant_api_key",
        "service_url": "https://your-cloudant-instance.cloudantnosqldb.appdomain.cloud",
        "db_name": "mcp_servers"  # Optional, defaults to "mcp_servers"
+   }
+   
+   composer = MCPComposer(
+       name="my-composer",
+       database_config=database_config
+   )
+   ```
+   
+   **PostgreSQL Configuration**:
+   
+   ```python
+   from mcp_composer import MCPComposer
+   
+   # PostgreSQL configuration (URL method - recommended)
+   database_config = {
+       "type": "postgres",
+       "url": "postgresql://username:password@hostname:port/database",
+       "table_name": "mcp_servers"  # Optional, defaults to "mcp_servers"
+   }
+   
+   composer = MCPComposer(
+       name="my-composer",
+       database_config=database_config
+   )
+   
+   # PostgreSQL configuration (individual parameters)
+   database_config = {
+       "type": "postgres",
+       "host": "localhost",
+       "port": 5432,
+       "database": "your_database",
+       "user": "your_username",
+       "password": "your_password",
+       "table_name": "mcp_servers"  # Optional, defaults to "mcp_servers"
    }
    
    composer = MCPComposer(
@@ -194,6 +249,14 @@ include = ["mcp_composer"]
    
    **Optional Cloudant Parameters**:
    - `db_name`: Database name (defaults to `"mcp_servers"`)
+   
+   **Required PostgreSQL Parameters**:
+   - `type`: Must be set to `"postgres"`
+   - Either `url` (PostgreSQL connection URL) OR all of `host`, `database`, `user`, `password`
+   
+   **Optional PostgreSQL Parameters**:
+   - `port`: PostgreSQL port (defaults to 5432)
+   - `table_name`: Table name (defaults to `"mcp_servers"`)
    
    **Custom Database Interface**:
    
@@ -520,11 +583,16 @@ When initializing MCPComposer, you can configure the database backend for persis
 **Example with Environment Variables (Recommended)**:
 
 ```bash
-# Set environment variables
+# Set environment variables for Cloudant
 export MCP_DATABASE_TYPE="cloudant"
 export MCP_DATABASE_API_KEY="your_cloudant_api_key"
 export MCP_DATABASE_SERVICE_URL="https://your-cloudant-instance.cloudantnosqldb.appdomain.cloud"
 export MCP_DATABASE_DB_NAME="mcp_servers"
+
+# Or set environment variables for PostgreSQL
+export MCP_DATABASE_TYPE="postgres"
+export MCP_DATABASE_URL="postgresql://username:password@hostname:port/database"
+export MCP_DATABASE_TABLE_NAME="mcp_servers"
 ```
 
 ```python
@@ -533,7 +601,7 @@ from mcp_composer import MCPComposer
 # Initialize composer - database config will be loaded from environment variables
 composer = MCPComposer(name="my-composer")
 
-# Server configurations will be automatically persisted to Cloudant
+# Server configurations will be automatically persisted to the configured database
 await composer.setup_member_servers()
 ```
 
@@ -557,6 +625,28 @@ composer = MCPComposer(
 )
 
 # Server configurations will be automatically persisted to Cloudant
+await composer.setup_member_servers()
+```
+
+**Example with Programmatic PostgreSQL Configuration**:
+
+```python
+from mcp_composer import MCPComposer
+
+# Configure PostgreSQL database programmatically (URL method)
+database_config = {
+    "type": "postgres",
+    "url": "postgresql://username:password@hostname:port/database",
+    "table_name": "mcp_servers"  # Optional
+}
+
+# Initialize composer with database configuration
+composer = MCPComposer(
+    name="my-composer",
+    database_config=database_config
+)
+
+# Server configurations will be automatically persisted to PostgreSQL
 await composer.setup_member_servers()
 ```
 
@@ -606,9 +696,11 @@ await composer.setup_member_servers()
 
 **Benefits of Database Configuration**:
 - **Persistence**: Server configurations, tools, prompts, and resources are saved across restarts
-- **Scalability**: Cloudant provides distributed storage for multi-instance deployments
+- **Scalability**: Cloudant and PostgreSQL provide distributed storage for multi-instance deployments
 - **Management**: Tools for enabling/disabling tools, prompts, and resources per server
 - **Versioning**: Support for configuration versioning and rollback capabilities
+- **Flexibility**: Multiple database backends (Cloudant, PostgreSQL, Local File) to suit different deployment needs
+- **PostgreSQL Features**: ACID compliance, JSONB support, advanced querying capabilities, and robust ecosystem
 
 ### Command Line Interface (CLI)
 
@@ -1512,6 +1604,9 @@ Follow instruction in [Demo-Chatbot-UI](https://github.ibm.com/ai-elite/mcp-comp
    # For Cloudant, ensure URL starts with http:// or https://
    export MCP_DATABASE_SERVICE_URL="https://your-instance.cloudantnosqldb.appdomain.cloud"
    
+   # For PostgreSQL, ensure URL format is correct
+   export MCP_DATABASE_URL="postgresql://username:password@hostname:port/database"
+   
    # For local file storage, ensure file path is valid
    export MCP_DATABASE_FILE_PATH="/path/to/valid/file.json"
    ```
@@ -1525,10 +1620,18 @@ Follow instruction in [Demo-Chatbot-UI](https://github.ibm.com/ai-elite/mcp-comp
    export MCP_DATABASE_API_KEY="your_key"
    export MCP_DATABASE_SERVICE_URL="https://your-instance.cloudantnosqldb.appdomain.cloud"
    
+   # Or for PostgreSQL
+   export MCP_DATABASE_TYPE="postgres"
+   export MCP_DATABASE_URL="postgresql://username:password@hostname:port/database"
+   
    # Or add them to your .env file
    echo "MCP_DATABASE_TYPE=cloudant" >> .env
    echo "MCP_DATABASE_API_KEY=your_key" >> .env
    echo "MCP_DATABASE_SERVICE_URL=https://your-instance.cloudantnosqldb.appdomain.cloud" >> .env
+   
+   # Or for PostgreSQL
+   echo "MCP_DATABASE_TYPE=postgres" >> .env
+   echo "MCP_DATABASE_URL=postgresql://username:password@hostname:port/database" >> .env
    ```
 
 7. **Server fails to start with database configuration errors**
@@ -1543,6 +1646,16 @@ Follow instruction in [Demo-Chatbot-UI](https://github.ibm.com/ai-elite/mcp-comp
    export MCP_DATABASE_API_KEY="your_valid_api_key"
    export MCP_DATABASE_SERVICE_URL="https://your-instance.cloudantnosqldb.appdomain.cloud"
    
+   # For PostgreSQL, ensure connection details are correct:
+   export MCP_DATABASE_TYPE="postgres"
+   export MCP_DATABASE_URL="postgresql://username:password@hostname:port/database"
+   # Or use individual parameters:
+   export MCP_DATABASE_HOST="localhost"
+   export MCP_DATABASE_PORT="5432"
+   export MCP_DATABASE_DATABASE="your_database"
+   export MCP_DATABASE_USER="your_username"
+   export MCP_DATABASE_PASSWORD="your_password"
+   
    # For local file storage:
    export MCP_DATABASE_TYPE="local_file"
    export MCP_DATABASE_FILE_PATH="/path/to/valid/file.json"
@@ -1555,5 +1668,25 @@ Follow instruction in [Demo-Chatbot-UI](https://github.ibm.com/ai-elite/mcp-comp
    # Look for "Failed to mount server" messages in the logs
    # Fix the specific server configurations that are failing
    # Server will continue to run with successfully mounted servers
+   ```
+
+9. **PostgreSQL connection issues**
+   - **Cause**: Database connection problems, missing dependencies, or incorrect credentials
+   - **Solution**: Troubleshoot PostgreSQL connectivity and dependencies
+   ```bash
+   # Install PostgreSQL adapter dependency
+   pip install psycopg2-binary
+   
+   # Test PostgreSQL connection manually
+   psql "postgresql://username:password@hostname:port/database"
+   
+   # Check if PostgreSQL service is running
+   sudo systemctl status postgresql
+   
+   # Verify database exists and user has permissions
+   psql -U username -d database -c "SELECT 1;"
+   
+   # Check PostgreSQL logs for connection errors
+   sudo tail -f /var/log/postgresql/postgresql-*.log
    ```
 
