@@ -23,6 +23,16 @@
 - [Key Features](#key-features)
   - [MCP Composer Servers](#mcp-composer-servers)
   - [Command Line Interface (CLI)](#command-line-interface-cli)
+  - [Unified Configuration System](#unified-configuration-system)
+    - [Overview](#overview-1)
+    - [Configuration File Formats](#configuration-file-formats)
+    - [CLI Usage](#cli-usage)
+    - [Programmatic Usage](#programmatic-usage)
+    - [Auto-Detection Logic](#auto-detection-logic)
+    - [Validation and Error Handling](#validation-and-error-handling)
+    - [Performance Optimizations](#performance-optimizations)
+    - [Migration from Legacy Configuration](#migration-from-legacy-configuration)
+    - [Best Practices](#best-practices)
   - [MCP Composer Tools](#mcp-composer-tools)
   - [MCP Composer Prompts](#mcp-composer-prompts)
 - [Demo using MCP Inspector](#demo-using-mcp-inspector)
@@ -411,6 +421,9 @@ uvx mcp-composer -sseurl --sse-url <url to remote sse mcp server> --auth_type oa
 - Handles multiple authentication strategies.
 - Automatically forwards each request to the correct upstream server or tool.
 - List tools and metadata by name or server.
+- **Unified Configuration System**: Single configuration files to manage servers, middleware, prompts, and tools with auto-detection and validation.
+- **CLI Integration**: Direct support for unified configuration via `--config` and `--configfilepath` options.
+- **Programmatic Integration**: Direct support in `MCPComposer` constructor for file-based configurations.
 - **Database Support**: Configurable database backends including IBM Cloudant and local file storage for persistent server configurations, tools, prompts, and resources.
 - **Environment Variable Configuration**: Database configuration through environment variables with validation and fallback support.
 - **Database Configuration Validation**: Strict validation of database configuration with fail-fast behavior to prevent startup with invalid database settings.
@@ -616,6 +629,311 @@ mcp-composer --mode <http|stdio> [--host HOST] [--port PORT] [--log-level LEVEL]
 | `--port`      | Port to run on (for `http` mode)               | `9000`    |
 | `--log-level` | Log level (e.g. `debug`, `info`, `warning`)    | `debug`   |
 | `--path`      | URL path to mount the MCP Composer on          | `/mcp`    |
+
+### Unified Configuration System
+
+MCP Composer now supports a powerful unified configuration system that allows you to manage servers, middleware, prompts, and tools from a single configuration file. This system provides both CLI and programmatic interfaces for maximum flexibility.
+
+#### Overview
+
+The unified configuration system supports:
+- **Single-section files**: `servers.json`, `middleware.json`, `prompts.json`, `tools.json`
+- **Full unified files**: Complete configuration with all sections
+- **Auto-detection**: Automatically detects configuration type based on content
+- **CLI integration**: Direct support via `--config` and `--configfilepath` options
+- **Programmatic integration**: Direct support in `MCPComposer` constructor
+
+#### Configuration File Formats
+
+##### Single-Section Configuration Files
+
+**Servers Configuration (`servers.json`)**:
+```json
+[
+  {
+    "id": "mcp-stock-info",
+    "type": "http",
+    "endpoint": "https://mcp-stock-info.example.com/mcp"
+  },
+  {
+    "id": "mcp-server-fetch",
+    "type": "sse",
+    "endpoint": "https://mcp-server-fetch.example.com/sse"
+  }
+]
+```
+
+**Middleware Configuration (`middleware.json`)**:
+```json
+[
+  {
+    "name": "PIIFilter",
+    "version": "0.0.0",
+    "kind": "mcp_composer.middleware.pii_middleware.SecretsAndPIIMiddleware",
+    "mode": "enabled",
+    "priority": 10,
+    "applied_hooks": ["on_call_tool", "on_read_resource", "on_list_prompts"],
+    "config": {
+      "redact_inputs": true,
+      "redact_outputs": true,
+      "strategy": {
+        "mode": "mask",
+        "redaction_text": "[PII_REDACTED]"
+      }
+    }
+  }
+]
+```
+
+**Prompts Configuration (`prompts.json`)**:
+```json
+[
+  {
+    "name": "app_top_errors_yesterday",
+    "description": "Show top erroneous calls handled by an application since yesterday",
+    "template": "Show top erroneous calls handled by '{{ application }}' application since yesterday",
+    "arguments": [
+      {
+        "name": "application",
+        "type": "string",
+        "required": true,
+        "description": "The name of the application"
+      }
+    ]
+  }
+]
+```
+
+**Tools Configuration (`tools.json`)**:
+```json
+{
+  "openapi_input": {
+    "openapi": "3.0.3",
+    "info": {
+      "title": "HelloWorld_API",
+      "description": "A simple API with one endpoint",
+      "version": "1.0.0"
+    },
+    "servers": [
+      {
+        "url": "https://www.api.example.com/v1"
+      }
+    ],
+    "paths": {
+      "/hello": {
+        "get": {
+          "summary": "Returns a greeting message",
+          "responses": {
+            "200": {
+              "description": "Successful response",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "type": "object",
+                    "properties": {
+                      "message": {
+                        "type": "string",
+                        "example": "Hello, world!"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "operationId": "get greeting"
+        }
+      }
+    }
+  }
+}
+```
+
+##### Full Unified Configuration (`unified_config.json`)
+
+```json
+{
+  "servers": [
+    {
+      "id": "mcp-stock-info",
+      "type": "http",
+      "endpoint": "https://mcp-stock-info.example.com/mcp"
+    }
+  ],
+  "middleware": [
+    {
+      "name": "PIIFilter",
+      "kind": "mcp_composer.middleware.pii_middleware.SecretsAndPIIMiddleware",
+      "mode": "enabled",
+      "priority": 10,
+      "applied_hooks": ["on_call_tool"]
+    }
+  ],
+  "prompts": [
+    {
+      "name": "app_top_errors_yesterday",
+      "description": "Show top erroneous calls handled by an application since yesterday",
+      "template": "Show top erroneous calls handled by '{{ application }}' application since yesterday"
+    }
+  ],
+  "tools": {
+    "openapi_input": {
+      "openapi": "3.0.3",
+      "info": {
+        "title": "HelloWorld_API",
+        "version": "1.0.0"
+      }
+    }
+  }
+}
+```
+
+#### CLI Usage
+
+##### Basic Commands
+
+```bash
+# Load servers configuration
+mcp-composer --config servers --configfilepath servers.json --mode sse --host localhost --port 9000
+
+# Load middleware configuration
+mcp-composer --config middleware --configfilepath middleware.json --mode sse --host localhost --port 9000
+
+# Load prompts configuration
+mcp-composer --config prompts --configfilepath prompts.json --mode sse --host localhost --port 9000
+
+# Load tools configuration
+mcp-composer --config tools --configfilepath tools.json --mode sse --host localhost --port 9000
+
+# Load full unified configuration
+mcp-composer --config all --configfilepath unified_config.json --mode sse --host localhost --port 9000
+```
+
+##### Validation and Inspection
+
+```bash
+# Validate configuration file
+mcp-composer --config validate --configfilepath unified_config.json
+
+# Show configuration contents
+mcp-composer --config show --configfilepath unified_config.json
+
+# Dry run (show what would be applied)
+mcp-composer --config servers --configfilepath servers.json --dry-run
+```
+
+##### Advanced Options
+
+```bash
+# With custom output format
+mcp-composer --config show --configfilepath unified_config.json --format json
+
+# With dry run for specific sections
+mcp-composer --config all --configfilepath unified_config.json --dry-run
+```
+
+#### Programmatic Usage
+
+##### Direct MCPComposer Integration
+
+```python
+from mcp_composer import MCPComposer
+
+# Traditional list configuration (backward compatible)
+composer = MCPComposer(
+    name="my-composer",
+    config=[
+        {"id": "server1", "type": "http", "endpoint": "https://api1.com"},
+        {"id": "server2", "type": "sse", "endpoint": "https://api2.com/sse"}
+    ]
+)
+
+# Single-section file configuration
+composer = MCPComposer(
+    name="my-composer",
+    config="servers.json"  # Auto-detects as servers configuration
+)
+
+# Full unified configuration
+composer = MCPComposer(
+    name="my-composer", 
+    config="unified_config.json"  # Auto-detects as unified configuration
+)
+
+# Apply configuration
+await composer.setup_member_servers()
+```
+
+##### Configuration Manager Usage
+
+```python
+from mcp_composer.core.config.config_loader import ConfigManager
+
+# Create configuration manager
+config_manager = ConfigManager()
+
+# Load and apply configuration
+results = await config_manager.load_and_apply(
+    file_path="unified_config.json",
+    config_type="all"  # or "servers", "middleware", "prompts", "tools"
+)
+
+print(f"Applied: {results}")
+```
+
+#### Auto-Detection Logic
+
+The system automatically detects configuration type based on file content:
+
+- **Servers**: Contains `id`, `type`, `endpoint` fields
+- **Middleware**: Contains `name`, `kind`, `mode` fields  
+- **Prompts**: Contains `name`, `description`, `template` fields
+- **Tools**: Dictionary format with tool definitions
+- **Unified**: Contains multiple sections (`servers`, `middleware`, `prompts`, `tools`)
+
+#### Validation and Error Handling
+
+- **Mandatory Field Validation**: Ensures required fields are present
+- **Type Validation**: Validates data types and formats
+- **Schema Validation**: Uses Pydantic for strict validation
+- **Error Reporting**: Clear error messages with specific field information
+- **Fail-Fast**: Invalid configurations prevent server startup
+
+#### Performance Optimizations
+
+- **File Caching**: Avoids duplicate file reads
+- **Memory Efficiency**: Reuses objects and optimizes data structures
+- **Validation Optimization**: Streamlined validation logic
+- **Error Handling**: Standardized error handling with consistent formatting
+
+#### Migration from Legacy Configuration
+
+The unified configuration system is fully backward compatible:
+
+```python
+# Legacy approach (still works)
+composer = MCPComposer(
+    name="my-composer",
+    config=[
+        {"id": "server1", "type": "http", "endpoint": "https://api1.com"}
+    ]
+)
+
+# New unified approach
+composer = MCPComposer(
+    name="my-composer",
+    config="servers.json"  # Same servers, different format
+)
+```
+
+#### Best Practices
+
+1. **Use single-section files** for focused configurations
+2. **Use unified files** for complete system setup
+3. **Validate configurations** before deployment
+4. **Use dry-run mode** to preview changes
+5. **Leverage auto-detection** for simpler configuration management
+6. **Follow naming conventions** for consistent organization
 
 ### MCP Composer Tools
 

@@ -25,7 +25,11 @@ from mcp_composer.core.utils.logger import LoggerFactory
 from mcp_composer.core.utils.oauth_cli_utils import create_mcp_server, oauth_pkce_login_async, get_issuer
 
 # Import command modules
-from mcp_composer.core.cli.commands import middleware_commands, composer_commands
+from mcp_composer.core.cli.commands import middleware_commands, composer_commands, config_commands
+
+# Import unified configuration functions
+from mcp_composer.core.config.config_loader import ConfigManager
+from mcp_composer.core.config.unified_config import ConfigSection, ConfigValidationError
 
 # Load environment variables
 load_dotenv()
@@ -53,6 +57,12 @@ app.add_typer(
     composer_commands.app,
     name="composer",
     help="MCP Composer server commands",
+)
+
+app.add_typer(
+    config_commands.app,
+    name="config",
+    help="Unified configuration management commands",
 )
 
 
@@ -144,8 +154,48 @@ def main_callback(
         "--timeout",
         help="Set timeout in seconds for server operations and connections (optional - no timeout by default)"
     )] = None,
+
+    # Unified configuration options
+    config: Annotated[Optional[str], Option(
+        "--config",
+        help="Configuration type to load (servers, middleware, prompts, tools, all) or command (validate, show, apply)"
+    )] = None,
+
+    configfilepath: Annotated[Optional[str], Option(
+        "--configfilepath",
+        help="Path to the configuration file"
+    )] = None,
+
+    config_format: Annotated[Optional[str], Option(
+        "--format",
+        help="Output format (table, json)"
+    )] = None,
+
+    dry_run: Annotated[Optional[bool], Option(
+        "--dry-run",
+        help="Show what would be applied without actually applying"
+    )] = None,
 ) -> None:
     """Main callback to handle direct command execution matching original CLI."""
+
+    # Handle unified configuration commands first
+    if config is not None:
+        # If we have server mode parameters, we need to apply config AND start server
+        if mode is not None:
+            # Apply configuration first, then start server
+            _apply_config_and_start_server(
+                config, configfilepath, config_format, dry_run,
+                mode, id, endpoint, config_path, directory, script_path, host, port,
+                auth_type, sse_url, disable_composer_tools, pass_environment,
+                remote_auth_type, client_auth_type, env, log_level, timeout
+            )
+        else:
+            # Just handle configuration commands
+            _handle_unified_config_commands(
+                config, configfilepath, config_format, dry_run
+            )
+        return
+
     # Only run server if mode is provided (direct command execution)
     if mode is None:
         return  # Let subcommands handle their own logic
@@ -716,10 +766,449 @@ def info() -> None:
     typer.echo("Use 'mcp-composer <command> --help' for more information on each command.")
 
 
+def _apply_config_and_start_server(
+    config: str,
+    configfilepath: Optional[str],
+    config_format: Optional[str],
+    dry_run: Optional[bool],
+    mode: str,
+    id: Optional[str],
+    endpoint: Optional[str],
+    config_path: Optional[str],
+    directory: Optional[str],
+    script_path: Optional[str],
+    host: Optional[str],
+    port: Optional[int],
+    auth_type: Optional[str],
+    sse_url: Optional[str],
+    disable_composer_tools: Optional[bool],
+    pass_environment: Optional[bool],
+    remote_auth_type: Optional[str],
+    client_auth_type: Optional[str],
+    env: Optional[List[str]],
+    log_level: Optional[str],
+    timeout: Optional[int]
+) -> None:
+    """Apply configuration and start the server."""
+    try:
+        # Determine config type and sections to apply
+        config_type = config
+        sections = None
+
+        # Map config types to sections
+        if config_type in ["servers", "middleware", "prompts", "tools"]:
+            try:
+                sections = [ConfigSection(config_type)]
+            except ValueError:
+                typer.echo(f"❌ Invalid config type: {config_type}")
+                typer.echo("Valid types: servers, middleware, prompts, tools, all")
+                raise typer.Exit(1)
+        elif config_type == "all":
+            sections = None  # Apply all sections
+        else:
+            typer.echo(f"❌ Invalid config type: {config_type}")
+            typer.echo("Valid types: servers, middleware, prompts, tools, all")
+            raise typer.Exit(1)
+
+        if dry_run:
+            typer.echo("🔍 Dry run mode - showing what would be applied:")
+            _show_dry_run(configfilepath, sections, config_type)
+            return
+
+        # Load and validate configuration
+        config_manager = ConfigManager()
+
+        # Create composer instance
+        composer = _create_composer_instance(
+            mode, id, endpoint, config_path, directory, script_path, host, port,
+            auth_type, sse_url, disable_composer_tools, pass_environment,
+            remote_auth_type, client_auth_type, env, log_level, timeout
+        )
+
+        # Apply configuration to composer
+        config_manager.loader.composer = composer
+        results = asyncio.run(config_manager.load_and_apply(configfilepath, sections, config_type))
+        _display_apply_results(results)
+
+        typer.echo("\n🚀 Starting MCP Composer server...")
+
+        # Start the server
+        asyncio.run(_start_server(composer, mode, host or "0.0.0.0", port or 9000, log_level or "debug"))
+
+    except Exception as e:
+        typer.echo(f"❌ Error: {e}")
+        raise typer.Exit(1)
+
+
+def _create_composer_instance(
+    mode: str,
+    id: Optional[str],
+    endpoint: Optional[str],
+    config_path: Optional[str],
+    directory: Optional[str],
+    script_path: Optional[str],
+    host: Optional[str],
+    port: Optional[int],
+    auth_type: Optional[str],
+    sse_url: Optional[str],
+    disable_composer_tools: Optional[bool],
+    pass_environment: Optional[bool],
+    remote_auth_type: Optional[str],
+    client_auth_type: Optional[str],
+    env: Optional[List[str]],
+    log_level: Optional[str],
+    timeout: Optional[int]
+) -> MCPComposer:
+    """Create MCPComposer instance with the given parameters."""
+    # Set defaults
+    if id is None:
+        id = "mcp-local"
+    if host is None:
+        host = "0.0.0.0"
+    if port is None:
+        port = 9000
+
+    # Build configuration from args
+    config = []
+    if endpoint or script_path:
+        config = _build_config_from_args(mode, id, endpoint, script_path, directory)
+
+    # Create composer
+    if auth_type == "oauth":
+        settings = ServerSettings()
+        composer = create_mcp_server(settings)
+    else:
+        composer = MCPComposer("composer", config=config)
+
+    # Disable composer tools if requested
+    if disable_composer_tools:
+        tools = asyncio.run(composer.get_tools())
+        for name, _ in tools.items():
+            composer.remove_tool(name)
+
+    return composer
+
+
+async def _start_server(composer: MCPComposer, mode: str, host: str, port: int, log_level: str) -> None:
+    """Start the MCP Composer server."""
+    await composer.setup_member_servers()
+
+    if mode == "stdio":
+        await composer.run_stdio_async()
+    elif mode == "sse":
+        await composer.run_sse_async(host=host, port=port, log_level=log_level or "debug", path="/sse")
+    elif mode == "http":
+        await composer.run_http_async(host=host, port=port, log_level=log_level or "debug", path="/mcp")
+    else:
+        raise ValueError(f"Unknown mode: {mode}")
+
+
+def _build_config_from_args(mode: str, id: str, endpoint: Optional[str], script_path: Optional[str], directory: Optional[str]) -> List[Dict]:
+    """Build configuration from command line arguments."""
+    if mode in ["http", "sse"]:
+        if endpoint:
+            config = {
+                "id": id,
+                "type": mode,
+                "endpoint": endpoint,
+                "_id": id,
+            }
+        else:
+            config = {}
+    elif mode == "stdio":
+        if not script_path:
+            raise ValueError("--script_path is required for mode 'stdio'")
+
+        config = {
+            "id": id,
+            "type": "stdio",
+            "command": "uv",
+            "args": [
+                "--directory",
+                directory or str(Path(script_path).parent),
+                "run",
+                Path(script_path).name,
+            ],
+            "_id": id,
+        }
+    else:
+        raise ValueError(f"Unsupported mode '{mode}'")
+
+    return [config] if config else []
+
+
+def _handle_unified_config_commands(
+    config: str,
+    configfilepath: Optional[str],
+    config_format: Optional[str],
+    dry_run: Optional[bool]
+) -> None:
+    """Handle unified configuration commands as global options with optimized error handling."""
+    if not configfilepath:
+        _handle_error("--configfilepath is required when using --config")
+
+    try:
+        config_manager = ConfigManager()
+
+        # Command routing with cleaner error handling
+        command_handlers = {
+            "validate": lambda: _handle_validate_command(config_manager, configfilepath),
+            "show": lambda: _handle_show_command(config_manager, configfilepath),
+        }
+
+        if config in command_handlers:
+            command_handlers[config]()
+        elif config in ["servers", "middleware", "prompts", "tools", "all"]:
+            _handle_apply_command(config_manager, config, configfilepath, dry_run)
+        else:
+            _handle_error(f"Invalid config type: {config}", 
+                         "Valid types: servers, middleware, prompts, tools, all, validate, show")
+
+    except ConfigValidationError as e:
+        _handle_error(f"Configuration validation failed: {e}")
+    except Exception as e:
+        _handle_error(f"Unexpected error: {e}")
+
+def _handle_error(message: str, suggestion: str = None) -> None:
+    """Handle errors with consistent formatting."""
+    typer.echo(f"❌ Error: {message}")
+    if suggestion:
+        typer.echo(suggestion)
+    raise typer.Exit(1)
+
+def _handle_validate_command(config_manager: ConfigManager, configfilepath: str) -> None:
+    """Handle validate command."""
+    is_valid = config_manager.validate_config_file(configfilepath)
+    if is_valid:
+        typer.echo("✅ Configuration file is valid")
+    else:
+        _handle_error("Configuration file is invalid")
+
+def _handle_show_command(config_manager: ConfigManager, configfilepath: str) -> None:
+    """Handle show command."""
+    # Auto-detect config type first
+    config_type = config_manager.loader.detect_config_type(configfilepath)
+    config_obj = config_manager.loader.load_from_file(configfilepath, config_type)
+    config_dict = config_obj.model_dump()
+    _show_all_sections(config_dict)
+
+def _handle_apply_command(config_manager: ConfigManager, config: str, configfilepath: str, dry_run: Optional[bool]) -> None:
+    """Handle apply commands."""
+    # Parse sections to apply
+    sections = None
+    if config != "all":
+        try:
+            sections = [ConfigSection(config)]
+        except ValueError:
+            _handle_error(f"Invalid config type: {config}",
+                         "Valid types: servers, middleware, prompts, tools, all")
+
+    if dry_run:
+        typer.echo("🔍 Dry run mode - showing what would be applied:")
+        _show_dry_run(configfilepath, sections, config)
+    else:
+        # Apply configuration
+        results = asyncio.run(config_manager.load_and_apply(configfilepath, sections, config))
+        _display_apply_results(results)
+
+
+def _show_servers_table(servers: list) -> None:
+    """Show servers in a table format."""
+    from rich.console import Console
+    from rich.table import Table
+
+    console = Console()
+    table = Table()
+    table.add_column("ID", style="cyan")
+    table.add_column("Type", style="green")
+    table.add_column("Endpoint", style="yellow")
+    table.add_column("Label", style="blue")
+
+    for server in servers:
+        table.add_row(
+            server.get("id", ""),
+            server.get("type", ""),
+            server.get("endpoint", "N/A"),
+            server.get("label", "")
+        )
+
+    console.print(table)
+
+
+def _show_middleware_table(middleware: list) -> None:
+    """Show middleware in a table format."""
+    from rich.console import Console
+    from rich.table import Table
+
+    console = Console()
+    table = Table()
+    table.add_column("Name", style="cyan")
+    table.add_column("Kind", style="green")
+    table.add_column("Mode", style="yellow")
+    table.add_column("Priority", style="blue")
+
+    for mw in middleware:
+        table.add_row(
+            mw.get("name", ""),
+            mw.get("kind", ""),
+            mw.get("mode", ""),
+            str(mw.get("priority", ""))
+        )
+
+    console.print(table)
+
+
+def _show_prompts_table(prompts: list) -> None:
+    """Show prompts in a table format."""
+    from rich.console import Console
+    from rich.table import Table
+
+    console = Console()
+    table = Table()
+    table.add_column("Name", style="cyan")
+    table.add_column("Description", style="green")
+    table.add_column("Template", style="yellow")
+    table.add_column("Arguments", style="blue")
+
+    for prompt in prompts:
+        args_count = len(prompt.get("arguments", []) or [])
+        template_preview = prompt.get("template", "")[:50] + "..." if len(prompt.get("template", "")) > 50 else prompt.get("template", "")
+        table.add_row(
+            prompt.get("name", ""),
+            prompt.get("description", ""),
+            template_preview,
+            str(args_count)
+        )
+
+    console.print(table)
+
+
+def _show_tools_table(tools: dict) -> None:
+    """Show tools in a table format."""
+    from rich.console import Console
+    from rich.table import Table
+
+    console = Console()
+    table = Table()
+    table.add_column("Name", style="cyan")
+    table.add_column("Type", style="green")
+    table.add_column("OpenAPI Version", style="yellow")
+    table.add_column("Paths", style="blue")
+
+    for tool_name, tool_config in tools.items():
+        tool_type = "OpenAPI" if tool_config.get("openapi") else "Custom"
+        openapi_version = tool_config.get("openapi", "N/A")
+        paths_count = len(tool_config.get("paths", {}))
+
+        table.add_row(
+            tool_name,
+            tool_type,
+            str(openapi_version),
+            str(paths_count)
+        )
+
+    console.print(table)
+
+
+def _show_all_sections(config_dict: dict) -> None:
+    """Show all sections of the configuration."""
+    from rich.console import Console
+    from rich.table import Table
+
+    console = Console()
+    typer.echo("\n[bold blue]Configuration Overview[/bold blue]")
+
+    # Summary
+    summary_table = Table(title="Configuration Summary")
+    summary_table.add_column("Section", style="cyan")
+    summary_table.add_column("Count", style="magenta")
+
+    for key, value in config_dict.items():
+        if isinstance(value, list):
+            summary_table.add_row(key.title(), str(len(value)))
+        elif isinstance(value, dict):
+            summary_table.add_row(key.title(), str(len(value)))
+        else:
+            summary_table.add_row(key.title(), str(type(value).__name__))
+
+    console.print(summary_table)
+
+    # Show each section
+    if config_dict.get("servers"):
+        typer.echo("\n[bold green]Servers[/bold green]")
+        _show_servers_table(config_dict["servers"])
+
+    if config_dict.get("middleware"):
+        typer.echo("\n[bold green]Middleware[/bold green]")
+        _show_middleware_table(config_dict["middleware"])
+
+    if config_dict.get("prompts"):
+        typer.echo("\n[bold green]Prompts[/bold green]")
+        _show_prompts_table(config_dict["prompts"])
+
+    if config_dict.get("tools"):
+        typer.echo("\n[bold green]Tools[/bold green]")
+        _show_tools_table(config_dict["tools"])
+
+
+def _show_dry_run(configfilepath: str, sections: Optional[List[ConfigSection]], config_type: str = "all") -> None:
+    """Show what would be applied in dry run mode."""
+    try:
+        config_manager = ConfigManager()
+        config = config_manager.loader.load_from_file(configfilepath, config_type)
+
+        typer.echo(f"\n[bold]Configuration file:[/bold] {configfilepath}")
+        typer.echo(f"[bold]Configuration type:[/bold] {config_type}")
+
+        if sections is None:
+            sections = [ConfigSection.SERVERS, ConfigSection.MIDDLEWARE, ConfigSection.PROMPTS, ConfigSection.TOOLS]
+
+        for section in sections:
+            if section == ConfigSection.SERVERS and config.servers:
+                typer.echo(f"\n[bold green]Would apply {len(config.servers)} servers:[/bold green]")
+                for server in config.servers:
+                    typer.echo(f"  - {server.id} ({server.type})")
+
+            elif section == ConfigSection.MIDDLEWARE and config.middleware:
+                typer.echo(f"\n[bold green]Would apply {len(config.middleware)} middleware:[/bold green]")
+                for mw in config.middleware:
+                    typer.echo(f"  - {mw.name} ({mw.kind})")
+
+            elif section == ConfigSection.PROMPTS and config.prompts:
+                typer.echo(f"\n[bold green]Would apply {len(config.prompts)} prompts:[/bold green]")
+                for prompt in config.prompts:
+                    typer.echo(f"  - {prompt.name}")
+
+            elif section == ConfigSection.TOOLS and config.tools:
+                typer.echo(f"\n[bold green]Would apply {len(config.tools)} tools:[/bold green]")
+                for tool_name in config.tools.keys():
+                    typer.echo(f"  - {tool_name}")
+
+    except Exception as e:
+        typer.echo(f"❌ Error in dry run: {e}")
+        raise typer.Exit(1)
+
+
+def _display_apply_results(results: dict) -> None:
+    """Display the results of applying configuration."""
+    typer.echo("\n[bold blue]Configuration Applied Successfully[/bold blue]")
+
+    for section, result in results.items():
+        typer.echo(f"\n[bold green]{section.title()}:[/bold green]")
+        typer.echo(f"  Total: {result.get('total', 0)}")
+        typer.echo(f"  Registered: {len(result.get('registered', []))}")
+        typer.echo(f"  Failed: {len(result.get('failed', []))}")
+
+        if result.get('failed'):
+            typer.echo("  [red]Failures:[/red]")
+            for failure in result['failed']:
+                typer.echo(f"    - {failure}")
+
+
 def main() -> None:
     """Main entry point for the MCP Composer CLI."""
     logger.info("Starting MCP Composer CLI...")
-    
+
     # Pre-process command line arguments to handle --env KEY VALUE format
     import sys
     processed_args = []
@@ -747,12 +1236,12 @@ def main() -> None:
         else:
             processed_args.append(sys.argv[i])
             i += 1
-    
+
     # Update sys.argv with processed arguments
     logger.info(f"Original args: {sys.argv}")
     sys.argv = processed_args
     logger.info(f"Processed args: {sys.argv}")
-    
+
     app()
 
 

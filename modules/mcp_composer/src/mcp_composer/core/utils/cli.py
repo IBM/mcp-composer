@@ -37,6 +37,11 @@ from mcp_composer.core.utils.middleware_cli import (
     cmd_add_middleware,
 )
 from mcp_composer.core.utils.oauth_cli_utils import create_mcp_server, oauth_pkce_login_async, get_issuer
+from mcp_composer.core.config.cli_commands import (
+    add_config_commands,
+    handle_config_commands,
+    create_config_parser
+)
 
 
 load_dotenv()
@@ -211,10 +216,15 @@ def _setup_args_parser() -> argparse.ArgumentParser:
         Middleware commands:
         mcp-composer validate middleware-config.json
         mcp-composer add-middleware --config middleware-config.json --name Logger --kind mcp_composer.middleware.logging_middleware.LoggingMiddleware
+
+        Unified Configuration commands:
+        mcp-composer --config validate --configfilepath config.json
+        mcp-composer --config show --configfilepath config.json --section servers
+        mcp-composer --config apply --configfilepath config.json --config all
         """,
     )
     _add_arguments_to_parser(parser)
-    # Don't add middleware commands to main parser to avoid conflicts
+    add_config_commands(parser)
     return parser
 
 
@@ -451,6 +461,9 @@ def main() -> None:
     elif command == 'add-middleware':
         sys.exit(cmd_add_middleware(args))
     elif command is None:
+        # Check for unified configuration commands
+        if hasattr(args, 'config_command') and args.config_command:
+            sys.exit(handle_config_commands(args))
         # No command specified, run the main MCP Composer
         pass
     else:

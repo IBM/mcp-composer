@@ -6,9 +6,7 @@ import json
 import os
 from typing import Dict
 import jsonref
-from typing import Dict
 import httpx
-import os
 import mcp_composer.core.utils.patch_openapi_tool
 from fastmcp import FastMCP, Client
 from fastmcp.client.auth import OAuth
@@ -112,6 +110,7 @@ class MCPServerBuilder:
                 FileTokenStorage.clear_all()
                 auth = OAuth(mcp_url=endpoint)
             transport = TransportClass(url=endpoint, headers=headers, auth=auth)
+            print("the headers are >>>",headers)
             # Set up authentication if provided
             client = Client(transport, auth=auth)
             return FastMCP.as_proxy(client, name=self.mcp_id)
@@ -194,7 +193,7 @@ class MCPServerBuilder:
 
         headers = self.config.get(ConfigKey.HEADERS, {})
         logger.info("the headers are '%s'", headers)
-        auth_strategy = self.config[ConfigKey.AUTH_STRATEGY]
+        auth_strategy = self.config.get(ConfigKey.AUTH_STRATEGY,"")
         auth_config = self.config.get(ConfigKey.AUTH, {})
         base_url = openapi_config[ConfigKey.ENDPOINT]
         http_client = httpx.AsyncClient(base_url=base_url)
@@ -262,7 +261,7 @@ class MCPServerBuilder:
                 headers[ConfigKey.AUTH_HEADER.value] = (
                     f"{auth_header}"
                 )
-                logger.info("the url is '%s'",base_url)
+                logger.info("the url is '%s",base_url)
                 http_client = httpx.AsyncClient(base_url=base_url, headers=headers)
 
             case AuthStrategy.JSESSIONID.value:
@@ -293,7 +292,12 @@ class MCPServerBuilder:
 
             case _:
                 # Default/fallback client
-                http_client = httpx.AsyncClient(base_url=base_url)
+                if headers:
+                     logger.info("Setting up default client with headers")
+                     http_client = httpx.AsyncClient(base_url=base_url, headers=headers)
+                else:
+                    logger.info("Setting up default client without headers")
+                    http_client = httpx.AsyncClient(base_url=base_url)
 
         # QUICK FIX TO SCHEMA UNRAVELING ISSUE BELOW
         spec = jsonref.loads(json.dumps(spec), load_on_repr=True)
