@@ -5,7 +5,7 @@ description = "FastMCP-based MCP Server Orchestrator"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
-    "fastmcp==2.11.2",
+    "fastmcp==2.11.3",
     "requests==2.32.4",
     "httpx==0.28.1",
     "fastapi==0.116.1",
