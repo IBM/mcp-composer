@@ -1,0 +1,220 @@
+{
+    "servers": [
+        {
+            "id": "example-http-server",
+            "type": "http",
+            "endpoint": "https://api.example.com/mcp",
+            "label": "Example HTTP Server",
+            "tags": ["api", "external"]
+        },
+        {
+            "id": "example-sse-server",
+            "type": "sse",
+            "endpoint": "https://sse.example.com/sse",
+            "label": "Example SSE Server",
+            "tags": ["sse", "streaming"]
+        },
+        {
+            "id": "example-openapi-server",
+            "type": "openapi",
+            "open_api": {
+                "endpoint": "https://api.example.com/",
+                "spec_filepath": "./specs/example-openapi.json",
+                "custom_routes": [
+                    {
+                        "methods": ["GET"],
+                        "pattern": ".*/.*",
+                        "mcp_type": "TOOL"
+                    }
+                ]
+            },
+            "auth_strategy": "oauth2",
+            "auth": {
+                "clientId": "ENV_CLIENT_ID",
+                "clientSecret": "ENV_CLIENT_SECRET",
+                "refreshToken": "ENV_REFRESH_TOKEN",
+                "token_url": "https://api.example.com/oauth_token.do",
+                "scope": "read"
+            },
+            "label": "Example OpenAPI Server",
+            "tags": ["openapi", "oauth"]
+        },
+        {
+            "id": "example-stdio-server",
+            "type": "stdio",
+            "command": "python",
+            "args": ["-m", "example_server"],
+            "env": {
+                "PYTHONPATH": "/path/to/server"
+            },
+            "cwd": "/path/to/server",
+            "label": "Example Stdio Server",
+            "tags": ["local", "stdio"]
+        }
+    ],
+    "middleware": [
+        {
+            "name": "RequestLogger",
+            "kind": "mcp_composer.middleware.logging_middleware.LoggingMiddleware",
+            "mode": "enabled",
+            "priority": 10,
+            "applied_hooks": ["on_call_tool", "on_list_tools"],
+            "config": {
+                "log_tools": true,
+                "log_args": true,
+                "log_results": false,
+                "log_level": "INFO"
+            },
+            "description": "Logs all tool calls and tool listings",
+            "version": "1.0.0"
+        },
+        {
+            "name": "RateLimiter",
+            "kind": "mcp_composer.middleware.rate_limit_filter.RateLimitingMiddleware",
+            "mode": "enabled",
+            "priority": 20,
+            "applied_hooks": ["on_call_tool"],
+            "config": {
+                "requests_per_minute": 60,
+                "burst_limit": 10,
+                "scope": "per_client",
+                "enforce": true
+            },
+            "description": "Rate limits tool calls per client",
+            "version": "1.0.0"
+        },
+        {
+            "name": "PIIFilter",
+            "kind": "mcp_composer.middleware.pii_middleware.SecretsAndPIIMiddleware",
+            "mode": "enabled",
+            "priority": 30,
+            "applied_hooks": ["on_call_tool", "on_read_resource"],
+            "config": {
+                "redact_inputs": true,
+                "redact_outputs": true,
+                "strategy": {
+                    "mode": "mask",
+                    "redaction_text": "[REDACTED]"
+                },
+                "sensitive_keys": {
+                    "add": ["password", "token", "secret"]
+                }
+            },
+            "description": "Filters and redacts PII from requests and responses",
+            "version": "1.0.0"
+        }
+    ],
+    "prompts": [
+        {
+            "name": "analyze_data",
+            "description": "Analyze data from a specific source",
+            "template": "Analyze the data from {{ source }} for the period {{ start_date }} to {{ end_date }}",
+            "arguments": [
+                {
+                    "name": "source",
+                    "type": "string",
+                    "required": true,
+                    "description": "The data source to analyze"
+                },
+                {
+                    "name": "start_date",
+                    "type": "string",
+                    "required": true,
+                    "description": "Start date in YYYY-MM-DD format"
+                },
+                {
+                    "name": "end_date",
+                    "type": "string",
+                    "required": true,
+                    "description": "End date in YYYY-MM-DD format"
+                }
+            ]
+        },
+        {
+            "name": "generate_report",
+            "description": "Generate a comprehensive report",
+            "template": "Generate a {{ report_type }} report for {{ department }} department",
+            "arguments": [
+                {
+                    "name": "report_type",
+                    "type": "string",
+                    "required": true,
+                    "description": "Type of report to generate"
+                },
+                {
+                    "name": "department",
+                    "type": "string",
+                    "required": true,
+                    "description": "Department name"
+                }
+            ]
+        },
+        {
+            "name": "simple_query",
+            "description": "Simple query without parameters",
+            "template": "Show me the latest status of all systems"
+        }
+    ],
+    "tools": {
+        "weather_api": {
+            "openapi": "3.0.3",
+            "info": {
+                "title": "Weather API",
+                "description": "Get weather information",
+                "version": "1.0.0"
+            },
+            "servers": [
+                {
+                    "url": "https://api.weather.com/v1"
+                }
+            ],
+            "paths": {
+                "/weather": {
+                    "get": {
+                        "summary": "Get current weather",
+                        "parameters": [
+                            {
+                                "name": "city",
+                                "in": "query",
+                                "required": true,
+                                "schema": {
+                                    "type": "string"
+                                }
+                            }
+                        ],
+                        "responses": {
+                            "200": {
+                                "description": "Successful response",
+                                "content": {
+                                    "application/json": {
+                                        "schema": {
+                                            "type": "object",
+                                            "properties": {
+                                                "temperature": {
+                                                    "type": "number"
+                                                },
+                                                "description": {
+                                                    "type": "string"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "custom_tool": {
+            "name": "custom_processor",
+            "description": "Custom data processing tool",
+            "type": "custom",
+            "config": {
+                "processor_type": "data_transformer",
+                "input_format": "json",
+                "output_format": "csv"
+            }
+        }
+    }
+}
