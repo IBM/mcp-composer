@@ -8,7 +8,7 @@ COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 USER root
 
 # Upgrade pip to fix security vulnerability (CVE-2025-*)
-RUN pip install --upgrade pip>=25.2
+RUN python -m pip install --upgrade pip>=25.2
 
 WORKDIR /app
 
