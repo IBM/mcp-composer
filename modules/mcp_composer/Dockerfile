@@ -24,7 +24,7 @@ ENV CXXFLAGS="-std=c++11"
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
 # Upgrade pip to fix security vulnerability (CVE-2025-*)
-RUN python -m pip install --upgrade pip>=25.2
+RUN python3.12 -m pip install --upgrade pip>=25.2
 
 WORKDIR /app
 
