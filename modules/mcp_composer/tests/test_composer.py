@@ -6,12 +6,6 @@ from mcp_composer import MCPComposer
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../src")))
 
-# db_config={
-#     "type": "postgres",
-#     "url":"postgresql://syedabdulgafoornaveed:root@localhost:5432/postgres",
-#     "table_name":"mcp_servers"
-# }
-
 gw = MCPComposer("hello-composer")
 
 
