@@ -28,7 +28,7 @@ ENV CXXFLAGS="-std=c++11"
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
 # Upgrade pip to fix security vulnerability (CVE-2025-*)
-RUN python3.12 -m pip install --upgrade pip>=25.2
+RUN python3.12 -m pip install --no-cache-dir --upgrade "pip==25.2"
 
 # Update package lists and install GCC 13 which is required by hnswlib
 # RUN echo "deb http://deb.debian.org/debian testing main" >> /etc/apt/sources.list && \
