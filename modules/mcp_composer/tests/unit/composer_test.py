@@ -297,6 +297,14 @@ class TestComposer(unittest.IsolatedAsyncioTestCase):
         tools = await self.gw.get_tools()
         self.assertIsInstance(tools.get("event_test"), Tool)
 
+    async def test_disable_composer_tool(self):
+        """Ensure the composer tools are disabled successfully"""
+        self.gw.disable_composer_tool(["register_mcp_server"])
+        tools = self.gw._tool_manager.filter_tools(await self.gw.get_tools())
+        self.assertFalse(
+            tools.get("register_mcp_server"), "Value should be None or empty."
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -18,6 +18,7 @@ async def main():
     """
     mode = os.getenv("MCP_MODE", "sse").lower()
     gw.add_middleware(ListFilteredTool(gw))
+    gw.disable_composer_tool(["member_health"])
     await gw.setup_member_servers()
 
     if mode == "http":

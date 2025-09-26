@@ -57,7 +57,9 @@ class MCPComposer(FastMCP):
         auth: OAuthProvider | None = None,
     ):
         super().__init__(name=name, auth=auth)
-        self._config_manager = ConfigManager(get_version_adapter(version_adapter_config))
+        self._config_manager = ConfigManager(
+            get_version_adapter(version_adapter_config)
+        )
 
         database = None
         logger.info("looking for DB config MCP Composer with name: %s", name)
@@ -69,7 +71,9 @@ class MCPComposer(FastMCP):
             try:
                 if isinstance(effective_db_config, DatabaseInterface):
                     database = effective_db_config
-                    logger.info("Database configuration loaded successfully (Custom Database Interface)")
+                    logger.info(
+                        "Database configuration loaded successfully (Custom Database Interface)"
+                    )
                 elif effective_db_config.get("type") == "cloudant":
                     required_keys = ["api_key", "service_url"]
                     if not all(k in effective_db_config for k in required_keys):
@@ -85,10 +89,16 @@ class MCPComposer(FastMCP):
                     logger.info("Database configuration loaded successfully (Cloudant)")
                 elif effective_db_config.get("type") == "local_file":
                     # Only use LocalFileAdapter if explicitly configured
-                    database = LocalFileAdapter(file_path=effective_db_config.get("file_path"))
-                    logger.info("Database configuration loaded successfully (Local File)")
+                    database = LocalFileAdapter(
+                        file_path=effective_db_config.get("file_path")
+                    )
+                    logger.info(
+                        "Database configuration loaded successfully (Local File)"
+                    )
                 else:
-                    error_msg = f"Unsupported database type: {effective_db_config.get('type')}"
+                    error_msg = (
+                        f"Unsupported database type: {effective_db_config.get('type')}"
+                    )
                     logger.error("Database configuration error: %s", error_msg)
                     raise ValueError(error_msg)
             except Exception as e:
@@ -97,17 +107,29 @@ class MCPComposer(FastMCP):
         else:
             # No database config provided - check if local file storage is enabled via env
             logger.info("No database configuration provided")
-            use_local_file = os.getenv("MCP_USE_LOCAL_FILE_STORAGE", "false").strip().lower()
+            use_local_file = (
+                os.getenv("MCP_USE_LOCAL_FILE_STORAGE", "false").strip().lower()
+            )
             if use_local_file in ("true", "1", "yes", "on"):
                 database = LocalFileAdapter()
                 logger.info("Local file storage enabled via environment variable")
             else:
-                logger.info("No database configured - running without persistent storage")
+                logger.info(
+                    "No database configured - running without persistent storage"
+                )
 
-        self._server_manager = ServerManager(database=database, config_manager=self._config_manager)
-        self._tool_manager = MCPToolManager(composer=self, server_manager=self._server_manager, database=database)
-        self._resource_manager = MCPResourceManager(server_manager=self._server_manager, database=database)
-        self._prompt_manager = MCPPromptManager(server_manager=self._server_manager, database=database)
+        self._server_manager = ServerManager(
+            database=database, config_manager=self._config_manager
+        )
+        self._tool_manager = MCPToolManager(
+            composer=self, server_manager=self._server_manager, database=database
+        )
+        self._resource_manager = MCPResourceManager(
+            server_manager=self._server_manager, database=database
+        )
+        self._prompt_manager = MCPPromptManager(
+            server_manager=self._server_manager, database=database
+        )
 
         self._db_configs: list[dict] = self._server_manager.load_all_servers_db()
         self._config: list[dict] = []
@@ -129,7 +151,9 @@ class MCPComposer(FastMCP):
                     logger.error("Validation error: %s", e)
                     sys.exit(1)
             else:
-                raise TypeError("Config must be a list of server configurations or a file path string")
+                raise TypeError(
+                    "Config must be a list of server configurations or a file path string"
+                )
 
         # Define tool categories
         server_tools = [
@@ -187,7 +211,13 @@ class MCPComposer(FastMCP):
         ]
 
         # Combine all tools into a single list
-        all_tools = server_tools + dynamic_tool_generator + tool_management_tools + prompt_tools + resource_tools
+        all_tools = (
+            server_tools
+            + dynamic_tool_generator
+            + tool_management_tools
+            + prompt_tools
+            + resource_tools
+        )
 
         # Register all tools
         for tool_func in all_tools:
@@ -216,7 +246,8 @@ class MCPComposer(FastMCP):
         db_type = db_type.strip().lower()
         if db_type not in ["cloudant", "local_file"]:
             logger.warning(
-                "Unsupported database type in environment: %s. Supported types: cloudant, local_file", db_type
+                "Unsupported database type in environment: %s. Supported types: cloudant, local_file",
+                db_type,
             )
             return None
 
@@ -249,16 +280,23 @@ class MCPComposer(FastMCP):
                     "db_name": os.getenv("MCP_DATABASE_DB_NAME", "mcp_servers").strip(),
                 }
             )
-            logger.info("Database configuration loaded from environment variables (Cloudant)")
+            logger.info(
+                "Database configuration loaded from environment variables (Cloudant)"
+            )
 
         elif db_type == "local_file":
             file_path = os.getenv("MCP_DATABASE_FILE_PATH")
             if file_path and file_path.strip():
                 # Validate file path format - warn but don't fail for file extensions
                 if not file_path.strip().endswith((".json", ".db", ".sqlite")):
-                    logger.warning("File path should end with .json, .db, or .sqlite: %s", file_path)
+                    logger.warning(
+                        "File path should end with .json, .db, or .sqlite: %s",
+                        file_path,
+                    )
                 config["file_path"] = file_path.strip()
-            logger.info("Database configuration loaded from environment variables (Local File)")
+            logger.info(
+                "Database configuration loaded from environment variables (Local File)"
+            )
 
         return config
 
@@ -278,14 +316,20 @@ class MCPComposer(FastMCP):
 
             # Extract server configs for backward compatibility
             if unified_config.servers:
-                self._config = [server.model_dump() for server in unified_config.servers]
+                self._config = [
+                    server.model_dump() for server in unified_config.servers
+                ]
                 logger.info("Loaded %d servers from unified config", len(self._config))
 
             self._unified_config_applied = True
-            logger.info("Successfully loaded unified configuration from %s", config_path)
+            logger.info(
+                "Successfully loaded unified configuration from %s", config_path
+            )
 
         except Exception as e:
-            logger.error("Failed to process unified configuration from %s: %s", config_path, e)
+            logger.error(
+                "Failed to process unified configuration from %s: %s", config_path, e
+            )
             sys.exit(1)
 
     async def _apply_unified_config(self) -> None:
@@ -296,13 +340,15 @@ class MCPComposer(FastMCP):
 
             # Log results
             for section, result in results.items():
-                if result.get('total', 0) > 0:
-                    registered = len(result.get('registered', []))
-                    failed = len(result.get('failed', []))
-                    logger.info(f"Applied {section}: {registered} registered, {failed} failed")
+                if result.get("total", 0) > 0:
+                    registered = len(result.get("registered", []))
+                    failed = len(result.get("failed", []))
+                    logger.info(
+                        f"Applied {section}: {registered} registered, {failed} failed"
+                    )
 
                     # Log failures
-                    for failure in result.get('failed', []):
+                    for failure in result.get("failed", []):
                         logger.error(f"Failed to apply {section}: {failure}")
 
             logger.info("Successfully applied unified configuration")
@@ -385,7 +431,12 @@ class MCPComposer(FastMCP):
             server_type = cfg.get("type")
 
             if server_type == "composer":
-                self._tool_manager._disabled_tools = cfg.get("disabled_tools", [])  # pylint: disable=W0212
+                new_disabled_tools = cfg.get("disabled_tools", [])
+                combined_unique_tools = set(self._tool_manager._disabled_tools)
+                combined_unique_tools.update(new_disabled_tools)
+                self._tool_manager._disabled_tools = list(
+                    combined_unique_tools
+                )  # pylint: disable=W0212
                 logger.info("Disabled tool list in composer: %s", cfg)
                 continue
 
@@ -394,7 +445,9 @@ class MCPComposer(FastMCP):
                 continue
 
             if cfg.get("status") == "deactivated":
-                logger.info("Server '%s' is marked deactivated, skipping mount.", server_id)
+                logger.info(
+                    "Server '%s' is marked deactivated, skipping mount.", server_id
+                )
                 continue
 
             if server_id in seen_ids:
@@ -416,7 +469,9 @@ class MCPComposer(FastMCP):
     async def register_mcp_server(self, config: dict) -> str:
         """Register a single server."""
         logger.info("Registering single server: %s", config)
-        return await self._server_manager.register_server(config=config, mcp_composer=self)
+        return await self._server_manager.register_server(
+            config=config, mcp_composer=self
+        )
 
     async def update_mcp_server_config(self, server_id: str, new_config: dict) -> str:
         """Update the configuration of an existing member server."""
@@ -450,11 +505,15 @@ class MCPComposer(FastMCP):
 
     async def activate_mcp_server(self, server_id: str) -> str:
         """Reactivates a previously deactivated member server."""
-        return await self._server_manager.activate_server(server_id=server_id, mount_callback=self.mount)
+        return await self._server_manager.activate_server(
+            server_id=server_id, mount_callback=self.mount
+        )
 
     async def deactivate_mcp_server(self, server_id: str) -> str:
         """Deactivates a member server by unmounting it and marking it as deactivated."""
-        return self._server_manager.deactivate_server(server_id=server_id, unmount_callback=self._tool_manager.unmount)
+        return self._server_manager.deactivate_server(
+            server_id=server_id, unmount_callback=self._tool_manager.unmount
+        )
 
     async def add_tools_from_curl(self, tool_config: dict) -> str:
         """Create a tool from a curl command."""
@@ -470,7 +529,9 @@ class MCPComposer(FastMCP):
             self.add_tool(Tool.from_function(fn))
         return "Successfully added tools"
 
-    async def add_tools_from_openapi(self, openapi_spec: dict, auth_config: dict | None = None) -> str:
+    async def add_tools_from_openapi(
+        self, openapi_spec: dict, auth_config: dict | None = None
+    ) -> str:
         """Create a tool from OpenAPI Specification"""
         server_name, client = await tool_from_open_api(openapi_spec, auth_config)
         self.mount(
@@ -584,3 +645,9 @@ class MCPComposer(FastMCP):
         Enable a resource or multiple resources from the member server
         """
         return await self._resource_manager.enable_resources(resources, server_id)
+
+    def disable_composer_tool(self, tools: Optional[list[str]] = None) -> str:
+        """
+        Disable a tool or multiple tools in the composer server
+        """
+        return self._tool_manager.disable_composer_tool(tools)
