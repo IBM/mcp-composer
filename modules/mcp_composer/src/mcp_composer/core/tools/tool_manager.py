@@ -73,45 +73,57 @@ class MCPToolManager(ToolManager):
         return any(k in tool_names for k in key)
 
     def filter_tools(self, tools: dict[str, Tool]) -> dict[str, Tool]:
-        """Filter tools by performing the following actions for a member server,
-        if it exists
-        1. Remove tools
-        2. Update description
+        """
+        Filters and updates a dictionary of tools based on server configuration and
+        locally disabled tools, performing the following actions for all member servers:
+        1. Removes disabled tools.
+        2. Updates tool descriptions.
         """
         try:
-            if len(self._disabled_tools) == 1 and self._disabled_tools[0] == "all":
+            # 1. Special case: If all tools are disabled locally
+            if self._disabled_tools == ["all"]:
                 tool = self.add_tool(Tool.from_function(self.enable_all_tools))
                 return {tool.name: tool}
 
-            server_config = self._server_manager.list()
-            if not server_config:
-                return tools
+            # 2. Gather all disabled tools and description updates
+            # Start with locally disabled tools
+            remove_set = set(self._disabled_tools)
+            description_updates: dict[str, str] = {}
 
-            remove_set = set()
-            description_updates = {}
+            server_config = self._server_manager.list()
 
             for member in server_config:
-                if member.health_status == HealthStatus.unhealthy:
+                # Skip unhealthy servers
+                if member.health_status != HealthStatus.healthy:
                     continue
 
+                # Accumulate disabled tools from healthy members
                 if member.disabled_tools:
                     remove_set.update(member.disabled_tools)
-                if self._disabled_tools:
-                    remove_set.update(self._disabled_tools)
+
+                # Accumulate description updates from healthy members
                 if member.tools_description:
+                    # Use a dictionary comprehension for cleaner prefixing and updating
                     updated_tool_description = {
                         f"{member.id}_{key}": value
                         for key, value in member.tools_description.items()
                     }
                     description_updates.update(updated_tool_description)
-            filtered_tools = {}
-            for name, tool in tools.items():
-                if tool.name in remove_set:
-                    continue
-                if name in description_updates:
-                    tool.description = description_updates[name]
-                filtered_tools[name] = tool
+
+            # 3. Filter and update the tools dictionary
+            filtered_tools = {
+                name: tool
+                for name, tool in tools.items()
+                if tool.name not in remove_set
+            }
+
+            # Update descriptions for the remaining tools
+            for name, description in description_updates.items():
+                if name in filtered_tools:
+                    filtered_tools[name].description = description
+
             return filtered_tools
+
         except Exception as e:
             logger.exception("Tools filtering failed: %s", e)
             raise
@@ -236,14 +248,13 @@ class MCPToolManager(ToolManager):
         """
         disable a tool or multiple tools
         """
-        for tool in tools:
-            if not await self.has_tool(tool):
-                raise ToolDisableError(f"Tool {tool} does not exist")
-
         if tools[0].lower() == "all":
             self._disabled_tools = ["all"]
             logger.info("Disabled all tools")
         else:
+            for tool in tools:
+                if not await self.has_tool(tool):
+                    raise ToolDisableError(f"Tool {tool} does not exist")
             existing_tools = self._disabled_tools
             duplicate_tool = check_duplicate_tool(existing_tools, tools)
 
@@ -348,3 +359,33 @@ class MCPToolManager(ToolManager):
             "Filtered tools list by using keyword '%s': %s", keyword, filtered_tools
         )
         return filtered_tools
+
+    def disable_composer_tool(self, tools: Optional[list[str]] = None) -> str:
+        """
+        Disable specified composer tools, or all composer tools if none are specified.
+        """
+        # 1. Determine the set of tools to disable
+        if tools is None:
+            # If no tools are specified, disable all available tools
+            tools_to_disable = list(self._tools.keys())
+        else:
+            # Check if all specified tools actually exist
+            non_existent_tools = [tool for tool in tools if tool not in self._tools]
+            if non_existent_tools:
+                # Raise an error if any specified tool doesn't exist
+                raise ToolDisableError(
+                    f"One or more tools do not exist: {', '.join(non_existent_tools)}"
+                )
+            tools_to_disable = tools
+
+        # 2. Update the local set of disabled tools
+        existing_disabled_tools = set(self._disabled_tools)
+        newly_disabled_tools = [
+            tool for tool in tools_to_disable if tool not in existing_disabled_tools
+        ]
+        self._disabled_tools.extend(newly_disabled_tools)
+
+        # 4. Logging and return value
+        # Log the full list of tools processed, even if some were already disabled
+        logger.info("Disabled composer tools: %s", tools_to_disable)
+        return f"Disabled composer tools: {tools_to_disable}"
