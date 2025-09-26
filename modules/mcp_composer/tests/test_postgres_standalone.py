@@ -74,7 +74,7 @@ def test_invalid_url_handling():
         ("http://user:pass@localhost:5432/db", "Wrong scheme"),
         ("postgresql://localhost:5432/db", "Missing user/password"),
         ("postgresql://user@localhost:5432/db", "Missing password"),
-        ("postgresql://user:pass@localhost:5432/", "Missing database"),
+        ("postgresql://test_user:test_pass@localhost:5432/", "Missing database"),
         ("postgresql://user:pass@localhost:5432", "Missing database"),
     ]
     
@@ -150,7 +150,7 @@ def test_connection_parameter_construction():
     print("\n🧪 Testing connection parameter construction...")
     
     # Test URL-based parameters
-    url = "postgresql://testuser:testpass@localhost:5432/testdb"
+    url = "postgresql://test_user:test_pass@localhost:5432/test_db"
     parsed = urlparse(url)
     
     connection_params = {
@@ -166,7 +166,7 @@ def test_connection_parameter_construction():
         "port": 5432,
         "database": "testdb",
         "user": "testuser",
-        "password": "testpass",
+        "password": "test_pass",
     }
     
     if connection_params == expected_params:
@@ -181,7 +181,7 @@ def test_connection_parameter_construction():
         "port": 5432,
         "database": "testdb",
         "user": "testuser",
-        "password": "testpass",
+        "password": "test_pass",
     }
     
     if individual_params == expected_params:

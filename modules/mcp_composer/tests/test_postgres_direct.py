@@ -19,7 +19,7 @@ def test_postgres_adapter_direct():
         print("🧪 Testing PostgreSQL adapter directly...")
         
         # Test URL parsing
-        test_url = "postgresql://testuser:testpass@localhost:5432/testdb"
+        test_url = "postgresql://test_user:test_pass@localhost:5432/test_db"
         
         try:
             adapter = PostgresAdapter(url=test_url, table_name="test_table")
@@ -105,7 +105,7 @@ def test_invalid_urls():
             ("http://user:pass@localhost:5432/db", "Wrong scheme"),
             ("postgresql://localhost:5432/db", "Missing user/password"),
             ("postgresql://user@localhost:5432/db", "Missing password"),
-            ("postgresql://user:pass@localhost:5432/", "Missing database"),
+            ("postgresql://test_user:test_pass@localhost:5432/", "Missing database"),
         ]
         
         for i, (url, description) in enumerate(invalid_urls, 1):

@@ -68,7 +68,7 @@ class PostgresAdapter(DatabaseInterface):
         Parse PostgreSQL connection URL and return connection parameters.
         
         Args:
-            url: PostgreSQL connection URL (e.g., postgresql://user:password@host:port/database)
+            url: PostgreSQL connection URL (e.g., postgresql://user:pass@host:port/database)
             
         Returns:
             Dictionary with connection parameters

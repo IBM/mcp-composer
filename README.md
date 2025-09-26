@@ -134,7 +134,7 @@ include = ["mcp_composer"]
    
    # For PostgreSQL database (URL method - recommended)
    export MCP_DATABASE_TYPE="postgres"
-   export MCP_DATABASE_URL="postgresql://username:password@hostname:port/database"
+   export MCP_DATABASE_URL="postgresql://$DB_USER:$DB_PASSWORD@$DB_HOST:$DB_PORT/$DB_NAME"
    export MCP_DATABASE_TABLE_NAME="mcp_servers"  # Optional, defaults to "mcp_servers"
    
    # For PostgreSQL database (individual parameters)
@@ -199,7 +199,7 @@ include = ["mcp_composer"]
    # PostgreSQL configuration (URL method - recommended)
    database_config = {
        "type": "postgres",
-       "url": "postgresql://username:password@hostname:port/database",
+       "url": "postgresql://$DB_USER:$DB_PASSWORD@$DB_HOST:$DB_PORT/$DB_NAME",
        "table_name": "mcp_servers"  # Optional, defaults to "mcp_servers"
    }
    
@@ -591,7 +591,7 @@ export MCP_DATABASE_DB_NAME="mcp_servers"
 
 # Or set environment variables for PostgreSQL
 export MCP_DATABASE_TYPE="postgres"
-export MCP_DATABASE_URL="postgresql://username:password@hostname:port/database"
+export MCP_DATABASE_URL="postgresql://$DB_USER:$DB_PASSWORD@$DB_HOST:$DB_PORT/$DB_NAME"
 export MCP_DATABASE_TABLE_NAME="mcp_servers"
 ```
 
@@ -636,7 +636,7 @@ from mcp_composer import MCPComposer
 # Configure PostgreSQL database programmatically (URL method)
 database_config = {
     "type": "postgres",
-    "url": "postgresql://username:password@hostname:port/database",
+    "url": "postgresql://$DB_USER:$DB_PASSWORD@$DB_HOST:$DB_PORT/$DB_NAME",
     "table_name": "mcp_servers"  # Optional
 }
 
@@ -1604,8 +1604,8 @@ Follow instruction in [Demo-Chatbot-UI](https://github.ibm.com/ai-elite/mcp-comp
    # For Cloudant, ensure URL starts with http:// or https://
    export MCP_DATABASE_SERVICE_URL="https://your-instance.cloudantnosqldb.appdomain.cloud"
    
-   # For PostgreSQL, ensure URL format is correct
-   export MCP_DATABASE_URL="postgresql://username:password@hostname:port/database"
+  # For PostgreSQL, ensure URL format is correct
+  export MCP_DATABASE_URL="postgresql://$DB_USER:$DB_PASSWORD@$DB_HOST:$DB_PORT/$DB_NAME"
    
    # For local file storage, ensure file path is valid
    export MCP_DATABASE_FILE_PATH="/path/to/valid/file.json"
@@ -1620,9 +1620,9 @@ Follow instruction in [Demo-Chatbot-UI](https://github.ibm.com/ai-elite/mcp-comp
    export MCP_DATABASE_API_KEY="your_key"
    export MCP_DATABASE_SERVICE_URL="https://your-instance.cloudantnosqldb.appdomain.cloud"
    
-   # Or for PostgreSQL
-   export MCP_DATABASE_TYPE="postgres"
-   export MCP_DATABASE_URL="postgresql://username:password@hostname:port/database"
+  # Or for PostgreSQL
+  export MCP_DATABASE_TYPE="postgres"
+  export MCP_DATABASE_URL="postgresql://$DB_USER:$DB_PASSWORD@$DB_HOST:$DB_PORT/$DB_NAME"
    
    # Or add them to your .env file
    echo "MCP_DATABASE_TYPE=cloudant" >> .env
@@ -1631,7 +1631,7 @@ Follow instruction in [Demo-Chatbot-UI](https://github.ibm.com/ai-elite/mcp-comp
    
    # Or for PostgreSQL
    echo "MCP_DATABASE_TYPE=postgres" >> .env
-   echo "MCP_DATABASE_URL=postgresql://username:password@hostname:port/database" >> .env
+   echo "MCP_DATABASE_URL=postgresql://\$DB_USER:\$DB_PASSWORD@\$DB_HOST:\$DB_PORT/\$DB_NAME" >> .env
    ```
 
 7. **Server fails to start with database configuration errors**
@@ -1646,9 +1646,9 @@ Follow instruction in [Demo-Chatbot-UI](https://github.ibm.com/ai-elite/mcp-comp
    export MCP_DATABASE_API_KEY="your_valid_api_key"
    export MCP_DATABASE_SERVICE_URL="https://your-instance.cloudantnosqldb.appdomain.cloud"
    
-   # For PostgreSQL, ensure connection details are correct:
-   export MCP_DATABASE_TYPE="postgres"
-   export MCP_DATABASE_URL="postgresql://username:password@hostname:port/database"
+  # For PostgreSQL, ensure connection details are correct:
+  export MCP_DATABASE_TYPE="postgres"
+  export MCP_DATABASE_URL="postgresql://$DB_USER:$DB_PASSWORD@$DB_HOST:$DB_PORT/$DB_NAME"
    # Or use individual parameters:
    export MCP_DATABASE_HOST="localhost"
    export MCP_DATABASE_PORT="5432"
@@ -1677,8 +1677,8 @@ Follow instruction in [Demo-Chatbot-UI](https://github.ibm.com/ai-elite/mcp-comp
    # Install PostgreSQL adapter dependency
    pip install psycopg2-binary
    
-   # Test PostgreSQL connection manually
-   psql "postgresql://username:password@hostname:port/database"
+  # Test PostgreSQL connection manually
+  psql "postgresql://$DB_USER:$DB_PASSWORD@$DB_HOST:$DB_PORT/$DB_NAME"
    
    # Check if PostgreSQL service is running
    sudo systemctl status postgresql

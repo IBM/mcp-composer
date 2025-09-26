@@ -98,7 +98,7 @@ def test_invalid_urls():
             ("http://user:pass@localhost:5432/db", "Wrong scheme"),
             ("postgresql://localhost:5432/db", "Missing user/password"),
             ("postgresql://user@localhost:5432/db", "Missing password"),
-            ("postgresql://user:pass@localhost:5432/", "Missing database"),
+            ("postgresql://test_user:test_pass@localhost:5432/", "Missing database"),
         ]
         
         for i, (url, description) in enumerate(invalid_urls, 1):

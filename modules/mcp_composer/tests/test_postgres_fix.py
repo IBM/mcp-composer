@@ -16,7 +16,7 @@ def test_postgres_adapter_creation():
         from mcp_composer.store.postgres_adapter import PostgresAdapter
         
         # Test URL parsing
-        test_url = "postgresql://testuser:testpass@localhost:5432/testdb"
+        test_url = "postgresql://test_user:test_pass@localhost:5432/test_db"
         
         print("🧪 Testing PostgreSQL adapter creation...")
         
@@ -81,7 +81,7 @@ def test_table_creation_sql():
         print("\n🧪 Testing table creation SQL...")
         
         # Create adapter to access the table creation logic
-        adapter = PostgresAdapter(url="postgresql://test:test@localhost:5432/test", table_name="test_table")
+        adapter = PostgresAdapter(url="postgresql://test_user:test_pass@localhost:5432/test_db", table_name="test_table")
         
         # Check if the _initialize_database method exists and has the right SQL
         import inspect
