@@ -34,10 +34,10 @@ def test_url_parsing():
     adapter = PostgresAdapter.__new__(PostgresAdapter)  # Create without calling __init__
 
     test_urls = [
-        "postgresql://user:pass@localhost:5432/db",
-        "postgres://user:pass@localhost:5432/db",
-        "postgresql://user:pass@localhost/db",  # Default port
-        "postgresql://user:pass@example.com:5433/db",
+        "postgresql://user:password_placeholder@localhost:5432/db",
+        "postgres://user:password_placeholder@localhost:5432/db",
+        "postgresql://user:password_placeholder@localhost/db",  # Default port
+        "postgresql://user:password_placeholder@example.com:5433/db",
     ]
 
     for i, url in enumerate(test_urls, 1):
@@ -62,10 +62,10 @@ def test_invalid_urls():
     adapter = PostgresAdapter.__new__(PostgresAdapter)  # Create without calling __init__
 
     invalid_urls = [
-        ("http://user:pass@localhost:5432/db", "Wrong scheme"),
+        ("http://user:password_placeholder@localhost:5432/db", "Wrong scheme"),
         ("postgresql://localhost:5432/db", "Missing user/password"),
         ("postgresql://user@localhost:5432/db", "Missing password"),
-        ("postgresql://test_user:test_pass@localhost:5432/", "Missing database"),
+        ("postgresql://test_user:test_password_placeholder@localhost:5432/", "Missing database"),
     ]
 
     for i, (url, description) in enumerate(invalid_urls, 1):
@@ -97,7 +97,7 @@ def test_adapter_creation_with_url():
 
     print("\n🧪 Testing adapter creation with URL...")
 
-    test_url = "postgresql://test_user:test_pass@localhost:5432/test_db"
+    test_url = "postgresql://test_user:test_password_placeholder@localhost:5432/test_db"
     adapter = None
 
     try:
@@ -110,7 +110,7 @@ def test_adapter_creation_with_url():
         assert adapter._connection_params['port'] == 5432
         assert adapter._connection_params['database'] == 'test_db'
         assert adapter._connection_params['user'] == 'test_user'
-        assert adapter._connection_params['password'] == 'test_pass'
+        assert adapter._connection_params['password'] == 'test_password_placeholder'
 
     except Exception as e:
         if any(keyword in str(e).lower() for keyword in ["connection", "connect", "role", "does not exist", "authorization", "database"]):
@@ -123,7 +123,7 @@ def test_adapter_creation_with_url():
                 assert adapter._connection_params['port'] == 5432
                 assert adapter._connection_params['database'] == 'test_db'
                 assert adapter._connection_params['user'] == 'test_user'
-                assert adapter._connection_params['password'] == 'test_pass'
+                assert adapter._connection_params['password'] == 'test_password_placeholder'
         else:
             print(f"❌ Unexpected error: {e}")
             pytest.fail(f"Unexpected error during adapter creation: {e}")
@@ -142,7 +142,7 @@ def test_adapter_creation_with_individual_params():
             port=5432,
             database='test_db',
             user='test_user',
-            password='test_pass',
+            password='test_password_placeholder',
             table_name='test_table'
         )
         print("✅ PostgreSQL adapter created successfully with individual parameters")
@@ -153,7 +153,7 @@ def test_adapter_creation_with_individual_params():
         assert adapter._connection_params['port'] == 5432
         assert adapter._connection_params['database'] == 'test_db'
         assert adapter._connection_params['user'] == 'test_user'
-        assert adapter._connection_params['password'] == 'test_pass'
+        assert adapter._connection_params['password'] == 'test_password_placeholder'
 
     except Exception as e:
         if any(keyword in str(e).lower() for keyword in ["connection", "connect", "role", "does not exist", "authorization", "database"]):
@@ -166,7 +166,7 @@ def test_adapter_creation_with_individual_params():
                 assert adapter._connection_params['port'] == 5432
                 assert adapter._connection_params['database'] == 'test_db'
                 assert adapter._connection_params['user'] == 'test_user'
-                assert adapter._connection_params['password'] == 'test_pass'
+                assert adapter._connection_params['password'] == 'test_password_placeholder'
         else:
             print(f"❌ Unexpected error: {e}")
             pytest.fail(f"Unexpected error during adapter creation: {e}")
@@ -189,10 +189,10 @@ def test_url_parsing_logic_standalone():
     print("\n🧪 Testing PostgreSQL URL parsing logic...")
 
     test_urls = [
-        "postgresql://user:pass@localhost:5432/db",
-        "postgres://user:pass@localhost:5432/db",
-        "postgresql://user:pass@localhost/db",  # Default port
-        "postgresql://user:pass@example.com:5433/db",
+        "postgresql://user:password_placeholder@localhost:5432/db",
+        "postgres://user:password_placeholder@localhost:5432/db",
+        "postgresql://user:password_placeholder@localhost/db",  # Default port
+        "postgresql://user:password_placeholder@example.com:5433/db",
     ]
 
     for i, url in enumerate(test_urls, 1):
@@ -230,7 +230,7 @@ def test_connection_parameter_construction():
     print("\n🧪 Testing connection parameter construction...")
 
     # Test URL-based parameters
-    url = "postgresql://test_user:test_pass@localhost:5432/test_db"
+    url = "postgresql://test_user:test_password_placeholder@localhost:5432/test_db"
     parsed = urlparse(url)
 
     connection_params = {
@@ -246,7 +246,7 @@ def test_connection_parameter_construction():
         "port": 5432,
         "database": "test_db",
         "user": "test_user",
-        "password": "test_pass",
+        "password": "test_password_placeholder",
     }
 
     assert connection_params == expected_params, f"URL-based connection parameters mismatch: {connection_params}"
@@ -258,7 +258,7 @@ def test_connection_parameter_construction():
         "port": 5432,
         "database": "test_db",
         "user": "test_user",
-        "password": "test_pass",
+        "password": "test_password_placeholder",
     }
 
     assert individual_params == expected_params, f"Individual connection parameters mismatch: {individual_params}"
@@ -364,7 +364,7 @@ def test_table_creation_sql_construction():
 
     # Test migration SQL
     migration_query = f"""
-        ALTER TABLE {table_name} 
+        ALTER TABLE {table_name}
         ADD COLUMN updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
     """
 
@@ -377,11 +377,11 @@ def test_invalid_url_handling_standalone():
     print("\n🧪 Testing invalid URL handling...")
 
     invalid_urls = [
-        ("http://user:pass@localhost:5432/db", "Wrong scheme"),
+        ("http://user:password_placeholder@localhost:5432/db", "Wrong scheme"),
         ("postgresql://localhost:5432/db", "Missing user/password"),
         ("postgresql://user@localhost:5432/db", "Missing password"),
-        ("postgresql://test_user:test_pass@localhost:5432/", "Missing database"),
-        ("postgresql://user:pass@localhost:5432", "Missing database"),
+        ("postgresql://test_user:test_password_placeholder@localhost:5432/", "Missing database"),
+        ("postgresql://user:password_placeholder@localhost:5432", "Missing database"),
     ]
 
     for i, (url, description) in enumerate(invalid_urls, 1):
@@ -421,9 +421,9 @@ def test_postgres_integration():
     try:
         adapter = PostgresAdapter(
             host='localhost',
-            database='postgres', 
-            user='syedabdulgafoornaveed',
-            password='root'
+            database='postgres',
+            user='test_user_placeholder',
+            password='test_password_placeholder'
         )
 
         # Test basic operations
