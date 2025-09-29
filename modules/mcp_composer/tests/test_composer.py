@@ -6,7 +6,6 @@ from mcp_composer import MCPComposer
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../src")))
 
-
 gw = MCPComposer("hello-composer")
 
 

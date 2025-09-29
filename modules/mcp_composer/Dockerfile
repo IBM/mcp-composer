@@ -12,6 +12,7 @@ RUN dnf install -y \
     python3.12 \
     python3.12-devel \
     python3-devel \
+    postgresql-devel \
     && g++ --version
 
 RUN dnf clean all && rm -rf /var/cache/dnf /tmp/*

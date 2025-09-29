@@ -28,6 +28,7 @@ from mcp_composer.core.utils.utils import get_endpoint_from_config
 from mcp_composer.store.database import DatabaseInterface
 from mcp_composer.store.cloudant_adapter import CloudantAdapter
 from mcp_composer.store.local_file_adapter import LocalFileAdapter
+from mcp_composer.store.postgres_adapter import PostgresAdapter
 from mcp_composer.core.utils.tools import (
     tool_from_curl,
     tool_from_open_api,
@@ -84,17 +85,38 @@ class MCPComposer(FastMCP):
                     database = CloudantAdapter(
                         api_key=effective_db_config["api_key"],
                         service_url=effective_db_config["service_url"],
-                        db_name=effective_db_config.get("db_name", "mcp_servers"),
+                        db_name=effective_db_config.get("db_name", "mcp_server"),
                     )
                     logger.info("Database configuration loaded successfully (Cloudant)")
                 elif effective_db_config.get("type") == "local_file":
                     # Only use LocalFileAdapter if explicitly configured
-                    database = LocalFileAdapter(
-                        file_path=effective_db_config.get("file_path")
-                    )
-                    logger.info(
-                        "Database configuration loaded successfully (Local File)"
-                    )
+                    database = LocalFileAdapter(file_path=effective_db_config.get("file_path"))
+                    logger.info("Database configuration loaded successfully (Local File)")
+                elif effective_db_config.get("type") == "postgres":
+                    # Check if URL is provided (preferred method)
+                    if "url" in effective_db_config:
+                        database = PostgresAdapter(
+                            url=effective_db_config["url"],
+                            table_name=effective_db_config.get("table_name", "mcp_servers"),
+                        )
+                        logger.info("Database configuration loaded successfully (PostgreSQL via URL)")
+                    else:
+                        # Use individual parameters
+                        required_keys = ["host", "database", "user", "password"]
+                        if not all(k in effective_db_config for k in required_keys):
+                            error_msg = "Missing required PostgreSQL config keys: host, database, user, password (or provide 'url')"
+                            logger.error("Database configuration error: %s", error_msg)
+                            raise ValueError(error_msg)
+
+                        database = PostgresAdapter(
+                            host=effective_db_config["host"],
+                            port=effective_db_config.get("port", 5432),
+                            database=effective_db_config["database"],
+                            user=effective_db_config["user"],
+                            password=effective_db_config["password"],
+                            table_name=effective_db_config.get("table_name", "mcp_servers"),
+                        )
+                        logger.info("Database configuration loaded successfully (PostgreSQL)")
                 else:
                     error_msg = (
                         f"Unsupported database type: {effective_db_config.get('type')}"
@@ -228,11 +250,17 @@ class MCPComposer(FastMCP):
         Get database configuration from environment variables.
 
         Environment variables:
-        - MCP_DATABASE_TYPE: Type of database ("cloudant" or "local_file")
+        - MCP_DATABASE_TYPE: Type of database ("cloudant", "local_file", or "postgres")
         - MCP_DATABASE_API_KEY: API key for Cloudant (required for cloudant type)
         - MCP_DATABASE_SERVICE_URL: Service URL for Cloudant (required for cloudant type)
         - MCP_DATABASE_DB_NAME: Database name (optional, defaults to "mcp_servers")
         - MCP_DATABASE_FILE_PATH: File path for local file storage (optional for local_file type)
+        - MCP_DATABASE_URL: PostgreSQL connection URL (preferred for postgres type)
+        - MCP_DATABASE_HOST: PostgreSQL host (required for postgres type if URL not provided)
+        - MCP_DATABASE_PORT: PostgreSQL port (optional for postgres type, defaults to 5432)
+        - MCP_DATABASE_USER: PostgreSQL user (required for postgres type if URL not provided)
+        - MCP_DATABASE_PASSWORD: PostgreSQL password (required for postgres type if URL not provided)
+        - MCP_DATABASE_TABLE_NAME: PostgreSQL table name (optional for postgres type, defaults to "mcp_servers")
 
         Returns:
             Dict containing database configuration or None if no env config found
@@ -244,10 +272,9 @@ class MCPComposer(FastMCP):
 
         # Validate database type
         db_type = db_type.strip().lower()
-        if db_type not in ["cloudant", "local_file"]:
+        if db_type not in ["cloudant", "local_file", "postgres"]:
             logger.warning(
-                "Unsupported database type in environment: %s. Supported types: cloudant, local_file",
-                db_type,
+                "Unsupported database type in environment: %s. Supported types: cloudant, local_file, postgres", db_type
             )
             return None
 
@@ -297,6 +324,46 @@ class MCPComposer(FastMCP):
             logger.info(
                 "Database configuration loaded from environment variables (Local File)"
             )
+
+        elif db_type == "postgres":
+            # Check if URL is provided (preferred method)
+            url = os.getenv("MCP_DATABASE_URL")
+            if url and url.strip():
+                config["url"] = url.strip()
+                config["table_name"] = os.getenv("MCP_DATABASE_TABLE_NAME", "mcp_servers").strip()
+                logger.info("Database configuration loaded from environment variables (PostgreSQL via URL)")
+            else:
+                # Use individual parameters
+                host = os.getenv("MCP_DATABASE_HOST")
+                database = os.getenv("MCP_DATABASE_DATABASE")
+                user = os.getenv("MCP_DATABASE_USER")
+                password = os.getenv("MCP_DATABASE_PASSWORD")
+
+                # Validate required fields - fail fast on missing required fields
+                if not host or not host.strip():
+                    error_msg = "PostgreSQL database type specified but MCP_DATABASE_HOST is missing or empty (or provide MCP_DATABASE_URL)"
+                    logger.error("Database configuration error: %s", error_msg)
+                    raise ValueError(error_msg)
+                if not database or not database.strip():
+                    error_msg = "PostgreSQL database type specified but MCP_DATABASE_DATABASE is missing or empty (or provide MCP_DATABASE_URL)"
+                    logger.error("Database configuration error: %s", error_msg)
+                    raise ValueError(error_msg)
+                if not user or not user.strip():
+                    error_msg = "PostgreSQL database type specified but MCP_DATABASE_USER is missing or empty (or provide MCP_DATABASE_URL)"
+                    logger.error("Database configuration error: %s", error_msg)
+                    raise ValueError(error_msg)
+                if not password or not password.strip():
+                    error_msg = "PostgreSQL database type specified but MCP_DATABASE_PASSWORD is missing or empty (or provide MCP_DATABASE_URL)"
+                    logger.error("Database configuration error: %s", error_msg)
+                    raise ValueError(error_msg)
+
+                config["host"] = host.strip()
+                config["port"] = int(os.getenv("MCP_DATABASE_PORT", "5432"))  # type: ignore
+                config["database"] = database.strip()
+                config["user"] = user.strip()
+                config["password"] = password.strip()
+                config["table_name"] = os.getenv("MCP_DATABASE_TABLE_NAME", "mcp_servers").strip()
+                logger.info("Database configuration loaded from environment variables (PostgreSQL)")
 
         return config
 
