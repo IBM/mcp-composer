@@ -183,6 +183,12 @@ async def test_mount_and_register_server_no_db_save():
         "mcp_composer.core.member_servers.server_manager.MCPServerBuilder"
     ) as mock_builder_class:
         mock_server = AsyncMock()
+        # Mock get_tools to return a dictionary with tools that have descriptions
+        mock_tool = MagicMock()
+        mock_tool.name = "test_tool"
+        mock_tool.description = "A test tool with description"
+        mock_server.get_tools = AsyncMock(return_value={"test_tool": mock_tool})
+        
         mock_builder = MagicMock()
         mock_builder.build = AsyncMock(return_value=mock_server)
         mock_builder_class.return_value = mock_builder
@@ -210,6 +216,12 @@ async def test_register_server_with_validation():
         "mcp_composer.core.member_servers.server_manager.MCPServerBuilder"
     ) as mock_builder_class:
         mock_server = AsyncMock()
+        # Mock get_tools to return a dictionary with tools that have descriptions
+        mock_tool = MagicMock()
+        mock_tool.name = "test_tool"
+        mock_tool.description = "A test tool with description"
+        mock_server.get_tools = AsyncMock(return_value={"test_tool": mock_tool})
+        
         config = {"id": "test_server", "type": "test_type"}
         mock_builder = AsyncMock()
         mock_builder.build = AsyncMock(return_value=mock_server)
