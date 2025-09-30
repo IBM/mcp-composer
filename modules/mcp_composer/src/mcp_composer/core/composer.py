@@ -90,16 +90,24 @@ class MCPComposer(FastMCP):
                     logger.info("Database configuration loaded successfully (Cloudant)")
                 elif effective_db_config.get("type") == "local_file":
                     # Only use LocalFileAdapter if explicitly configured
-                    database = LocalFileAdapter(file_path=effective_db_config.get("file_path"))
-                    logger.info("Database configuration loaded successfully (Local File)")
+                    database = LocalFileAdapter(
+                        file_path=effective_db_config.get("file_path")
+                    )
+                    logger.info(
+                        "Database configuration loaded successfully (Local File)"
+                    )
                 elif effective_db_config.get("type") == "postgres":
                     # Check if URL is provided (preferred method)
                     if "url" in effective_db_config:
                         database = PostgresAdapter(
                             url=effective_db_config["url"],
-                            table_name=effective_db_config.get("table_name", "mcp_servers"),
+                            table_name=effective_db_config.get(
+                                "table_name", "mcp_servers"
+                            ),
                         )
-                        logger.info("Database configuration loaded successfully (PostgreSQL via URL)")
+                        logger.info(
+                            "Database configuration loaded successfully (PostgreSQL via URL)"
+                        )
                     else:
                         # Use individual parameters
                         required_keys = ["host", "database", "user", "password"]
@@ -114,9 +122,13 @@ class MCPComposer(FastMCP):
                             database=effective_db_config["database"],
                             user=effective_db_config["user"],
                             password=effective_db_config["password"],
-                            table_name=effective_db_config.get("table_name", "mcp_servers"),
+                            table_name=effective_db_config.get(
+                                "table_name", "mcp_servers"
+                            ),
                         )
-                        logger.info("Database configuration loaded successfully (PostgreSQL)")
+                        logger.info(
+                            "Database configuration loaded successfully (PostgreSQL)"
+                        )
                 else:
                     error_msg = (
                         f"Unsupported database type: {effective_db_config.get('type')}"
@@ -274,7 +286,8 @@ class MCPComposer(FastMCP):
         db_type = db_type.strip().lower()
         if db_type not in ["cloudant", "local_file", "postgres"]:
             logger.warning(
-                "Unsupported database type in environment: %s. Supported types: cloudant, local_file, postgres", db_type
+                "Unsupported database type in environment: %s. Supported types: cloudant, local_file, postgres",
+                db_type,
             )
             return None
 
@@ -330,8 +343,12 @@ class MCPComposer(FastMCP):
             url = os.getenv("MCP_DATABASE_URL")
             if url and url.strip():
                 config["url"] = url.strip()
-                config["table_name"] = os.getenv("MCP_DATABASE_TABLE_NAME", "mcp_servers").strip()
-                logger.info("Database configuration loaded from environment variables (PostgreSQL via URL)")
+                config["table_name"] = os.getenv(
+                    "MCP_DATABASE_TABLE_NAME", "mcp_servers"
+                ).strip()
+                logger.info(
+                    "Database configuration loaded from environment variables (PostgreSQL via URL)"
+                )
             else:
                 # Use individual parameters
                 host = os.getenv("MCP_DATABASE_HOST")
@@ -362,8 +379,12 @@ class MCPComposer(FastMCP):
                 config["database"] = database.strip()
                 config["user"] = user.strip()
                 config["password"] = password.strip()
-                config["table_name"] = os.getenv("MCP_DATABASE_TABLE_NAME", "mcp_servers").strip()
-                logger.info("Database configuration loaded from environment variables (PostgreSQL)")
+                config["table_name"] = os.getenv(
+                    "MCP_DATABASE_TABLE_NAME", "mcp_servers"
+                ).strip()
+                logger.info(
+                    "Database configuration loaded from environment variables (PostgreSQL)"
+                )
 
         return config
 
@@ -545,8 +566,7 @@ class MCPComposer(FastMCP):
         return await self._server_manager.update_server_config(
             server_id=server_id,
             new_config=new_config,
-            unmount_callback=self._tool_manager.unmount,
-            mount_callback=self.mount,
+            mcp_composer=self,
         )
 
     async def delete_mcp_server(self, server_id: str) -> str:
@@ -573,13 +593,13 @@ class MCPComposer(FastMCP):
     async def activate_mcp_server(self, server_id: str) -> str:
         """Reactivates a previously deactivated member server."""
         return await self._server_manager.activate_server(
-            server_id=server_id, mount_callback=self.mount
+            server_id=server_id, mcp_composer=self
         )
 
     async def deactivate_mcp_server(self, server_id: str) -> str:
         """Deactivates a member server by unmounting it and marking it as deactivated."""
         return self._server_manager.deactivate_server(
-            server_id=server_id, unmount_callback=self._tool_manager.unmount
+            server_id=server_id, mcp_composer=self
         )
 
     async def add_tools_from_curl(self, tool_config: dict) -> str:

@@ -2,6 +2,7 @@
 
 from unittest.mock import MagicMock, patch, AsyncMock
 import pytest
+from mcp_composer.core.composer import MCPComposer
 from mcp_composer.core.member_servers.server_manager import ServerManager
 from fastmcp.exceptions import NotFoundError, ToolError
 from mcp_composer.core.utils.exceptions import ToolDisableError
@@ -72,9 +73,7 @@ async def test_update_server_config_success():
             get_document=MagicMock(return_value={"foo": "bar"})
         )
         manager._config_manager = MagicMock(save_version=MagicMock(return_value="v1"))
-        result = await manager.update_server_config(
-            "srv", config, MagicMock(), MagicMock()
-        )
+        result = await manager.update_server_config("srv", config, MagicMock())
         assert result == "ok"
 
 
@@ -91,7 +90,7 @@ async def test_update_server_config_not_found():
         mock_validator.return_value.validate.return_value = None
         manager._database = MagicMock()
         with pytest.raises(ToolError):
-            await manager.update_server_config("srv", config, MagicMock(), MagicMock())
+            await manager.update_server_config("srv", config, MagicMock())
 
 
 @pytest.mark.asyncio
@@ -139,22 +138,16 @@ async def test_activate_server_already_mounted():
 
 def test_deactivate_server_success():
     manager = ServerManager()
-    with (
-        patch.object(manager, "prepare_deactivation"),
-        patch(
-            "mcp_composer.core.member_servers.server_manager.NotFoundError",
-            side_effect=Exception("fail"),
-        ),
-    ):
-        cb = MagicMock()
-        result = manager.deactivate_server("srv", cb)
-        cb.assert_called_once_with("srv")
+    manager._member_servers["srv"] = MagicMock()
+    with patch.object(manager, "prepare_deactivation") as mock_prepare:
+        mcp_composer = MCPComposer()
+        result = manager.deactivate_server("srv", mcp_composer)
+        mock_prepare.assert_called_once_with("srv")
+        assert hasattr(manager._member_servers["srv"], "health_status")
         assert "deactivated" in result
 
 
 # Additional comprehensive tests from test_server_manager_extended.py
-
-
 def test_server_manager_initialization_with_duplicate_behavior():
     """Test ServerManager initialization with duplicate behavior."""
     from fastmcp.settings import DuplicateBehavior
@@ -189,11 +182,13 @@ async def test_mount_and_register_server_no_db_save():
     with patch(
         "mcp_composer.core.member_servers.server_manager.MCPServerBuilder"
     ) as mock_builder_class:
+        mock_server = AsyncMock()
         mock_builder = MagicMock()
-        mock_builder.build = AsyncMock(return_value=MagicMock())
+        mock_builder.build = AsyncMock(return_value=mock_server)
         mock_builder_class.return_value = mock_builder
 
         mount_callback = MagicMock()
+        mount_callback.return_value = MCPComposer()
 
         config = {"id": "test_server", "type": "test_type"}
 
@@ -214,13 +209,14 @@ async def test_register_server_with_validation():
     with patch(
         "mcp_composer.core.member_servers.server_manager.MCPServerBuilder"
     ) as mock_builder_class:
-        mock_builder = MagicMock()
-        mock_builder.build = AsyncMock(return_value=MagicMock())
+        mock_server = AsyncMock()
+        config = {"id": "test_server", "type": "test_type"}
+        mock_builder = AsyncMock()
+        mock_builder.build = AsyncMock(return_value=mock_server)
         mock_builder_class.return_value = mock_builder
 
         mount_callback = MagicMock()
-
-        config = {"id": "test_server", "type": "test_type"}
+        mount_callback.return_value = MCPComposer()
 
         result = await manager.register_server(config, mount_callback)
 
@@ -231,14 +227,13 @@ async def test_register_server_with_validation():
 async def test_update_server_config_server_not_found():
     """Test server config update with non-existent server."""
     manager = ServerManager()
-    unmount_callback = MagicMock()
-    mount_callback = MagicMock()
+    mcp_composer = MagicMock()
 
     new_config = {"id": "test_server", "type": "updated_type"}
 
     with pytest.raises(ToolError) as exc_info:
         await manager.update_server_config(
-            "nonexistent_server", new_config, unmount_callback, mount_callback
+            "nonexistent_server", new_config, mcp_composer
         )
     assert "Server ID in config does not match" in str(exc_info.value)
 
@@ -247,20 +242,20 @@ async def test_update_server_config_server_not_found():
 async def test_activate_server_not_found():
     """Test server activation with non-existent server."""
     manager = ServerManager()
-    mount_callback = MagicMock()
+    mcp_composer = MagicMock()
 
     with pytest.raises(ToolError) as exc_info:
-        await manager.activate_server("nonexistent_server", mount_callback)
+        await manager.activate_server("nonexistent_server", mcp_composer)
     assert "Failed to activate server 'nonexistent_server'" in str(exc_info.value)
 
 
 def test_deactivate_server_not_found():
     """Test server deactivation with non-existent server."""
     manager = ServerManager()
-    unmount_callback = MagicMock()
+    mcp_composer = MagicMock()
 
     with pytest.raises(ToolError) as exc_info:
-        manager.deactivate_server("nonexistent_server", unmount_callback)
+        manager.deactivate_server("nonexistent_server", mcp_composer)
     assert "Server 'nonexistent_server' not found in DB" in str(exc_info.value)
 
 
@@ -292,7 +287,9 @@ def test_list_servers():
 
     # Mock the database to return a server config
     manager._database = MagicMock()
-    manager._database.load_all_servers.return_value = [{"id": "test_server"}]
+    manager._database.load_all_servers.return_value = [
+        {"id": "test_server", "type": "test_type"}
+    ]  # <-- FIXED HERE
 
     result = manager.list_servers()
 
