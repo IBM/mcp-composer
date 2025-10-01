@@ -113,7 +113,7 @@ async def test_no_database_config_works(fake_db, server_config):
 
 
 @pytest.mark.asyncio
-async def test_composer_initializes_without_any_config():
+async def test_composer_initializes_without_any_config(fake_db):
     """Test that MCP composer can initialize without any configuration files or database config."""
     import os
     import tempfile
@@ -134,7 +134,7 @@ async def test_composer_initializes_without_any_config():
 
             try:
                 # This should not raise any errors during initialization
-                composer = MCPComposer("composer", config=None, database_config=None)
+                composer = MCPComposer("composer", config=None, database_config=fake_db)
 
                 # Should have basic composer tools available
                 tools = await composer.get_tools()
@@ -178,7 +178,7 @@ async def test_composer_initializes_without_any_config():
 
 
 @pytest.mark.asyncio
-async def test_composer_initializes_when_file_creation_fails():
+async def test_composer_initializes_when_file_creation_fails(fake_db):
     """Test that MCP composer can initialize successfully even when member_servers.json file creation fails."""
     import os
     import tempfile
@@ -206,7 +206,7 @@ async def test_composer_initializes_when_file_creation_fails():
             try:
                 # Try to initialize composer with a path in the read-only directory
                 # This should fail to create the file but not crash the composer
-                composer = MCPComposer("composer", config=None, database_config=None)
+                composer = MCPComposer("composer", config=None, database_config=fake_db)
 
                 # Should have basic composer tools available
                 tools = await composer.get_tools()
@@ -251,7 +251,7 @@ async def test_composer_initializes_when_file_creation_fails():
 
 
 @pytest.mark.asyncio
-async def test_composer_initializes_with_invalid_file_path():
+async def test_composer_initializes_with_invalid_file_path(fake_db):
     """Test that MCP composer can initialize successfully even with an invalid file path."""
     import os
     import tempfile
@@ -271,7 +271,7 @@ async def test_composer_initializes_with_invalid_file_path():
 
             try:
                 # This should not raise any errors during initialization, even with invalid path
-                composer = MCPComposer("composer", config=None, database_config=None)
+                composer = MCPComposer("composer", config=None, database_config=fake_db)
 
                 # Should have basic composer tools available
                 tools = await composer.get_tools()
@@ -310,10 +310,10 @@ async def test_composer_initializes_with_invalid_file_path():
 
 
 @pytest.mark.asyncio
-async def test_composer_uses_local_file_adapter_when_no_database_config(server_config):
+async def test_composer_uses_local_file_adapter_when_no_database_config(fake_db, server_config):
     """Test that MCP composer works without database config and doesn't use LocalFileAdapter by default."""
     # This should not raise any errors but should NOT use LocalFileAdapter by default
-    composer = MCPComposer("composer", config=[server_config], database_config=None)
+    composer = MCPComposer("composer", config=[server_config], database_config=fake_db)
 
     # Should be able to call setup_member_servers without errors
     await composer.setup_member_servers()

@@ -103,12 +103,7 @@ class MCPToolManager(ToolManager):
 
                 # Accumulate description updates from healthy members
                 if member.tools_description:
-                    # Use a dictionary comprehension for cleaner prefixing and updating
-                    updated_tool_description = {
-                        f"{member.id}_{key}": value
-                        for key, value in member.tools_description.items()
-                    }
-                    description_updates.update(updated_tool_description)
+                    description_updates.update(member.tools_description)
 
             # 3. Filter and update the tools dictionary
             filtered_tools = {

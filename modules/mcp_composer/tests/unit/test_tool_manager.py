@@ -39,14 +39,17 @@ def test_filter_tools_removes_and_updates(
     tool_manager,
 ):  # pylint: disable=redefined-outer-name
     tool1 = MagicMock()
+    tool1.name = "a"
     tool2 = MagicMock()
+    tool2.name = "b"
+    tool2.description = "original description"
     tools = {"a": tool1, "b": tool2}
 
-    member = MagicMock(
-        health_status=HealthStatus.healthy,
-        disabled_tools=["a"],
-        tools_description={"b": "desc"},
-    )
+    member = MagicMock()
+    member.health_status = HealthStatus.healthy
+    member.disabled_tools = ["a"]
+    member.tools_description = {"b": "desc"}
+    member.id = "test_server"
     tool_manager._server_manager.list.return_value = [
         member
     ]  # pylint: disable=protected-access
@@ -54,6 +57,7 @@ def test_filter_tools_removes_and_updates(
     filtered = tool_manager.filter_tools(tools)
 
     assert "a" not in filtered
+    assert "b" in filtered
     assert filtered["b"].description == "desc"
 
 
