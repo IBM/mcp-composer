@@ -25,7 +25,7 @@ from mcp_composer.core.utils.logger import LoggerFactory
 from mcp_composer.core.utils.oauth_cli_utils import create_mcp_server, oauth_pkce_login_async, get_issuer
 
 # Import command modules
-from mcp_composer.core.cli.commands import middleware_commands, composer_commands, config_commands
+from mcp_composer.core.cli.commands import middleware_commands, composer_commands, config_commands, init_commands
 
 # Import unified configuration functions
 from mcp_composer.core.config.config_loader import ConfigManager
@@ -63,6 +63,12 @@ app.add_typer(
     config_commands.app,
     name="config",
     help="Unified configuration management commands",
+)
+
+app.add_typer(
+    init_commands.app,
+    name="init",
+    help="Initialize a new MCP Composer workspace",
 )
 
 
