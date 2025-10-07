@@ -25,18 +25,7 @@ from mcp_composer.core.utils.logger import LoggerFactory
 logger = LoggerFactory.get_logger()
 console = Console()
 
-# Create Typer app for init commands
-app = typer.Typer(
-    name="init",
-    help="Initialize a new MCP Composer workspace",
-    add_completion=False,
-    rich_markup_mode="rich",
-)
-
-
-@app.callback(invoke_without_command=True)
 def init_project(
-    ctx: typer.Context,
     project_name: Annotated[Optional[str], Argument(
         help="Name of the project to initialize"
     )] = None,

@@ -65,12 +65,6 @@ app.add_typer(
     help="Unified configuration management commands",
 )
 
-app.add_typer(
-    init_commands.app,
-    name="init",
-    help="Initialize a new MCP Composer workspace",
-)
-
 
 def main_callback(
     ctx: typer.Context,
@@ -765,11 +759,101 @@ def info() -> None:
     """Show information about MCP Composer."""
     typer.echo("MCP Composer - A powerful tool for managing MCP servers and middleware")
     typer.echo()
+    typer.echo("Available commands:")
+    typer.echo("  • init       - Initialize a new MCP Composer workspace")
+    typer.echo("  • run        - Run MCP Composer server")
+    typer.echo("  • version    - Show version information")
+    typer.echo()
     typer.echo("Available command groups:")
     typer.echo("  • middleware - Manage middleware configurations")
-    typer.echo("  • composer   - Run MCP Composer servers")
+    typer.echo("  • composer   - Server management (start, stop, status, logs)")
+    typer.echo("  • config     - Unified configuration management")
     typer.echo()
     typer.echo("Use 'mcp-composer <command> --help' for more information on each command.")
+
+
+# Register init command directly
+@app.command("init")
+def init_command(
+    project_name: Annotated[Optional[str], Argument(
+        help="Name of the project to initialize"
+    )] = None,
+    
+    defaults: Annotated[bool, Option(
+        "--defaults",
+        help="Skip interactive prompts and use default values"
+    )] = False,
+    
+    with_examples: Annotated[bool, Option(
+        "--with-examples",
+        help="Include example files (sample tool, routes, configs)"
+    )] = False,
+    
+    adapter: Annotated[Optional[str], Option(
+        "--adapter",
+        help="Setup variant: 'local' (stdio/local development), 'cloud' (http/sse deployment), or 'api' (openapi/graphql)",
+        case_sensitive=False
+    )] = None,
+    
+    port: Annotated[int, Option(
+        "--port", "-p",
+        help="Default port for HTTP/SSE server"
+    )] = 9000,
+    
+    host: Annotated[str, Option(
+        "--host",
+        help="Default host for HTTP/SSE server"
+    )] = "0.0.0.0",
+    
+    mode: Annotated[Optional[str], Option(
+        "--mode",
+        help="Default server mode: http, sse, stdio, openapi, graphql, local, or client",
+        case_sensitive=False
+    )] = None,
+    
+    auth_type: Annotated[Optional[str], Option(
+        "--auth-type",
+        help="Authentication type: oauth or none",
+        case_sensitive=False
+    )] = None,
+    
+    database: Annotated[Optional[str], Option(
+        "--database",
+        help="Database type: sqlite, postgres, or none",
+        case_sensitive=False
+    )] = None,
+    
+    description: Annotated[Optional[str], Option(
+        "--description",
+        help="Project description"
+    )] = None,
+    
+    directory: Annotated[Optional[str], Option(
+        "--directory", "-d",
+        help="Target directory for project (defaults to project name)"
+    )] = None,
+    
+    force: Annotated[bool, Option(
+        "--force", "-f",
+        help="Overwrite existing directory if it exists"
+    )] = False,
+) -> None:
+    """Initialize a new MCP Composer workspace."""
+    # Call the actual implementation from init_commands
+    init_commands.init_project(
+        project_name=project_name,
+        defaults=defaults,
+        with_examples=with_examples,
+        adapter=adapter,
+        port=port,
+        host=host,
+        mode=mode,
+        auth_type=auth_type,
+        database=database,
+        description=description,
+        directory=directory,
+        force=force,
+    )
 
 
 def _apply_config_and_start_server(
