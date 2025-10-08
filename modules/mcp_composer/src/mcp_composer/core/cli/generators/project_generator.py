@@ -487,6 +487,14 @@ dev = [
 requires = ["setuptools>=68.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
+[tool.setuptools]
+# Only include server.py and __init__.py, exclude data directories
+py-modules = []
+packages = []
+
+[tool.setuptools.package-data]
+"*" = ["*.json", "*.yaml", "*.yml", "*.md"]
+
 [tool.black]
 line-length = 120
 target-version = ["py311"]

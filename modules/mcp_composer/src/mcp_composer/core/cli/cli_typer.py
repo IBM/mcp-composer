@@ -789,6 +789,11 @@ def init_command(
         help="Include example files (sample tool, routes, configs)"
     )] = False,
     
+    with_venv: Annotated[bool, Option(
+        "--with-venv/--no-venv",
+        help="Create a virtual environment in the project"
+    )] = True,
+    
     adapter: Annotated[Optional[str], Option(
         "--adapter",
         help="Setup variant: 'local' (stdio/local development), 'cloud' (http/sse deployment), or 'api' (openapi/graphql)",
@@ -805,8 +810,8 @@ def init_command(
         help="Default host for HTTP/SSE server"
     )] = "0.0.0.0",
     
-    mode: Annotated[Optional[str], Option(
-        "--mode",
+    server_mode: Annotated[Optional[str], Option(
+        "--server-mode",
         help="Default server mode: http, sse, stdio, openapi, graphql, local, or client",
         case_sensitive=False
     )] = None,
@@ -844,10 +849,11 @@ def init_command(
         project_name=project_name,
         defaults=defaults,
         with_examples=with_examples,
+        with_venv=with_venv,
         adapter=adapter,
         port=port,
         host=host,
-        mode=mode,
+        server_mode=server_mode,
         auth_type=auth_type,
         database=database,
         description=description,

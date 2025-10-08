@@ -40,6 +40,11 @@ def init_project(
         help="Include example files (sample tool, routes, configs)"
     )] = False,
     
+    with_venv: Annotated[bool, Option(
+        "--with-venv",
+        help="Create a virtual environment in the project"
+    )] = True,
+    
     adapter: Annotated[Optional[str], Option(
         "--adapter",
         help="Setup variant: 'local' (stdio/local development), 'cloud' (http/sse deployment), or 'api' (openapi/graphql)",
@@ -56,8 +61,8 @@ def init_project(
         help="Default host for HTTP/SSE server"
     )] = "0.0.0.0",
     
-    mode: Annotated[Optional[str], Option(
-        "--mode",
+    server_mode: Annotated[Optional[str], Option(
+        "--server-mode",
         help="Default server mode: http, sse, stdio, openapi, graphql, local, or client",
         case_sensitive=False
     )] = None,
@@ -140,7 +145,7 @@ def init_project(
     # Interactive prompts if not using --defaults
     if not defaults:
         config = _interactive_setup(
-            project_name, adapter, port, host, mode, auth_type, database, description
+            project_name, adapter, port, host, server_mode, auth_type, database, description
         )
     else:
         # Use provided values or defaults
@@ -159,10 +164,11 @@ def init_project(
             "adapter": adapter or "local",
             "port": port,
             "host": host,
-            "mode": mode or default_mode,
+            "mode": server_mode or default_mode,
             "auth_type": auth_type or "none",
             "database": database or "none",
             "with_examples": with_examples,
+            "with_venv": with_venv,
         }
     
     # Determine target directory
@@ -190,13 +196,18 @@ def init_project(
         generator = ProjectGenerator(config, target_dir)
         generator.generate()
         
+        # Create virtual environment if requested
+        venv_created = False
+        if config.get("with_venv", True):
+            venv_created = _create_virtual_environment(target_dir)
+        
         # Validate environment
         rprint("\n[cyan]🔍 Validating environment...[/cyan]")
         validation_results = _validate_environment(target_dir)
         _display_validation_results(validation_results)
         
         # Show success message with next steps
-        _show_success_message(config, target_dir, validation_results)
+        _show_success_message(config, target_dir, validation_results, venv_created)
         
     except Exception as e:
         rprint(f"[red]❌ Error initializing project: {e}[/red]")
@@ -223,7 +234,7 @@ def _interactive_setup(
     adapter: Optional[str],
     port: int,
     host: str,
-    mode: Optional[str],
+    server_mode: Optional[str],
     auth_type: Optional[str],
     database: Optional[str],
     description: Optional[str],
@@ -255,28 +266,28 @@ def _interactive_setup(
         )
     
     # Mode
-    if not mode:
+    if not server_mode:
         if adapter == "local":
-            mode = Prompt.ask(
+            server_mode = Prompt.ask(
                 "[cyan]Server mode[/cyan]",
                 choices=["stdio", "local", "http", "sse"],
                 default="stdio"
             )
         elif adapter == "api":
-            mode = Prompt.ask(
+            server_mode = Prompt.ask(
                 "[cyan]Server mode[/cyan]",
                 choices=["openapi", "graphql", "http", "sse"],
                 default="openapi"
             )
         else:
-            mode = Prompt.ask(
+            server_mode = Prompt.ask(
                 "[cyan]Server mode[/cyan]",
                 choices=["http", "sse", "openapi", "client"],
                 default="http"
             )
     
     # Port (only for http/sse)
-    if mode in ["http", "sse"]:
+    if server_mode in ["http", "sse"]:
         port = int(Prompt.ask(
             "[cyan]Server port[/cyan]",
             default=str(port)
@@ -314,7 +325,7 @@ def _interactive_setup(
         "adapter": adapter,
         "port": port,
         "host": host,
-        "mode": mode,
+        "mode": server_mode,
         "auth_type": auth_type,
         "database": database,
         "with_examples": with_examples,
@@ -408,7 +419,47 @@ def _display_validation_results(results: Dict[str, Dict]) -> None:
             rprint(f"  {icon} {check['message']}")
 
 
-def _show_success_message(config: Dict, target_dir: Path, validation_results: Dict) -> None:
+def _create_virtual_environment(target_dir: Path) -> bool:
+    """Create a virtual environment in the project directory."""
+    try:
+        rprint("\n[cyan]🔧 Creating virtual environment...[/cyan]")
+        
+        # Check if uv is available
+        if shutil.which("uv"):
+            import subprocess
+            result = subprocess.run(
+                ["uv", "venv"],
+                cwd=target_dir,
+                capture_output=True,
+                text=True
+            )
+            if result.returncode == 0:
+                rprint("[green]  ✅ Virtual environment created with uv[/green]")
+                return True
+            else:
+                rprint(f"[yellow]  ⚠️  uv venv failed: {result.stderr}[/yellow]")
+                return False
+        else:
+            # Fallback to python -m venv
+            import subprocess
+            result = subprocess.run(
+                ["python3", "-m", "venv", ".venv"],
+                cwd=target_dir,
+                capture_output=True,
+                text=True
+            )
+            if result.returncode == 0:
+                rprint("[green]  ✅ Virtual environment created with python3 -m venv[/green]")
+                return True
+            else:
+                rprint(f"[yellow]  ⚠️  venv creation failed: {result.stderr}[/yellow]")
+                return False
+    except Exception as e:
+        rprint(f"[yellow]  ⚠️  Could not create virtual environment: {e}[/yellow]")
+        return False
+
+
+def _show_success_message(config: Dict, target_dir: Path, validation_results: Dict, venv_created: bool = False) -> None:
     """Display success message with next steps."""
     
     # Check if there were any errors
@@ -429,12 +480,20 @@ def _show_success_message(config: Dict, target_dir: Path, validation_results: Di
     # Step 1: Navigate to project
     next_steps.append(f"cd {target_dir}")
     
-    # Step 2: Install dependencies (if uv is not available)
-    if validation_results["dependencies"]["uv"]["status"] != "ok":
-        next_steps.append("# Install uv: curl -LsSf https://astral.sh/uv/install.sh | sh")
-    
-    # Step 3: Install project dependencies
-    next_steps.append("uv pip install -e .")
+    # Step 2: Create/activate virtual environment
+    if venv_created:
+        next_steps.append("source .venv/bin/activate  # On Windows: .venv\\Scripts\\activate")
+        next_steps.append("uv pip install -e .")
+    else:
+        next_steps.append("# Create virtual environment:")
+        if validation_results["dependencies"]["uv"]["status"] == "ok":
+            next_steps.append("uv venv")
+            next_steps.append("source .venv/bin/activate  # On Windows: .venv\\Scripts\\activate")
+            next_steps.append("uv pip install -e .")
+        else:
+            next_steps.append("python3 -m venv .venv")
+            next_steps.append("source .venv/bin/activate  # On Windows: .venv\\Scripts\\activate")
+            next_steps.append("pip install -r requirements.txt")
     
     # Step 4: Start the server
     mode = config.get("mode", "http")

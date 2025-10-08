@@ -80,9 +80,12 @@ mcp-composer init my-project --auth-type oauth --mode http --defaults
 **After initialization:**
 ```bash
 cd my-project
+source .venv/bin/activate  # Virtual environment is auto-created
 uv pip install -e .
 python server.py
 ```
+
+**Note:** By default, `init` automatically creates a virtual environment (`.venv`). Use `--no-venv` to skip this.
 
 See the [Init Command](#init-command---initialize-project) section for detailed documentation.
 
@@ -269,6 +272,7 @@ mcp-composer init [PROJECT_NAME] [OPTIONS]
 | `PROJECT_NAME` | Name of the project to initialize | Interactive prompt |
 | `--defaults` | Skip interactive prompts and use default values | `False` |
 | `--with-examples` | Include example files (tools, middleware, configs) | `False` |
+| `--with-venv` / `--no-venv` | Create virtual environment in project | `True` |
 | `--adapter` | Setup variant: `local` or `cloud` | Interactive prompt |
 | `--port`, `-p` | Default port for HTTP/SSE server | `9000` |
 | `--host` | Default host for HTTP/SSE server | `0.0.0.0` |
@@ -305,6 +309,9 @@ mcp-composer init my-project --directory /path/to/custom/location
 
 # Force overwrite existing directory
 mcp-composer init my-project --force --defaults
+
+# Skip virtual environment creation
+mcp-composer init my-project --no-venv --defaults
 ```
 
 **Project Structure:**
@@ -313,6 +320,7 @@ After running `init`, you'll get the following structure:
 
 ```
 my-project/
+├── .venv/                  # Virtual environment (auto-created by default)
 ├── config/                 # Configuration files
 │   ├── config.json         # Main MCP Composer configuration
 │   └── middleware.json     # Middleware configuration
@@ -333,6 +341,8 @@ my-project/
 ├── requirements.txt        # Python dependencies
 └── README.md               # Project documentation
 ```
+
+**Note:** The virtual environment (`.venv/`) is automatically created unless you use `--no-venv`.
 
 **Interactive Setup Flow:**
 
@@ -368,10 +378,11 @@ After successful initialization, you'll see:
 
 Next steps:
   1. cd my-project
-  2. uv pip install -e .
-  3. mcp-composer run --mode http --host 0.0.0.0 --port 9000 --config-path config/config.json
+  2. source .venv/bin/activate  # Activate the virtual environment
+  3. uv pip install -e .
+  4. python server.py
+     # Or: mcp-composer run --mode http --config-path config/config.json
      # Visit: http://0.0.0.0:9000
-     # Check examples/ directory for sample configurations
 
 Project Details:
   • Name: my-project
@@ -380,7 +391,12 @@ Project Details:
   • Auth: none
   • Database: none
   • Examples: Yes
+  • Virtual Env: ✅ Created
+
+Need help? Run: mcp-composer --help
 ```
+
+**Note:** The virtual environment is automatically created and ready to use. Just activate it and install dependencies!
 
 **Configuration Files:**
 
@@ -488,12 +504,17 @@ if __name__ == "__main__":
    git commit -m "Initial commit from mcp-composer init"
    ```
 
-2. **Virtual Environment**: Use uv or virtualenv for dependency isolation
+2. **Virtual Environment**: Already created by `init` (unless you used `--no-venv`)
    ```bash
    cd my-project
-   uv venv
    source .venv/bin/activate  # On Windows: .venv\Scripts\activate
    uv pip install -e .
+   ```
+   
+   If you skipped venv creation, create one manually:
+   ```bash
+   uv venv  # or: python3 -m venv .venv
+   source .venv/bin/activate
    ```
 
 3. **Environment Variables**: Never commit `.env` file with secrets
