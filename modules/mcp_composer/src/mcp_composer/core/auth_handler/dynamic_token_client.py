@@ -2,7 +2,7 @@ import time
 from typing import Any
 import base64
 import httpx
-
+from mcp_composer.core.auth_handler.oauth_handler import resolve_env_value
 from mcp_composer.core.utils import ConfigKey, LoggerFactory, AuthStrategy
 
 logger = LoggerFactory.get_logger()
@@ -42,9 +42,9 @@ class DynamicTokenClient(httpx.AsyncClient):
         try:
             if not self.auth_data:
                 raise ValueError("Missing auth_data for token refresh.")
-            _id = self.auth_data.get(ConfigKey.ID)
-            _secret = self.auth_data.get(ConfigKey.SECRET)
-            apikey = self.auth_data.get(ConfigKey.APIKEY, None)
+            _id = resolve_env_value(self.auth_data.get(ConfigKey.ID))
+            _secret = resolve_env_value(self.auth_data.get(ConfigKey.SECRET))
+            apikey = resolve_env_value(self.auth_data.get(ConfigKey.APIKEY, None))
             # Expect apikey to be in headers: self.headers["apikey"]
             token_url = self.auth_data.get(ConfigKey.Token_URL)
             auth_generation_method = self.auth_data.get(ConfigKey.TOKEN_GEN_AUTH_METHOD,"")
@@ -93,6 +93,7 @@ class DynamicTokenClient(httpx.AsyncClient):
 
             # Check if we got a valid token even with a 401 status (some APIs do this)
             token_data = response.json()
+
             self._access_token = token_data.get("access_token") or token_data.get("token")
 
             if self._access_token:

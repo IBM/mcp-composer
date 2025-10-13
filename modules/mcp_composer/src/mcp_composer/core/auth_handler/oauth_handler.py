@@ -24,12 +24,9 @@ def resolve_env_value(value: Optional[str]) -> str:
         RuntimeError: If the value is None.
     """
     if value is None:
-        raise RuntimeError("Required configuration value is None")
+        return ""
     if isinstance(value, str) and value.startswith("ENV_"):
-        resolved = os.getenv(value)
-        if not resolved:
-            raise RuntimeError(f"Environment variable '{value}' is not set")
-        return resolved
+        return os.getenv(value, "")
     return value
 
 
