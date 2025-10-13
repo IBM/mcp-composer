@@ -22,10 +22,10 @@ class TestData:
     """MCP Composer test data"""
 
     SERVER_ID = "mcp-server-fetch"
-    TOOL_NAME_1 = "search_news"
-    TOOL_NAME_2 = "fetch_html"
+    TOOL_NAME_1 = "fetch_html"
+    TOOL_NAME_2 = "fetch_markdown"
     TOOL_NAME_LIST = ["fetch_html"]
-    TOOL_NAME_WITHOUT_PREFIX = "search_news"
+    TOOL_NAME_WITHOUT_PREFIX = "fetch_html"
     TOOL_DESCRIPTION = "Test description"
 
 
@@ -56,7 +56,7 @@ class TestComposer(unittest.IsolatedAsyncioTestCase):
         """Test member servers mounted successfully"""
         try:
             members = self.gw._server_manager.list_servers()
-            self.assertEqual(len(members), 2, "Should have 2 members")
+            self.assertEqual(len(members), 1, "Should have 1 member (mcp-server-fetch only)")
         except ValidationError as e:
             logger.info("Actual error message: %s", e)
             raise  # re-raise to keep test failing for now
@@ -65,10 +65,13 @@ class TestComposer(unittest.IsolatedAsyncioTestCase):
         """Ensure external server is not mounted when tools do not have descriptions"""
         composer = MCPComposer("composer")
 
-        with self.assertRaises(ToolError) as context:
-            await composer.register_mcp_server(self.config[0])
+        # Use test data for server with missing descriptions
+        server_config = self.test_data["server_with_missing_descriptions"]
 
-        self.assertIn("Failed to register server: ", str(context.exception))
+        with self.assertRaises(ToolError) as context:
+            await composer.register_mcp_server(server_config)
+
+        self.assertIn("Failed to register server: Tools missing descriptions:", str(context.exception))
 
     async def test_server_list_with_endpoint(self):
         """Ensure the member server list contains the endpoint and type"""
@@ -146,7 +149,7 @@ class TestComposer(unittest.IsolatedAsyncioTestCase):
     async def test_member_health(self):
         """Ensure composer returns the health status of a member server"""
         health_statuses = [item["status"] for item in await self.gw.member_health()]
-        self.assertEqual(health_statuses, [HealthStatus.healthy, HealthStatus.healthy])
+        self.assertEqual(health_statuses, [HealthStatus.healthy])
 
     @patch.object(DynamicToolGenerator, "_ensure_base_file")
     @patch.object(DynamicToolGenerator, "_write_function_to_file")

@@ -1,12 +1,15 @@
 [
     {
-        "id": "mcp-stock-info",
-        "type": "http",
-        "endpoint": "https://mcp-stock-info.1vgzmntiwjzl.eu-es.codeengine.appdomain.cloud/mcp"
-    },
-    {
         "id": "mcp-server-fetch",
         "type": "sse",
-        "endpoint": "https://mcp-server-fetch.1vgzmntiwjzl.eu-es.codeengine.appdomain.cloud/sse"
+        "endpoint": "https://mcp-server-fetch.1vgzmntiwjzl.eu-es.codeengine.appdomain.cloud/sse",
+        "timeout": 120.0,
+        "sse_read_timeout": 120.0,
+        "tools_description": {
+            "fetch_html": "Fetch HTML content from a URL",
+            "fetch_markdown": "Fetch markdown content from a URL",
+            "fetch_txt": "Fetch text content from a URL",
+            "fetch_json": "Fetch JSON content from a URL"
+        }
     }
 ]

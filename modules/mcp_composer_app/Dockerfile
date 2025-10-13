@@ -7,6 +7,9 @@ COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
 USER root
 
+# Upgrade pip to fix security vulnerability (CVE-2025-*)
+RUN python3.12 -m pip install --no-cache-dir --upgrade "pip==25.2"
+
 WORKDIR /app
 
 RUN mkdir -p /.cache/uv /app && chmod -R 0777 /.cache /app

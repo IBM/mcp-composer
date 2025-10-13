@@ -16,7 +16,7 @@ class ConfigManager:
 
     def _timestamp(self) -> str:
         """Returns the current timestamp in ISO format."""
-        return datetime.datetime.utcnow().isoformat()
+        return datetime.datetime.now(datetime.timezone.utc).isoformat()
 
     def save_version(self, server_id: str, config: Dict[str, Any]) -> str:
         """Writes current version history to the version file in JSON format

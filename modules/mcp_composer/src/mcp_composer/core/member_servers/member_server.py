@@ -74,4 +74,4 @@ class MemberMCPServer(BaseModel):
         return self.server
 
     def to_dict(self) -> Dict[str, Any]:
-        return self.dict(exclude={"server"})
+        return self.model_dump(exclude={"server"})

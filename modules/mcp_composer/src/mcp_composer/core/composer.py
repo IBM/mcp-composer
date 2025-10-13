@@ -423,6 +423,9 @@ class MCPComposer(FastMCP):
     async def _apply_unified_config(self) -> None:
         """Apply the loaded unified configuration."""
         try:
+            if self._unified_config is None:
+                logger.warning("No unified config to apply")
+                return
             config_loader = ConfigLoader(self)
             results = await config_loader.apply_config(self._unified_config)
 
