@@ -201,8 +201,8 @@ class MCPServerBuilder:
         match auth_strategy:
             case AuthStrategy.BASIC:
                 logger.info("Setting up client for basic auth")
-                username = auth_config.get(ConfigKey.USERNAME)
-                password = auth_config.get(ConfigKey.PASSWORD)
+                username = resolve_env_value(auth_config.get(ConfigKey.USERNAME))
+                password = resolve_env_value(auth_config.get(ConfigKey.PASSWORD))
                 http_client = httpx.AsyncClient(
                     base_url=base_url,
                     auth=httpx.BasicAuth(username, password),
