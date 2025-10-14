@@ -7,15 +7,18 @@ ENV ENABLE_PACKAGE_MANAGER=true
 
 USER root
 
-RUN dnf install -y \
-    gcc-c++ \
-    python3.12 \
-    python3.12-devel \
-    python3-devel \
-    postgresql-devel \
-    && g++ --version
+RUN dnf -y update-minimal --security && \
+    dnf install -y \
+        gcc-c++ \
+        python3.12 \
+        python3.12-devel \
+        python3-devel \
+        postgresql-devel \
+        binutils-gold \
+        gdb-gdbserver && \
+    dnf clean all && rm -rf /var/cache/dnf /tmp/*
 
-RUN dnf clean all && rm -rf /var/cache/dnf /tmp/*
+RUN g++ --version
 
 RUN find / -name Python.h || true
 
@@ -23,7 +26,6 @@ ENV CXXFLAGS="-std=c++11"
 
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
-# Upgrade pip to fix security vulnerability (CVE-2025-*)
 RUN python3.12 -m pip install --no-cache-dir --upgrade "pip==25.2"
 
 WORKDIR /app
@@ -42,7 +44,8 @@ RUN chmod -R 0777 /app
 
 ENV PATH="/app/.venv/bin:$PATH"
 ENV UV_CACHE_DIR=/.cache/uv
-
 ENV PYTHONPATH=/app/src
+
+RUN ld.gold --version && gdbserver --version
 
 CMD ["uv", "run", "--no-project", "composers/solis_composer.py"]

@@ -5,37 +5,37 @@ REGISTRY_NAMESPACE ?= automation-saas-platform
 REGISTRY_IMAGE_TAG_SHORT ?= $(shell git rev-parse --abbrev-ref HEAD | sed 's/[^a-zA-Z0-9]/-/g')-$(shell git rev-parse --short HEAD)
 
 ROOT_IMAGE_NAME = mcp-composer-root
-SRC_APP_IMAGE_NAME = mcp-composer-app
-SRC_CLIENT_IMAGE_NAME = mcp-composer-client
+# SRC_APP_IMAGE_NAME = mcp-composer-app
+# SRC_CLIENT_IMAGE_NAME = mcp-composer-client
 TEST_IMAGE_NAME = mcp-composer-test
 
 ROOT_IMAGE_URI = $(REGISTRY_URL)/$(REGISTRY_NAMESPACE)/$(ROOT_IMAGE_NAME):$(REGISTRY_IMAGE_TAG_SHORT)
-SRC_APP_IMAGE_URI = $(REGISTRY_URL)/$(REGISTRY_NAMESPACE)/$(SRC_APP_IMAGE_NAME):$(REGISTRY_IMAGE_TAG_SHORT)
-SRC_CLIENT_IMAGE_URI = $(REGISTRY_URL)/$(REGISTRY_NAMESPACE)/$(SRC_CLIENT_IMAGE_NAME):$(REGISTRY_IMAGE_TAG_SHORT)
+# SRC_APP_IMAGE_URI = $(REGISTRY_URL)/$(REGISTRY_NAMESPACE)/$(SRC_APP_IMAGE_NAME):$(REGISTRY_IMAGE_TAG_SHORT)
+# SRC_CLIENT_IMAGE_URI = $(REGISTRY_URL)/$(REGISTRY_NAMESPACE)/$(SRC_CLIENT_IMAGE_NAME):$(REGISTRY_IMAGE_TAG_SHORT)
 TEST_IMAGE_URI = $(REGISTRY_URL)/$(REGISTRY_NAMESPACE)/$(TEST_IMAGE_NAME):$(REGISTRY_IMAGE_TAG_SHORT)
 
 BUILD_ENGINE ?= docker
 BUILD_ENGINE_ARGS ?= --platform linux/amd64
 
 
-docker-build: docker-build-root docker-build-app
+docker-build: docker-build-root
 
 docker-push:
 	$(BUILD_ENGINE) push $(ROOT_IMAGE_URI)
-	$(BUILD_ENGINE) push $(SRC_APP_IMAGE_URI)
+# 	$(BUILD_ENGINE) push $(SRC_APP_IMAGE_URI)
 # 	$(BUILD_ENGINE) push $(SRC_CLIENT_IMAGE_URI)
 
 docker-build-root:
 	$(BUILD_ENGINE) build $(BUILD_ENGINE_ARGS) $(BUILD_ARGS) $(DREADNOUGHT_DOCKER_BUILD_ARGS) \
 		-f modules/mcp_composer/Dockerfile -t $(ROOT_IMAGE_URI) modules/mcp_composer
 
-docker-build-app:
-	$(BUILD_ENGINE) build $(BUILD_ENGINE_ARGS) --no-cache $(BUILD_ARGS) $(DREADNOUGHT_DOCKER_BUILD_ARGS) \
-		-f modules/mcp_composer_app/Dockerfile -t $(SRC_APP_IMAGE_URI) modules/mcp_composer_app
+# docker-build-app:
+# 	$(BUILD_ENGINE) build $(BUILD_ENGINE_ARGS) --no-cache $(BUILD_ARGS) $(DREADNOUGHT_DOCKER_BUILD_ARGS) \
+# 		-f modules/mcp_composer_app/Dockerfile -t $(SRC_APP_IMAGE_URI) modules/mcp_composer_app
 
-docker-build-client:
-	$(BUILD_ENGINE) build $(BUILD_ENGINE_ARGS) $(BUILD_ARGS) $(DREADNOUGHT_DOCKER_BUILD_ARGS) \
-		-f modules/mcp_composer_client/Dockerfile -t $(SRC_CLIENT_IMAGE_URI) modules/mcp_composer_client
+# docker-build-client:
+# 	$(BUILD_ENGINE) build $(BUILD_ENGINE_ARGS) $(BUILD_ARGS) $(DREADNOUGHT_DOCKER_BUILD_ARGS) \
+# 		-f modules/mcp_composer_client/Dockerfile -t $(SRC_CLIENT_IMAGE_URI) modules/mcp_composer_client
 
 # Deploy the CI build to https://github.ibm.com/automation-paas-cd-pipeline/mcp-composer-cd
 .PHONY: deploy
@@ -87,6 +87,11 @@ test:
 	@echo "🧪 Running tests..."
 	uv run coverage run -m pytest ./../test/unit/ > ./../chroes_output/test_output.txt
 
+# Run tests with automatic cleanup (for CI/CD pipelines)
+test-with-cleanup: test
+	@echo "🧹 Cleaning up test artifacts..."
+	@$(MAKE) clean-test
+
 # Run unit tests for a specific module
 test-module:
 	@if [ -z "$(module)" ]; then \
@@ -110,15 +115,31 @@ coverage: test
 # Run all checks in sequence
 check: format lint type-check security test coverage
 
-# Clean up generated files
+# Clean up test-related files only
+clean-test:
+	@echo "🧹 Cleaning up test artifacts..."
+	@rm -rf .coverage htmlcov/ .pytest_cache/
+	@find . -type d -name "*.pytest*" -exec rm -rf {} + 2>/dev/null || true
+	@find . -type d -name ".pytest_cache" -exec rm -rf {} + 2>/dev/null || true
+	@find . -type f -name ".coverage.*" -delete 2>/dev/null || true
+	@rm -rf ./../chroes_output/ 2>/dev/null || true
+	@rm -rf modules/*/htmlcov/ modules/*/.coverage modules/*/.pytest_cache/ 2>/dev/null || true
+	@echo "✅ Test artifacts cleaned"
+
+# Clean up generated files (standard clean)
 clean:
-	@echo "🧹 Cleaning up..."
+	@echo "🧹 Cleaning up build and cache files..."
 	find . -type f -name "*.pyc" -delete
 	find . -type d -name "__pycache__" -delete
 	find . -type d -name "*.egg-info" -exec rm -rf {} +
 	find . -type d -name "*.pytest*" -exec rm -rf {} +
 	rm -rf .coverage dist/ build/ htmlcov/ .pytest_cache/ .mypy_cache/ modules/mcp_composer/dist/
 	rm -rf modules/mcp_composer_app/dist/ modules/mcp_composer_client/dist/ modules/mcp_composer/.venv modules/mcp_composer/uv.lock
+	@echo "✅ Build files cleaned"
+
+# Clean everything (build files + test artifacts)
+clean-all: clean clean-test
+	@echo "✅ Complete cleanup finished"
 
 # PyPI Release Preparation
 status:
@@ -213,6 +234,8 @@ docker-test:
 		$(TEST_IMAGE_URI) \
 		uv run pytest tests/unit/ -v --tb=short --ignore=tests/unit/test_oauth_callback.py
 	@echo "✅ Docker test execution completed"
+	@echo "🧹 Cleaning up test artifacts..."
+	@$(MAKE) clean-test
 
 # Show help
 help:
@@ -228,12 +251,15 @@ help:
 	@echo "  lint         - Lint code with ruff"
 	@echo "  type-check   - Run type checks with mypy"
 	@echo "  test         - Run tests with coverage"
+	@echo "  test-with-cleanup - Run tests and auto-cleanup artifacts (for CI/CD)"
 	@echo "  test-module  - Run unit tests for specific module (module=<name>)"
 	@echo "  test-modules - Run unit tests for all modules"
-	@echo "  docker-test  - Run tests in Docker container (for CI/CD)"
+	@echo "  docker-test  - Run tests in Docker container with cleanup (for CI/CD)"
 	@echo "  coverage     - Generate coverage report"
 	@echo "  check        - Run all checks in sequence"
-	@echo "  clean        - Clean up generated files"
+	@echo "  clean        - Clean up build and cache files"
+	@echo "  clean-test   - Clean up test artifacts only"
+	@echo "  clean-all    - Clean everything (build + test artifacts)"
 	@echo "  all          - Run all QA steps"
 	@echo ""
 	@echo "🚀 PyPI Release Tasks"
@@ -246,6 +272,9 @@ help:
 	@echo "📝 Examples:"
 	@echo "  make build module=mcp_composer version=1.0.0"
 	@echo "  make test-module module=mcp_composer"
+	@echo "  make test-with-cleanup              # Run tests and cleanup (CI/CD)"
+	@echo "  make clean-test                      # Clean test artifacts only"
+	@echo "  make clean-all                       # Clean everything"
 	@echo "  make check-release module=mcp_composer"
 	@echo "  make upload-testpypi module=mcp_composer version=1.0.0"
 	@echo "  make upload-pypi module=mcp_composer version=1.0.0"
