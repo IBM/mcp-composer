@@ -84,7 +84,7 @@ type-check:
 
 # Run tests with coverage
 test:
-	@echo "🧪 Running tests..."
+	@echo "Running tests..."
 	uv run coverage run -m pytest ./../test/unit/ > ./../chroes_output/test_output.txt
 
 # Run tests with automatic cleanup (for CI/CD pipelines)
@@ -117,14 +117,14 @@ check: format lint type-check security test coverage
 
 # Clean up test-related files only
 clean-test:
-	@echo "🧹 Cleaning up test artifacts..."
+	@echo "Cleaning up test artifacts..."
 	@rm -rf .coverage htmlcov/ .pytest_cache/
 	@find . -type d -name "*.pytest*" -exec rm -rf {} + 2>/dev/null || true
 	@find . -type d -name ".pytest_cache" -exec rm -rf {} + 2>/dev/null || true
 	@find . -type f -name ".coverage.*" -delete 2>/dev/null || true
 	@rm -rf ./../chroes_output/ 2>/dev/null || true
 	@rm -rf modules/*/htmlcov/ modules/*/.coverage modules/*/.pytest_cache/ 2>/dev/null || true
-	@echo "✅ Test artifacts cleaned"
+	@echo "Test artifacts cleaned"
 
 # Clean up generated files (standard clean)
 clean:
