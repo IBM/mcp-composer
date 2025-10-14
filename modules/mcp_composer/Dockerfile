@@ -12,11 +12,10 @@ RUN dnf install -y \
     python3.12 \
     python3.12-devel \
     python3-devel \
-    postgresql-devel && \
-    pip install --no-cache-dir -r requirements.txt && \
-    dnf remove -y gcc-c++ python3.12-devel python3-devel postgresql-devel binutils binutils-gold gdb-gdbserver && \
-    dnf clean all && rm -rf /var/cache/dnf /tmp/*
+    postgresql-devel \
+    && g++ --version
 
+RUN dnf clean all && rm -rf /var/cache/dnf /tmp/*
 
 RUN find / -name Python.h || true
 
