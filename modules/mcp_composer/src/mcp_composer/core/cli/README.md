@@ -6,11 +6,13 @@ This document provides comprehensive documentation for the MCP Composer CLI, a m
 
 MCP Composer provides a powerful CLI that allows you to:
 
-- Start the server in different modes (HTTP, SSE, STDIO)
-- Configure server settings and authentication
-- Manage middleware configurations
-- Monitor server health and status
-- Handle OAuth authentication
+- **Initialize** new projects with ready-to-run configurations (`init`)
+- **Start** the server in different modes (HTTP, SSE, STDIO) (`run`, `composer start`)
+- **Configure** server settings and authentication
+- **Manage** middleware configurations (`middleware`)
+- **Monitor** server health and status (`composer status`, `composer logs`)
+- **Handle** OAuth authentication
+- **Validate** and show configurations (`config`)
 
 ## Installation
 
@@ -42,6 +44,50 @@ mcp-composer --help
 ```
 
 ## Basic Usage
+
+### Initialize a New Project
+
+The `init` command is the fastest way to get started with MCP Composer. It creates a complete, ready-to-run project structure with configuration files, examples, and documentation.
+
+```bash
+# Interactive setup (recommended for first-time users)
+mcp-composer init my-project
+
+# Quick setup with defaults
+mcp-composer init my-project --defaults
+
+# Setup with examples
+mcp-composer init my-project --with-examples
+
+# Cloud deployment setup
+mcp-composer init my-project --adapter cloud --mode http --port 8080 --defaults
+
+# Local development setup
+mcp-composer init my-project --adapter local --mode stdio --with-examples --defaults
+
+# Setup with authentication
+mcp-composer init my-project --auth-type oauth --mode http --defaults
+```
+
+**What gets created:**
+- Project directory structure (config/, middleware/, tools/, prompts/, logs/, data/)
+- Configuration files (config.json, middleware.json, .env, .env.example)
+- Main server entry point (server.py)
+- Python project files (pyproject.toml, requirements.txt)
+- Documentation (README.md, .gitignore)
+- Optional example files (--with-examples flag)
+
+**After initialization:**
+```bash
+cd my-project
+source .venv/bin/activate  # Virtual environment is auto-created
+uv pip install -e .
+python server.py
+```
+
+**Note:** By default, `init` automatically creates a virtual environment (`.venv`). Use `--no-venv` to skip this.
+
+See the [Init Command](#init-command---initialize-project) section for detailed documentation.
 
 ### Start Server
 
@@ -199,6 +245,329 @@ mcp-composer version
 
 ```bash
 mcp-composer info
+```
+
+## Init Command - Initialize Project
+
+### `init` - Initialize a New MCP Composer Workspace
+
+The `init` command creates a complete, ready-to-run MCP Composer project with sensible defaults and optional examples.
+
+```bash
+mcp-composer init [PROJECT_NAME] [OPTIONS]
+```
+
+**Key Features:**
+- ✅ Interactive setup with smart defaults
+- ✅ Multiple setup variants (local development, cloud deployment)
+- ✅ Automatic environment validation
+- ✅ Optional example files and configurations
+- ✅ Idempotent (won't overwrite unless confirmed)
+- ✅ Colorized, user-friendly output
+
+**Options:**
+
+| Option | Description | Default |
+|--------|-------------|---------|
+| `PROJECT_NAME` | Name of the project to initialize | Interactive prompt |
+| `--defaults` | Skip interactive prompts and use default values | `False` |
+| `--with-examples` | Include example files (tools, middleware, configs) | `False` |
+| `--with-venv` / `--no-venv` | Create virtual environment in project | `True` |
+| `--adapter` | Setup variant: `local` or `cloud` | Interactive prompt |
+| `--port`, `-p` | Default port for HTTP/SSE server | `9000` |
+| `--host` | Default host for HTTP/SSE server | `0.0.0.0` |
+| `--mode` | Default server mode: `http`, `sse`, or `stdio` | Depends on adapter |
+| `--auth-type` | Authentication type: `oauth` or `none` | `none` |
+| `--database` | Database type: `sqlite`, `postgres`, or `none` | `none` |
+| `--description` | Project description | Generated from name |
+| `--directory`, `-d` | Target directory for project | Same as project name |
+| `--force`, `-f` | Overwrite existing directory if it exists | `False` |
+
+**Examples:**
+
+```bash
+# Interactive setup (recommended for first-time users)
+mcp-composer init my-project
+
+# Quick setup with defaults (non-interactive)
+mcp-composer init my-project --defaults
+
+# Local development with examples
+mcp-composer init my-local-server --adapter local --mode stdio --with-examples --defaults
+
+# Cloud deployment with HTTP
+mcp-composer init my-api-server --adapter cloud --mode http --port 8080 --defaults
+
+# OAuth-enabled server
+mcp-composer init secure-server --auth-type oauth --mode http --port 9000 --defaults
+
+# Database-backed server
+mcp-composer init data-server --database postgres --mode http --defaults
+
+# Custom directory
+mcp-composer init my-project --directory /path/to/custom/location
+
+# Force overwrite existing directory
+mcp-composer init my-project --force --defaults
+
+# Skip virtual environment creation
+mcp-composer init my-project --no-venv --defaults
+```
+
+**Project Structure:**
+
+After running `init`, you'll get the following structure:
+
+```
+my-project/
+├── .venv/                  # Virtual environment (auto-created by default)
+├── config/                 # Configuration files
+│   ├── config.json         # Main MCP Composer configuration
+│   └── middleware.json     # Middleware configuration
+├── middleware/             # Custom middleware implementations
+├── tools/                  # Custom tool implementations
+├── prompts/                # Custom prompts
+├── logs/                   # Application logs
+├── data/                   # Data storage (if database enabled)
+├── examples/               # Example files (if --with-examples)
+│   ├── tools/              # Example tool implementations
+│   ├── middleware/         # Example middleware
+│   └── configs/            # Example configurations
+├── .env                    # Environment variables
+├── .env.example            # Example environment variables
+├── .gitignore              # Git ignore file
+├── server.py               # Main server entry point
+├── pyproject.toml          # Project metadata and dependencies
+├── requirements.txt        # Python dependencies
+└── README.md               # Project documentation
+```
+
+**Note:** The virtual environment (`.venv/`) is automatically created unless you use `--no-venv`.
+
+**Interactive Setup Flow:**
+
+When running without `--defaults`, you'll be prompted for:
+
+1. **Project name**: The name of your project
+2. **Description**: A brief description of your project
+3. **Setup variant**: 
+   - `local`: For local development (stdio mode default)
+   - `cloud`: For cloud deployment (http/sse mode default)
+4. **Server mode**: `stdio`, `http`, or `sse`
+5. **Port & Host**: (Only for http/sse modes)
+6. **Authentication**: `none` or `oauth`
+7. **Database**: `none`, `sqlite`, or `postgres`
+8. **Include examples**: Whether to include example files
+
+**Environment Validation:**
+
+After creating the project, `init` automatically validates:
+
+- ✅ Python version (3.11+ required)
+- ✅ uv package manager availability
+- ✅ git availability (optional)
+- ✅ Directory write permissions
+- ✅ Configuration file integrity
+
+**Success Message:**
+
+After successful initialization, you'll see:
+
+```
+✅ Project initialized successfully!
+
+Next steps:
+  1. cd my-project
+  2. source .venv/bin/activate  # Activate the virtual environment
+  3. uv pip install -e .
+  4. python server.py
+     # Or: mcp-composer run --mode http --config-path config/config.json
+     # Visit: http://0.0.0.0:9000
+
+Project Details:
+  • Name: my-project
+  • Mode: http
+  • Adapter: cloud
+  • Auth: none
+  • Database: none
+  • Examples: Yes
+  • Virtual Env: ✅ Created
+
+Need help? Run: mcp-composer --help
+```
+
+**Note:** The virtual environment is automatically created and ready to use. Just activate it and install dependencies!
+
+**Configuration Files:**
+
+**config/config.json:**
+```json
+{
+  "project": {
+    "name": "my-project",
+    "description": "My MCP Composer project",
+    "version": "0.1.0"
+  },
+  "servers": [
+    {
+      "id": "example-server",
+      "type": "http",
+      "endpoint": "http://0.0.0.0:9000",
+      "label": "Example HTTP Server",
+      "enabled": true
+    }
+  ]
+}
+```
+
+**config/middleware.json:**
+```json
+{
+  "middleware": [],
+  "middleware_settings": {
+    "enabled": true
+  }
+}
+```
+
+**.env:**
+```bash
+# MCP Composer Environment Configuration
+# Project: my-project
+
+# Server Configuration
+MCP_MODE=http
+MCP_HOST=0.0.0.0
+MCP_PORT=9000
+
+# Logging
+LOG_LEVEL=INFO
+LOG_FILE=logs/mcp_composer.log
+
+# Paths
+CONFIG_PATH=config/config.json
+MIDDLEWARE_CONFIG_PATH=config/middleware.json
+```
+
+**server.py:**
+
+The generated `server.py` is a fully functional entry point:
+
+```python
+"""
+my-project - MCP Composer Server
+"""
+
+import asyncio
+import os
+from dotenv import load_dotenv
+from mcp_composer import MCPComposer
+from mcp_composer.core.utils.logger import LoggerFactory
+
+load_dotenv()
+logger = LoggerFactory.get_logger()
+
+async def main():
+    logger.info("Starting my-project...")
+    composer = MCPComposer(name="my-project", config_path="config/config.json")
+    await composer.setup_member_servers()
+    
+    mode = os.getenv("MCP_MODE", "http")
+    if mode == "http":
+        host = os.getenv("MCP_HOST", "0.0.0.0")
+        port = int(os.getenv("MCP_PORT", "9000"))
+        await composer.run_http_async(host=host, port=port, path="/mcp")
+
+if __name__ == "__main__":
+    asyncio.run(main())
+```
+
+**Adapter Types:**
+
+1. **Local Adapter** (`--adapter local`):
+   - Default mode: `stdio`
+   - Best for: Local development, testing, direct integration
+   - Creates: Minimal configuration, focus on stdio mode
+
+2. **Cloud Adapter** (`--adapter cloud`):
+   - Default mode: `http`
+   - Best for: Production deployments, API servers, cloud hosting
+   - Creates: HTTP/SSE configuration, ready for containerization
+
+**Best Practices:**
+
+1. **Version Control**: Initialize git repository after project creation
+   ```bash
+   cd my-project
+   git init
+   git add .
+   git commit -m "Initial commit from mcp-composer init"
+   ```
+
+2. **Virtual Environment**: Already created by `init` (unless you used `--no-venv`)
+   ```bash
+   cd my-project
+   source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+   uv pip install -e .
+   ```
+   
+   If you skipped venv creation, create one manually:
+   ```bash
+   uv venv  # or: python3 -m venv .venv
+   source .venv/bin/activate
+   ```
+
+3. **Environment Variables**: Never commit `.env` file with secrets
+   - Use `.env.example` as a template
+   - Document required variables
+   - Use secrets management for production
+
+4. **Configuration Management**: 
+   - Keep `config/config.json` for server configurations
+   - Keep `config/middleware.json` for middleware
+   - Use environment variables for secrets and deployment-specific values
+
+**Idempotency:**
+
+The `init` command is designed to be idempotent:
+
+- Won't overwrite existing directories without confirmation (interactive mode)
+- Requires `--force` flag in non-interactive mode
+- Shows clear warnings before overwriting
+- Validates environment after creation
+
+**Troubleshooting:**
+
+**Issue**: "Directory already exists"
+```bash
+# Solution 1: Use different directory
+mcp-composer init my-project --directory my-project-2
+
+# Solution 2: Force overwrite
+mcp-composer init my-project --force --defaults
+
+# Solution 3: Remove existing directory
+rm -rf my-project
+mcp-composer init my-project
+```
+
+**Issue**: "Python version not supported"
+```bash
+# Check Python version
+python3 --version
+
+# Upgrade Python to 3.11+
+# On macOS with Homebrew:
+brew install python@3.11
+```
+
+**Issue**: "uv not found"
+```bash
+# Install uv
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# Or use pip as fallback
+pip install -r requirements.txt
 ```
 
 ## Middleware Commands
