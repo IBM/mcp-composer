@@ -34,6 +34,7 @@ from mcp_composer.core.cli.commands import (
     composer_commands,
     config_commands,
     init_commands,
+    catalog_commands,
 )
 
 # Import unified configuration functions
@@ -74,6 +75,12 @@ app.add_typer(
     config_commands.app,
     name="config",
     help="Unified configuration management commands",
+)
+
+app.add_typer(
+    catalog_commands.app,
+    name="catalog",
+    help="MCP Composer catalog generation commands",
 )
 
 # MCP Tag
