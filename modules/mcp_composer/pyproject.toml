@@ -31,6 +31,7 @@ dependencies = [
     "pyyaml>=6.0.2",
     "detect-secrets>=1.5.0",
     "asyncpg>=0.29.0",
+    "rich>=13.7",
 ]
 
 [project.urls]

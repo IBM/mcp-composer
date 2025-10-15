@@ -1,0 +1,56 @@
+rules:
+  # Capability: analytics
+  - name: cap_analytics_desc
+    when:
+      desc_regex: "\b(report|analytics|aggregate|metric|dashboard)\b"
+    then:
+      add_capabilities: ["cap:analytics"]
+
+  # Capability: monitoring
+  - name: cap_monitoring_name
+    when:
+      name_regex: "monitor|health|status|uptime"
+    then:
+      add_capabilities: ["cap:monitoring"]
+
+  # Capability: ops
+  - name: cap_ops_desc
+    when:
+      desc_regex: "\b(deploy|rollback|scale|restart|provision)\b"
+    then:
+      add_capabilities: ["cap:ops"]
+
+  # Policy: GDPR data-subject tools (detect export/erasure)
+  - name: gdpr_subject_rights
+    when:
+      desc_regex: "\b(gdpr|export.*data|data export|erasure|delete my data)\b"
+    then:
+      policy:
+        gdpr: data-subject
+
+  # Policy: HIPAA (PHI hints)
+  - name: hipaa_phi
+    when:
+      desc_regex: "\b(patient|medical|diagnosis|treatment|provider|NPI)\b"
+    then:
+      policy:
+        hipaa: possible
+
+  # Policy: residency via endpoint hint
+  - name: residency_eu_endpoint
+    when:
+      endpoint_regex: '\.eu|\.de|\.fr|\.ie|europe'
+    then:
+      policy:
+        residency:
+          required_region: eu
+
+  # PII via JSON schema (needs jsonpath-ng if you want precise matching)
+  - name: pii_schema_email
+    when:
+      input_jsonpath:
+        expr: "$..[?(@.format=='email')]"
+      # pattern omitted: existence is enough
+    then:
+      policy:
+        pii_risk: medium
