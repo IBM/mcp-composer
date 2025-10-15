@@ -110,5 +110,5 @@ rules:
 Enable verbose output for debugging:
 
 ```bash
-mcptag cli --mcp-endpoint http://localhost:8000 --verbose
+mcp-composer cli --mcp-endpoint http://localhost:8000 --verbose
 ```
