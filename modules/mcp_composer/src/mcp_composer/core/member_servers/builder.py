@@ -256,7 +256,7 @@ class MCPServerBuilder:
                 logger.info("Setting up header and client for apikey")
                 auth_header = " ".join(filter(None, [
                     auth_config.get(ConfigKey.AUTH_PREFIX),
-                    auth_config.get(ConfigKey.APIKEY)
+                    resolve_env_value(auth_config.get(ConfigKey.APIKEY))
                 ]))
                 headers[ConfigKey.AUTH_HEADER.value] = (
                     f"{auth_header}"
@@ -272,7 +272,7 @@ class MCPServerBuilder:
                         auth_strategy=self.config[ConfigKey.AUTH_STRATEGY],
                         login_url=auth_config.get(ConfigKey.LOGIN_URL),
                         username=auth_config.get(ConfigKey.USERNAME),
-                        password=auth_config.get(ConfigKey.PASSWORD),
+                        password=resolve_env_value(auth_config.get(ConfigKey.PASSWORD)),
                     )
 
                     http_client = (
