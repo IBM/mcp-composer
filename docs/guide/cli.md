@@ -49,7 +49,7 @@ mcp-composer --help
 
 ### Initialize a New Project
 
-The init command is the fastest way to get started with MCP Composer. It creates a complete, ready-to-run project structure with configuration files, examples, and documentation.
+The `init` command is the fastest way to get started with MCP Composer. It creates a complete, ready-to-run project structure with configuration files, examples, and documentation.
 
 ```bash
 # Interactive setup (recommended for first-time users)
@@ -129,23 +129,23 @@ mcp-composer composer --help
 
 | Option | Description | Default |
 |--------|-------------|---------|
-| --mode | Server mode: http, sse, or stdio | stdio |
-| --host | Host to bind to (HTTP/SSE mode) | 0.0.0.0 |
-| --port | Port to run on (HTTP/SSE mode) | 9000 |
-| --id | Unique ID for MCP instance | mcp-local |
-| --endpoint | Endpoint for HTTP or SSE server running remotely | None |
-| --script-path | Path to script for stdio mode | None |
-| --directory | Working directory for uvicorn process | None |
-| --config_path | Path to JSON config for MCP member servers | None |
-| --auth-type | Authentication type (oauth) | None |
-| --sse-url | Langflow compatible URL for remote SSE/HTTP server | None |
-| --remote-auth-type | Authentication type for remote server | none |
-| --client-auth-type | Authentication type for client | none |
-| --disable-composer-tools | Disable composer tools | False |
-| --pass-environment | Pass through all environment variables | False |
-| --env, -e | Environment variables (KEY=VALUE) | [] |
-| --log-level | Log level: DEBUG, INFO, WARNING, ERROR, CRITICAL | INFO |
-| --timeout | Timeout in seconds for server operations | None |
+| `--mode` | Server mode: `http`, `sse`, or `stdio` | `stdio` |
+| `--host` | Host to bind to (HTTP/SSE mode) | `0.0.0.0` |
+| `--port` | Port to run on (HTTP/SSE mode) | `9000` |
+| `--id` | Unique ID for MCP instance | `mcp-local` |
+| `--endpoint` | Endpoint for HTTP or SSE server running remotely | None |
+| `--script-path` | Path to script for stdio mode | None |
+| `--directory` | Working directory for uvicorn process | None |
+| `--config_path` | Path to JSON config for MCP member servers | None |
+| `--auth-type` | Authentication type (oauth) | None |
+| `--sse-url` | Langflow compatible URL for remote SSE/HTTP server | None |
+| `--remote-auth-type` | Authentication type for remote server | `none` |
+| `--client-auth-type` | Authentication type for client | `none` |
+| `--disable-composer-tools` | Disable composer tools | `False` |
+| `--pass-environment` | Pass through all environment variables | `False` |
+| `--env`, `-e` | Environment variables (KEY=VALUE) | [] |
+| `--log-level` | Log level: `DEBUG`, `INFO`, `WARNING`, `ERROR`, `CRITICAL` | `INFO` |
+| `--timeout` | Timeout in seconds for server operations | None |
 
 ### Mode-Specific Options
 
@@ -208,7 +208,7 @@ mcp-composer --mode stdio --script-path server.py --env DEBUG=true --env LOG_LEV
 
 ## Main Commands
 
-### run - Execute MCP Composer
+### `run` - Execute MCP Composer
 
 The main command for running MCP Composer servers with dynamically constructed configuration.
 
@@ -249,7 +249,7 @@ mcp-composer info
 
 ## Init Command - Initialize Project
 
-### init - Initialize a New MCP Composer Workspace
+### `init` - Initialize a New MCP Composer Workspace
 
 The init command creates a complete, ready-to-run MCP Composer project with sensible defaults and optional examples.
 
@@ -269,19 +269,19 @@ Options:
 
 | Option | Description | Default |
 |--------|-------------|---------|
-| PROJECT_NAME | Name of the project to initialize | Interactive prompt |
-| --defaults | Skip interactive prompts and use default values | False |
-| --with-examples | Include example files (tools, middleware, configs) | False |
-| --with-venv / --no-venv | Create virtual environment in project | True |
-| --adapter | Setup variant: local or cloud | Interactive prompt |
-| --port, -p | Default port for HTTP/SSE server | 9000 |
-| --host | Default host for HTTP/SSE server | 0.0.0.0 |
-| --mode | Default server mode: http, sse, or stdio | Depends on adapter |
-| --auth-type | Authentication type: oauth or none | none |
-| --database | Database type: sqlite, postgres, or none | none |
-| --description | Project description | Generated from name |
-| --directory, -d | Target directory for project | Same as project name |
-| --force, -f | Overwrite existing directory if it exists | False |
+| `PROJECT_NAME` | Name of the project to initialize | Interactive prompt |
+| `--defaults` | Skip interactive prompts and use default values | `False` |
+| `--with-examples` | Include example files (tools, middleware, configs) | `False` |
+| `--with-venv` / `--no-venv` | Create virtual environment in project | `True` |
+| `--adapter` | Setup variant: `local` or `cloud` | Interactive prompt |
+| `--port`, `-p` | Default port for HTTP/SSE server | `9000` |
+| `--host` | Default host for HTTP/SSE server | `0.0.0.0` |
+| `--mode` | Default server mode: `http`, `sse`, or `stdio` | Depends on adapter |
+| `--auth-type` | Authentication type: `oauth` or `none` | `none` |
+| `--database `| Database type: `sqlite`, `postgres`, or `none` | `none` |
+| `--description` | Project description | Generated from name |
+| `--directory`, `-d` | Target directory for project | Same as project name |
+| `--force`, `-f` | Overwrite existing directory if it exists | `False` |
 
 Examples:
 
@@ -316,8 +316,9 @@ mcp-composer init my-project --no-venv --defaults
 
 Project Structure:
 
-After running init, you'll get the following structure:
+After running `init`, you'll get the following structure:
 
+```
 my-project/
 ├── .venv/                  # Virtual environment (auto-created by default)
 ├── config/                 # Configuration files
@@ -339,22 +340,23 @@ my-project/
 ├── pyproject.toml          # Project metadata and dependencies
 ├── requirements.txt        # Python dependencies
 └── README.md               # Project documentation
+```
 
 Note: The virtual environment (.venv/) is automatically created unless you use --no-venv.
 
 Interactive Setup Flow:
 
-When running without --defaults, you'll be prompted for:
+When running without `--defaults`, you'll be prompted for:
 
 1. Project name: The name of your project
 2. Description: A brief description of your project
 3. Setup variant: 
-   - local: For local development (stdio mode default)
-   - cloud: For cloud deployment (http/sse mode default)
-4. Server mode: stdio, http, or sse
+   - `local`: For local development (stdio mode default)
+   - `cloud`: For cloud deployment (http/sse mode default)
+4. Server mode: `stdio`, `http`, or `sse`
 5. Port & Host: (Only for http/sse modes)
-6. Authentication: none or oauth
-7. Database: none, sqlite, or postgres
+6. Authentication: `none` or `oauth`
+7. Database: `none`, `sqlite`, or `postgres`
 8. Include examples: Whether to include example files
 
 Environment Validation:
@@ -371,6 +373,7 @@ Success Message:
 
 After successful initialization, you'll see:
 
+```
 ✅ Project initialized successfully!
 
 Next steps:
@@ -391,6 +394,7 @@ Project Details:
   • Virtual Env: ✅ Created
 
 Need help? Run: mcp-composer --help
+```
 
 Note: The virtual environment is automatically created and ready to use. Just activate it and install dependencies!
 
@@ -404,9 +408,9 @@ Validates middleware configuration files.
 mcp-composer middleware validate <CONFIG_FILE> [OPTIONS]
 ```
 Options:
-- --ensure-imports: Verify middleware classes can be imported
-- --format: Output format (text, json)
-- --show-middlewares: Show execution order
+- `--ensure-imports`: Verify middleware classes can be imported
+- `--format`: Output format (`text`, `json`)
+- `--show-middlewares`: Show execution order
 
 Examples:
 
@@ -430,9 +434,9 @@ mcp-composer middleware list <CONFIG_FILE> [OPTIONS]
 ```
 
 Options:
-- --all: Include disabled middlewares
-- --format: Output format (text, json)
-- --ensure-imports: Verify imports
+- `--all`: Include disabled middlewares
+- `--format`: Output format (text, json)
+- `--ensure-imports`: Verify imports
 
 Examples:
 
@@ -456,21 +460,21 @@ mcp-composer middleware add [OPTIONS]
 ```
 
 Required Options:
-- --config, -c: Configuration file path
-- --name, -n: Middleware name
-- --kind, -k: Python import path (e.g., module.ClassName)
+- `--config`, `-c`: Configuration file path
+- `--name`, `-n`: Middleware name
+- `--kind`, `-k`: Python import path (e.g., module.ClassName)
 
 Optional Options:
-- --description: Middleware description
-- --version: Middleware version (default: 0.0.0)
-- --mode: Mode (enabled, disabled, default: enabled)
-- --priority, -p: Execution priority (default: 100)
-- --applied-hooks: Comma-separated hooks
-- --include-tools: Tools to include (default: *)
-- --exclude-tools: Tools to exclude
-- --config-file: JSON config file for middleware
-- --update: Update existing middleware
-- --dry-run: Show what would be written
+- `--description`: Middleware description
+- `--version`: Middleware version (default: 0.0.0)
+- `--mode`: Mode (enabled, disabled, default: enabled)
+- `--priority`, -p: Execution priority (default: 100)
+- `--applied-hooks`: Comma-separated hooks
+- `--include-tools`: Tools to include (default: *)
+- `--exclude-tools`: Tools to exclude
+- `--config-file`: JSON config file for middleware
+- `--update`: Update existing middleware
+- `--dry-run`: Show what would be written
 
 Examples:
 
@@ -506,7 +510,7 @@ mcp-composer middleware remove --config <CONFIG_FILE> --name <MIDDLEWARE_NAME> [
 ```
 
 Options:
-- --dry-run: Show what would be removed
+- `--dry-run`: Show what would be removed
 
 ### middleware init - Initialize Configuration
 
@@ -517,7 +521,7 @@ mcp-composer middleware init --config <CONFIG_FILE> [OPTIONS]
 ```
 
 Options:
-- --force, -f: Overwrite existing file
+- `--force`, `-f`: Overwrite existing file
 
 ## Composer Commands
 
@@ -535,9 +539,9 @@ uv add python-daemon
 ```
 
 Additional Options (beyond run command):
-- --daemon, -D: Run as daemon process
-- --pid-file: Path to PID file
-- --log-file: Path to log file
+- `--daemon`, `-D`: Run as daemon process
+- `--pid-file`: Path to PID file
+- `--log-file`: Path to log file
 
 Examples:
 
@@ -563,9 +567,9 @@ Stops running MCP Composer daemon.
 mcp-composer composer stop [OPTIONS]
 ```
 Options:
-- --pid-file: Path to PID file
-- --port, -p: Port number (auto-finds PID file)
-- --force, -f: Force stop
+- `--pid-file`: Path to PID file
+- `--port`, `-p`: Port number (auto-finds PID file)
+- `--force`, `-f`: Force stop
 
 Examples:
 
@@ -589,9 +593,9 @@ mcp-composer composer status [OPTIONS]
 ```
 
 Options:
-- --pid-file: Path to PID file
-- --port, -p: Port number
-- --format, -f: Output format (text, json)
+- `--pid-file`: Path to PID file
+- `--port`, `-p`: Port number
+- `--format`, `-f`: Output format (text, json)
 
 Examples:
 
@@ -615,10 +619,10 @@ mcp-composer composer logs [OPTIONS]
 ```
 
 Options:
-- --log-file: Path to log file
-- --port, -p: Port number (auto-finds log file)
-- --lines, -n: Number of lines to show (default: 50)
-- --follow, -f: Follow logs in real-time
+- `--log-file`: Path to log file
+- `--port`, `-p`: Port number (auto-finds log file)
+- `--lines`, `-n`: Number of lines to show (default: 50)
+- `--follow`, `-f`: Follow logs in real-time
 
 Examples:
 
@@ -646,7 +650,7 @@ mcp-composer composer restart [OPTIONS]
 
 Options:
 - All options from start command
-- --force, -f: Force stop before restarting
+- `--force`, `-f`: Force stop before restarting
 
 Examples:
 
@@ -890,17 +894,17 @@ mcp-composer --mode http \
 
 | Variable | Description | Example |
 |----------|-------------|---------|
-| ENABLE_OAUTH | Enable OAuth authentication | True |
-| OAUTH_HOST | OAuth server host | localhost |
-| OAUTH_PORT | OAuth server port | 9000 |
-| OAUTH_SERVER_URL | Base URL for OAuth server | http://localhost:9000 |
-| OAUTH_CALLBACK_PATH | OAuth callback URL path | http://localhost:9000/auth/idaas/callback |
-| OAUTH_CLIENT_ID | OAuth client ID | ZTk0NzkyYmUtMWJlYS00 |
-| OAUTH_CLIENT_SECRET | OAuth client secret | MDM1NzhjNWQtYjJmYy00 |
-| OAUTH_AUTH_URL | OAuth authorization endpoint | https://preprod.login.w3.ibm.com/v1.0/endpoint/default/authorize |
-| OAUTH_TOKEN_URL | OAuth token endpoint | https://preprod.login.w3.ibm.com/v1.0/endpoint/default/token |
-| OAUTH_MCP_SCOPE | MCP-specific OAuth scope | user |
-| OAUTH_PROVIDER_SCOPE | OAuth provider scope | openid |
+| `ENABLE_OAUTH` | Enable OAuth authentication | `True` |
+| `OAUTH_HOST` | OAuth server host | `localhost` |
+| `OAUTH_PORT` | OAuth server port | `9000` |
+| `OAUTH_SERVER_URL` | Base URL for OAuth server | `http://localhost:9000 `|
+| `OAUTH_CALLBACK_PATH` | OAuth callback URL path | `http://localhost:9000/auth/idaas/callback` |
+| `OAUTH_CLIENT_ID` | OAuth client ID | `your_client_id` |
+| `OAUTH_CLIENT_SECRET` | OAuth client secret | `your_client_secret` |
+| `OAUTH_AUTH_URL` | OAuth authorization endpoint | `https://provider.com/oauth/authorize` |
+| `OAUTH_TOKEN_URL` | OAuth token endpoint | `https://provider.com/oauth/token` |
+| `OAUTH_MCP_SCOPE` | MCP-specific OAuth scope | `user` |
+| `OAUTH_PROVIDER_SCOPE` | OAuth provider scope | `openid` |
 
 ### OAuth with Composer Commands
 
