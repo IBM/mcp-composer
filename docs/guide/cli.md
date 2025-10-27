@@ -208,7 +208,7 @@ mcp-composer --mode stdio --script-path server.py --env DEBUG=true --env LOG_LEV
 
 ## Main Commands
 
-### `run` - Execute MCP Composer
+### run - Execute MCP Composer
 
 The main command for running MCP Composer servers with dynamically constructed configuration.
 
@@ -249,7 +249,7 @@ mcp-composer info
 
 ## Init Command - Initialize Project
 
-### `init` - Initialize a New MCP Composer Workspace
+### init - Initialize a New MCP Composer Workspace
 
 The init command creates a complete, ready-to-run MCP Composer project with sensible defaults and optional examples.
 
