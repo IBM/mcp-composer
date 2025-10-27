@@ -917,7 +917,7 @@ mcp-composer composer start --mode http \
   --daemon \
   --env ENABLE_OAUTH=True \
   --env OAUTH_CLIENT_ID=your_client_id \
-  --env OAUTH_CLIENT_SECRET=your_client_secret
+  --env OAUTH_CLIENT_SECRET=<yoursecret>
 
 # Check OAuth server status
 mcp-composer composer status --port 9000
@@ -1056,7 +1056,7 @@ mcp-composer --mode http \
   --auth_type oauth \
   --env ENABLE_OAUTH=True \
   --env OAUTH_CLIENT_ID=<your_client_id> \
-  --env OAUTH_CLIENT_SECRET=<your_client_secret> \
+  --env OAUTH_CLIENT_SECRET=<yoursecret> \
   --env OAUTH_AUTH_URL=https://preprod.login.w3.ibm.com/v1.0/endpoint/default/authorize \
   --env OAUTH_TOKEN_URL=https://preprod.login.w3.ibm.com/v1.0/endpoint/default/token
 
