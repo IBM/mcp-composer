@@ -883,7 +883,7 @@ mcp-composer --mode http \
   --env OAUTH_SERVER_URL=http://localhost:9000 \
   --env OAUTH_CALLBACK_PATH=http://localhost:9000/auth/idaas/callback \
   --env OAUTH_CLIENT_ID=your_client_id \
-  --env OAUTH_CLIENT_SECRET=client_secret_placeholder \
+  --env OAUTH_CLIENT_SECRET=secret \
   --env OAUTH_AUTH_URL=https://preprod.login.w3.ibm.com/v1.0/endpoint/default/authorize \
   --env OAUTH_TOKEN_URL=https://preprod.login.w3.ibm.com/v1.0/endpoint/default/token \
   --env OAUTH_MCP_SCOPE=user \
@@ -1056,7 +1056,7 @@ mcp-composer --mode http \
   --auth_type oauth \
   --env ENABLE_OAUTH=True \
   --env OAUTH_CLIENT_ID=<your_client_id> \
-  --env OAUTH_CLIENT_SECRET=<client_secret_placeholder> \
+  --env OAUTH_CLIENT_SECRET=<secret> \
   --env OAUTH_AUTH_URL=https://preprod.login.w3.ibm.com/v1.0/endpoint/default/authorize \
   --env OAUTH_TOKEN_URL=https://preprod.login.w3.ibm.com/v1.0/endpoint/default/token
 
@@ -1068,7 +1068,7 @@ mcp-composer composer start --mode http \
   --daemon \
   --env ENABLE_OAUTH=True \
   --env OAUTH_CLIENT_ID=<your_client_id> \
-  --env OAUTH_CLIENT_SECRET=<client_secret_placeholder>
+  --env OAUTH_CLIENT_SECRET=<secret>
 ```
 
 ## Troubleshooting
