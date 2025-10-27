@@ -1055,8 +1055,8 @@ mcp-composer --mode http \
   --disable-composer-tools \
   --auth_type oauth \
   --env ENABLE_OAUTH=True \
-  --env OAUTH_CLIENT_ID=your_client_id \
-  --env OAUTH_CLIENT_SECRET=your_client_secret \
+  --env OAUTH_CLIENT_ID=<your_client_id> \
+  --env OAUTH_CLIENT_SECRET=<your_client_secret> \
   --env OAUTH_AUTH_URL=https://preprod.login.w3.ibm.com/v1.0/endpoint/default/authorize \
   --env OAUTH_TOKEN_URL=https://preprod.login.w3.ibm.com/v1.0/endpoint/default/token
 
@@ -1067,8 +1067,8 @@ mcp-composer composer start --mode http \
   --auth-type oauth \
   --daemon \
   --env ENABLE_OAUTH=True \
-  --env OAUTH_CLIENT_ID=your_client_id \
-  --env OAUTH_CLIENT_SECRET=your_client_secret
+  --env OAUTH_CLIENT_ID=<your_client_id> \
+  --env OAUTH_CLIENT_SECRET=<your_client_secret>
 ```
 
 ## Troubleshooting
