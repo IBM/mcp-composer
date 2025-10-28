@@ -1,25 +1,31 @@
 import json
 import typer
-import subprocess
 import os
+from typing import List
 from rich import print
-from .rule_dsl import Rule
-from .engine import TagEngine
-from .scanner.json_file import JsonFileScanner
-from .scanner.mcp_protocol import McpProtocolScanner
-from .exporters.backstage import BackstageExporter
-from .policy_eval import PolicyGate
-from .models import TagReport, ToolDescriptor
-from typing import List, Optional
-from urllib.parse import urlparse
+
+from mcp_composer.tag.rule_dsl import Rule
+from mcp_composer.tag.engine import TagEngine
+from mcp_composer.tag.scanner.json_file import JsonFileScanner
+from mcp_composer.tag.scanner.mcp_protocol import McpProtocolScanner
+from mcp_composer.tag.exporters.backstage import BackstageExporter
+from mcp_composer.tag.policy_eval import PolicyGate
+from mcp_composer.tag.models import TagReport, ToolDescriptor
+from mcp_composer.core.utils.logger import LoggerFactory
+
+# Initialize logger
+logger = LoggerFactory.get_logger()
 
 app = typer.Typer(
-    add_completion=False, help="MCPTag - MCP Security Scanning and Tool Tagging Tool"
+    name="tag",
+    help="MCPTag - MCP Security Scanning and Tool Tagging Tool",
+    add_completion=False,
+    rich_markup_mode="rich",
 )
 
 
-@app.command()
-def tag(
+@app.command("generate-tag")
+def generate_tag(
     from_json: str = typer.Option(None, help="Path to JSON tool descriptors"),
     mcp_endpoint: str = typer.Option(None, help="Live MCP endpoint (optional)"),
     mcp_auth_token: str = typer.Option(
@@ -27,63 +33,70 @@ def tag(
     ),
     mcp_transport: str = typer.Option("http", help="MCP transport type: http|sse"),
     command: str = typer.Option(None, help="Command for running in stdio mode"),
-    args: str = typer.Option(None, help="Arguments for the command in stdio mode"),
     mcp_scan_output: str = typer.Option(None, help="Path to MCP-Scan output JSON"),
+    args: str = typer.Option(None, help="Arguments for the command in stdio mode"),
     rules: str = typer.Option("rules/rules_default.yaml", help="Rules YAML file"),
     policy: str = typer.Option(None, help="Policy YAML (optional)"),
-    out: str = typer.Option(None, help="Write TagResult JSON to this path"),
+    output: str = typer.Option(
+        None, help="Write MCP Tag/Scan/Catalog results to this path"
+    ),
 ):
     """Tag MCP tools based on rules for compliance and capability analysis"""
-    # try:
-    # Fix: resolve rules path relative to this file if not absolute
-    rules_path = rules
-    if not os.path.isabs(rules_path):
-        script_dir = os.path.dirname(__file__)
-        rules_path = os.path.join(script_dir, rules_path)
-    rule_objs = Rule.load_all(rules_path)
-    engine = TagEngine(rule_objs)
+    try:
+        # Fix: resolve rules path relative to this file if not absolute
+        rules_path = rules
+        if not os.path.isabs(rules_path):
+            script_dir = os.path.dirname(__file__)
+            # Go up two levels (from cli → core → mcp), then into tag/rules/
+            rules_path = os.path.abspath(
+                os.path.join(script_dir, "../../..", "tag", rules_path)
+            )
 
-    # Determine source of tools
-    if mcp_scan_output:
-        # Use MCP-Scan output
-        tools = _load_from_mcp_scan(mcp_scan_output)
-    elif from_json:
-        # Use JSON file
-        scanner = JsonFileScanner(from_json)
-        tools = scanner.collect()
-    elif mcp_transport:
-        if mcp_transport in ["http", "sse"] and not mcp_endpoint:
-            raise typer.BadParameter("Provide --mcp-endpoint")
+        rule_objs = Rule.load_all(rules_path)
+        engine = TagEngine(rule_objs)
 
-        if mcp_transport == "stdio" and not command:
-            raise typer.BadParameter("Provide --command for stdio transport")
+        # Determine source of tools
+        if mcp_scan_output:
+            # Use MCP-Scan output
+            tools = _load_from_mcp_scan(mcp_scan_output)
+        elif from_json:
+            # Use JSON file
+            scanner = JsonFileScanner(from_json)
+            tools = scanner.collect()
+        elif mcp_transport:
+            if mcp_transport in ["http", "sse"] and not mcp_endpoint:
+                raise typer.BadParameter("Provide --mcp-endpoint")
 
-        # Use live MCP endpoint with protocol scanner
-        scanner = McpProtocolScanner(
-            mcp_endpoint,
-            auth_token=mcp_auth_token,
-            transport=mcp_transport,
-            command=command,
-            args=args,
-        )
-        tools = scanner.collect()
-    else:
-        raise typer.BadParameter(
-            "Provide either --mcp-scan-output, --from-json, or --mcp-endpoint"
-        )
+            if mcp_transport == "stdio" and not command:
+                raise typer.BadParameter("Provide --command for stdio transport")
 
-    # Tag the tools
-    result = engine.scan(tools)
+            # Use live MCP endpoint with protocol scanner
+            scanner = McpProtocolScanner(
+                mcp_endpoint,
+                auth_token=mcp_auth_token,
+                transport=mcp_transport,
+                command=command,
+                args=args,
+            )
+            tools = scanner.collect()
+        else:
+            raise typer.BadParameter("Provide either --from-json, or --mcp-endpoint")
 
-    if out:
-        json.dump(result.model_dump(), open(out, "w"), indent=2)
-        print(f"[green]Tagging results written to[/green] {out}")
-    else:
-        print(json.dumps(result.model_dump(), indent=2))
+        # Tag the tools
+        result = engine.scan(tools)
+        print(f"[green]Tagged {len(result.reports)} tools successfully[/green]")
 
-    # except Exception as e:
-    #     print(f"[red]Error during tagging:[/red] {e}")
-    #     raise typer.Exit(1)
+        if output:
+            json.dump(
+                result.model_dump(), open(output, "w"), indent=2, ensure_ascii=False
+            )
+            print(f"[green]Tagging results written to[/green] {output}")
+        else:
+            print(json.dumps(result.model_dump(), indent=2, ensure_ascii=False))
+
+    except Exception as e:
+        print(f"[red]Error during tagging:[/red] {e}")
+        raise typer.Exit(1)
 
 
 def _load_from_mcp_scan(mcp_scan_output: str) -> List[ToolDescriptor]:

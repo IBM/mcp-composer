@@ -2,16 +2,23 @@ from __future__ import annotations
 import asyncio
 import json
 import shlex
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Tuple
 import httpx
-from mcp.client.streamable_http import streamablehttp_client
-from mcp.client.sse import sse_client
-from mcp.client.stdio import stdio_client
+from fastmcp.client import Client
+from fastmcp.client.transports import (
+    StreamableHttpTransport,
+    SSETransport,
+    StdioTransport,
+)
 from mcp.types import ToolAnnotations
-from mcp import ClientSession, StdioServerParameters, Tool
+from mcp import ClientSession, Tool
 
+from mcp_composer.core.utils.logger import LoggerFactory
 from ..models import ToolDescriptor
 from .base import Scanner
+
+# Initialize logger
+logger = LoggerFactory.get_logger()
 
 
 class MCPTransportMessage:
@@ -44,6 +51,68 @@ class McpProtocolScanner(Scanner):
     for discovering and extracting tools from MCP servers.
     """
 
+    LEVEL_MAP = {
+        "CRITICAL": "🔴 CRITICAL",
+        "HIGH": "⚠️ HIGH",
+        "MEDIUM": "🟡 MEDIUM",
+        "LOW": "🟢 LOW",
+    }
+
+    # Keywords indicating system modification or potential harm
+    DESTRUCTIVE_KEYWORDS = [
+        "delete",
+        "remove",
+        "destroy",
+        "shutdown",
+        "terminate",
+        "unregister",
+        "modify system",
+        "send money",
+        "register",
+        "write file",
+        "save file",
+        "update database",
+        "sql execute",
+        "drop table",
+        "delete row",
+        "mkdir",
+        "rmdir",  # Added file/DB write/delete ops
+    ]
+    MSG_DESTRUCTIVE = "System/DB Write or Irreversible Operation"
+
+    # Keywords indicating access to sensitive data
+    PRIVATE_DATA_KEYWORDS = [
+        "read file",
+        "get secrets",
+        "fetch data",
+        "read config",
+        "access private",
+        "get user data",
+        "credentials",
+        "get_",
+        "open file",
+        "select from",
+        "query database",
+        "private logs",
+        "db access",  # Added file/DB read ops
+    ]
+    MSG_PRIVATE_DATA = "File/DB Read or Secret Access Operation"
+
+    # Keywords indicating external data transmission
+    PUBLIC_SINK_KEYWORDS = [
+        "send",
+        "upload",
+        "post",
+        "register",
+        "submit",
+        "exfiltrate",
+        "log external",
+        "post_",
+        "transmit data",
+        "external" "http request",  # General external transmission
+    ]
+    MSG_PUBLIC_SINK = "External Data Transmission or Registration"
+
     def __init__(
         self,
         endpoint: str,
@@ -67,7 +136,9 @@ class McpProtocolScanner(Scanner):
         if auth_token:
             self.headers["Authorization"] = f"Bearer {auth_token}"
 
-    def collect(self) -> List[ToolDescriptor]:
+    def collect(
+        self,
+    ) -> List:
         """
         Collect tools from MCP server using the MCP protocol.
 
@@ -75,184 +146,131 @@ class McpProtocolScanner(Scanner):
             None
 
         Returns:
-            List[ToolDescriptor]: A list of ToolDescriptor objects representing the discovered tools.
+            List:
+                A list containing ToolDescriptor
+                representing the discovered items from the MCP server.
         """
         try:
             if self.transport == "http":
                 self.endpoint = f"{self.endpoint}/mcp"
-                return asyncio.run(self._connect_streamable_http())
             elif self.transport == "sse":
                 self.endpoint = f"{self.endpoint}/sse"
-                return asyncio.run(self._connect_sse())
             elif self.transport == "stdio":
-                return asyncio.run(self._connect_stdio())
+                pass
             else:
                 raise ValueError(f"Unsupported transport: {self.transport}")
+
+            self.client = self._create_mcp_client()
+            return asyncio.run(self._collect_all())
+
         except Exception as e:
+            logger.error(
+                "Failed to collect tools from MCP server %s: %s", self.endpoint, str(e)
+            )
             raise RuntimeError(
                 f"Failed to collect tools from MCP server {self.endpoint}: {e}"
             )
 
-    async def _connect_streamable_http(self) -> List[ToolDescriptor]:
-        """Connect using streamable HTTP transport."""
+    def _create_mcp_client(self) -> Client:
+        """Create a fastmcp client for the given URL and transport."""
         try:
-            async with streamablehttp_client(self.endpoint) as (
-                read_stream,
-                write_stream,
-                get_session_id,
-            ):
-                return await self._run_session(read_stream, write_stream)
-        except Exception:
-            # Fallback to basic discovery
-            return self._fallback_discovery()
+            logger.info(
+                f"Creating MCP client for {self.endpoint} using transport {self.transport}"
+            )
+            if self.transport == "http":
+                transport_obj = StreamableHttpTransport(
+                    self.endpoint, headers=self.headers
+                )
+            elif self.transport == "sse":
+                transport_obj = SSETransport(self.endpoint, headers=self.headers)
+            elif self.transport == "stdio":
 
-    async def _connect_sse(self) -> List[ToolDescriptor]:
-        """Connect using SSE transport."""
-        try:
-            async with sse_client(url=self.endpoint, headers=self.headers) as (
-                read_stream,
-                write_stream,
-            ):
-                return await self._run_session(read_stream, write_stream)
-        except Exception:
-            # Fallback to basic discovery
-            return self._fallback_discovery()
+                parts = self.command.split() if self.command else []
+                if not parts:
+                    print("Error: No command provided for stdio transport.")
+                    raise ValueError("Error: No command provided for stdio transport.")
+                cmd = parts[0]
+                args = shlex.split(self.args) if self.args else []
+                print(f"Executing command: {cmd} {' '.join(args)}")
+                transport_obj = StdioTransport(command=cmd, args=args)
+            else:
+                raise ValueError(f"Unsupported transport: {self.transport}")
 
-    async def _connect_stdio(self) -> List[ToolDescriptor]:
-        """Connect using stdio transport."""
-        print("Collecting tools via stdio transport...")
-
-        parts = self.command.split() if self.command else []
-        if not parts:
-            print("Error: No command provided for stdio transport.")
-            return []
-        cmd = parts[0]
-        args = shlex.split(self.args) if self.args else []
-        print(f"Executing command: {cmd} {' '.join(args)}")
-
-        server_params = StdioServerParameters(command=cmd, args=args)
-
-        try:
-            async with stdio_client(server_params) as (read_stream, write_stream):
-                return await self._run_session(read_stream, write_stream)
+            return Client(transport_obj)
         except Exception as e:
-            print(f"An error occurred during stdio communication: {e}")
-            return []
+            logger.error("Failed to create MCP client: %s", str(e))
+            raise RuntimeError(f"Failed to create MCP client: {e}")
 
-    def _get_server_info(self) -> Dict[str, Any]:
-        """Get MCP server information"""
-        info_endpoints = [
-            f"{self.endpoint}/info",
-            f"{self.endpoint}/info",
-            f"{self.endpoint}/api/info",
-        ]
+    def _classify_tool(self, tool: Tool) -> Dict[str, Tuple[bool, str]]:
+        """Classifies a tool into potential Toxic Flow component roles."""
 
-        for endpoint in info_endpoints:
-            try:
-                response = httpx.get(endpoint, headers=self.headers, timeout=10.0)
-                if response.status_code == 200:
-                    return response.json()
-            except Exception:
-                continue
+        name = (getattr(tool, "name", None) or "").lower()
+        description = (getattr(tool, "description", None) or "").lower()
 
-        # Get server info via POST or GET method
-        return self._get_server_info_via_transport()
+        # Check against heuristics
+        is_destructive = any(
+            kw in description for kw in self.DESTRUCTIVE_KEYWORDS
+        ) or any(
+            name.startswith(kw)
+            for kw in ["delete_", "remove_", "shutdown_", "terminate_"]
+        )
+        is_private_data = any(
+            kw in description for kw in self.PRIVATE_DATA_KEYWORDS
+        ) or any(name.startswith(kw) for kw in ["get_", "read_", "fetch_"])
+        is_public_sink = any(
+            kw in description for kw in self.PUBLIC_SINK_KEYWORDS
+        ) or any(
+            name.startswith(kw) for kw in ["send_", "upload_", "post_", "register_"]
+        )
 
-    def _get_server_info_via_transport(self) -> Dict[str, Any]:
-        """Get server info using POST method (MCP protocol style)."""
-        post_endpoints = [
-            f"{self.endpoint}/sse",
-            f"{self.endpoint}/mcp",
-            f"{self.endpoint}/api/sse",
-            f"{self.endpoint}/api/mcp",
-        ]
+        return {
+            "Destructive": (is_destructive, self.MSG_DESTRUCTIVE),
+            "Private Data": (is_private_data, self.MSG_PRIVATE_DATA),
+            "Public Sink": (is_public_sink, self.MSG_PUBLIC_SINK),
+        }
 
-        for endpoint in post_endpoints:
-            try:
-                with httpx.stream(
-                    "POST",
-                    endpoint,
-                    headers=self.headers,
-                    json=MCPTransportMessage.INIT_MESSAGE,
-                    timeout=10.0,
-                ) as response:
+    def _determine_risk_level(self, classification: Dict[str, Tuple[bool, str]]) -> str:
+        """Determines the overall risk level and returns it along with its ANSI color code."""
 
-                    if (
-                        not response.is_success
-                        or "text/event-stream"
-                        not in response.headers.get("Content-Type", "")
-                    ):
-                        continue
+        is_destructive, _ = classification["Destructive"]
+        is_private_data, _ = classification["Private Data"]
+        is_public_sink, _ = classification["Public Sink"]
 
-                    session_id = response.headers.get("mcp-session-id")
-                    if session_id:
-                        self.headers["mcp-session-id"] = session_id
+        risk_key = "LOW"
 
-                    for line in response.iter_lines():
-                        if line and line.startswith("data:"):
-                            response_data = line.split("data:", 1)[1].strip()
-                            data = json.loads(response_data)
-                            if "result" in data and "serverInfo" in data["result"]:
-                                print("Received server info via POST", response_data)
-                                return data["result"]["serverInfo"]
-                            break
+        if is_destructive or (is_private_data and is_public_sink):
+            # Immediate destructive capability or full data leak (Source + Sink)
+            risk_key = "CRITICAL"
+        elif is_private_data and is_public_sink:
+            # Reverting to HIGH for single-component risk if CRITICAL is not met
+            risk_key = "HIGH"
+        elif is_private_data or is_public_sink:
+            # Component is necessary for a flow, but not sufficient alone
+            risk_key = "MEDIUM"
+        else:
+            risk_key = "LOW"
 
-            except Exception:
-                continue
-        # Return default server info if none found
-        return {"name": "mcp-server", "version": "1.0.0", "capabilities": {}}
+        return self.LEVEL_MAP[risk_key]
 
-    async def _run_session(self, read_stream, write_stream):
-        """Run analysis session."""
-        server_info = self._get_server_info()
-        async with ClientSession(read_stream, write_stream) as session:
-            self.session = session
+    def _scan_tool(self, tool: Tool) -> Dict[str, str]:
+        """Scan a single tool and return scan report."""
+        # The result of classification is Dict[str, Tuple[bool, str]]
+        classification = self._classify_tool(tool)
+        # Calculate the risk level and color
+        risk_level = self._determine_risk_level(classification)
 
-            print("Initializing MCP session...")
-            await session.initialize()
-            print("Connected to MCP server")
+        # Build the final output dictionary
+        report_output = {}
 
-            # Then get tools list
-            tools = await self._get_tools_list()
-            print(f"Discovered {len(tools)} tools from {self.endpoint}")
+        # 1. Add the Risk Level
+        report_output["Level"] = risk_level
 
-            # Convert to ToolDescriptor objects
-            return [
-                self._convert_to_tool_descriptor(tool, server_info) for tool in tools
-            ]
+        # 2. Add the Component Classifications
+        for role, (is_match, message) in classification.items():
+            status_emoji = "✅ YES" if is_match else "❌ NO"
+            report_output[role] = f"{status_emoji} ({message})"
 
-    async def _get_tools_list(self) -> List[Tool]:
-        """Get tools list using MCP protocol"""
-        # Try different MCP protocol endpoints
-        mcp_endpoints = [f"{self.endpoint}/tools/list", f"{self.endpoint}/tools"]
-        for endpoint in mcp_endpoints:
-            try:
-                response = httpx.get(endpoint, headers=self.headers, timeout=10.0)
-                if response.status_code == 200:
-                    data = response.json()
-                    return self._extract_tools_from_response(data)
-            except Exception:
-                continue
-
-        # Fetch list of tools
-        return await self._get_tools_via_session()
-
-    async def _get_tools_via_session(self) -> List[Tool]:
-        """Get tools list using the established MCP session"""
-        try:
-            if not self.session:
-                print("No active MCP session available.")
-                return []
-            result = await self.session.list_tools()
-            if not hasattr(result, "tools") or not result.tools:
-                print("No tools available")
-                return []
-
-            return self._extract_tools_from_response(result.tools)
-        except Exception:
-            print("Error fetching tools via MCP session")
-
-        return []
+        return report_output
 
     def _extract_tools_from_response(self, data: Any) -> List[Tool]:
         """Extract tools from various response formats"""
@@ -338,22 +356,91 @@ class McpProtocolScanner(Scanner):
             annotations=annotations,
             vendor=vendor,
             endpoint=self.endpoint,
+            scan_report=self._scan_tool(tool),
         )
 
-    def _fallback_discovery(self) -> List[ToolDescriptor]:
-        """Fallback discovery when MCP protocol fails"""
-        return [
-            ToolDescriptor(
-                id="discovered_tool",
-                name="Discovered Tool",
-                description="Tool discovered from MCP server (fallback method)",
-                input_schema={},
-                output_schema={},
-                annotations={
-                    "discovery_method": "fallback",
-                    "transport": self.transport,
-                    "endpoint": self.endpoint,
-                },
-                endpoint=self.endpoint,
-            )
+    async def _get_server_info(self) -> Dict[str, Any]:
+        """Get server info using POST method (MCP protocol style, async)."""
+        post_endpoints = [
+            f"{self.endpoint}/sse",
+            f"{self.endpoint}/mcp",
+            f"{self.endpoint}/api/sse",
+            f"{self.endpoint}/api/mcp",
         ]
+
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            for endpoint in post_endpoints:
+                try:
+                    async with client.stream(
+                        "POST",
+                        endpoint,
+                        headers=self.headers,
+                        json=MCPTransportMessage.INIT_MESSAGE,
+                    ) as response:
+
+                        if (
+                            not response.is_success
+                            or "text/event-stream"
+                            not in response.headers.get("Content-Type", "")
+                        ):
+                            continue
+
+                        session_id = response.headers.get("mcp-session-id")
+                        if session_id:
+                            self.headers["mcp-session-id"] = session_id
+
+                        async for line in response.aiter_lines():
+                            if line and line.startswith("data:"):
+                                response_data = line.split("data:", 1)[1].strip()
+                                data = json.loads(response_data)
+                                if "result" in data and "serverInfo" in data["result"]:
+                                    print(
+                                        "Received server info via POST", response_data
+                                    )
+                                    return data["result"]["serverInfo"]
+                                break
+
+                except Exception:
+                    continue
+
+        # Default fallback
+        return {"name": "mcp-server", "version": "1.0.0", "capabilities": {}}
+
+    async def _get_tools_list(self) -> List[Tool]:
+        """Get tools list using the established MCP session"""
+        try:
+            tools_result = await self.client.list_tools()
+            return self._extract_tools_from_response(tools_result)
+        except Exception:
+            print("Error fetching tools via MCP session")
+        return []
+
+    async def _collect_all(
+        self,
+    ) -> List[ToolDescriptor]:
+        try:
+            async with self.client:
+                logger.info(
+                    f"Connected to MCP server at {self.endpoint} using {self.transport}"
+                )
+                self.server_info = await self._get_server_info()
+                tools = await self._get_tools_list()
+
+                logger.info(f"Server Info: {self.server_info}")
+                logger.info(f"Collecting tools via {self.transport} transport...")
+                logger.info(
+                    f"Discovered {len(tools)} tools from MCP server {self.endpoint}"
+                )
+                return [
+                    self._convert_to_tool_descriptor(tool, self.server_info)
+                    for tool in tools
+                ]
+        except Exception as e:
+            logger.error(
+                "Error during MCP protocol collection from %s: %s",
+                self.endpoint,
+                str(e),
+            )
+            raise RuntimeError(
+                f"Error during MCP protocol collection from {self.endpoint}: {e}"
+            )
