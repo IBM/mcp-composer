@@ -953,7 +953,8 @@ async def test_layered_enabled_returns_only_three_tools():
 
         # Verify the server has exactly 3 tools
         # Since LayeredOpenAPIFactory inherits from FastMCP, it should have _tool_manager
-        tools = await mcp_server._tool_manager.list_tools()
+        tools_dict = await mcp_server._tool_manager.get_tools()
+        tools = list(tools_dict.values())
         assert len(tools) == 3, f"Expected exactly 3 tools, but got {len(tools)}"
 
         # Verify the expected tool names
