@@ -15,7 +15,6 @@ from fastmcp.client.transports import (
     SSETransport,
     StdioTransport,
 )
-from fastmcp.client.auth.oauth import FileTokenStorage
 
 from mcp_composer.core.utils.logger import LoggerFactory
 from mcp_composer.core.utils import ConfigKey, MemberServerType, AuthStrategy
@@ -107,7 +106,6 @@ class MCPServerBuilder:
             endpoint = config[ConfigKey.ENDPOINT]
             auth = None
             if oauth:
-                FileTokenStorage.clear_all()
                 auth = OAuth(mcp_url=endpoint)
             transport = TransportClass(url=endpoint, headers=headers, auth=auth)
             print("the headers are >>>",headers)

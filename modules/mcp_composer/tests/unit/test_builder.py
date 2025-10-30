@@ -142,9 +142,6 @@ async def test_build_from_transport_http_with_oauth():
         patch("mcp_composer.core.member_servers.builder.Client") as mock_client,
         patch("mcp_composer.core.member_servers.builder.FastMCP") as mock_fastmcp,
         patch("mcp_composer.core.member_servers.builder.OAuth") as mock_oauth,
-        patch(
-            "mcp_composer.core.member_servers.builder.FileTokenStorage"
-        ) as mock_storage,
     ):
         mock_fastmcp.as_proxy.return_value = "proxy"
         result = await builder._build_from_transport(MemberServerType.HTTP)
