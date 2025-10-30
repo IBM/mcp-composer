@@ -1288,7 +1288,6 @@ source = { editable = "." }
 dependencies = [
     { name = "aiohttp" },
     { name = "asyncpg" },
-    { name = "authlib" },
     { name = "deepdiff" },
     { name = "detect-secrets" },
     { name = "dotenv" },
@@ -1344,7 +1343,6 @@ dev = [
 requires-dist = [
     { name = "aiohttp", specifier = "==3.12.14" },
     { name = "asyncpg", specifier = ">=0.29.0" },
-    { name = "authlib", specifier = "==1.6.5" },
     { name = "deepdiff", specifier = ">=8.6.1" },
     { name = "detect-secrets", specifier = ">=1.5.0" },
     { name = "dotenv", specifier = ">=0.9.9" },
