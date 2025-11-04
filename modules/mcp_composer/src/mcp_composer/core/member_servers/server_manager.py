@@ -108,7 +108,8 @@ class ServerManager:
 
             member = MemberMCPServer(
                 id=server_id,
-                type=config.get("type"),
+                endpoint=get_endpoint_from_config(config),
+                type=config.get("type", ""),
                 config=config,
                 label=config.get("label"),
                 tags=config.get("tags", []),

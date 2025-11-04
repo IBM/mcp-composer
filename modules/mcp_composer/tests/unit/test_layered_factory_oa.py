@@ -125,13 +125,15 @@ class TestLayeredOpenAPIFactory:
         assert layered_factory.client is not None
         # Check that tools are added by checking the tool manager
         assert hasattr(layered_factory, '_tool_manager')
-        tools = await layered_factory._tool_manager.list_tools()
+        tools_dict = await layered_factory._tool_manager.get_tools()
+        tools = list(tools_dict.values())
         assert len(tools) == 3
 
     @pytest.mark.asyncio
     async def test_layered_factory_tools(self, layered_factory):
         """Test that LayeredOpenAPIFactory has the correct tools."""
-        tools = await layered_factory._tool_manager.list_tools()
+        tools_dict = await layered_factory._tool_manager.get_tools()
+        tools = list(tools_dict.values())
         tool_names = [tool.name for tool in tools]
         assert "get_service_info" in tool_names
         assert "get_type_info" in tool_names

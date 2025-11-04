@@ -29,11 +29,28 @@ class MCPPromptManager(PromptManager):
         self._database = database
         self._prompts: Dict[str, Prompt] = {}
 
+    def _get_mounted_servers(self):
+        """Safely access _mounted_servers, returning empty list if not initialized."""
+        # Check if the parent class has this attribute
+        if not hasattr(super(), '_mounted_servers'):
+            return []
+        return super()._mounted_servers
+
     def unmount(self, server_id):
         """Unmount a member server."""
-        for idx, mounted_server in enumerate(self._mounted_servers):
-            if mounted_server.prefix == server_id:
-                del self._mounted_servers[idx]
+        # First try to get from parent class
+        parent_mounted = self._get_mounted_servers()
+        # Also check if we have our own _mounted_servers (for tests)
+        if hasattr(self, '_mounted_servers'):
+            # Use our own list if it exists
+            parent_mounted = self._mounted_servers
+        if not parent_mounted:
+            return
+        # Access the parent class's _mounted_servers directly for deletion
+        for idx, mounted_server in enumerate(parent_mounted):
+            if hasattr(mounted_server, 'prefix') and mounted_server.prefix == server_id:
+                del parent_mounted[idx]
+                break
 
     def add_prompts(self, prompt_config: Union[dict, List[dict]]) -> List[str]:
         """
