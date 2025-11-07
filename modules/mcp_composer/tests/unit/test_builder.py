@@ -142,9 +142,6 @@ async def test_build_from_transport_http_with_oauth():
         patch("mcp_composer.core.member_servers.builder.Client") as mock_client,
         patch("mcp_composer.core.member_servers.builder.FastMCP") as mock_fastmcp,
         patch("mcp_composer.core.member_servers.builder.OAuth") as mock_oauth,
-        patch(
-            "mcp_composer.core.member_servers.builder.FileTokenStorage"
-        ) as mock_storage,
     ):
         mock_fastmcp.as_proxy.return_value = "proxy"
         result = await builder._build_from_transport(MemberServerType.HTTP)
@@ -956,7 +953,8 @@ async def test_layered_enabled_returns_only_three_tools():
 
         # Verify the server has exactly 3 tools
         # Since LayeredOpenAPIFactory inherits from FastMCP, it should have _tool_manager
-        tools = await mcp_server._tool_manager.list_tools()
+        tools_dict = await mcp_server._tool_manager.get_tools()
+        tools = list(tools_dict.values())
         assert len(tools) == 3, f"Expected exactly 3 tools, but got {len(tools)}"
 
         # Verify the expected tool names

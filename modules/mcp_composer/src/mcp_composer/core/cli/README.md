@@ -880,10 +880,10 @@ mcp-composer --mode http \
 | `OAUTH_PORT` | OAuth server port | `9000` |
 | `OAUTH_SERVER_URL` | Base URL for OAuth server | `http://localhost:9000` |
 | `OAUTH_CALLBACK_PATH` | OAuth callback URL path | `http://localhost:9000/auth/idaas/callback` |
-| `OAUTH_CLIENT_ID` | OAuth client ID | `ZTk0NzkyYmUtMWJlYS00` |
-| `OAUTH_CLIENT_SECRET` | OAuth client secret | `MDM1NzhjNWQtYjJmYy00` |
-| `OAUTH_AUTH_URL` | OAuth authorization endpoint | `https://preprod.login.w3.ibm.com/v1.0/endpoint/default/authorize` |
-| `OAUTH_TOKEN_URL` | OAuth token endpoint | `https://preprod.login.w3.ibm.com/v1.0/endpoint/default/token` |
+| `OAUTH_CLIENT_ID` | OAuth client ID | `your_client_id` |
+| `OAUTH_CLIENT_SECRET` | OAuth client secret | `your_client_secret` |
+| `OAUTH_AUTH_URL` | OAuth authorization endpoint | `https://provider.com/oauth/authorize` |
+| `OAUTH_TOKEN_URL` | OAuth token endpoint | `https://provider.com/oauth/token` |
 | `OAUTH_MCP_SCOPE` | MCP-specific OAuth scope | `user` |
 | `OAUTH_PROVIDER_SCOPE` | OAuth provider scope | `openid` |
 

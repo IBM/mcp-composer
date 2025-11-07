@@ -1,3 +1,17 @@
 {
-  "settingsInheritedFrom": "whitesource-config/whitesource-config@master"
+  "settingsInheritedFrom": "whitesource-config/whitesource-config@master",
+  "scanSettingsSAST": {
+    "enableScan": true
+  },
+  "checkRunSettings": {
+    "useMendCheckNames": true
+  },
+  "issueSettingsSAST": {
+    "issueType": "finding",
+    "minSeverityLevel": "low"
+  },
+  "checkRunSettingsSAST": {
+    "checkRunConclusionLevel": "failure",
+    "severityThreshold": "high"
+  }
 }

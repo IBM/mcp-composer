@@ -53,12 +53,29 @@ class MCPToolManager(ToolManager):
         self._database = database
         self._disabled_tools: list[str] = []
 
+    def _get_mounted_servers(self):
+        """Safely access _mounted_servers, returning empty list if not initialized."""
+        # Check if the parent class has this attribute
+        if not hasattr(super(), '_mounted_servers'):
+            return []
+        return super()._mounted_servers
+
     def unmount(self, server_id):
         """Unmount a member server"""
         # Find the matching mounted server
-        for idx, mounted_server in enumerate(self._mounted_servers):
-            if mounted_server.prefix == server_id:
-                del self._mounted_servers[idx]
+        # First try to get from parent class
+        parent_mounted = self._get_mounted_servers()
+        # Also check if we have our own _mounted_servers (for tests)
+        if hasattr(self, '_mounted_servers'):
+            # Use our own list if it exists
+            parent_mounted = self._mounted_servers
+        if not parent_mounted:
+            return
+        # Access the parent class's _mounted_servers directly for deletion
+        for idx, mounted_server in enumerate(parent_mounted):
+            if hasattr(mounted_server, 'prefix') and mounted_server.prefix == server_id:
+                del parent_mounted[idx]
+                break
 
     async def has_tool(self, key: str | list[str]) -> bool:
         """Check if one or more tools exist by name."""
@@ -150,7 +167,11 @@ class MCPToolManager(ToolManager):
         result = {}
 
         # Find the matching mounted server and get its tools
-        for mounted_server in self._mounted_servers:
+        mounted_servers = self._get_mounted_servers()
+        if not mounted_servers:
+            return result
+
+        for mounted_server in mounted_servers:
             if mounted_server.prefix == server.id:
                 tools = await mounted_server.server.get_tools()
 
@@ -343,8 +364,9 @@ class MCPToolManager(ToolManager):
         scored_tools = sorted(
             zip(tool_names, similarities), key=lambda x: x[1], reverse=True
         )
-        # You can apply a threshold (e.g., 0.1) to filter out very dissimilar tools if needed
-        similarity_threshold = 0.1
+        # You can apply a threshold to filter out very dissimilar tools if needed
+        # Lower threshold for better matching of prefixed tool names
+        similarity_threshold = 0.01
         filtered_tools = {
             name: tools[name]
             for name, score in scored_tools
@@ -354,6 +376,11 @@ class MCPToolManager(ToolManager):
             "Filtered tools list by using keyword '%s': %s", keyword, filtered_tools
         )
         return filtered_tools
+
+    async def list_tools(self):
+        """List all tools as a list"""
+        tools_dict = await self.get_tools()
+        return list(tools_dict.values())
 
     def disable_composer_tool(self, tools: Optional[list[str]] = None) -> str:
         """
