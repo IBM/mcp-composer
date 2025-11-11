@@ -257,6 +257,11 @@ class MCPComposer(FastMCP):
         for tool_func in all_tools:
             self.add_tool(Tool.from_function(tool_func))
 
+    @property
+    def resource_manager(self) -> MCPResourceManager:
+        """Expose the resource manager for tool integration."""
+        return self._resource_manager
+
     def _get_database_config_from_env(self) -> Optional[Dict[str, Any]]:
         """
         Get database configuration from environment variables.

@@ -4,6 +4,7 @@ import time
 import uuid
 import json
 import asyncio
+import inspect
 import aiohttp
 import os
 from pathlib import Path
@@ -26,8 +27,11 @@ from mcp.types import TextContent
 from pydantic import PrivateAttr
 
 from mcp_composer.core.utils import LoggerFactory, load_json_sync
+from mcp_composer.core.resources.resource_manager import MCPResourceManager
 
 logger = LoggerFactory.get_logger()
+
+RESOURCE_RELEVANCE_THRESHOLD = 0.15
 
 
 def load_deep_research_schema() -> Dict[str, Any]:
@@ -189,6 +193,7 @@ class DeepResearchTool(Tool):
     _research_sessions: Dict[str, ResearchSession] = PrivateAttr(default_factory=dict)
     _active_sessions: Dict[str, str] = PrivateAttr(default_factory=dict)  # user_id -> session_id
     _streaming_callback: Optional[Callable[[StreamingUpdate], None]] = PrivateAttr(default=None)
+    _resource_manager: Optional[MCPResourceManager] = PrivateAttr(default=None)
 
     def __init__(self, config: Optional[dict] = None):
         """Initialize the Deep Research Tool"""
@@ -260,6 +265,24 @@ Streaming is enabled by default to provide real-time feedback during research.""
         self._research_sessions = {}
         self._active_sessions = {}
         self._streaming_callback = None
+        self._resource_manager = None
+
+        if config:
+            potential_resource_manager = None
+            if isinstance(config, dict):
+                potential_resource_manager = config.get("resource_manager")
+            elif isinstance(config, MCPResourceManager):
+                potential_resource_manager = config
+            elif hasattr(config, "resource_manager"):
+                potential_resource_manager = getattr(config, "resource_manager")
+
+            if isinstance(potential_resource_manager, MCPResourceManager):
+                self._resource_manager = potential_resource_manager
+                logger.info("Deep Research Tool configured with MCPResourceManager integration")
+            elif potential_resource_manager is not None:
+                logger.warning(
+                    "Provided resource_manager is not an MCPResourceManager instance; integration disabled"
+                )
 
         logger.info(f"Deep Research Tool '{tool_name}' initialized")
 
@@ -461,6 +484,13 @@ Streaming is enabled by default to provide real-time feedback during research.""
             source_summary.append(f"Sources found: {len(sub_question.sources)}")
             for i, source in enumerate(sub_question.sources, 1):
                 source_summary.append(f"  {i}. {source.get('title', 'Unknown')} - {source.get('url', 'No URL')}")
+            if not sub_question.sources:
+                source_summary.append("  - No matching resources found.")
+            source_summary.append("")
+
+        if total_sources_found == 0:
+            source_summary.append("**No resource-backed sources were found for any sub-questions.**")
+            source_summary.append("Ensure the resource manager is populated with relevant resources for this topic.")
             source_summary.append("")
 
         source_summary.append("**Next Stage:** Summarization - Will extract key information from sources.")
@@ -479,6 +509,131 @@ Streaming is enabled by default to provide real-time feedback during research.""
         logger.info(f"Found {total_sources_found} total sources across {len(session.sub_questions)} sub-questions")
         return final_result
 
+    async def _get_resource_based_sources(
+        self, query: str, max_sources: int
+    ) -> List[Dict[str, Any]]:
+        """Retrieve sources from the registered resources that match the query."""
+
+        if not self._resource_manager:
+            return []
+
+        try:
+            available_resources = await self._resource_manager.list_resources()
+        except Exception as exc:
+            logger.warning("Unable to list resources from resource manager: %s", exc)
+            return []
+
+        if not available_resources:
+            return []
+
+        matched_sources: List[Dict[str, Any]] = []
+
+        for resource in available_resources:
+            uri = getattr(resource, "uri", None)
+            if not uri:
+                continue
+
+            uri_str = str(uri)
+            name = getattr(resource, "name", uri_str)
+            description = getattr(resource, "description", "")
+
+            tags = getattr(resource, "tags", None)
+            if isinstance(tags, (set, list, tuple)):
+                tags_text = " ".join(str(tag) for tag in tags)
+            elif tags:
+                tags_text = str(tags)
+            else:
+                tags_text = ""
+
+            metadata_body = " ".join(part for part in [description, tags_text] if part)
+            pseudo_result = {"title": name, "body": metadata_body}
+
+            score = self._calculate_relevance_score(query, pseudo_result, None, uri_str)
+            content_text = ""
+
+            if score < RESOURCE_RELEVANCE_THRESHOLD:
+                content_text = await self._read_resource_content(resource)
+                if content_text:
+                    pseudo_result["body"] = " ".join(
+                        part for part in [metadata_body, content_text] if part
+                    )
+                    score = self._calculate_relevance_score(
+                        query, pseudo_result, None, uri_str
+                    )
+            else:
+                # Still attempt to read content for downstream summarization
+                content_text = await self._read_resource_content(resource)
+
+            if score < RESOURCE_RELEVANCE_THRESHOLD:
+                continue
+
+            final_content = content_text or pseudo_result["body"]
+            if not final_content:
+                continue
+
+            summary_text = (
+                description
+                if description
+                else (final_content[:200] + "..." if len(final_content) > 200 else final_content)
+            )
+
+            matched_sources.append(
+                {
+                    "title": name,
+                    "url": uri_str,
+                    "summary": summary_text,
+                    "content": final_content,
+                    "relevance_score": score,
+                }
+            )
+
+        matched_sources.sort(key=lambda item: item["relevance_score"], reverse=True)
+        return matched_sources[:max_sources]
+
+    async def _read_resource_content(self, resource) -> str:
+        """Safely read content from a resource if available."""
+
+        read_method = getattr(resource, "read", None)
+        if not read_method:
+            return ""
+
+        result = None
+        try:
+            if inspect.iscoroutinefunction(read_method):
+                result = await read_method()
+            else:
+                invocation_result = read_method()
+                if inspect.isawaitable(invocation_result):
+                    result = await invocation_result
+                else:
+                    result = invocation_result
+        except TypeError as exc:
+            logger.debug(
+                "Resource read() signature mismatch for %s: %s",
+                getattr(resource, "name", "unknown"),
+                exc,
+            )
+            return ""
+        except Exception as exc:  # pylint: disable=broad-except
+            logger.warning(
+                "Failed to read content from resource %s: %s",
+                getattr(resource, "name", "unknown"),
+                exc,
+            )
+            return ""
+
+        if result is None:
+            return ""
+
+        if isinstance(result, bytes):
+            try:
+                result = result.decode("utf-8")
+            except Exception:  # pylint: disable=broad-except
+                result = result.decode("latin-1", errors="ignore")
+
+        text_result = str(result)
+        return text_result[:2000]
+
     async def _search_sources(self, query: str, max_sources: int,
                             allowed_domains: Optional[List[str]] = None,
                             excluded_domains: Optional[List[str]] = None,
@@ -487,73 +642,27 @@ Streaming is enabled by default to provide real-time feedback during research.""
 
         logger.info(f"Searching for sources: {query}")
 
-        if not DDGS_AVAILABLE or DDGS is None:
-            logger.warning("DuckDuckGo search library not available, using fallback mock sources")
-            return await self._fallback_mock_sources(query, max_sources)
+        resource_based_sources = await self._get_resource_based_sources(query, max_sources)
 
-        try:
-            sources = []
+        if self._resource_manager:
+            if resource_based_sources:
+                logger.info(
+                    "Using %s resource-backed sources for query '%s'",
+                    len(resource_based_sources),
+                    query,
+                )
+            else:
+                logger.info(
+                    "Resource manager configured but no matching resources found for query '%s'",
+                    query,
+                )
+            return resource_based_sources
 
-            # Use DuckDuckGo search with site restrictions if specified
-            search_query = self._build_search_query(query, allowed_domains)
-
-            # Use DuckDuckGo search
-            with DDGS() as ddgs:
-                # Search for web results
-                search_results = list(ddgs.text(
-                    keywords=search_query,
-                    region='wt-wt',  # worldwide
-                    safesearch='moderate',
-                    timelimit=None,
-                    max_results=max_sources * 3  # Get more results to filter from
-                ))
-
-                logger.info(f"Found {len(search_results)} raw search results")
-
-                # Process and filter results
-                filtered_results = []
-                for result in search_results:
-                    url = result.get('href', '')
-
-                    # Apply domain filtering
-                    if not self._is_domain_allowed(url, allowed_domains, excluded_domains):
-                        continue
-
-                    filtered_results.append(result)
-
-                logger.info(f"After domain filtering: {len(filtered_results)} results")
-
-                # Process filtered results
-                for result in filtered_results[:max_sources]:
-                    url = result.get('href', '')
-
-                    # Calculate relevance score based on query match and domain priority
-                    relevance_score = self._calculate_relevance_score(query, result, domain_priority, url)
-
-                    # Extract content preview
-                    content_preview = await self._extract_content_preview(url)
-
-                    source = {
-                        "title": result.get('title', 'Unknown Title'),
-                        "url": url,
-                        "summary": result.get('body', 'No summary available'),
-                        "content": content_preview,
-                        "relevance_score": relevance_score
-                    }
-
-                    sources.append(source)
-                    logger.debug(f"Added source: {source['title'][:50]}... (relevance: {relevance_score:.2f})")
-
-            # Sort by relevance score
-            sources.sort(key=lambda x: x['relevance_score'], reverse=True)
-
-            logger.info(f"Successfully found {len(sources)} sources for query: {query}")
-            return sources
-
-        except Exception as e:
-            logger.error(f"Error searching with DuckDuckGo: {e}")
-            logger.info("Falling back to mock sources")
-            return await self._fallback_mock_sources(query, max_sources)
+        logger.info(
+            "Resource manager not configured; skipping external web search for query '%s'",
+            query,
+        )
+        return []
 
     async def _fallback_mock_sources(self, query: str, max_sources: int) -> List[Dict[str, Any]]:
         """Fallback mock sources when DuckDuckGo search fails"""
@@ -1138,6 +1247,25 @@ Streaming is enabled by default to provide real-time feedback during research.""
 
             # Get or create research session
             session = self._get_or_create_session(user_id, session_id, force_new_session)
+
+            # Automatically start a fresh session for full auto runs when the previous session
+            # is complete or targeted at a different question and the caller did not supply a session id.
+            if (
+                stage == "auto"
+                and not session_id
+                and not force_new_session
+                and session
+                and (
+                    session.completed
+                    or (session.main_question and session.main_question != question)
+                )
+            ):
+                logger.info(
+                    "Starting new research session for user '%s' to avoid reusing completed session %s",
+                    user_id,
+                    session.session_id,
+                )
+                session = self._get_or_create_session(user_id, None, True)
 
             # Store domain filtering settings in session
             if allowed_domains is not None:
