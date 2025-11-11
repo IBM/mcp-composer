@@ -35,7 +35,6 @@ class ServerSettings(BaseSettings):
     host: str = ""
     port: str = ""
     server_url: AnyHttpUrl = AnyHttpUrl("http://localhost:8080")
-
     # OAuth settings - these will be loaded from OAUTH_CLIENT_ID, OAUTH_CLIENT_SECRET, etc.
     client_id: str = ""
     client_secret: str = ""
@@ -51,7 +50,7 @@ class ServerSettings(BaseSettings):
 
     def __init__(self, prefix: str = "OAUTH_", **data):
         """Initialize settings with values from environment variables.
-        
+
         Args:
             prefix: Prefix for environment variables (default: "OAUTH_")
             **data: Additional data to override environment variables
@@ -61,14 +60,14 @@ class ServerSettings(BaseSettings):
         for key, value in os.environ.items():
             if key.startswith(prefix):
                 # Remove the prefix and map to correct field names
-                if key == f'{prefix}PROVIDER_SCOPE':
-                    field_name = 'scope'
-                elif key == f'{prefix}MCP_SCOPE':
-                    field_name = 'mcp_scope'
+                if key == f"{prefix}PROVIDER_SCOPE":
+                    field_name = "scope"
+                elif key == f"{prefix}MCP_SCOPE":
+                    field_name = "mcp_scope"
                 else:
-                    field_name = key[len(prefix):].lower()  # e.g., OAUTH_HOST -> host
+                    field_name = key[len(prefix) :].lower()  # e.g., OAUTH_HOST -> host
 
-                if field_name == 'server_url':
+                if field_name == "server_url":
                     env_data[field_name] = AnyHttpUrl(value)
                 else:
                     env_data[field_name] = value
@@ -80,13 +79,22 @@ class ServerSettings(BaseSettings):
 
         # Validate that required OAuth settings are provided when OAuth is enabled
         # For remote OAuth, we use a different environment variable to check if enabled
-        enable_var = f'{prefix.rstrip("_")}_ENABLED' if prefix != "OAUTH_" else "ENABLE_OAUTH"
+        enable_var = (
+            f'{prefix.rstrip("_")}_ENABLED' if prefix != "OAUTH_" else "ENABLE_OAUTH"
+        )
         if os.getenv(enable_var, "False").lower() == "true":
             # Check if all required environment variables are set
             required_env_vars = [
-                f"{prefix}HOST", f"{prefix}PORT", f"{prefix}SERVER_URL", f"{prefix}CLIENT_ID",
-                f"{prefix}CLIENT_SECRET", f"{prefix}CALLBACK_PATH", f"{prefix}AUTH_URL",
-                f"{prefix}TOKEN_URL", f"{prefix}MCP_SCOPE", f"{prefix}PROVIDER_SCOPE"
+                f"{prefix}HOST",
+                f"{prefix}PORT",
+                f"{prefix}SERVER_URL",
+                f"{prefix}CLIENT_ID",
+                f"{prefix}CLIENT_SECRET",
+                f"{prefix}CALLBACK_PATH",
+                f"{prefix}AUTH_URL",
+                f"{prefix}TOKEN_URL",
+                f"{prefix}MCP_SCOPE",
+                f"{prefix}PROVIDER_SCOPE",
             ]
 
             missing_vars = []
@@ -112,6 +120,7 @@ class SimpleOAuthProvider(OAuthProvider):
         # Store tokens with MCP tokens using the format:
         # {"mcp_token": "auth_token"}
         self.token_mapping: dict[str, str] = {}
+        self.base_url = settings.server_url
         self.issuer_url = settings.server_url
         self.service_documentation_url = settings.server_url
         self.resource_server_url = settings.server_url
@@ -121,7 +130,7 @@ class SimpleOAuthProvider(OAuthProvider):
             default_scopes=[settings.mcp_scope],
         )
         self.revocation_options = None
-        self.required_scopes = None
+        self.required_scopes: list[str] | None = []
 
     async def get_client(self, client_id: str) -> OAuthClientInformationFull | None:
         """Get OAuth client information."""
@@ -148,7 +157,7 @@ class SimpleOAuthProvider(OAuthProvider):
         }
 
         # Build oauth authorization URL
-        redirect_uri = quote(self.settings.callback_path, safe='')
+        redirect_uri = quote(self.settings.callback_path, safe="")
 
         auth_url = (
             f"{self.settings.auth_url}"
