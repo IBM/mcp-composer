@@ -387,6 +387,17 @@ npm uninstall -g @modelcontextprotocol/inspector
 npm install -g @modelcontextprotocol/inspector
 ```
 
+#### 5. 400 Bad Request When Registering GitHub MCP Server
+
+**Symptoms**: `register_mcp_server` fails with `400 Bad Request` when called through MCP Inspector.
+
+**Root Cause**: MCP Inspector automatically injects an extra `Authorization` header on outbound requests when you also provide a bearer token in the payload. MCP Composer forwards both headers to the GitHub MCP server, which rejects the duplicated credential.
+
+**Solutions**:
+- Clear the optional `Authorization` field in MCP Inspector before calling `register_mcp_server`.
+- If authentication is required, supply credentials exclusively through MCP Composer’s configuration rather than the Inspector UI.
+- As a temporary workaround, invoke `register_mcp_server` via CLI or `uv run` so that only the intended headers are sent.
+
 ### Debug Mode
 
 Enable debug logging in MCP Composer:
