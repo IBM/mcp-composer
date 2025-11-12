@@ -35,13 +35,13 @@ from mcp_composer.core.cli.commands import (
     config_commands,
     init_commands,
     catalog_commands,
+    tag_commands,
 )
 
 # Import unified configuration functions
 from mcp_composer.core.config.config_loader import ConfigManager
 from mcp_composer.core.config.unified_config import ConfigSection, ConfigValidationError
 
-from mcp_composer.tag.cli import app as tag_app
 
 # Load environment variables
 load_dotenv()
@@ -83,8 +83,12 @@ app.add_typer(
     help="MCP Composer catalog generation commands",
 )
 
-# MCP Tag
-app.add_typer(tag_app, help="MCP Tagging commands")
+# MCP Tag + Scan + Catalog commands
+app.add_typer(
+    tag_commands.app,
+    name="tag",
+    help="MCP Tagging and Catalog generation commands",
+)
 
 
 def main_callback(
