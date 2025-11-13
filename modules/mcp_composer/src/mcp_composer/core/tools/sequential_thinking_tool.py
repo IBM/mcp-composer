@@ -9,7 +9,7 @@ from dataclasses import dataclass, field
 from fastmcp.tools import Tool
 from fastmcp.tools.tool import ToolResult
 from mcp.types import TextContent
-from pydantic import PrivateAttr
+from pydantic import ConfigDict, PrivateAttr
 
 from mcp_composer.core.utils import LoggerFactory
 
@@ -60,7 +60,6 @@ class ProcessedThought:
 class SequentialThinkingTool(Tool):
     """
     Sequential Thinking Tool for dynamic and reflective problem-solving.
-    
     This tool implements a structured approach to complex problem-solving through iterative thinking.
     It enables users to break down complex problems into manageable steps, revise previous thoughts,
     explore alternative reasoning paths, and build comprehensive solutions through guided reflection.
@@ -86,9 +85,34 @@ class SequentialThinkingTool(Tool):
         })
     """
     
+    model_config = ConfigDict(extra="allow")
+    
     # Private attributes for session management
     _thinking_sessions: Dict[str, ThoughtHistory] = PrivateAttr(default_factory=dict)
     _active_sessions: Dict[str, str] = PrivateAttr(default_factory=dict)  # user_id -> session_id
+
+    def __setattr__(self, name: str, value: Any) -> None:
+        """
+        Allow runtime patching of callable attributes (e.g., during testing) while
+        delegating standard field assignment back to the Pydantic base implementation.
+        """
+        if hasattr(type(self), name) and callable(getattr(type(self), name)):
+            object.__setattr__(self, name, value)
+            return
+        super().__setattr__(name, value)
+
+    def __delattr__(self, name: str) -> None:
+        """
+        Mirror __setattr__ override so patched callables can be removed without
+        triggering Pydantic's attribute restrictions.
+        """
+        if name in self.__dict__:
+            object.__delattr__(self, name)
+            return
+        if hasattr(type(self), name) and callable(getattr(type(self), name)):
+            # Nothing to delete: the class attribute remains intact
+            return
+        super().__delattr__(name)
 
     def __init__(self, config: Optional[dict] = None):
         """Initialize the Sequential Thinking Tool"""
@@ -302,6 +326,9 @@ You should:
         if not isinstance(total_thoughts, int) or total_thoughts < 1:
             # Auto-correct if totalThoughts is too low (similar to provided implementation)
             total_thoughts = max(1, thought_number)
+        elif total_thoughts < thought_number:
+            # Ensure total_thoughts never falls behind the current thought number
+            total_thoughts = thought_number
         
         # Extract optional fields with defaults
         is_revision = bool(data.get("isRevision", False))
