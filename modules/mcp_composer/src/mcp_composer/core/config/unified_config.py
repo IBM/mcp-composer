@@ -1,7 +1,7 @@
 """Unified configuration schema for MCP Composer."""
 
 from typing import Dict, List, Optional, Any, Union
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, ConfigDict
 from enum import Enum
 
 
@@ -110,14 +110,12 @@ class PromptConfig(BaseModel):
 
 class ToolConfig(BaseModel):
     """Tool configuration schema."""
+    model_config = ConfigDict(extra="allow")
+
     openapi: Optional[str] = Field(None, description="OpenAPI specification version")
     info: Optional[Dict[str, Any]] = Field(None, description="API information")
     servers: Optional[List[Dict[str, Any]]] = Field(None, description="API servers")
     paths: Optional[Dict[str, Any]] = Field(None, description="API paths")
-
-    # Allow additional fields for flexibility
-    class Config:
-        extra = "allow"
 
 
 class UnifiedConfig(BaseModel):

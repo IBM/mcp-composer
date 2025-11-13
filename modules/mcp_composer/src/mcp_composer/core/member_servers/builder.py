@@ -15,8 +15,6 @@ from fastmcp.client.transports import (
     SSETransport,
     StdioTransport,
 )
-from fastmcp.client.auth.oauth import FileTokenStorage
-
 from mcp_composer.core.utils.logger import LoggerFactory
 from mcp_composer.core.utils import ConfigKey, MemberServerType, AuthStrategy
 from mcp_composer.core.utils import (
@@ -108,10 +106,10 @@ class MCPServerBuilder:
             endpoint = config[ConfigKey.ENDPOINT]
             auth = None
             if auth_strategy == AuthStrategy.OAUTH:
-                FileTokenStorage.clear_all()
                 auth = OAuth(mcp_url=endpoint)
 
             elif auth_strategy == AuthStrategy.BEARER:
+                logger.info("Setting up header for bearer")
                 headers[ConfigKey.AUTH_HEADER.value] = (
                     f"Bearer {auth_token.get(ConfigKey.TOKEN)}"
                 )
@@ -222,6 +220,7 @@ class MCPServerBuilder:
             case AuthStrategy.DYNAMIC_BEARER:
                 logger.info("Setting up dynamic bearer token client")
                 http_client = DynamicTokenClient(base_url, auth_config, headers=headers)
+
             case AuthStrategy.OAUTH:
                 logger.info("Setting up OAuth client with auto-refresh")
                 # Use the generic resolve_env_value function to handle ENV_* values
