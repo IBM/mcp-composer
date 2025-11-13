@@ -77,7 +77,12 @@ async def load_json(filepath):
         data = json.load(file)
         return data
 
-
+def load_json_sync(filepath):
+    """Synchronous version of load_json for use in __init__ methods"""
+    with open(filepath, "r", encoding="utf-8-sig") as file:
+        data = json.load(file)
+        return data
+        
 async def get_member_health(
     server_config: list[MemberMCPServer],
 ) -> list[dict]:
