@@ -15,7 +15,6 @@ from fastmcp.client.transports import (
     SSETransport,
     StdioTransport,
 )
-
 from mcp_composer.core.utils.logger import LoggerFactory
 from mcp_composer.core.utils import ConfigKey, MemberServerType, AuthStrategy
 from mcp_composer.core.utils import (
@@ -96,8 +95,9 @@ class MCPServerBuilder:
             raise ValueError(f"Unsupported MCP type: {transport_type}")
 
         config = self.config
-        headers = config.get(ConfigKey.HEADERS)
-        oauth = config.get(ConfigKey.AUTH)
+        headers = config.get(ConfigKey.HEADERS, {})
+        auth_token = config.get(ConfigKey.AUTH, {})
+        auth_strategy = config.get(ConfigKey.AUTH_STRATEGY)
         transport = None
         if transport_type in {
             MemberServerType.HTTP,
@@ -105,10 +105,17 @@ class MCPServerBuilder:
         }:  # pylint: disable=R1705
             endpoint = config[ConfigKey.ENDPOINT]
             auth = None
-            if oauth:
+            if auth_strategy == AuthStrategy.OAUTH:
                 auth = OAuth(mcp_url=endpoint)
+
+            elif auth_strategy == AuthStrategy.BEARER:
+                logger.info("Setting up header for bearer")
+                headers[ConfigKey.AUTH_HEADER.value] = (
+                    f"Bearer {auth_token.get(ConfigKey.TOKEN)}"
+                )
+
             transport = TransportClass(url=endpoint, headers=headers, auth=auth)
-            print("the headers are >>>",headers)
+            print("the headers are >>>", headers)
             # Set up authentication if provided
             client = Client(transport, auth=auth)
             return FastMCP.as_proxy(client, name=self.mcp_id)
@@ -182,16 +189,19 @@ class MCPServerBuilder:
             # Dev: prefer spec_url if present, else spec_filepath
             if openapi_config.get(ConfigKey.SPEC_URL):
                 spec = await load_spec_from_url(
-                    openapi_config[ConfigKey.ENDPOINT], openapi_config[ConfigKey.SPEC_URL]
+                    openapi_config[ConfigKey.ENDPOINT],
+                    openapi_config[ConfigKey.SPEC_URL],
                 )
             elif openapi_config.get(ConfigKey.SPEC_FILEPATH):
                 spec = await load_json(openapi_config[ConfigKey.SPEC_FILEPATH])
             else:
-                raise NotImplementedError("Spec is missing (provide spec_url or spec_filepath)")
+                raise NotImplementedError(
+                    "Spec is missing (provide spec_url or spec_filepath)"
+                )
 
         headers = self.config.get(ConfigKey.HEADERS, {})
         logger.info("the headers are '%s'", headers)
-        auth_strategy = self.config.get(ConfigKey.AUTH_STRATEGY,"")
+        auth_strategy = self.config.get(ConfigKey.AUTH_STRATEGY, "")
         auth_config = self.config.get(ConfigKey.AUTH, {})
         base_url = openapi_config[ConfigKey.ENDPOINT]
         http_client = httpx.AsyncClient(base_url=base_url)
@@ -209,18 +219,25 @@ class MCPServerBuilder:
 
             case AuthStrategy.DYNAMIC_BEARER:
                 logger.info("Setting up dynamic bearer token client")
-                http_client = DynamicTokenClient(base_url,auth_config, headers=headers)
+                http_client = DynamicTokenClient(base_url, auth_config, headers=headers)
+
             case AuthStrategy.OAUTH:
                 logger.info("Setting up OAuth client with auto-refresh")
                 # Use the generic resolve_env_value function to handle ENV_* values
                 client_id = resolve_env_value(auth_config.get(ConfigKey.CLIENT_ID))
-                client_secret = resolve_env_value(auth_config.get(ConfigKey.CLIENT_SECRET))
+                client_secret = resolve_env_value(
+                    auth_config.get(ConfigKey.CLIENT_SECRET)
+                )
                 token_url = auth_config.get(ConfigKey.Token_URL)
                 scope = auth_config.get(ConfigKey.SCOPE)
-                refresh_token_value = resolve_env_value(auth_config.get(ConfigKey.REFRESH_TOKEN))
+                refresh_token_value = resolve_env_value(
+                    auth_config.get(ConfigKey.REFRESH_TOKEN)
+                )
 
                 if not all([client_id, client_secret, token_url, refresh_token_value]):
-                    raise RuntimeError("Missing required OAuth configuration: client_id, client_secret, token_url, refresh_token")
+                    raise RuntimeError(
+                        "Missing required OAuth configuration: client_id, client_secret, token_url, refresh_token"
+                    )
 
                 http_client = OAuthRefreshClient(
                     base_url=base_url,
@@ -228,7 +245,7 @@ class MCPServerBuilder:
                     client_id=client_id,
                     client_secret=client_secret,
                     refresh_token=refresh_token_value,
-                    scope=scope
+                    scope=scope,
                 )
 
             case AuthStrategy.BEARER:
@@ -252,14 +269,17 @@ class MCPServerBuilder:
 
             case AuthStrategy.APIKEY:
                 logger.info("Setting up header and client for apikey")
-                auth_header = " ".join(filter(None, [
-                    auth_config.get(ConfigKey.AUTH_PREFIX),
-                    resolve_env_value(auth_config.get(ConfigKey.APIKEY))
-                ]))
-                headers[ConfigKey.AUTH_HEADER.value] = (
-                    f"{auth_header}"
+                auth_header = " ".join(
+                    filter(
+                        None,
+                        [
+                            auth_config.get(ConfigKey.AUTH_PREFIX),
+                            resolve_env_value(auth_config.get(ConfigKey.APIKEY)),
+                        ],
+                    )
                 )
-                logger.info("the url is '%s",base_url)
+                headers[ConfigKey.AUTH_HEADER.value] = f"{auth_header}"
+                logger.info("the url is '%s", base_url)
                 http_client = httpx.AsyncClient(base_url=base_url, headers=headers)
 
             case AuthStrategy.JSESSIONID.value:
@@ -291,8 +311,8 @@ class MCPServerBuilder:
             case _:
                 # Default/fallback client
                 if headers:
-                     logger.info("Setting up default client with headers")
-                     http_client = httpx.AsyncClient(base_url=base_url, headers=headers)
+                    logger.info("Setting up default client with headers")
+                    http_client = httpx.AsyncClient(base_url=base_url, headers=headers)
                 else:
                     logger.info("Setting up default client without headers")
                     http_client = httpx.AsyncClient(base_url=base_url)
@@ -302,7 +322,9 @@ class MCPServerBuilder:
 
         # Check if layered is enabled in the OPEN_API configuration
         if openapi_config.get(ConfigKey.LAYERED, False):
-            exclude_all_route = await load_custom_mappings_from_json(DEFAULT_EXCLUDE_CONFIG)
+            exclude_all_route = await load_custom_mappings_from_json(
+                DEFAULT_EXCLUDE_CONFIG
+            )
             # Ensure spec is a dict and http_client is not None
             if not isinstance(spec, dict):
                 raise ValueError("OpenAPI spec must be a dictionary")
@@ -313,7 +335,7 @@ class MCPServerBuilder:
                 openapi_spec=spec,
                 client=http_client,
                 custom_routes=custom_mappings,
-                custom_routes_exclude_all=exclude_all_route
+                custom_routes_exclude_all=exclude_all_route,
             )
         else:
             # Default behavior when layered is not enabled
