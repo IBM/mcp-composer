@@ -1,5 +1,6 @@
 import os
 import asyncio
+from mcp_composer.core.tools.deep_research_tool import DeepResearchTool
 from mcp_composer.middleware.tool.tool_filter import ListFilteredTool
 from mcp_composer import MCPComposer
 
@@ -15,6 +16,13 @@ async def main():
     """
     mode = os.getenv("MCP_MODE", "sse").lower()
     gw.add_middleware(ListFilteredTool(gw))
+    deep_research_tool = DeepResearchTool(
+        {
+            "name": "deep_research",
+            "resource_manager": gw.resource_manager,
+        }
+    )
+    gw.add_tool(deep_research_tool)
     await gw.setup_member_servers()
 
     if mode == "http":
