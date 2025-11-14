@@ -55,7 +55,8 @@ MIIEpAIBAAKCAQEA1234567890abcdefghijklmnopqrstuvwxyz
         assert client.auth_data == auth_data
         assert client._resolved_token_url is None
         assert client.base_url == "https://api.example.com"
-        assert client.timeout == 30.0
+        # httpx.AsyncClient converts float timeout to Timeout object
+        assert client.timeout.connect == 30.0
 
     def test_initialization_empty_base_url(self):
         """Test initialization with empty base_url raises ValueError"""
@@ -99,12 +100,21 @@ MIIEpAIBAAKCAQEA1234567890abcdefghijklmnopqrstuvwxyz
         assert headers["typ"] == "JWT"
         assert headers["alg"] == "RS256"
 
-    @patch("mcp_composer.core.auth_handler.oauth_handler.resolve_env_value")
+    @patch("mcp_composer.core.auth_handler.aspera_auth_handler.resolve_env_value")
     def test_generate_jwt_assertion_missing_user_email(self, mock_resolve, client):
         """Test JWT assertion generation with missing user_email"""
-        mock_resolve.return_value = None
+        # Mock resolve_env_value to return values for other fields but None/empty for user_email
+        user_email_value = client.auth_data.get("user_email")
+        def resolve_side_effect(x):
+            # Return None/empty for user_email to simulate missing value
+            if x == user_email_value:
+                return None  # user_email resolves to None (which will be falsy)
+            # Return original value for other fields (or resolved value if it's an ENV_ var)
+            return x if x is not None else ""
+        
+        mock_resolve.side_effect = resolve_side_effect
 
-        with pytest.raises(ValueError, match="user_email must be provided"):
+        with pytest.raises(ValueError, match=r"user_email must be provided"):
             client._generate_jwt_assertion()
 
     @patch("builtins.open", side_effect=FileNotFoundError)
@@ -119,22 +129,32 @@ MIIEpAIBAAKCAQEA1234567890abcdefghijklmnopqrstuvwxyz
         with pytest.raises(ValueError, match="Error reading private key"):
             client._sign_payload("/path/to/cert.pem", {}, {})
 
-    @patch("mcp_composer.core.auth_handler.oauth_handler.resolve_env_value")
+    @patch("mcp_composer.core.auth_handler.aspera_auth_handler.resolve_env_value")
     def test_generate_jwt_assertion_with_env_variables(self, mock_resolve, auth_data):
         """Test JWT assertion generation with environment variable resolution"""
-        mock_resolve.side_effect = lambda x: {
+        env_resolutions = {
             "ENV_CLIENT_ID": "resolved_client_id",
             "ENV_USER_EMAIL": "resolved@example.com",
             "ENV_TOKEN_URL": "https://resolved.example.com/token",
             "ENV_CERT_PATH": "/resolved/cert.pem",
-        }.get(x, x)
+        }
+        
+        def resolve_side_effect(x):
+            # Return resolved value if it's an ENV_ variable, otherwise return the original value
+            if x is None:
+                return ""
+            return env_resolutions.get(x, x)
+        
+        mock_resolve.side_effect = resolve_side_effect
 
-        auth_data[ConfigKey.CLIENT_ID] = "ENV_CLIENT_ID"
-        auth_data["user_email"] = "ENV_USER_EMAIL"
-        auth_data[ConfigKey.Token_URL] = "ENV_TOKEN_URL"
-        auth_data[ConfigKey.CERT_PATH] = "ENV_CERT_PATH"
+        # Create a new auth_data dict to avoid modifying the fixture
+        test_auth_data = auth_data.copy()
+        test_auth_data[ConfigKey.CLIENT_ID] = "ENV_CLIENT_ID"
+        test_auth_data["user_email"] = "ENV_USER_EMAIL"
+        test_auth_data[ConfigKey.Token_URL] = "ENV_TOKEN_URL"
+        test_auth_data[ConfigKey.CERT_PATH] = "ENV_CERT_PATH"
 
-        client = AsperaJWTClient(base_url="https://api.example.com", auth_data=auth_data)
+        client = AsperaJWTClient(base_url="https://api.example.com", auth_data=test_auth_data)
 
         with patch("builtins.open", new_callable=mock_open, read_data="MOCK_KEY"), \
              patch("jwt.encode", return_value="mock.jwt.token"):
@@ -154,7 +174,7 @@ MIIEpAIBAAKCAQEA1234567890abcdefghijklmnopqrstuvwxyz
 
         with patch("builtins.open", new_callable=mock_open, read_data=mock_private_key), \
              patch("jwt.encode", return_value="mock.jwt.assertion"), \
-             patch.object(client, "post", new_callable=AsyncMock, return_value=mock_response):
+             patch.object(httpx.AsyncClient, "post", new_callable=AsyncMock, return_value=mock_response):
             
             await client._refresh_token()
 
@@ -175,7 +195,7 @@ MIIEpAIBAAKCAQEA1234567890abcdefghijklmnopqrstuvwxyz
 
         with patch("builtins.open", new_callable=mock_open, read_data=mock_private_key), \
              patch("jwt.encode", return_value="mock.jwt.assertion"), \
-             patch.object(client, "post", new_callable=AsyncMock, return_value=mock_response):
+             patch.object(httpx.AsyncClient, "post", new_callable=AsyncMock, return_value=mock_response):
             
             await client._refresh_token()
 
@@ -187,8 +207,10 @@ MIIEpAIBAAKCAQEA1234567890abcdefghijklmnopqrstuvwxyz
         """Test token refresh with missing token_url_with_org"""
         client.auth_data.pop(ConfigKey.TOKEN_URL_WITH_ORG, None)
 
-        with pytest.raises(ValueError, match="token_url_with_org must be provided"):
-            await client._refresh_token()
+        with patch("builtins.open", new_callable=mock_open, read_data="MOCK_KEY"), \
+             patch("jwt.encode", return_value="mock.jwt.assertion"):
+            with pytest.raises(ValueError, match=r"token_url_with_org must be provided"):
+                await client._refresh_token()
 
     @pytest.mark.asyncio
     async def test_refresh_token_no_access_token_in_response(self, client, mock_private_key):
@@ -202,7 +224,7 @@ MIIEpAIBAAKCAQEA1234567890abcdefghijklmnopqrstuvwxyz
 
         with patch("builtins.open", new_callable=mock_open, read_data=mock_private_key), \
              patch("jwt.encode", return_value="mock.jwt.assertion"), \
-             patch.object(client, "post", new_callable=AsyncMock, return_value=mock_response):
+             patch.object(httpx.AsyncClient, "post", new_callable=AsyncMock, return_value=mock_response):
             
             with pytest.raises(ValueError, match="No access_token in response"):
                 await client._refresh_token()
@@ -218,7 +240,7 @@ MIIEpAIBAAKCAQEA1234567890abcdefghijklmnopqrstuvwxyz
 
         with patch("builtins.open", new_callable=mock_open, read_data=mock_private_key), \
              patch("jwt.encode", return_value="mock.jwt.assertion"), \
-             patch.object(client, "post", new_callable=AsyncMock, return_value=mock_response):
+             patch.object(httpx.AsyncClient, "post", new_callable=AsyncMock, return_value=mock_response):
             
             with pytest.raises(httpx.HTTPStatusError):
                 await client._refresh_token()
@@ -235,13 +257,16 @@ MIIEpAIBAAKCAQEA1234567890abcdefghijklmnopqrstuvwxyz
 
         with patch("builtins.open", new_callable=mock_open, read_data=mock_private_key), \
              patch("jwt.encode", return_value="mock.jwt.assertion"), \
-             patch.object(client, "post", new_callable=AsyncMock, return_value=mock_response):
+             patch.object(httpx.AsyncClient, "post", new_callable=AsyncMock, return_value=mock_response):
             
             await client._refresh_token()
 
             assert client._access_token == "new-token"
-            # Should use default 3600 seconds minus buffer
-            assert client._expires_at > time.time() + 3540  # 3600 - 60 buffer
+            # Should use default 3600 seconds minus buffer (60 seconds)
+            # Allow some tolerance for time.time() calls at different times
+            expected_min = time.time() + 3530  # 3600 - 60 buffer - 10 tolerance
+            expected_max = time.time() + 3550  # 3600 - 60 buffer + 10 tolerance
+            assert expected_min < client._expires_at < expected_max
 
     @pytest.mark.asyncio
     async def test_refresh_token_custom_scope(self, auth_data, mock_private_key):
@@ -259,7 +284,7 @@ MIIEpAIBAAKCAQEA1234567890abcdefghijklmnopqrstuvwxyz
 
         with patch("builtins.open", new_callable=mock_open, read_data=mock_private_key), \
              patch("jwt.encode", return_value="mock.jwt.assertion"), \
-             patch.object(client, "post", new_callable=AsyncMock, return_value=mock_response) as mock_post:
+             patch.object(httpx.AsyncClient, "post", new_callable=AsyncMock, return_value=mock_response) as mock_post:
             
             await client._refresh_token()
 
@@ -307,7 +332,7 @@ MIIEpAIBAAKCAQEA1234567890abcdefghijklmnopqrstuvwxyz
 
         with patch("builtins.open", new_callable=mock_open, read_data=mock_private_key), \
              patch("jwt.encode", return_value="mock.jwt.assertion"), \
-             patch.object(client, "post", new_callable=AsyncMock, return_value=mock_token_response), \
+             patch.object(httpx.AsyncClient, "post", new_callable=AsyncMock, return_value=mock_token_response), \
              patch("httpx.AsyncClient.request", new_callable=AsyncMock, return_value=mock_data_response) as mock_http_request:
 
             await client.request("GET", "https://api.example.com/data")
@@ -366,6 +391,7 @@ MIIEpAIBAAKCAQEA1234567890abcdefghijklmnopqrstuvwxyz
     async def test_request_with_no_token(self, client, mock_private_key):
         """Test request with no token triggers refresh"""
         client._access_token = None
+        client._expires_at = 0.0  # Ensure it's expired
 
         mock_token_response = Mock()
         mock_token_response.json.return_value = {
@@ -380,7 +406,7 @@ MIIEpAIBAAKCAQEA1234567890abcdefghijklmnopqrstuvwxyz
 
         with patch("builtins.open", new_callable=mock_open, read_data=mock_private_key), \
              patch("jwt.encode", return_value="mock.jwt.assertion"), \
-             patch.object(client, "post", new_callable=AsyncMock, return_value=mock_token_response), \
+             patch.object(httpx.AsyncClient, "post", new_callable=AsyncMock, return_value=mock_token_response), \
              patch("httpx.AsyncClient.request", new_callable=AsyncMock, return_value=mock_data_response) as mock_http_request:
 
             await client.request("GET", "https://api.example.com/data")
@@ -469,7 +495,7 @@ MIIEpAIBAAKCAQEA1234567890abcdefghijklmnopqrstuvwxyz
 
         with patch("builtins.open", new_callable=mock_open, read_data=mock_private_key), \
              patch("jwt.encode", return_value="mock.jwt.assertion"), \
-             patch.object(client, "post", new_callable=AsyncMock, return_value=mock_response) as mock_post:
+             patch.object(httpx.AsyncClient, "post", new_callable=AsyncMock, return_value=mock_response) as mock_post:
             
             await client._refresh_token()
 
@@ -489,5 +515,6 @@ MIIEpAIBAAKCAQEA1234567890abcdefghijklmnopqrstuvwxyz
             assert "assertion=" in content
             assert "grant_type=" in content
             assert "scope=" in content
-            assert "urn:ietf:params:oauth:grant-type:jwt-bearer" in content
+            # The grant_type is URL-encoded, so check for the encoded version
+            assert "urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Ajwt-bearer" in content
 
