@@ -3,8 +3,7 @@ import asyncio
 from fastmcp.tools.tool import Tool
 from mcp_composer import MCPComposer
 from mcp_composer.core.tools.sequential_thinking_tool import SequentialThinkingTool
-
-
+from mcp_composer.core.tools.deep_research_tool import DeepResearchTool
 
 gw = MCPComposer("thinker-composer")
 
@@ -21,8 +20,13 @@ async def main():
     sequential_tool = SequentialThinkingTool({"name": "sequential_thinking"})
     gw.add_tool(sequential_tool)
 
-    #deep_research_tool = DeepResearchTool({"name": "deep_research"})
-    #gw.add_tool(deep_research_tool)
+    deep_research_tool = DeepResearchTool(
+        {
+            "name": "deep_research",
+            "resource_manager": gw.resource_manager,
+        }
+    )
+    gw.add_tool(deep_research_tool)
 
 
 

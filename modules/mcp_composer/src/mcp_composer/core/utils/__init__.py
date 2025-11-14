@@ -15,6 +15,7 @@ from .utils import (
     get_member_health,
     load_custom_mappings_from_json,
     load_json,
+    load_json_sync,
     load_spec_from_url,
     ensure_dependencies_installed,
     extract_imported_modules,
