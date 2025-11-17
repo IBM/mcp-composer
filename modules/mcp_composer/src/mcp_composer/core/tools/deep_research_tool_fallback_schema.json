@@ -8,58 +8,51 @@
     },
     "stage": {
       "type": "string",
-      "description": "Specific stage to execute (auto runs all stages sequentially).",
+      "description": "Current research stage you're working on.",
       "enum": [
-        "auto",
         "planning",
         "source_finding",
         "summarization",
         "review",
-        "writing"
+        "writing",
+        "complete"
       ],
-      "default": "auto"
+      "default": "planning"
     },
-    "max_sources_per_question": {
-      "type": "integer",
-      "description": "Maximum number of sources to fetch per sub-question.",
-      "minimum": 1,
-      "maximum": 10,
-      "default": 3
-    },
-    "search_enabled": {
-      "type": "boolean",
-      "description": "Enable external web search for sources.",
-      "default": true
-    },
-    "streaming": {
-      "type": "boolean",
-      "description": "Emit streaming progress updates during execution.",
-      "default": true
-    },
-    "session_id": {
-      "type": "string",
-      "description": "Existing session identifier to resume."
-    },
-    "user_id": {
-      "type": "string",
-      "description": "User identifier for session scoping.",
-      "default": "default"
-    },
-    "additional_context": {
-      "type": "string",
-      "description": "Extra guidance or constraints for planning and summarisation."
-    },
-    "force_new_session": {
-      "type": "boolean",
-      "description": "Force creation of a fresh session instead of reusing.",
-      "default": false
-    },
-    "allowed_domains": {
+    "sub_questions": {
       "type": "array",
-      "description": "Only accept sources from these domains.",
+      "description": "List of sub-questions you've identified (for planning stage).",
       "items": {
         "type": "string"
       }
+    },
+    "sources_count": {
+      "type": "integer",
+      "description": "Number of sources found (for source finding stage context).",
+      "minimum": 0
+    },
+    "gaps": {
+      "type": "array",
+      "description": "List of gaps or limitations identified (for review stage).",
+      "items": {
+        "type": "string"
+      }
+    },
+    "additional_context": {
+      "type": "string",
+      "description": "Extra guidance or constraints for the research."
+    },
+    "search_query": {
+      "type": "string",
+      "description": "Optional search query to perform web search using DuckDuckGo. If provided, the tool will search and return results.",
+      "minLength": 1
+    },
+    "max_results": {
+      "type": "integer",
+      "description": "Maximum number of search results to return (default: 5, max: 10).",
+      "minimum": 1,
+      "maximum": 10,
+      "default": 5
     }
   },
   "required": [
