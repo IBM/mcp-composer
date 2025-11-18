@@ -16,10 +16,11 @@ from typing import Dict, List, Optional, Annotated
 from dotenv import load_dotenv
 
 import typer
-from typer import Option, Argument, Context
+from typer import Option, Argument
 
 from mcp_composer import MCPComposer
-from mcp_composer.core.auth_handler.oauth import ServerSettings, SimpleOAuthProvider
+from mcp_composer.core.auth_handler.oauth import ServerSettings
+from mcp_composer.core.auth_handler.providers import OAuthProviderFactory
 from mcp_composer.core.utils import MemberServerType
 from mcp_composer.core.utils.logger import LoggerFactory
 from mcp_composer.core.utils.oauth_cli_utils import (
@@ -89,282 +90,6 @@ app.add_typer(
     name="tag",
     help="MCP Tagging and Catalog generation commands",
 )
-
-
-def main_callback(
-    ctx: typer.Context,
-    # Server parameters matching original CLI
-    mode: Annotated[
-        Optional[str],
-        Option(
-            "--mode", help="MCP mode to run (http, sse, or stdio)", case_sensitive=False
-        ),
-    ] = None,
-    id: Annotated[
-        Optional[str], Option("--id", help="Unique ID for this MCP instance")
-    ] = None,
-    endpoint: Annotated[
-        Optional[str],
-        Option("--endpoint", help="Endpoint for HTTP or SSE server running remotely"),
-    ] = None,
-    config_path: Annotated[
-        Optional[str],
-        Option("--config_path", help="Path to JSON config for MCP member servers"),
-    ] = None,
-    directory: Annotated[
-        Optional[str],
-        Option(
-            "--directory", help="Working directory for the uvicorn process (optional)"
-        ),
-    ] = None,
-    script_path: Annotated[
-        Optional[str],
-        Option("--script_path", help="Path to the script to run in 'stdio' mode"),
-    ] = None,
-    host: Annotated[
-        Optional[str], Option("--host", help="Host for SSE or HTTP server")
-    ] = None,
-    port: Annotated[
-        Optional[int], Option("--port", help="Port for SSE or HTTP server")
-    ] = None,
-    auth_type: Annotated[
-        Optional[str],
-        Option(
-            "--auth_type",
-            help="Optional auth type. If 'oauth', uses OAuth authentication",
-        ),
-    ] = None,
-    sse_url: Annotated[
-        Optional[str],
-        Option(
-            "--sse-url",
-            help="Langflow compatible URL for remote SSE / HTTP server to connect to",
-        ),
-    ] = None,
-    disable_composer_tools: Annotated[
-        Optional[bool],
-        Option(
-            "--disable-composer-tools/--enable-composer-tools",
-            help="Disable composer tools (disabled by default)",
-        ),
-    ] = None,
-    pass_environment: Annotated[
-        Optional[bool],
-        Option(
-            "--pass-environment/--no-pass-environment",
-            help="Pass through all environment variables when spawning all server processes",
-        ),
-    ] = None,
-    remote_auth_type: Annotated[
-        Optional[str],
-        Option(
-            "--remote_auth_type",
-            help="Authentication type for remote server (oauth or none)",
-        ),
-    ] = None,
-    client_auth_type: Annotated[
-        Optional[str],
-        Option(
-            "--client_auth_type", help="Authentication type for client (oauth or none)"
-        ),
-    ] = None,
-    env: Annotated[
-        Optional[List[str]],
-        Option(
-            "--env",
-            "-e",
-            help="Environment variables (format: KEY=VALUE). Can be used multiple times.",
-        ),
-    ] = None,
-    log_level: Annotated[
-        Optional[str],
-        Option(
-            "--log-level",
-            help="Set the logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL)",
-        ),
-    ] = None,
-    timeout: Annotated[
-        Optional[int],
-        Option(
-            "--timeout",
-            help="Set timeout in seconds for server operations and connections (optional - no timeout by default)",
-        ),
-    ] = None,
-    # Unified configuration options
-    config: Annotated[
-        Optional[str],
-        Option(
-            "--config",
-            help="Configuration type to load (servers, middleware, prompts, tools, all) or command (validate, show, apply)",
-        ),
-    ] = None,
-    configfilepath: Annotated[
-        Optional[str], Option("--configfilepath", help="Path to the configuration file")
-    ] = None,
-    config_format: Annotated[
-        Optional[str], Option("--format", help="Output format (table, json)")
-    ] = None,
-    dry_run: Annotated[
-        Optional[bool],
-        Option(
-            "--dry-run", help="Show what would be applied without actually applying"
-        ),
-    ] = None,
-) -> None:
-    """Main callback to handle direct command execution matching original CLI."""
-
-    # Handle unified configuration commands first
-    if config is not None:
-        # If we have server mode parameters, we need to apply config AND start server
-        if mode is not None:
-            # Apply configuration first, then start server
-            _apply_config_and_start_server(
-                config,
-                configfilepath,
-                config_format,
-                dry_run,
-                mode,
-                id,
-                endpoint,
-                config_path,
-                directory,
-                script_path,
-                host,
-                port,
-                auth_type,
-                sse_url,
-                disable_composer_tools,
-                pass_environment,
-                remote_auth_type,
-                client_auth_type,
-                env,
-                log_level,
-                timeout,
-            )
-        else:
-            # Just handle configuration commands
-            _handle_unified_config_commands(
-                config, configfilepath, config_format, dry_run
-            )
-        return
-
-    # Only run server if mode is provided (direct command execution)
-    if mode is None:
-        return  # Let subcommands handle their own logic
-
-    # Set defaults for optional parameters
-    if id is None:
-        id = "mcp-local"
-    if host is None:
-        host = "0.0.0.0"
-    if port is None:
-        port = 9000
-    if remote_auth_type is None:
-        remote_auth_type = "none"
-    if client_auth_type is None:
-        client_auth_type = "none"
-    if disable_composer_tools is None:
-        disable_composer_tools = False
-    if pass_environment is None:
-        pass_environment = False
-
-    # Set timeout if provided
-    if timeout is not None:
-        if timeout <= 0:
-            logger.error("Timeout must be a positive number, got: %s", timeout)
-            raise typer.Exit(1)
-        logger.info("Set timeout to %d seconds", timeout)
-    else:
-        logger.info("No timeout specified - server will run indefinitely")
-
-    # Set logging level if provided
-    if log_level:
-        import logging
-
-        numeric_level = getattr(logging, log_level.upper(), None)
-        if not isinstance(numeric_level, int):
-            logger.error(
-                "Invalid log level: %s. Valid levels are: DEBUG, INFO, WARNING, ERROR, CRITICAL",
-                log_level,
-            )
-            raise typer.Exit(1)
-        # Set level on the specific logger, not the root logger
-        logger.setLevel(numeric_level)
-        # Also set the root logger to prevent propagation issues
-        logging.getLogger().setLevel(numeric_level)
-        logger.info("Set logging level to %s", log_level.upper())
-
-    # Set SERVER_CONFIG_FILE_PATH if provided
-    if config_path:
-        logger.info("Setting SERVER_CONFIG_FILE_PATH to %s", config_path)
-        os.environ["SERVER_CONFIG_FILE_PATH"] = config_path
-
-    # Load config from file if provided
-    config = None
-    if config_path:
-        try:
-            import json
-
-            with open(config_path, "r", encoding="utf-8") as f:
-                config = json.load(f)
-            logger.info(
-                "Loaded %d server configurations from %s", len(config), config_path
-            )
-        except Exception as e:
-            logger.error("Failed to load config file %s: %s", config_path, e)
-            raise typer.Exit(1)
-
-    base_env: Dict[str, str] = {}
-
-    # Add environment variables from --env arguments (preprocessed to KEY=VALUE format)
-    if env:
-        for env_var in env:
-            if "=" in env_var:
-                key, value = env_var.split("=", 1)
-                base_env[key] = value
-                os.environ[key] = value
-                logger.info(
-                    "Setting environment variable from --env: %s=%s",
-                    key,
-                    os.environ[key],
-                )
-            else:
-                raise typer.BadParameter(
-                    f"Environment variable must be in format KEY=VALUE, got: {env_var}"
-                )
-
-    # Pass through all environment variables if requested
-    if pass_environment:
-        base_env.update(os.environ)
-        logger.info("Passing all environment variables to all servers")
-        os.environ.update(base_env)
-
-    # Build configuration
-    if config is None:
-        config = []
-    try:
-        if endpoint or script_path:
-            config = build_config_from_args(mode, endpoint, script_path, directory, id)
-
-        # Run the composer
-        asyncio.run(
-            run_dynamic_composer(
-                mode=mode,
-                config=config,
-                auth_type=auth_type,
-                sse_url=sse_url,
-                remote_auth_type=remote_auth_type,
-                client_auth_type=client_auth_type,
-                disable_composer_tools=disable_composer_tools,
-                host=host,
-                port=port,
-                timeout=timeout,
-            )
-        )
-
-    except Exception as e:
-        logger.error("Error to start MCP: %s", e)
-        raise typer.Exit(1)
 
 
 # Add middleware commands from original CLI
@@ -547,175 +272,6 @@ def add_middleware(
         raise typer.Exit(1)
 
 
-# Set the callback
-app.callback(invoke_without_command=True)(main_callback)
-
-
-def build_config_from_args(
-    mode: str,
-    endpoint: Optional[str] = None,
-    script_path: Optional[str] = None,
-    directory: Optional[str] = None,
-    id: str = "mcp-local",
-) -> List[Dict]:
-    """Build configuration dictionary from command line arguments."""
-
-    if mode in (MemberServerType.SSE, MemberServerType.HTTP):
-        if endpoint:
-            config = {
-                "id": id,
-                "type": mode,
-                "endpoint": endpoint,
-                "_id": id,
-            }
-        else:
-            # For HTTP/SSE mode without endpoint, return empty config
-            # The server will be started directly without member servers
-            config = {}
-    elif mode == MemberServerType.STDIO:
-        if not script_path:
-            raise typer.BadParameter("--script-path is required for mode 'stdio'")
-
-        config = {
-            "id": id,
-            "type": MemberServerType.STDIO,
-            "command": "uv",
-            "args": [
-                "--directory",
-                directory or str(Path(script_path).parent),
-                "run",
-                Path(script_path).name,
-            ],
-            "_id": id,
-        }
-    else:
-        raise typer.BadParameter(f"Unsupported mode '{mode}'")
-
-    server_configs = [config]
-    return server_configs
-
-
-async def run_dynamic_composer(
-    mode: str,
-    config: List[Dict],
-    auth_type: Optional[str] = None,
-    sse_url: Optional[str] = None,
-    remote_auth_type: str = "none",
-    client_auth_type: str = "none",
-    disable_composer_tools: bool = False,
-    host: str = "0.0.0.0",
-    port: int = 9000,
-    timeout: Optional[int] = None,
-) -> None:
-    """Run MCP Composer with dynamically constructed configuration."""
-    logger.info("Running MCP Composer with dynamic configuration... %s", auth_type)
-
-    mcp = None
-
-    if auth_type == "oauth":
-        logger.info("Detected --auth_type oauth")
-        settings = ServerSettings()
-        mcp = create_mcp_server(settings)
-    else:
-        logger.info("Running MCP Composer without OAuth")
-        mcp = MCPComposer("composer", config=config)  # type: ignore
-
-    # Remove composer tools if disable-composer-tools is set to True
-    if disable_composer_tools:
-        tools = await mcp.get_tools()
-        logger.info("Remove composer tools")
-        for name, _ in tools.items():
-            mcp.remove_tool(name)
-
-    if sse_url:
-        logger.info("mounting Remote server into MCP composer")
-        remote_url = sse_url
-        auth = None
-        remote_proxy = None
-
-        if remote_auth_type == "oauth":
-            remote_settings = ServerSettings(prefix="REMOTE_OAUTH_")
-            auth = SimpleOAuthProvider(remote_settings)
-            logger.info("Created remote client with OAuth")
-            remote_proxy = MCPComposer("composer", auth=auth)
-            await remote_proxy._tool_manager.disable_tools(["all"])
-
-        elif client_auth_type == "oauth":
-            client_issuer = get_issuer(remote_url)
-            client_scope = "openid"
-            client_id = None
-            token = await oauth_pkce_login_async(client_issuer, client_scope, client_id)
-            access_token = token.get("access_token")
-            if not access_token:
-                raise RuntimeError("OAuth succeeded but no access_token was returned.")
-
-            # Prefer passing Authorization header via ProxyClient if supported
-            auth_headers = {"Authorization": f"Bearer {access_token}"}
-
-            # If ProxyClient supports headers:
-            from fastmcp.client.transports import SSETransport, StreamableHttpTransport
-            from fastmcp.server.proxy import ProxyClient
-
-            # Prefer SSE if you're connecting to /sse
-            if remote_url.endswith("/sse"):
-                transport = SSETransport(remote_url, headers=auth_headers)
-            else:
-                transport = StreamableHttpTransport(remote_url, headers=auth_headers)
-
-            # Now create the proxy **from the transport**, not from ProxyClient
-            remote_proxy = MCPComposer.as_proxy(transport, name="remote-oauth")
-        else:
-            logger.info("Created remote client without OAuth")
-            from fastmcp.server.proxy import ProxyClient
-
-            remote_proxy = MCPComposer.as_proxy(
-                ProxyClient(remote_url), name="local-stdio"
-            )
-
-        await mcp.import_server(remote_proxy)
-
-    await mcp.setup_member_servers()
-
-    try:
-        if mode == MemberServerType.STDIO:
-            if timeout is not None:
-                await asyncio.wait_for(mcp.run_stdio_async(), timeout=timeout)
-            else:
-                await mcp.run_stdio_async()
-        elif mode == MemberServerType.SSE:
-            if timeout is not None:
-                await asyncio.wait_for(
-                    mcp.run_sse_async(
-                        host=host, port=port, log_level="debug", path="/sse"
-                    ),
-                    timeout=timeout,
-                )
-            else:
-                await mcp.run_sse_async(
-                    host=host, port=port, log_level="debug", path="/sse"
-                )
-        elif mode == MemberServerType.HTTP:
-            if timeout is not None:
-                await asyncio.wait_for(
-                    mcp.run_http_async(
-                        host=host, port=port, log_level="debug", path="/mcp"
-                    ),
-                    timeout=timeout,
-                )
-            else:
-                await mcp.run_http_async(
-                    host=host, port=port, log_level="debug", path="/mcp"
-                )
-        else:
-            raise ValueError(f"Unknown config type: {mode}")
-    except asyncio.TimeoutError:
-        logger.error("Server operation timed out after %d seconds", timeout)
-        raise typer.Exit(1)
-    except Exception as e:
-        logger.error("Server operation failed: %s", e)
-        raise typer.Exit(1)
-
-
 @app.command("run")
 def run_composer(
     # Mode and basic configuration
@@ -766,6 +322,13 @@ def run_composer(
             help="Optional auth type. If 'oauth', uses OAuth authentication",
         ),
     ] = None,
+    auth_provider: Annotated[
+        Optional[str],
+        Option(
+            "--auth_provider",
+            help="Optional auth provider. by default 'IBM W3' is used for OAuth. Currently only 'oidc' is supported support GitHub, Google, AWS Cognito and Azure",
+        ),
+    ] = "oidc",
     # Remote server configuration
     sse_url: Annotated[
         Optional[str],
@@ -883,9 +446,7 @@ def run_composer(
         key, value = env_var.split("=", 1)
         base_env[key] = value
         os.environ[key] = value
-        logger.info(
-            "Setting environment variable from --env: %s=%s", key, os.environ[key]
-        )
+        logger.info("Setting environment variable from --env: %s=%s", key, value)
 
     # Pass through all environment variables if requested
     if pass_environment:
@@ -906,6 +467,7 @@ def run_composer(
                 mode=mode,
                 config=config,
                 auth_type=auth_type,
+                auth_provider=auth_provider or "oidc",
                 sse_url=sse_url,
                 remote_auth_type=remote_auth_type,
                 client_auth_type=client_auth_type,
@@ -1046,6 +608,511 @@ def init_command(
     )
 
 
+def main_callback(
+    ctx: typer.Context,
+    # Server parameters matching original CLI
+    mode: Annotated[
+        Optional[str],
+        Option(
+            "--mode", help="MCP mode to run (http, sse, or stdio)", case_sensitive=False
+        ),
+    ] = None,
+    id: Annotated[
+        Optional[str], Option("--id", help="Unique ID for this MCP instance")
+    ] = None,
+    endpoint: Annotated[
+        Optional[str],
+        Option("--endpoint", help="Endpoint for HTTP or SSE server running remotely"),
+    ] = None,
+    config_path: Annotated[
+        Optional[str],
+        Option("--config_path", help="Path to JSON config for MCP member servers"),
+    ] = None,
+    directory: Annotated[
+        Optional[str],
+        Option(
+            "--directory", help="Working directory for the uvicorn process (optional)"
+        ),
+    ] = None,
+    script_path: Annotated[
+        Optional[str],
+        Option("--script_path", help="Path to the script to run in 'stdio' mode"),
+    ] = None,
+    host: Annotated[
+        Optional[str], Option("--host", help="Host for SSE or HTTP server")
+    ] = None,
+    port: Annotated[
+        Optional[int], Option("--port", help="Port for SSE or HTTP server")
+    ] = None,
+    auth_type: Annotated[
+        Optional[str],
+        Option(
+            "--auth_type",
+            help="Optional auth type. If 'oauth', uses OAuth authentication",
+        ),
+    ] = None,
+    auth_provider: Annotated[
+        Optional[str],
+        Option(
+            "--auth_provider",
+            help="Optional auth provider. by default 'IBM W3' is used for OAuth. Currently only 'oidc' is supported support GitHub, Google, AWS Cognito and Azure",
+        ),
+    ] = "oidc",
+    sse_url: Annotated[
+        Optional[str],
+        Option(
+            "--sse-url",
+            help="Langflow compatible URL for remote SSE / HTTP server to connect to",
+        ),
+    ] = None,
+    disable_composer_tools: Annotated[
+        Optional[bool],
+        Option(
+            "--disable-composer-tools/--enable-composer-tools",
+            help="Disable composer tools (disabled by default)",
+        ),
+    ] = None,
+    pass_environment: Annotated[
+        Optional[bool],
+        Option(
+            "--pass-environment/--no-pass-environment",
+            help="Pass through all environment variables when spawning all server processes",
+        ),
+    ] = None,
+    remote_auth_type: Annotated[
+        Optional[str],
+        Option(
+            "--remote_auth_type",
+            help="Authentication type for remote server (oauth or none)",
+        ),
+    ] = None,
+    client_auth_type: Annotated[
+        Optional[str],
+        Option(
+            "--client_auth_type", help="Authentication type for client (oauth or none)"
+        ),
+    ] = None,
+    env: Annotated[
+        Optional[List[str]],
+        Option(
+            "--env",
+            "-e",
+            help="Environment variables (format: KEY=VALUE). Can be used multiple times.",
+        ),
+    ] = None,
+    log_level: Annotated[
+        Optional[str],
+        Option(
+            "--log-level",
+            help="Set the logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL)",
+        ),
+    ] = None,
+    timeout: Annotated[
+        Optional[int],
+        Option(
+            "--timeout",
+            help="Set timeout in seconds for server operations and connections (optional - no timeout by default)",
+        ),
+    ] = None,
+    # Unified configuration options
+    config: Annotated[
+        Optional[str],
+        Option(
+            "--config",
+            help="Configuration type to load (servers, middleware, prompts, tools, all) or command (validate, show, apply)",
+        ),
+    ] = None,
+    configfilepath: Annotated[
+        Optional[str], Option("--configfilepath", help="Path to the configuration file")
+    ] = None,
+    config_format: Annotated[
+        Optional[str], Option("--format", help="Output format (table, json)")
+    ] = None,
+    dry_run: Annotated[
+        Optional[bool],
+        Option(
+            "--dry-run", help="Show what would be applied without actually applying"
+        ),
+    ] = None,
+) -> None:
+    """Main callback to handle direct command execution matching original CLI."""
+
+    # Handle unified configuration commands first
+    if config is not None:
+        # If we have server mode parameters, we need to apply config AND start server
+        if mode is not None:
+            # Apply configuration first, then start server
+            _apply_config_and_start_server(
+                config,
+                configfilepath,
+                config_format,
+                dry_run,
+                mode,
+                id,
+                endpoint,
+                config_path,
+                directory,
+                script_path,
+                host,
+                port,
+                auth_type,
+                auth_provider or "oidc",
+                sse_url,
+                disable_composer_tools,
+                pass_environment,
+                remote_auth_type,
+                client_auth_type,
+                env,
+                log_level,
+                timeout,
+            )
+        else:
+            # Just handle configuration commands
+            _handle_unified_config_commands(
+                config, configfilepath, config_format, dry_run
+            )
+        return
+
+    # Only run server if mode is provided (direct command execution)
+    if mode is None:
+        return  # Let subcommands handle their own logic
+
+    # Set defaults for optional parameters
+    if id is None:
+        id = "mcp-local"
+    if host is None:
+        host = "0.0.0.0"
+    if port is None:
+        port = 9000
+    if remote_auth_type is None:
+        remote_auth_type = "none"
+    if client_auth_type is None:
+        client_auth_type = "none"
+    if disable_composer_tools is None:
+        disable_composer_tools = False
+    if pass_environment is None:
+        pass_environment = False
+
+    # Set timeout if provided
+    if timeout is not None:
+        if timeout <= 0:
+            logger.error("Timeout must be a positive number, got: %s", timeout)
+            raise typer.Exit(1)
+        logger.info("Set timeout to %d seconds", timeout)
+    else:
+        logger.info("No timeout specified - server will run indefinitely")
+
+    # Set logging level if provided
+    if log_level:
+        import logging
+
+        numeric_level = getattr(logging, log_level.upper(), None)
+        if not isinstance(numeric_level, int):
+            logger.error(
+                "Invalid log level: %s. Valid levels are: DEBUG, INFO, WARNING, ERROR, CRITICAL",
+                log_level,
+            )
+            raise typer.Exit(1)
+        # Set level on the specific logger, not the root logger
+        logger.setLevel(numeric_level)
+        # Also set the root logger to prevent propagation issues
+        logging.getLogger().setLevel(numeric_level)
+        logger.info("Set logging level to %s", log_level.upper())
+
+    # Set SERVER_CONFIG_FILE_PATH if provided
+    if config_path:
+        logger.info("Setting SERVER_CONFIG_FILE_PATH to %s", config_path)
+        os.environ["SERVER_CONFIG_FILE_PATH"] = config_path
+
+    # Load config from file if provided
+    server_config = None
+    if config_path:
+        try:
+            import json
+
+            with open(config_path, "r", encoding="utf-8") as f:
+                server_config = json.load(f)
+            logger.info(
+                "Loaded %d server configurations from %s",
+                len(server_config),
+                config_path,
+            )
+        except Exception as e:
+            logger.error("Failed to load config file %s: %s", config_path, e)
+            raise typer.Exit(1)
+
+    base_env: Dict[str, str] = {}
+
+    # Add environment variables from --env arguments (preprocessed to KEY=VALUE format)
+    if env:
+        for env_var in env:
+            if "=" in env_var:
+                key, value = env_var.split("=", 1)
+                base_env[key] = value
+                os.environ[key] = value
+                logger.info(
+                    "Setting environment variable from --env: %s=%s",
+                    key,
+                    value,
+                )
+            else:
+                raise typer.BadParameter(
+                    f"Environment variable must be in format KEY=VALUE, got: {env_var}"
+                )
+
+    # Pass through all environment variables if requested
+    if pass_environment:
+        base_env.update(os.environ)
+        logger.info("Passing all environment variables to all servers")
+        os.environ.update(base_env)
+
+    # Build configuration
+    if server_config is None:
+        server_config = []
+    try:
+        if endpoint or script_path:
+            server_config = build_config_from_args(
+                mode, endpoint, script_path, directory, id
+            )
+
+        # Run the composer
+        asyncio.run(
+            run_dynamic_composer(
+                mode=mode,
+                config=server_config,
+                auth_type=auth_type,
+                auth_provider=auth_provider or "oidc",
+                sse_url=sse_url,
+                remote_auth_type=remote_auth_type,
+                client_auth_type=client_auth_type,
+                disable_composer_tools=disable_composer_tools,
+                host=host,
+                port=port,
+                timeout=timeout,
+            )
+        )
+
+    except Exception as e:
+        logger.error("Error to start MCP: %s", e)
+        raise typer.Exit(1)
+
+
+# Set the callback
+app.callback(invoke_without_command=True)(main_callback)
+
+
+async def run_dynamic_composer(
+    mode: str,
+    config: List[Dict],
+    auth_type: Optional[str] = None,
+    auth_provider: str = "oidc",
+    sse_url: Optional[str] = None,
+    remote_auth_type: str = "none",
+    client_auth_type: str = "none",
+    disable_composer_tools: bool = False,
+    host: str = "localhost",
+    port: int = 9000,
+    timeout: Optional[int] = None,
+) -> None:
+    """Run MCP Composer with dynamically constructed configuration."""
+    logger.info("Running MCP Composer with dynamic configuration... %s", auth_type)
+
+    # For IBM W3 OAuth, use old server creation method
+    # backward compatibility
+    if auth_type == "oauth" and auth_provider == "oidc":
+        logger.info("Detected --auth_type oauth and --auth_provider oidc")
+        settings = ServerSettings()
+        mcp = create_mcp_server(settings)
+
+    elif auth_type == "oauth":
+        logger.info("Detected --auth_type oauth and provider: %s", auth_provider)
+        settings = ServerSettings(provider=auth_provider)
+        # 2. Filter out keys whose values are empty strings
+        filtered_settings = {
+            key: value
+            for key, value in settings.model_dump(exclude_none=True).items()
+            if value != "" and value != b""  # Also consider bytes if applicable
+        }
+        filtered_settings["provider"] = auth_provider
+        oauth_provider = OAuthProviderFactory(
+            **filtered_settings
+        ).get_provider_instance()
+        mcp = MCPComposer("composer", auth=oauth_provider)
+    else:
+        logger.info("Running MCP Composer without OAuth")
+        mcp = MCPComposer("composer", config=config)  # type: ignore
+
+    # Remove composer tools if disable-composer-tools is set to True
+    if disable_composer_tools:
+        tools = await mcp.get_tools()
+        logger.info("Remove composer tools")
+        for name, _ in tools.items():
+            mcp.remove_tool(name)
+
+    if sse_url:
+        logger.info("mounting Remote server into MCP composer")
+        remote_url = sse_url
+
+        remote_proxy = None
+
+        if remote_auth_type == "oauth":
+            remote_settings = ServerSettings(
+                prefix="REMOTE_OAUTH_", provider=auth_provider
+            )
+            # 2. Filter out keys whose values are empty strings
+            filtered_settings = {
+                key: value
+                for key, value in remote_settings.model_dump(exclude_none=True).items()
+                if value != "" and value != b""  # Also consider bytes if applicable
+            }
+            filtered_settings["provider"] = auth_provider
+            oauth_provider = OAuthProviderFactory(
+                **filtered_settings
+            ).get_provider_instance()
+            logger.info("Created remote client with OAuth")
+            remote_proxy = MCPComposer("composer", auth=oauth_provider)
+            await remote_proxy._tool_manager.disable_tools(["all"])
+
+        elif client_auth_type == "oauth":
+            client_issuer = get_issuer(remote_url)
+            client_scope = "openid"
+            client_id = None
+            token = await oauth_pkce_login_async(client_issuer, client_scope, client_id)
+            access_token = token.get("access_token")
+            if not access_token:
+                raise RuntimeError("OAuth succeeded but no access_token was returned.")
+
+            # Prefer passing Authorization header via ProxyClient if supported
+            auth_headers = {"Authorization": f"Bearer {access_token}"}
+
+            # If ProxyClient supports headers:
+            from fastmcp.client.transports import SSETransport, StreamableHttpTransport
+            from fastmcp.server.proxy import ProxyClient
+
+            # Prefer SSE if you're connecting to /sse
+            if remote_url.endswith("/sse"):
+                transport = SSETransport(remote_url, headers=auth_headers)
+            else:
+                transport = StreamableHttpTransport(remote_url, headers=auth_headers)
+
+            # Now create the proxy **from the transport**, not from ProxyClient
+            remote_proxy = MCPComposer.as_proxy(transport, name="remote-oauth")
+        else:
+            logger.info("Created remote client without OAuth")
+            from fastmcp.server.proxy import ProxyClient
+
+            remote_proxy = MCPComposer.as_proxy(
+                ProxyClient(remote_url), name="local-stdio"
+            )
+
+        await mcp.import_server(remote_proxy)
+
+    await mcp.setup_member_servers()
+
+    try:
+        if mode == MemberServerType.STDIO:
+            if timeout is not None:
+                await asyncio.wait_for(mcp.run_stdio_async(), timeout=timeout)
+            else:
+                await mcp.run_stdio_async()
+        elif mode == MemberServerType.SSE:
+            if timeout is not None:
+                await asyncio.wait_for(
+                    mcp.run_sse_async(
+                        host=host, port=port, log_level="debug", path="/sse"
+                    ),
+                    timeout=timeout,
+                )
+            else:
+                await mcp.run_sse_async(
+                    host=host, port=port, log_level="debug", path="/sse"
+                )
+        elif mode == MemberServerType.HTTP:
+            if timeout is not None:
+                await asyncio.wait_for(
+                    mcp.run_http_async(
+                        host=host, port=port, log_level="debug", path="/mcp"
+                    ),
+                    timeout=timeout,
+                )
+            else:
+                await mcp.run_http_async(
+                    host=host, port=port, log_level="debug", path="/mcp"
+                )
+        else:
+            raise ValueError(f"Unknown config type: {mode}")
+    except asyncio.TimeoutError:
+        logger.error("Server operation timed out after %d seconds", timeout)
+        raise typer.Exit(1)
+    except Exception as e:
+        logger.error("Server operation failed: %s", e)
+        raise typer.Exit(1)
+
+
+def build_config_from_args(
+    mode: str,
+    endpoint: Optional[str] = None,
+    script_path: Optional[str] = None,
+    directory: Optional[str] = None,
+    id: str = "mcp-local",
+) -> List[Dict]:
+    """Build configuration dictionary from command line arguments."""
+
+    if mode in (MemberServerType.SSE, MemberServerType.HTTP):
+        if endpoint:
+            config = {
+                "id": id,
+                "type": mode,
+                "endpoint": endpoint,
+                "_id": id,
+            }
+        else:
+            # For HTTP/SSE mode without endpoint, return empty config
+            # The server will be started directly without member servers
+            config = {}
+    elif mode == MemberServerType.STDIO:
+        if not script_path:
+            raise typer.BadParameter("--script-path is required for mode 'stdio'")
+
+        config = {
+            "id": id,
+            "type": MemberServerType.STDIO,
+            "command": "uv",
+            "args": [
+                "--directory",
+                directory or str(Path(script_path).parent),
+                "run",
+                Path(script_path).name,
+            ],
+            "_id": id,
+        }
+    else:
+        raise typer.BadParameter(f"Unsupported mode '{mode}'")
+
+    server_configs = [config]
+    return server_configs
+
+
+async def _start_server(
+    composer: MCPComposer, mode: str, host: str, port: int, log_level: str
+) -> None:
+    """Start the MCP Composer server."""
+    await composer.setup_member_servers()
+
+    if mode == "stdio":
+        await composer.run_stdio_async()
+    elif mode == "sse":
+        await composer.run_sse_async(
+            host=host, port=port, log_level=log_level or "debug", path="/sse"
+        )
+    elif mode == "http":
+        await composer.run_http_async(
+            host=host, port=port, log_level=log_level or "debug", path="/mcp"
+        )
+    else:
+        raise ValueError(f"Unknown mode: {mode}")
+
+
 def _apply_config_and_start_server(
     config: str,
     configfilepath: Optional[str],
@@ -1060,6 +1127,7 @@ def _apply_config_and_start_server(
     host: Optional[str],
     port: Optional[int],
     auth_type: Optional[str],
+    auth_provider: str,
     sse_url: Optional[str],
     disable_composer_tools: Optional[bool],
     pass_environment: Optional[bool],
@@ -1109,6 +1177,7 @@ def _apply_config_and_start_server(
             host,
             port,
             auth_type,
+            auth_provider,
             sse_url,
             disable_composer_tools,
             pass_environment,
@@ -1150,6 +1219,7 @@ def _create_composer_instance(
     host: Optional[str],
     port: Optional[int],
     auth_type: Optional[str],
+    auth_provider: str,
     sse_url: Optional[str],
     disable_composer_tools: Optional[bool],
     pass_environment: Optional[bool],
@@ -1175,8 +1245,19 @@ def _create_composer_instance(
 
     # Create composer
     if auth_type == "oauth":
-        settings = ServerSettings()
-        composer = create_mcp_server(settings)
+        logger.info("Detected --auth_type oauth")
+        settings = ServerSettings(provider=auth_provider)
+        # 2. Filter out keys whose values are empty strings
+        filtered_settings = {
+            key: value
+            for key, value in settings.model_dump(exclude_none=True).items()
+            if value != "" and value != b""  # Also consider bytes if applicable
+        }
+        filtered_settings["provider"] = auth_provider
+        oauth_provider = OAuthProviderFactory(
+            **filtered_settings
+        ).get_provider_instance()
+        composer = MCPComposer("composer", auth=oauth_provider)
     else:
         composer = MCPComposer("composer", config=config)
 
@@ -1187,26 +1268,6 @@ def _create_composer_instance(
             composer.remove_tool(name)
 
     return composer
-
-
-async def _start_server(
-    composer: MCPComposer, mode: str, host: str, port: int, log_level: str
-) -> None:
-    """Start the MCP Composer server."""
-    await composer.setup_member_servers()
-
-    if mode == "stdio":
-        await composer.run_stdio_async()
-    elif mode == "sse":
-        await composer.run_sse_async(
-            host=host, port=port, log_level=log_level or "debug", path="/sse"
-        )
-    elif mode == "http":
-        await composer.run_http_async(
-            host=host, port=port, log_level=log_level or "debug", path="/mcp"
-        )
-    else:
-        raise ValueError(f"Unknown mode: {mode}")
 
 
 def _build_config_from_args(
@@ -1286,7 +1347,7 @@ def _handle_unified_config_commands(
         _handle_error(f"Unexpected error: {e}")
 
 
-def _handle_error(message: str, suggestion: str = None) -> None:
+def _handle_error(message: str, suggestion: Optional[str] = None) -> None:
     """Handle errors with consistent formatting."""
     typer.echo(f"❌ Error: {message}")
     if suggestion:
