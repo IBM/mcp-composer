@@ -9,7 +9,7 @@ keywords = [
     "ibm", "model context protocol", "llm", "agent",
 ]
 dependencies = [
-    "fastmcp==2.13.0",
+    "fastmcp==2.13.1",
     "requests==2.32.4",
     "httpx==0.28.1",
     "ibmcloudant==0.10.2",

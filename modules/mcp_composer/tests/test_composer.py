@@ -22,12 +22,12 @@ async def main():
 
     if mode == "http":
         await gw.run_http_async(
-            host="0.0.0.0", port=9000, log_level="debug", path="/mcp"
+            host="localhost", port=8000, log_level="debug", path="/mcp"
         )
     elif mode == "stdio":
         await gw.run_stdio_async()
     elif mode == "sse":
-        await gw.run_sse_async(host="0.0.0.0", port=9000, log_level="debug")
+        await gw.run_sse_async(host="localhost", port=8000, log_level="debug")
     else:
         raise ValueError(f"Unsupported MCP_MODE: {mode}")
 
