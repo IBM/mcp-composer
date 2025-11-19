@@ -2,7 +2,7 @@ import os
 import time
 import pytest
 import asyncio
-from unittest.mock import AsyncMock, MagicMock, patch, Mock
+from unittest.mock import AsyncMock, patch, Mock
 from starlette.exceptions import HTTPException
 from pydantic import AnyHttpUrl, AnyUrl
 from fastmcp.exceptions import NotFoundError

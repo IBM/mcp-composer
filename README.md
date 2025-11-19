@@ -35,6 +35,7 @@
     - [Best Practices](#best-practices)
   - [MCP Composer Tools](#mcp-composer-tools)
   - [MCP Composer Prompts](#mcp-composer-prompts)
+  - [MCP Composer OAuth](#oauth)
 - [Demo using MCP Inspector](#demo-using-mcp-inspector)
 - [MCP Composer Client with Chatbot UI](#mcp-composer-client-with-chatbot-ui)
 
@@ -924,6 +925,20 @@ mcp-composer --config show --configfilepath unified_config.json --format json
 mcp-composer --config all --configfilepath unified_config.json --dry-run
 ```
 
+##### OAuth Options
+1. OIDC provider[old]
+```bash
+
+mcp-composer -sseurl --sse-url <url to remote sse mcp server> --auth_type oauth --env OAUTH_HOST <host> --env OAUTH_PORT <port> --env OAUTH_SERVER_URL <server url> --env OAUTH_CALLBACK_PATH <callback path> --env OAUTH_CLIENT_ID=<client id> --env OAUTH_CLIENT_SECRET <secret> --env OAUTH_AUTH_URL <auth url> -e-env OAUTH_TOKEN_URL <token url> --env OAUTH_MCP_SCOPE user --env OAUTH_PROVIDER_SCOPE=openid
+```
+2. GitHub or Google provider
+```bash
+mcp-composer --mode http --host localhost --auth_provider github --auth_type oauth \
+  --env ENABLE_OAUTH=True \
+  --env OAUTH_BASE_URL=http://localhost:9000 \
+  --env OAUTH_CLIENT_ID=xxxxx \
+  --env OAUTH_CLIENT_SECRET=xxxxx
+
 #### Programmatic Usage
 
 ##### Direct MCPComposer Integration
@@ -1462,26 +1477,26 @@ result = await composer.filter_resources({
 
    > <img width="1670" alt="image" src="https://github.ibm.com/ai-elite/mcp-composer/assets/3014/f6678d13-99d3-4367-93ad-ab58d6431532">
 
-# Demo: OAuth
+# OAuth
 
 #### 1. Create the environment file
 
-Navigate to `src/mcp_composer` and create a `.env.oauth` file by copying the contents of `.env.oauth.example`:
+Create a `.env` file by copying the contents of `.env.example`:
 
 ```bash
-cp src/mcp_composer/.env.oauth.example src/mcp_composer/.env.oauth
+cp .env.example .env
 ```
 
 #### 2. Configure OAuth credentials
 
-Open `.env.oauth` and replace the placeholder values with your actual OAuth provider details (e.g., client ID, client secret, redirect URI, etc.).
+Open `.env.oauth` and replace the placeholder values with your actual OAuth provider details (e.g., client ID, client secret, etc.).
 
 #### 3. Run the MCP Composer server
 
 Execute the following command to start the server and test the OAuth integration:
 
 ```bash
-uv run test/test_composer_oauth.py
+uv run test/test_composer_oauth_provider.py
 ```
 
 ### MCP Composer Client with Chatbot UI

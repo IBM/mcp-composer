@@ -23,133 +23,6 @@ from mcp_composer.core.utils.logger import LoggerFactory
 logger = LoggerFactory.get_logger()
 
 
-def get_issuer(remote_url: str):
-    """
-    Normalize issuer base and choose transport type based on URL suffix.
-    Returns (issuer_base, transport_class).
-    """
-    u = remote_url.rstrip("/")
-    if u.endswith("/sse"):
-        return u[:-4]
-    elif u.endswith("/mcp"):
-        return u[:-4]
-    else:
-        # default to SSE if not explicit
-        return u
-
-def generate_pkce_pair():
-    # Step 1: Generate a secure random code_verifier (43-128 characters)
-    code_verifier = secrets.token_urlsafe(64)
-    # Step 2: Create the code_challenge (SHA256, base64url, no '=' padding)
-    code_challenge = (
-        base64.urlsafe_b64encode(hashlib.sha256(code_verifier.encode()).digest())
-        .rstrip(b"=")
-        .decode("ascii")
-    )
-    return code_verifier, code_challenge
-
-
-# Usage
-
-
-def sanitize_url(url: str) -> str:
-    parsed = urlparse(url)
-    if not parsed.scheme or not parsed.netloc:
-        raise ValueError("Invalid URL")
-    return urlunparse(parsed)
-
-def _get_free_port() -> int:
-    s = socket.socket()
-    s.bind(("127.0.0.1", 0))
-    port = s.getsockname()[1]
-    s.close()
-    return port
-
-
-async def wait_for_callback(expected_path="/callback", listen_port=9000, timeout=120):
-    """Runs a local aiohttp server to listen for the callback, returns code and state."""
-    result = {}
-    result: dict[str, str] = {}
-    path = expected_path if expected_path.startswith("/") else f"/{expected_path}"
-    port = listen_port or _get_free_port()
-
-    async def handle_callback(request):
-        params = request.rel_url.query
-        result["code"] = params.get("code")
-        result["state"] = params.get("state")
-        # Simple HTML response for the browser
-        return web.Response(text="Authentication complete. You may close this window.")
-
-    app = web.Application()
-    app.router.add_get(path, handle_callback)
-
-    runner = web.AppRunner(app)
-    await runner.setup()
-    site = web.TCPSite(runner, "localhost", port)
-    await site.start()
-
-    # Wait until callback received or timeout
-    try:
-        for _ in range(timeout * 10):
-            await asyncio.sleep(0.1)
-            if result:
-                break
-        else:
-            raise TimeoutError("Timed out waiting for OAuth callback.")
-    finally:
-        await runner.cleanup()
-
-    return result["code"], result["state"]
-
-
-async def discover_oauth_metadata(issuer_base: str) -> dict:
-    """
-    Discover OAuth endpoints from your MCP server:
-    - /.well-known/oauth-authorization-server (preferred)
-    - fallback: /.well-known/openid-configuration
-    """
-    issuer = issuer_base.rstrip("/")
-    async with httpx.AsyncClient(timeout=10) as client:
-        for path in ("/.well-known/oauth-authorization-server", "/.well-known/openid-configuration"):
-            try:
-                r = await client.get(f"{issuer}{path}")
-                r.raise_for_status()
-                meta = r.json()
-                return {
-                    "authorization_endpoint": meta.get("authorization_endpoint"),
-                    "token_endpoint": meta.get("token_endpoint"),
-                    "issuer": meta.get("issuer") or issuer,
-                    "registration_endpoint": meta.get("registration_endpoint"),
-                    "scopes_supported": meta.get("scopes_supported", []),
-                }
-            except Exception:
-                continue
-    raise RuntimeError(f"Failed OAuth discovery from {issuer_base}")
-
-
-async def dynamic_client_register(registration_endpoint: str, redirect_uri: str) -> str:
-    """
-    RFC 7591 dynamic registration for a native (public) client.
-    Returns client_id.
-    """
-    payload = {
-        "application_type": "native",
-        "token_endpoint_auth_method": "none",
-        "grant_types": ["authorization_code", "refresh_token"],
-        "response_types": ["code"],
-        "redirect_uris": [redirect_uri],
-        "client_name": "mcp-cli",
-    }
-    async with httpx.AsyncClient(timeout=10) as client:
-        resp = await client.post(registration_endpoint, json=payload,
-                                 headers={"Accept": "application/json"})
-        resp.raise_for_status()
-        data = resp.json()
-        cid = data.get("client_id")
-        if not cid:
-            raise RuntimeError("Dynamic registration succeeded but no client_id returned.")
-        return cid
-
 def create_mcp_server(settings: ServerSettings) -> MCPComposer:
     oauth_provider = SimpleOAuthProvider(settings)
     gw = MCPComposer("composer", auth=oauth_provider)
@@ -206,7 +79,146 @@ def create_mcp_server(settings: ServerSettings) -> MCPComposer:
 
     return gw
 
-async def oauth_pkce_login_async(issuer: str, scope: str = "openid", client_id: str | None = None) -> dict:
+
+def get_issuer(remote_url: str):
+    """
+    Normalize issuer base and choose transport type based on URL suffix.
+    Returns (issuer_base, transport_class).
+    """
+    u = remote_url.rstrip("/")
+    if u.endswith("/sse"):
+        return u[:-4]
+    elif u.endswith("/mcp"):
+        return u[:-4]
+    else:
+        # default to SSE if not explicit
+        return u
+
+
+def generate_pkce_pair():
+    # Step 1: Generate a secure random code_verifier (43-128 characters)
+    code_verifier = secrets.token_urlsafe(64)
+    # Step 2: Create the code_challenge (SHA256, base64url, no '=' padding)
+    code_challenge = (
+        base64.urlsafe_b64encode(hashlib.sha256(code_verifier.encode()).digest())
+        .rstrip(b"=")
+        .decode("ascii")
+    )
+    return code_verifier, code_challenge
+
+
+# Usage
+
+
+def sanitize_url(url: str) -> str:
+    parsed = urlparse(url)
+    if not parsed.scheme or not parsed.netloc:
+        raise ValueError("Invalid URL")
+    return urlunparse(parsed)
+
+
+def _get_free_port() -> int:
+    s = socket.socket()
+    s.bind(("127.0.0.1", 0))
+    port = s.getsockname()[1]
+    s.close()
+    return port
+
+
+async def wait_for_callback(expected_path="/callback", listen_port=9000, timeout=120):
+    """Runs a local aiohttp server to listen for the callback, returns code and state."""
+    result = {}
+    result: dict[str, str] = {}
+    path = expected_path if expected_path.startswith("/") else f"/{expected_path}"
+    port = listen_port or _get_free_port()
+
+    async def handle_callback(request):
+        params = request.rel_url.query
+        result["code"] = params.get("code")
+        result["state"] = params.get("state")
+        # Simple HTML response for the browser
+        return web.Response(text="Authentication complete. You may close this window.")
+
+    app = web.Application()
+    app.router.add_get(path, handle_callback)
+
+    runner = web.AppRunner(app)
+    await runner.setup()
+    site = web.TCPSite(runner, "localhost", port)
+    await site.start()
+
+    # Wait until callback received or timeout
+    try:
+        for _ in range(timeout * 10):
+            await asyncio.sleep(0.1)
+            if result:
+                break
+        else:
+            raise TimeoutError("Timed out waiting for OAuth callback.")
+    finally:
+        await runner.cleanup()
+
+    return result["code"], result["state"]
+
+
+async def discover_oauth_metadata(issuer_base: str) -> dict:
+    """
+    Discover OAuth endpoints from your MCP server:
+    - /.well-known/oauth-authorization-server (preferred)
+    - fallback: /.well-known/openid-configuration
+    """
+    issuer = issuer_base.rstrip("/")
+    async with httpx.AsyncClient(timeout=10) as client:
+        for path in (
+            "/.well-known/oauth-authorization-server",
+            "/.well-known/openid-configuration",
+        ):
+            try:
+                r = await client.get(f"{issuer}{path}")
+                r.raise_for_status()
+                meta = r.json()
+                return {
+                    "authorization_endpoint": meta.get("authorization_endpoint"),
+                    "token_endpoint": meta.get("token_endpoint"),
+                    "issuer": meta.get("issuer") or issuer,
+                    "registration_endpoint": meta.get("registration_endpoint"),
+                    "scopes_supported": meta.get("scopes_supported", []),
+                }
+            except Exception:
+                continue
+    raise RuntimeError(f"Failed OAuth discovery from {issuer_base}")
+
+
+async def dynamic_client_register(registration_endpoint: str, redirect_uri: str) -> str:
+    """
+    RFC 7591 dynamic registration for a native (public) client.
+    Returns client_id.
+    """
+    payload = {
+        "application_type": "native",
+        "token_endpoint_auth_method": "none",
+        "grant_types": ["authorization_code", "refresh_token"],
+        "response_types": ["code"],
+        "redirect_uris": [redirect_uri],
+        "client_name": "mcp-cli",
+    }
+    async with httpx.AsyncClient(timeout=10) as client:
+        resp = await client.post(
+            registration_endpoint, json=payload, headers={"Accept": "application/json"}
+        )
+        resp.raise_for_status()
+        data = resp.json()
+        cid = data.get("client_id")
+        if not cid:
+            raise RuntimeError(
+                "Dynamic registration succeeded but no client_id returned."
+            )
+        return cid
+
+
+async def oauth_pkce_login_async(
+    issuer: str, scope: str = "openid", client_id: str | None = None
+) -> dict:
     """
     Fully async OAuth Authorization Code + PKCE using a loopback redirect.
     - Discovers endpoints from server_url base
@@ -226,11 +238,12 @@ async def oauth_pkce_login_async(issuer: str, scope: str = "openid", client_id: 
     port = _get_free_port()
     redirect_uri = f"http://127.0.0.1:{port}/callback"
 
-
     # 2) Else try dynamic registration if available
     if not client_id and meta.get("registration_endpoint"):
         try:
-            client_id = await dynamic_client_register(meta["registration_endpoint"], redirect_uri)
+            client_id = await dynamic_client_register(
+                meta["registration_endpoint"], redirect_uri
+            )
         except Exception as e:
             # fall back to requiring a pre-registered client id
             raise RuntimeError(
@@ -285,6 +298,8 @@ async def oauth_pkce_login_async(issuer: str, scope: str = "openid", client_id: 
             "client_id": client_id,
             "code_verifier": verifier,
         }
-        resp = await client.post(token_ep, data=data, headers={"Accept": "application/json"})
+        resp = await client.post(
+            token_ep, data=data, headers={"Accept": "application/json"}
+        )
         resp.raise_for_status()
         return resp.json()

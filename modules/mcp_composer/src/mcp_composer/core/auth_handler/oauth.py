@@ -1,12 +1,13 @@
 import os
-import secrets
 import time
-
+import secrets
+import warnings
 from dotenv import load_dotenv
-from fastmcp.exceptions import NotFoundError
-from fastmcp.server.auth.auth import OAuthProvider
+from urllib.parse import quote
+from pydantic import AnyHttpUrl, AnyUrl
+from starlette.exceptions import HTTPException
+from pydantic_settings import BaseSettings, SettingsConfigDict
 from mcp.server.auth.provider import (
-    AccessToken,
     AuthorizationCode,
     AuthorizationParams,
     RefreshToken,
@@ -15,11 +16,8 @@ from mcp.server.auth.provider import (
 from mcp.server.auth.settings import ClientRegistrationOptions
 from mcp.shared._httpx_utils import create_mcp_http_client
 from mcp.shared.auth import OAuthClientInformationFull, OAuthToken
-from pydantic import AnyHttpUrl, AnyUrl
-from pydantic_settings import BaseSettings, SettingsConfigDict
-from starlette.exceptions import HTTPException
-from urllib.parse import quote
-
+from fastmcp.exceptions import NotFoundError
+from fastmcp.server.auth.auth import AccessToken, OAuthProvider
 from mcp_composer.core.utils import LoggerFactory
 
 logger = LoggerFactory.get_logger()
@@ -34,11 +32,23 @@ class ServerSettings(BaseSettings):
     # Server settings - these will be loaded from OAUTH_HOST, OAUTH_PORT, etc.
     host: str = ""
     port: str = ""
+    provider: str = ""
+
+    # For OIDC Provider
+    introspection_url: str | None = None
+
+    # deprecated, will be removed. use base_url instead
     server_url: AnyHttpUrl = AnyHttpUrl("http://localhost:8080")
+
+    base_url: AnyHttpUrl = AnyHttpUrl("http://localhost:8080")
+
     # OAuth settings - these will be loaded from OAUTH_CLIENT_ID, OAUTH_CLIENT_SECRET, etc.
     client_id: str = ""
     client_secret: str = ""
     callback_path: str = ""
+    config_url: AnyHttpUrl = AnyHttpUrl(
+        "https://preprod.login.w3.ibm.com/oidc/endpoint/default/.well-known/openid-configuration"
+    )  # by default points to IBM Cloud OIDC provider
 
     # OAuth URLs - these will be loaded from OAUTH_AUTH_URL, OAUTH_TOKEN_URL, etc.
     auth_url: str = ""
@@ -48,11 +58,12 @@ class ServerSettings(BaseSettings):
     mcp_scope: str = ""
     scope: str = ""
 
-    def __init__(self, prefix: str = "OAUTH_", **data):
+    def __init__(self, prefix: str = "OAUTH_", provider: str = "oidc", **data):
         """Initialize settings with values from environment variables.
 
         Args:
             prefix: Prefix for environment variables (default: "OAUTH_")
+            provider: OAuth provider (default: "oidc")
             **data: Additional data to override environment variables
         """
         # Explicitly load environment variables before calling super().__init__
@@ -69,9 +80,10 @@ class ServerSettings(BaseSettings):
 
                 if field_name == "server_url":
                     env_data[field_name] = AnyHttpUrl(value)
+                if field_name == "base_url":
+                    env_data[field_name] = AnyHttpUrl(value)
                 else:
                     env_data[field_name] = value
-
         # Merge with any explicitly passed data
         env_data.update(data)
 
@@ -85,17 +97,15 @@ class ServerSettings(BaseSettings):
         if os.getenv(enable_var, "False").lower() == "true":
             # Check if all required environment variables are set
             required_env_vars = [
-                f"{prefix}HOST",
-                f"{prefix}PORT",
-                f"{prefix}SERVER_URL",
                 f"{prefix}CLIENT_ID",
                 f"{prefix}CLIENT_SECRET",
-                f"{prefix}CALLBACK_PATH",
-                f"{prefix}AUTH_URL",
-                f"{prefix}TOKEN_URL",
-                f"{prefix}MCP_SCOPE",
-                f"{prefix}PROVIDER_SCOPE",
             ]
+            # backward compatibility
+            if provider.lower() != "oidc":
+                required_env_vars.append(f"{prefix}BASE_URL")
+
+            # if provider.lower() == "oidc":
+            #     required_env_vars.append(f"{prefix}CONFIG_URL")
 
             missing_vars = []
             for var in required_env_vars:
@@ -109,6 +119,11 @@ class ServerSettings(BaseSettings):
 
 
 class SimpleOAuthProvider(OAuthProvider):
+    warnings.warn(
+        "SimpleOAuthProvider is deprecated and will be removed in version 2.0. ",
+        DeprecationWarning,
+        stacklevel=2,
+    )
     """OAuth provider with essential functionality."""
 
     def __init__(self, settings: ServerSettings):
@@ -311,5 +326,8 @@ class SimpleOAuthProvider(OAuthProvider):
 
     async def revoke_token(self, token: str) -> None:
         """Revoke a token."""
-        if token in self.tokens:
-            del self.tokens[token]
+        token_str = token
+        if token_str in self.tokens:
+            del self.tokens[token_str]
+        if token_str in self.token_mapping:
+            del self.token_mapping[token_str]
