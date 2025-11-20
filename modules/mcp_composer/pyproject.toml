@@ -33,6 +33,9 @@ dependencies = [
     "asyncpg>=0.29.0",
     "rich>=13.7",
     "duckduckgo-search>=6.3.0",
+    "google-genai==1.51.0",
+    "numpy==2.3.3",
+    "pandas==2.3.3",
 ]
 
 [project.urls]

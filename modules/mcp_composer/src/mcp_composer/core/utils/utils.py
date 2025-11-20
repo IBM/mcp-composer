@@ -77,12 +77,7 @@ async def load_json(filepath):
         data = json.load(file)
         return data
 
-def load_json_sync(filepath):
-    """Synchronous version of load_json for use in __init__ methods"""
-    with open(filepath, "r", encoding="utf-8-sig") as file:
-        data = json.load(file)
-        return data
-        
+
 async def get_member_health(
     server_config: list[MemberMCPServer],
 ) -> list[dict]:
@@ -122,6 +117,13 @@ async def get_member_health(
         raise MemberServerError(
             f"Failed to fetch the status of member servers: {e}"
         ) from e
+
+
+def load_json_sync(filepath):
+    """Synchronous version of load_json for use in __init__ methods"""
+    with open(filepath, "r", encoding="utf-8-sig") as file:
+        data = json.load(file)
+        return data
 
 
 def get_server_doc_info(doc: dict) -> tuple[list[str], dict[str, str]]:
@@ -183,6 +185,96 @@ def build_prompt_from_dict(entry: dict) -> Prompt:
         prompt.arguments = _build_prompt_arguments(arguments)
 
     return prompt
+
+
+def get_version_adapter(config: Optional[Dict[str, Any]] = None) -> SecretAdapter:
+    """Return adapter version"""
+    if config:
+        adapter_type = config.get("type", "file").lower()
+        adapter_args = {k: v for k, v in config.items() if k != "type"}
+    else:
+        adapter_type = os.getenv("VERSION_ADAPTER_TYPE", "file").lower()
+        adapter_args = (
+            {
+                "file_path": os.getenv(
+                    "VERSION_CONFIG_FILE_PATH", "versioned_config.json"
+                )
+            }
+            if adapter_type == "file"
+            else {}
+        )
+
+    adapter_factory = ADAPTER_REGISTRY.get(adapter_type)
+    if not adapter_factory:
+        raise ValueError(f"Unsupported version adapter type: {adapter_type}")
+
+    return adapter_factory(**adapter_args)
+
+
+def get_endpoint_from_config(config: Dict[str, Any]) -> Optional[HttpUrl]:
+    """Get the endpoint from config for different server types: HTTP, SSE, OpenAPI, etc."""
+
+    server_type = config.get("type")
+
+    if server_type in {
+        MemberServerType.HTTP,
+        MemberServerType.SSE,
+        MemberServerType.STDIO,
+        MemberServerType.CLIENT,
+    }:
+        endpoint = config.get("endpoint")
+
+    elif server_type == MemberServerType.OPENAPI:
+        endpoint = config.get(ConfigKey.OPEN_API, {}).get(ConfigKey.ENDPOINT)
+
+    elif server_type == MemberServerType.GRAPHQL:
+        endpoint = config.get(ConfigKey.GRAPHQL, {}).get(ConfigKey.ENDPOINT)
+
+    else:
+        endpoint = None
+
+    return endpoint
+
+
+def load_from_json(filename: str) -> Dict[str, Any]:
+    """
+    Load dictionary data from a JSON file.
+
+    Args:
+        filename: The filename to load from
+
+    Returns:
+        The loaded dictionary, or an empty dictionary if the file doesn't exist
+    """
+    if not os.path.exists(filename):
+        return {}
+
+    try:
+        with open(filename, "r", encoding="utf-8-sig") as f:
+            return json.load(f)
+    except Exception as e:
+        logger.error("Error loading data to '%s' : '%s'", filename, str(e))
+        return {}
+
+
+def save_to_json(data: Dict[str, Any], filename: str) -> bool:
+    """
+    Save dictionary data to a JSON file.
+
+    Args:
+        data: The dictionary to save
+        filename: The filename to save to
+
+    Returns:
+        True if successful, False otherwise
+    """
+    try:
+        with open(filename, "w", encoding="utf-8-sig") as f:
+            json.dump(data, f, indent=2)
+        return True
+    except Exception as e:
+        logger.error("Error saving data to '%s' : '%s'", filename, str(e))
+        return False
 
 
 def _create_prompt_function(template: str, arguments: list[Any]) -> Callable:
@@ -248,52 +340,3 @@ def _build_prompt_arguments(arguments: list[Any]) -> list[Any]:
             prompt_arguments.append(PromptArgument(name=arg))
 
     return prompt_arguments
-
-
-def get_version_adapter(config: Optional[Dict[str, Any]] = None) -> SecretAdapter:
-    """Return adapter version"""
-    if config:
-        adapter_type = config.get("type", "file").lower()
-        adapter_args = {k: v for k, v in config.items() if k != "type"}
-    else:
-        adapter_type = os.getenv("VERSION_ADAPTER_TYPE", "file").lower()
-        adapter_args = (
-            {
-                "file_path": os.getenv(
-                    "VERSION_CONFIG_FILE_PATH", "versioned_config.json"
-                )
-            }
-            if adapter_type == "file"
-            else {}
-        )
-
-    adapter_factory = ADAPTER_REGISTRY.get(adapter_type)
-    if not adapter_factory:
-        raise ValueError(f"Unsupported version adapter type: {adapter_type}")
-
-    return adapter_factory(**adapter_args)
-
-
-def get_endpoint_from_config(config: Dict[str, Any]) -> Optional[HttpUrl]:
-    """Get the endpoint from config for different server types: HTTP, SSE, OpenAPI, etc."""
-
-    server_type = config.get("type")
-
-    if server_type in {
-        MemberServerType.HTTP,
-        MemberServerType.SSE,
-        MemberServerType.STDIO,
-        MemberServerType.CLIENT,
-    }:
-        endpoint = config.get("endpoint")
-
-    elif server_type == MemberServerType.OPENAPI:
-        endpoint = config.get(ConfigKey.OPEN_API, {}).get(ConfigKey.ENDPOINT)
-
-    elif server_type == MemberServerType.GRAPHQL:
-        endpoint = config.get(ConfigKey.GRAPHQL, {}).get(ConfigKey.ENDPOINT)
-
-    else:
-        endpoint = None
-
-    return endpoint

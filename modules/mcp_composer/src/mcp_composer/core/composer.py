@@ -10,6 +10,7 @@ from dotenv import load_dotenv
 from fastmcp import FastMCP
 from fastmcp.server.auth.auth import OAuthProvider
 from fastmcp.tools.tool import Tool
+from fastmcp.resources.resource import Resource
 from mcp_composer.core.tools import MCPToolManager
 from mcp_composer.core.utils import (
     LoggerFactory,
@@ -37,6 +38,18 @@ from mcp_composer.core.utils.tools import (
 from mcp_composer.core.prompts import MCPPromptManager
 from mcp_composer.core.resources import MCPResourceManager
 from mcp_composer.core.config.config_loader import ConfigLoader
+from mcp_composer.a2a_service.a2a_mcp import (
+    register_agent,
+    list_agents,
+    unregister_agent,
+    send_message,
+    get_task_result,
+    cancel_task,
+    load_registered_agents,
+    get_agent_cards,
+    get_agent_card,
+    find_agent,
+)
 
 load_dotenv()
 
@@ -207,7 +220,31 @@ class MCPComposer(FastMCP):
             dynamic_tool_generator = [
                 self.add_tools_from_python,
             ]
+        self.add_resource(
+            Resource.from_function(
+                get_agent_cards,
+                uri="resource://agent_cards/list",
+                mime_type="application/json",
+            )
+        )
 
+        self.add_resource(
+            Resource.from_function(
+                get_agent_card,
+                uri="resource://agent_cards/{card_name}",
+                mime_type="application/json",
+            )
+        )
+
+        load_registered_agents()
+        a2a_tools = [
+            register_agent,
+            list_agents,
+            unregister_agent,
+            send_message,
+            get_task_result,
+            cancel_task,
+        ]
         tool_management_tools = [
             self._tool_manager.get_tool_config_by_name,
             self._tool_manager.get_tool_config_by_server,
@@ -251,6 +288,7 @@ class MCPComposer(FastMCP):
             + tool_management_tools
             + prompt_tools
             + resource_tools
+            + a2a_tools
         )
 
         # Register all tools
