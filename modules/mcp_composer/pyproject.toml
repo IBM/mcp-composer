@@ -9,7 +9,7 @@ keywords = [
     "ibm", "model context protocol", "llm", "agent",
 ]
 dependencies = [
-    "fastmcp==2.13.0",
+    "fastmcp==2.13.1",
     "requests==2.32.4",
     "httpx==0.28.1",
     "ibmcloudant==0.10.2",
@@ -33,6 +33,10 @@ dependencies = [
     "asyncpg>=0.29.0",
     "rich>=13.7",
     "duckduckgo-search>=6.3.0",
+    "google-genai==1.51.0",
+    "numpy==2.3.3",
+    "pandas==2.3.3",
+    "a2a-sdk==0.3.15",
 ]
 
 [project.urls]
@@ -62,9 +66,9 @@ dev = [
 
 [project.optional-dependencies]
 tracing = [
-  "opentelemetry-api==1.26.0",
-  "opentelemetry-sdk==1.26.0",
-  "opentelemetry-exporter-otlp==1.26.0",
+  "opentelemetry-api==1.38.0",
+  "opentelemetry-sdk==1.38.0",
+  "opentelemetry-exporter-otlp==1.38.0",
 ]
 
 [project.scripts]

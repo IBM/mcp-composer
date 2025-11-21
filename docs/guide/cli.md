@@ -926,6 +926,29 @@ mcp-composer composer status --port 9000
 mcp-composer composer logs --port 9000 --follow
 ```
 
+## Catalog
+
+```bash
+# Generate catalog
+mcp-composer catalog generate-catalog --mcp-url http://localhost:9000/mcp  --outputdir ./catalog
+
+# Generate the catalog with MCP tools tagging result
+mcp-composer catalog generate-catalog --mcp-url http://localhost:9000/mcp --mcp-scan-output /mcp_composer/results.json --outputdir ./catalog
+```
+
+## Tool Tagging
+```bash
+# Generate tool tagging report for transport type stdio
+mcp-composer tag generate-tag --mcp-transport stdio --command mcp-composer --args="--mode stdio" --output results.json
+
+# Streamable HTTP
+mcp-composer tag generate-tag --mcp-endpoint http://localhost:9000 --mcp-transport http --output results.json
+
+# SSE, without write to file
+mcp-composer tag generate-tag --mcp-endpoint http://127.0.0.1:8000 --mcp-transport sse
+
+```
+
 ## Logging and Debugging
 
 ### Log Management

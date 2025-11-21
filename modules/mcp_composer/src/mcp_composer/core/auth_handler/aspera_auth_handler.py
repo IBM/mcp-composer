@@ -149,7 +149,6 @@ class AsperaJWTClient(httpx.AsyncClient):
         """
         Make an authenticated request, auto-refreshing the token unless we're calling the token URL itself.
         """
-        logger.info("Preparing %s request to %s", method, url)
         # Cache token URL once to avoid repeated env lookups and any accidental recursion
         if self._resolved_token_url is None and self.auth_data:
             self._resolved_token_url = resolve_env_value(self.auth_data.get(ConfigKey.Token_URL))
