@@ -19,6 +19,7 @@ class ConfigKey(str, Enum):
     OPEN_API = "open_api"
     CUSTOM_ROUTES = "custom_routes"
     Token_URL = "token_url"
+    TOKEN_URL_WITH_ORG = "token_url_with_org"
     AUTH_HEADER = "Authorization"
     TOKEN = "token"
     AUTH_PREFIX = "auth_prefix"
@@ -46,6 +47,7 @@ class ConfigKey(str, Enum):
     ENV = "env"
     CWD = "cwd"
     LAYERED = "layered"
+    CERT_PATH = "cert_path"
 
 
 
@@ -71,6 +73,7 @@ class AuthStrategy(str, Enum):
     DYNAMIC_BEARER = "dynamic_bearer"
     APITOKEN = "apiToken"
     JSESSIONID = "jessionid"
+    ASPERA_OAUTH_HANDLER = "aspera_oauth_handler"
 
 
 class ValidationError(Exception):
@@ -140,7 +143,8 @@ class ServerConfigValidator:
             AuthStrategy.APITOKEN.lower(): ["token"],
             AuthStrategy.BEARER: ["token"],
             AuthStrategy.DYNAMIC_BEARER: ["apikey", "token_url", "id", "secret"],
-            AuthStrategy.OAUTH: ["client_id", "client_secret", "token_url"]
+            AuthStrategy.OAUTH: ["client_id", "client_secret", "token_url"],
+            AuthStrategy.ASPERA_OAUTH_HANDLER: ["client_id", "secret", "cert_path", "token_url"]
         }
 
         # Check if strategy is supported
@@ -159,6 +163,26 @@ class ServerConfigValidator:
                 missing = ["apikey or (id and secret)"]
             else:
                 missing = []
+        # Special logic for aspera_oauth_handler - check for clientId or client_id, and secret or clientSecret
+        elif strategy == AuthStrategy.ASPERA_OAUTH_HANDLER:
+            has_client_id = bool(auth.get(ConfigKey.CLIENT_ID) or auth.get("client_id"))
+            has_secret = bool(
+                auth.get(ConfigKey.SECRET) 
+                or auth.get("secret")
+                or auth.get(ConfigKey.CLIENT_SECRET)
+                or auth.get("clientSecret")
+            )
+            has_cert_path = bool(auth.get(ConfigKey.CERT_PATH) or auth.get("cert_path"))
+            has_token_url = bool(auth.get(ConfigKey.Token_URL) or auth.get("token_url"))
+            missing = []
+            if not has_client_id:
+                missing.append("clientId or client_id")
+            if not has_secret:
+                missing.append("secret or clientSecret")
+            if not has_cert_path:
+                missing.append("cert_path")
+            if not has_token_url:
+                missing.append("token_url")
         else:
             missing = [
                 key

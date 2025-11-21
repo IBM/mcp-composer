@@ -29,6 +29,7 @@ from mcp_composer.core.auth_handler import (
     build_oauth_client,
     OAuthRefreshClient,
     resolve_env_value,
+    AsperaJWTClient,
 )
 from mcp_composer.core.tools.graphql_tool import GraphQLTool
 from mcp_composer.core.member_servers.layered_factory_oa import LayeredOpenAPIFactory
@@ -307,6 +308,14 @@ class MCPServerBuilder:
                 except Exception as e:
                     # Catch-all for unexpected errors
                     logger.error("Unexpected error: %s", e)
+
+            case AuthStrategy.ASPERA_OAUTH_HANDLER:
+                logger.info("Setting up JWT Bearer authentication client")
+                http_client = AsperaJWTClient(
+                    base_url=base_url,
+                    auth_data=auth_config,
+                    headers=headers
+                )
 
             case _:
                 # Default/fallback client
