@@ -3,7 +3,9 @@
 import logging
 import os
 import sys
+from dotenv import load_dotenv
 
+load_dotenv()
 
 class LoggerFactory:
     """
@@ -14,8 +16,13 @@ class LoggerFactory:
     def get_logger(name: str = "mcp-composer", level: str = "INFO") -> logging.Logger:
         logger = logging.getLogger(name)
 
-        # Convert level string to logging level constant
-        log_level = getattr(logging, level.upper(), logging.INFO)
+        # Check MCP_COMPOSER_LOG_LEVEL environment variable first, then use provided level, default to INFO
+        env_log_level = os.getenv("MCP_COMPOSER_LOG_LEVEL", "").strip().upper()
+        if env_log_level:
+            log_level = getattr(logging, env_log_level, logging.INFO)
+        else:
+            # Convert level string to logging level constant
+            log_level = getattr(logging, level.upper(), logging.INFO)
 
         # Set the logger level
         logger.setLevel(log_level)
