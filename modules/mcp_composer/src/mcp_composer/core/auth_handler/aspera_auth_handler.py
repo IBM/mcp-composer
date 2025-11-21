@@ -1,12 +1,12 @@
-import os
-import re
 import time
 import uuid
 from typing import Any, Optional
+import json
+import urllib.parse
 import httpx
 import jwt
-import urllib.parse
-import json
+
+
 from mcp_composer.core.utils import ConfigKey, LoggerFactory
 from mcp_composer.core.auth_handler.oauth_handler import resolve_env_value
 
@@ -15,7 +15,7 @@ logger = LoggerFactory.get_logger()
 DEFAULT_TOKEN_EXPIRY = 3600
 TOKEN_REFRESH_BUFFER = 60
 DEFAULT_SCOPE = "user:all"
-MAX_ENV_RESOLVE_HOPS = 4  # prevent infinite ENV_* indirection
+
 
 
 class AsperaJWTClient(httpx.AsyncClient):
@@ -91,7 +91,7 @@ class AsperaJWTClient(httpx.AsyncClient):
             "exp": now + 300,   # short TTL
             "jti": str(uuid.uuid4()),
         }
-
+        #logger.debug("Generating JWT assertion for payload=%s", payload)
         jwt_header = {
             "typ": "JWT",
             "alg": "RS256"
@@ -126,6 +126,9 @@ class AsperaJWTClient(httpx.AsyncClient):
         assertion_encoded = urllib.parse.quote(assertion)
         parameters = f"assertion={assertion_encoded}&grant_type={grant_type}&scope={scope}"
         headers = {"Content-Type": "application/x-www-form-urlencoded"}
+
+        #logger.debug("Exchanging JWT for access parameters at %s and headers %s", parameters, headers)
+
         auth = httpx.BasicAuth(client_id, client_secret)
         resp = await super().post(token_url_with_org,
             content=parameters.encode('utf-8'), headers=headers, auth=auth)
@@ -137,7 +140,7 @@ class AsperaJWTClient(httpx.AsyncClient):
         access_token = token_data.get("access_token") or token_data.get("token")
         if not access_token:
             raise ValueError(f"No access_token in response: {token_data}")
-
+        #logger.debug("Access token %s ",access_token)
         self._access_token = access_token
         expires_in = int(token_data.get("expires_in", DEFAULT_TOKEN_EXPIRY))
         self._expires_at = time.time() + expires_in - TOKEN_REFRESH_BUFFER
