@@ -39,3 +39,4 @@ docs/node_modules/
 .coverage
 modules/mcp_composer/tests/integration/*
 modules/mcp_composer/tests/specs/snow_table_api_latest_spec.json
+docs/release/pypirelease.md
