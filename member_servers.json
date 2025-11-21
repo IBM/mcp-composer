@@ -1,1 +1,22 @@
-[]
+[
+  {
+    "id": "mcp-aspera",
+    "type": "openapi",
+    "open_api": {
+      "endpoint": "https://api.qa.ibmaspera.com/api/v1",
+      "spec_url": "https://bucket-solis-openapi-spec.s3.us-south.cloud-object-storage.appdomain.cloud/aspera-file-api.json"
+    },
+    "auth_strategy": "aspera_oauth_handler",
+    "auth": {
+      "clientId": "ENV_ASPERA_CLIENT_ID",
+      "clientSecret": "ENV_ASPERA_CLIENT_SECRET",
+      "token_url": "https://api.qa.ibmaspera.com/api/v1/oauth2/token",
+      "token_url_with_org": "https://api.qa.ibmaspera.com/api/v1/oauth2/cto/token",
+      "user_email": "ENV_ASPERA_USER_EMAIL",
+      "cert_path": "ENV_ASPERA_CERT_PATH",
+      "org_subdomain": "cto",
+      "scope": "admin:all"
+    },
+    "_id": "mcp-aspera"
+  }
+]

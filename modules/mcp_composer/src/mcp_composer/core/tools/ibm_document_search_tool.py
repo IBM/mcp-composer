@@ -22,7 +22,7 @@ logger = LoggerFactory.get_logger()
 
 class IBMDocumentSearchSchema:
     """IBM Document Search Tool parameter schema definition"""
-    
+
     @staticmethod
     def get_schema() -> Dict[str, Any]:
         """Get the parameter schema for IBM Document Search Tool"""
@@ -31,7 +31,7 @@ class IBMDocumentSearchSchema:
             "properties": {
                 "question": {
                     "type": "string",
-                    "description": "Main research question to investigate.",
+                    "description": "Main research question to investigate. Optional - if not provided, will be derived from search_query, sub_questions, or use a default.",
                     "minLength": 1
                 },
                 "stage": {
@@ -43,49 +43,25 @@ class IBMDocumentSearchSchema:
                         "summarization",
                         "complete"
                     ],
-                    "default": "planning"
+                    "default": "complete"
                 },
                 "sub_questions": {
                     "type": "array",
-                    "description": "List of sub-questions you've identified (for planning stage).",
+                    "description": "List of sub-questions you've identified (for planning stage). Used to provide context for guidance.",
                     "items": {
                         "type": "string"
                     }
                 },
-                "sources": {
-                    "type": "array",
-                    "description": "List of sources found (for citation stage).",
-                    "items": {
-                        "type": "object",
-                        "properties": {
-                            "title": {"type": "string"},
-                            "url": {"type": "string"},
-                            "summary": {"type": "string"},
-                            "content": {"type": "string"}
-                        }
-                    }
+                "sources_count": {
+                    "type": "integer",
+                    "description": "Optional count of sources found so far. Used to provide context-aware guidance.",
+                    "minimum": 0
                 },
-                "findings": {
+                "gaps": {
                     "type": "array",
-                    "description": "Summary of findings for each sub-question (for summarization stage).",
+                    "description": "Optional list of information gaps identified. Used to provide context-aware guidance.",
                     "items": {
-                        "type": "object",
-                        "properties": {
-                            "sub_question": {"type": "string"},
-                            "summaries": {
-                                "type": "array",
-                                "items": {
-                                    "type": "object",
-                                    "properties": {
-                                        "source": {"type": "string"},
-                                        "points": {
-                                            "type": "array",
-                                            "items": {"type": "string"}
-                                        }
-                                    }
-                                }
-                            }
-                        }
+                        "type": "string"
                     }
                 },
                 "additional_context": {
@@ -94,20 +70,18 @@ class IBMDocumentSearchSchema:
                 },
                 "search_query": {
                     "type": "string",
-                    "description": "Optional search query to perform web search using DuckDuckGo. If provided, the tool will search and return results.",
+                    "description": "Optional suggested search query. This is a hint for the agent to use when searching available resources or using URL tools. The tool does not perform automatic searches - the agent should use available MCP server tools or URL tools to perform actual searches.",
                     "minLength": 1
                 },
                 "max_results": {
                     "type": "integer",
-                    "description": "Maximum number of search results to return (default: 5, max: 10).",
+                    "description": "Optional hint for maximum number of results to consider (default: 5, max: 10). This is guidance only - actual search behavior depends on the tools the agent uses.",
                     "minimum": 1,
                     "maximum": 10,
                     "default": 5
                 }
             },
-            "required": [
-                "question"
-            ],
+            "required": [],
             "additionalProperties": False
         }
 
@@ -123,8 +97,8 @@ class IBMDocumentSearchTool(Tool):
     
     This tool guides you through a structured 3-stage document search workflow to perform
     documentation-focused searches by systematically breaking down questions into
-    2-3 sub-questions, finding relevant sources from IBM Instana Observability
-    documentation, and synthesizing findings with proper citations.
+    2-3 sub-questions, finding relevant sources from resources available in conencted mcp servers,
+    and synthesizing accurate summaries with proper citations.
     """
 
     model_config = ConfigDict(extra="allow")
@@ -162,181 +136,98 @@ class IBMDocumentSearchTool(Tool):
         parameters = load_ibm_document_search_schema()
 
         # Comprehensive system prompt that guides the agent
-        description = """You are a **document search assistant** designed to find accurate and well-supported answers using online sources, including the website provided via resources available in the mcp server using list_resources() method.
+        description = """
+        A strict IBM Documentation Search Agent. This tool retrieves, analyzes, and summarizes
+        information EXCLUSIVELY from IBM documentation resources made available through
+        the MCP server (via list_resources() and resource search queries).
 
-**⚠️ MANDATORY: ALL ANSWERS MUST INCLUDE CITATIONS**
-- Every factual statement must be followed by a citation: "([Source Name/URL])"
-- Every answer must include a "Sources Cited" section
-- No information should be provided without citing the source
-- An answer without citations is incomplete
+        The tool must always operate using three sequential stages:
 
-For each user message you response after performing the **three sequential stages**:
+        -------------------------------------------------------------------
+        1. PLANNING STAGE (stage="planning")
+        -------------------------------------------------------------------
+        - Restate the user’s question.
+        - Break the question into 2–3 precise, factual, non-overlapping sub-questions.
+        - No assumptions, no inference, no external knowledge.
+        - Output fields:
+            - question
+            - sub_questions
+            - stage="planning"
 
-1. Planning
-2. Citation
-3. Summarization (WITH CITATIONS - MANDATORY)
+        -------------------------------------------------------------------
+        2. CITATION STAGE (stage="citation")
+        -------------------------------------------------------------------
+        - Use search tools (list_resources(), search_query) to locate relevant resources.
+        - For EACH sub-question, return ALL relevant sources including:
+            - Title
+            - URL
+            - Summary of relevance
+            - Relevant content excerpts
+        - ONLY use documentation provided through  server as resources or url tools.
+        - Output fields:
+            - question
+            - sub_questions
+            - sources
+            - stage="citation"
 
----
+        -------------------------------------------------------------------
+        3. SUMMARIZATION STAGE (stage="summarization")
+        -------------------------------------------------------------------
+        - Provide summaries using ONLY verifiable information from cited sources.
+        - EVERY factual statement MUST include an inline citation.
+        - If something is missing from documentation, respond with:
+                "This information is not available in the provided documentation."
+        - No assumptions, no general knowledge, no inferred details.
+        - Output fields:
+            - question
+            - findings
+            - sources
+            - stage="summarization"
 
-### ⚙️ General Guardrails - STRICT ENFORCEMENT
+        -------------------------------------------------------------------
+        HARD COMPLIANCE RULES (MANDATORY)
+        -------------------------------------------------------------------
+        - Do NOT use general knowledge.
+        - Do NOT infer or guess missing information.
+        - Do NOT synthesize information from undocumented IBM content.
+        - Do NOT use URLs or documentation not provided through MCP.
+        - Do NOT include opinions or speculation.
+        - Do NOT include uncited factual statements.
+        - Do NOT bypass the 3-stage structure.
 
-**CRITICAL RULES - MUST FOLLOW:**
+        - Only use documented content from the resources accessible via:
+                list_resources()
+                search_query
+        - Every factual statement must contain a citation.
+        - If you cannot cite it, you cannot say it.
 
-1. **ONLY use information from the provided documentation URL** - Do NOT use general knowledge, common patterns, logical inferences, or prior knowledge about IBM products.
+        -------------------------------------------------------------------
+        REQUIRED RESPONSE FORMAT
+        -------------------------------------------------------------------
+        Each tool invocation MUST include these fields depending on stage:
 
-2. **NO SYNTHESIS FROM GENERAL KNOWLEDGE** - Do NOT combine information from:
-   - General knowledge about IBM's observability products
-   - Common integration patterns you may know
-   - Logical inferences about how products work
-   - Prior experience with similar products
+        - question:         The main user query.
+        - stage:            One of: "planning", "citation", "summarization", "complete"
+        - sub_questions:    (planning stage)
+        - search_query:     (optional for citation)
+        - max_results:      (optional)
+        - sources:          (citation stage)
+        - findings:         (summarization stage)
+        - additional_context: (optional)
 
-3. **ONLY cite actual sources** - Every piece of information MUST come directly from a cited source in the provided documentation. If you cannot find it in the documentation, state: "This information is not available in the provided documentation."
+        -------------------------------------------------------------------
+        FAILURE MODE REQUIREMENT
+        -------------------------------------------------------------------
+        If required information does not appear in the provided documentation,
+        the assistant MUST reply:
 
-4. **NO ASSUMPTIONS** - Do NOT make assumptions or generate content not explicitly stated in the source material. If information is missing, explicitly state: "This information could not be found in the provided documentation."
+      "I can only provide verified information based on the IBM documentation.
+       The information you requested is not available in the provided documentation."
 
-5. **NO INFERENCES** - Do NOT infer how products work together, what features exist, or how integrations function based on general knowledge. Only state what is explicitly documented.
-
-6. **STRICT SOURCE REQUIREMENT** - Every factual claim must be traceable to a specific cited source with URL. If you cannot cite a source, do not include the information.
-
-7. **OBJECTIVE TONE ONLY** - Keep the tone objective, professional, and factual — no opinions, speculation, or educated guesses.
-
-8. **NO EXTERNAL SOURCES** - Do NOT include information from sources outside the approved documentation URL(s).
-
-### 🧭 1. Planning
-
-**Goal:** Break down the user's question into 2–3 precise, self-contained sub-questions that together address the user's query completely.
-
-**Instructions:**
-- Carefully analyze the user's main question.
-- Identify key aspects, dimensions, or unknowns that need to be explored.
-- Formulate 2–3 sub-questions that are clear, factual, and non-overlapping.
-- Ensure each sub-question could independently be answered by a search.
-
-**Response format:**
-```markdown
-**Main Question:** <restate the user's question>
-
-**Subquestions:**
-
-1. ...
-2. ...
-3. ...
-```
-
-### 📚 2. Citation
-
-**Goal:** For each sub-question, find the most relevant sources using the provided website URL or search tool.
-
-**Instructions:**
-- Use the entire sub-question or a focused search term when retrieving sources.
-- Select the most authoritative and relevant materials from the website.
-- For each source, extract:
-  - Title
-  - URL
-  - Short summary of relevance
-  - Full content (or a short excerpt if the full text isn't available)
-
-**Response format:**
-```markdown
-### Subquestion: ...
-
-**Sources:**
-
-1. **Title:** ...
-   - **URL:** ...
-   - **Summary:** ...
-   - **Content:** ...
-
-2. ...
-```
-
-### 📝 3. Summarization
-
-**Goal:** Synthesize information from the gathered sources into concise, accurate summaries that directly answer each sub-question.
-
-**CRITICAL: ALWAYS INCLUDE CITATIONS**
-- **Every answer MUST include citations** - No information should be provided without citing the source
-- **Every bullet point MUST reference its source** with the source name/URL
-- **Citations are mandatory** - If you cannot cite a source, do not include that information
-
-**Instructions:**
-- Focus ONLY on information explicitly stated in the cited sources
-- Summarize key insights from each source in 2–4 concise bullet points
-- **ALWAYS cite the source** for each piece of information provided
-- Do NOT add information from general knowledge or make inferences
-- If a source doesn't contain the information needed, state that explicitly
-- Avoid redundancy and ensure factual neutrality
-- Every bullet point must be directly traceable to the cited source with URL
-
-**Response format:**
-```markdown
-### Subquestion: ...
-
-**Answer:**
-[Your summary answer here, with inline citations like: "According to [Source Name/URL], ..."]
-
-**Sources Cited:**
-- **Source 1:** [Source Name] - [URL]
-  - [Key point 1 from this source]
-  - [Key point 2 from this source]
-  - [Key point 3 from this source]
-
-- **Source 2:** [Source Name] - [URL]
-  - [Key point 1 from this source]
-  - [Key point 2 from this source]
-  - [Key point 3 from this source]
-```
-
-**IMPORTANT:** Every factual statement in your answer must be followed by a citation in the format: "([Source Name/URL])" or clearly linked to a source in the Sources Cited section.
-
-### Final Notes
-
-- **CITATIONS ARE MANDATORY** - Every answer must include citations. No information should be provided without citing the source.
-- **ONLY use information explicitly found in the provided documentation**
-- **Do NOT use general knowledge or make logical inferences**
-- Maintain an objective and evidence-based tone throughout
-- **Every claim MUST be followed by a citation** - Format: "([Source Name/URL])" or clearly reference the source
-- Ensure all claims are traceable to a specific cited source with URL
-- Do NOT invent, infer, or synthesize information from general knowledge
-- If information is missing, explicitly state: "This information could not be found in the provided documentation"
-- If you find yourself using general knowledge or making inferences, STOP and state that the information is not available in the documentation
-- **Remember: An answer without citations is incomplete and violates the guardrails**
-
-### 🚦 Compliance Reminder
-
-**If at any point:**
-- You cannot find information in the provided documentation
-- You are tempted to use general knowledge or make inferences
-- The user request goes beyond the scope of the provided sources
-- You would need to synthesize information from general knowledge
-
-**You MUST respond with:**
-
-> "I can only provide verified information based on the IBM Instana Observability documentation. The information you requested is not available in the provided documentation."
-
-**DO NOT:**
-- Fill gaps with general knowledge
-- Make logical inferences about how things work
-- Synthesize information from common patterns
-- Use prior knowledge about IBM products
-
-**Parameters:**
-- **question**: Your main document search question (required)
-- **stage**: Current document search stage you're working on ('planning', 'citation', 'summarization', or 'complete')
-- **search_query**: Optional search query to search within available resources. If provided, the tool will search through the resources list and return matching results.
-- **max_results**: Maximum number of search results to return (default: 5, max: 10)
-- **sub_questions**: List of sub-questions you've identified (for planning stage)
-- **sources**: List of sources you've found (for citation stage)
-- **findings**: Summary of findings for each sub-question (for summarization stage)
-- **additional_context**: Extra guidance or constraints for the document search
-
-**Resource Search:**
-This tool searches within available resources from the MCP server. To search, provide the `search_query` parameter along with your question. The tool will search through the resources list and return matching resources with names, URIs, descriptions, and tags that you can use as sources for your document search.
-
-Remember: This tool provides guidance, structure, and resource search capabilities. Use the search_query parameter to find relevant resources from the available documentation sources, then organize and synthesize your document search following the 3-stage workflow."""
+        """
 
         # Get tool name from config or use default
-        tool_name = "ibmdocumentsearch"
+        tool_name = "ibm_document_search"
         if config and "name" in config:
             tool_name = config["name"]
         elif config and "id" in config:
@@ -402,18 +293,18 @@ Remember: This tool provides guidance, structure, and resource search capabiliti
         try:
             max_results = min(max(1, max_results), 10)  # Clamp between 1 and 10
             logger.info(f"Searching resources for: {query} (max_results: {max_results})")
-            
+
             # Get available resources
             available_resources = await self._get_available_resources()
-            
+
             if not available_resources:
                 logger.warning("No resources available to search")
                 return []
-            
+
             # Normalize query for case-insensitive search
             query_lower = query.lower()
             query_terms = query_lower.split()
-            
+
             # Score and filter resources based on query match
             scored_resources = []
             for resource in available_resources:
@@ -421,18 +312,18 @@ Remember: This tool provides guidance, structure, and resource search capabiliti
                 description = resource.get("description", "").lower()
                 uri = resource.get("uri", "").lower()
                 tags = [tag.lower() for tag in resource.get("tags", [])]
-                
+
                 # Calculate relevance score
                 score = 0
-                
+
                 # Exact match in name (highest priority)
                 if query_lower in name:
                     score += 10
-                
+
                 # All query terms in name
                 if all(term in name for term in query_terms):
                     score += 8
-                
+
                 # Query terms in description
                 for term in query_terms:
                     if term in description:
@@ -441,18 +332,18 @@ Remember: This tool provides guidance, structure, and resource search capabiliti
                         score += 2
                     if any(term in tag for tag in tags):
                         score += 2
-                
+
                 # Partial match in name
                 if any(term in name for term in query_terms):
                     score += 5
-                
+
                 if score > 0:
                     scored_resources.append((score, resource))
-            
+
             # Sort by score (descending) and take top results
             scored_resources.sort(key=lambda x: x[0], reverse=True)
             results = [resource for _, resource in scored_resources[:max_results]]
-            
+
             # Format results to match expected structure
             formatted_results = []
             for resource in results:
@@ -463,21 +354,21 @@ Remember: This tool provides guidance, structure, and resource search capabiliti
                     "mime_type": resource.get("mime_type", ""),
                     "tags": resource.get("tags", [])
                 })
-            
+
             logger.info(f"Found {len(formatted_results)} matching resources")
             return formatted_results
-            
+
         except Exception as e:
             logger.error(f"Error searching resources: {e}")
             return []
 
     async def _generate_stage_guidance(self, stage: str, question: str, context: Optional[Dict[str, Any]] = None) -> str:
         """Generate guidance for a specific document search stage"""
-        
+
         # Get available resources
         available_resources = await self._get_available_resources()
         resources_list_text = self._format_resources_list(available_resources) if available_resources else "No resources available. Use web search or other available tools to find sources."
-        
+
         guidance = {
             "planning": f"""**STAGE 1: PLANNING**
 
@@ -510,11 +401,13 @@ Remember: This tool provides guidance, structure, and resource search capabiliti
 
             "citation": f"""**STAGE 2: CITATION**
 
-**Your task:** For each sub-question, find the most relevant sources using the available resources or search tool.
+**Your task:** For each sub-question, find the most relevant sources using the available resources and URL tools.
 
 **CRITICAL RULES:**
 - **ONLY use sources from the provided IBM Instana Observability documentation**
 - **Use available resources from list_resources() - see list below**
+- **Use URL tools to fetch content from resource URIs**
+- **Use available search tools from connected MCP servers for additional searches**
 - **Do NOT use general knowledge, common patterns, or logical inferences**
 - **Do NOT synthesize information from general knowledge about IBM products**
 - If you cannot find a source in the documentation, state: "No source found in the provided documentation"
@@ -523,7 +416,9 @@ Remember: This tool provides guidance, structure, and resource search capabiliti
 {resources_list_text}
 
 **Guidelines:**
-- **First, check the available resources listed above** - these are documentation sources you can access
+- **First, review the available resources listed above** - these are documentation sources you can access
+- **Use URL tools to fetch the actual content from resource URIs** - don't just list them
+- **Use search tools from connected MCP servers** to find additional relevant documentation
 - Use the entire sub-question or a focused search term when retrieving sources
 - Select the most authoritative and relevant materials from the IBM Instana Observability documentation ONLY
 - Always stay within the context of the provided website or documentation
@@ -546,15 +441,18 @@ Remember: This tool provides guidance, structure, and resource search capabiliti
 ```
 
 **For each sub-question:**
-1. Search using relevant keywords from the sub-question
-2. Review search results for relevance to IBM Instana documentation
-3. Select the most relevant sources
-4. Record source information in the required format
+1. Review available resources and identify relevant URIs
+2. Use URL tools to fetch content from those URIs
+3. Use MCP server search tools if needed for additional searches
+4. Review fetched content for relevance to IBM Instana documentation
+5. Select the most relevant sources
+6. Record source information in the required format
 
 **Next steps:**
-1. Search for sources for each sub-question
-2. Compile your source list with proper citations
-3. Once you have sources for all sub-questions, move to Stage 3: Summarization""",
+1. Use URL tools to fetch content from relevant resource URIs
+2. Use MCP server search tools for additional searches if needed
+3. Compile your source list with proper citations
+4. Once you have sources for all sub-questions, move to Stage 3: Summarization""",
 
             "summarization": """**STAGE 3: SUMMARIZATION**
 
@@ -629,10 +527,69 @@ Your document search has been completed through all 3 stages. Review your final 
 - NO assumptions or unsupported content
 - Every claim is directly traceable to a cited source with URL
 
+**REQUIRED RESPONSE FORMAT WITH CITATIONS:**
+
+Your final response MUST follow this format with citations:
+
+```markdown
+## Answer to: [Main Question]
+
+### Sub-question 1: [Question text]
+
+**Answer:**
+[Your answer here with inline citations after EVERY factual statement. For example: "According to the IBM Instana documentation ([Source Name/URL]), feature X works by... ([Source Name/URL])"]
+
+**Sources Cited:**
+- **Source 1:** [Source Name] - [URL]
+  - [Key point 1 from this source] ([Source Name/URL])
+  - [Key point 2 from this source] ([Source Name/URL])
+  - [Key point 3 from this source] ([Source Name/URL])
+
+- **Source 2:** [Source Name] - [URL]
+  - [Key point 1 from this source] ([Source Name/URL])
+  - [Key point 2 from this source] ([Source Name/URL])
+
+### Sub-question 2: [Question text]
+
+**Answer:**
+[Answer with citations...]
+
+**Sources Cited:**
+- **Source 1:** [Source Name] - [URL]
+  - [Key points with citations...]
+
+### Sub-question 3: [Question text]
+
+**Answer:**
+[Answer with citations...]
+
+**Sources Cited:**
+- **Source 1:** [Source Name] - [URL]
+  - [Key points with citations...]
+
+## Complete Sources List
+
+1. **[Source Name]** - [URL]
+   - Summary: [Brief summary]
+   
+2. **[Source Name]** - [URL]
+   - Summary: [Brief summary]
+```
+
+**CRITICAL: CITATION EXAMPLES**
+
+Every factual statement MUST include a citation. Examples:
+
+- CORRECT: "IBM Instana provides real-time monitoring capabilities ([IBM Instana Documentation](https://example.com/doc))"
+- CORRECT: "The system supports multiple data sources ([Source Name/URL])"
+- WRONG: "IBM Instana provides real-time monitoring capabilities" (no citation)
+- WRONG: "The system supports multiple data sources" (no citation)
+
 **CRITICAL COMPLIANCE CHECK:**
 Before finalizing, verify:
 - **Did I include citations for EVERY factual statement?**
-- **Does my answer have a "Sources Cited" section?**
+- **Does my answer have a "Sources Cited" section for each sub-question?**
+- **Did I include a complete "Sources List" at the end?**
 - Did I use ONLY information from the provided documentation?
 - Did I avoid using general knowledge about IBM products?
 - Did I avoid making logical inferences?
@@ -642,8 +599,9 @@ Before finalizing, verify:
 **CITATION REQUIREMENT:**
 If your answer does not include citations for every factual statement, it is INCOMPLETE. You MUST:
 1. Add inline citations: "([Source Name/URL])" after each factual claim
-2. Include a "Sources Cited" section listing all sources with URLs
-3. Ensure every piece of information is traceable to a source
+2. Include a "Sources Cited" section for each sub-question listing all sources with URLs
+3. Include a complete "Sources List" at the end with all sources used
+4. Ensure every piece of information is traceable to a source
 
 **Compliance Reminder:**
 If any information was synthesized from general knowledge, inferences, or common patterns, you MUST state:
@@ -653,18 +611,18 @@ If any information was synthesized from general knowledge, inferences, or common
 If you need to revise or expand any part, you can return to the appropriate stage."""
         }
 
-        stage_lower = stage.lower() if stage else "planning"
-        base_guidance = guidance.get(stage_lower, guidance["planning"])
+        stage_lower = stage.lower() if stage else "complete"
+        base_guidance = guidance.get(stage_lower, guidance["complete"])
 
         if context:
             additional_info = []
             if context.get("sub_questions"):
-                additional_info.append(f"\n**Your sub-questions:**\n" + "\n".join(f"- {q}" for q in context["sub_questions"]))
+                additional_info.append("\n**Your sub-questions:**\n" + "\n".join(f"- {q}" for q in context["sub_questions"]))
             if context.get("sources_count"):
                 additional_info.append(f"\n**Sources found:** {context['sources_count']}")
             if context.get("gaps"):
-                additional_info.append(f"\n**Gaps identified:**\n" + "\n".join(f"- {g}" for g in context["gaps"]))
-            
+                additional_info.append("\n**Gaps identified:**\n" + "\n".join(f"- {g}" for g in context["gaps"]))
+
             if additional_info:
                 base_guidance += "\n" + "\n".join(additional_info)
 
@@ -674,7 +632,7 @@ If you need to revise or expand any part, you can return to the appropriate stag
         """Format the list of available resources for display"""
         if not resources:
             return "No resources available."
-        
+
         formatted = []
         for i, resource in enumerate(resources, 1):
             name = resource.get("name", "Unknown")
@@ -682,7 +640,7 @@ If you need to revise or expand any part, you can return to the appropriate stag
             uri = resource.get("uri", "")
             mime_type = resource.get("mime_type", "")
             tags = resource.get("tags", [])
-            
+
             resource_str = f"{i}. **{name}**"
             if description:
                 resource_str += f"\n   Description: {description}"
@@ -692,9 +650,9 @@ If you need to revise or expand any part, you can return to the appropriate stag
                 resource_str += f"\n   MIME Type: {mime_type}"
             if tags:
                 resource_str += f"\n   Tags: {', '.join(tags)}"
-            
+
             formatted.append(resource_str)
-        
+
         return "\n\n".join(formatted)
 
     async def run(self, arguments: Dict[str, Any]) -> ToolResult:
@@ -707,53 +665,113 @@ If you need to revise or expand any part, you can return to the appropriate stag
         Returns:
             ToolResult: Document search guidance for the current stage
         """
+        logger.info(f"IBM document search tool run called with arguments: {arguments}")
         try:
-            # Extract parameters
-            question = arguments.get("question", "").strip()
+            # Extract parameters - handle both camelCase and snake_case, following sequential_thinking_tool pattern
+            # Try multiple possible parameter name variations
+            question = (
+                arguments.get("question") or 
+                arguments.get("Question") or
+                arguments.get("mainQuestion") or
+                arguments.get("main_question") or
+                ""
+            )
+            if isinstance(question, str):
+                question = question.strip()
+            else:
+                question = ""
+
+            # Derive question from search_query if question is not provided
+            search_query = (
+                arguments.get("search_query") or 
+                arguments.get("searchQuery") or
+                arguments.get("search") or
+                ""
+            )
+            if isinstance(search_query, str):
+                search_query = search_query.strip()
+            else:
+                search_query = ""
+
+            # If question is still empty, use search_query as question
+            if not question and search_query:
+                question = search_query
+                logger.info(f"Using search_query as question: {question}")
+
+            # If still no question, try to derive from context or use default
             if not question:
-                raise ValueError("Document search question is required")
+                # Try to get from sub_questions if available
+                sub_questions = arguments.get("sub_questions") or arguments.get("subQuestions") or []
+                if sub_questions and isinstance(sub_questions, list) and len(sub_questions) > 0:
+                    # Use first sub-question as main question context
+                    question = f"Research question related to: {sub_questions[0]}"
+                    logger.info(f"Derived question from sub_questions: {question}")
+                else:
+                    # Use a generic question if nothing is provided
+                    question = "General documentation search"
+                    logger.warning("No question or search_query provided, using default question")
 
-            stage = arguments.get("stage", "planning")
-            search_query = arguments.get("search_query", "").strip()
-            max_results = arguments.get("max_results", 5)
-            additional_context = arguments.get("additional_context")
-            
-            # Extract context information if provided
+            stage = (
+                arguments.get("stage") or 
+                arguments.get("Stage") or
+                "complete"
+            )
+            if isinstance(stage, str):
+                stage = stage.strip().lower()
+            else:
+                stage = "complete"
+
+            max_results = arguments.get("max_results") or arguments.get("maxResults") or arguments.get("max_results") or 5
+            if not isinstance(max_results, int):
+                try:
+                    max_results = int(max_results)
+                except (ValueError, TypeError):
+                    max_results = 5
+            max_results = min(max(1, max_results), 10)  # Clamp between 1 and 10
+
+            additional_context = (
+                arguments.get("additional_context") or 
+                arguments.get("additionalContext") or
+                arguments.get("context") or
+                None
+            )
+
+            # Extract context information if provided - handle both naming conventions
             context = {}
-            if "sub_questions" in arguments:
-                context["sub_questions"] = arguments["sub_questions"]
-            if "sources_count" in arguments:
-                context["sources_count"] = arguments["sources_count"]
-            if "gaps" in arguments:
-                context["gaps"] = arguments["gaps"]
-
-            # Get available resources
-            available_resources = await self._get_available_resources()
+            sub_questions = arguments.get("sub_questions") or arguments.get("subQuestions") or []
+            if sub_questions:
+                context["sub_questions"] = sub_questions if isinstance(sub_questions, list) else [sub_questions]
             
-            # Search resources if search_query is provided
-            search_results = []
-            if search_query:
-                search_results = await self._search_resources(search_query, max_results)
-                logger.info(f"Searched resources for: '{search_query}' - found {len(search_results)} results")
+            sources_count = arguments.get("sources_count") or arguments.get("sourcesCount")
+            if sources_count is not None:
+                context["sources_count"] = sources_count
+            
+            gaps = arguments.get("gaps") or arguments.get("Gaps")
+            if gaps:
+                context["gaps"] = gaps if isinstance(gaps, list) else [gaps]
 
+            # Get available resources (for guidance only - no automatic search, like sequential thinking)
+            available_resources = await self._get_available_resources()
+            logger.info(f"Available resources: {available_resources}")
             # Generate guidance for the current stage
             guidance = await self._generate_stage_guidance(stage, question, context if context else None)
 
-            # Add search results to guidance if available
-            if search_results:
-                guidance += f"\n\n**Resource Search Results for '{search_query}':**\n\n"
-                for i, result in enumerate(search_results, 1):
-                    guidance += f"{i}. **{result['title']}**\n"
-                    guidance += f"   URI: {result['url']}\n"
-                    if result.get('snippet'):
-                        guidance += f"   Description: {result['snippet'][:200]}...\n"
-                    if result.get('mime_type'):
-                        guidance += f"   MIME Type: {result['mime_type']}\n"
-                    if result.get('tags'):
-                        guidance += f"   Tags: {', '.join(result['tags'])}\n"
-                    guidance += "\n"
-                guidance += "Use these resources from the available documentation sources. Evaluate each resource for relevance to your sub-questions."
-
+            # Add guidance about using URL tools for additional searches
+            guidance += "\n\n**Additional Tools Available:**\n"
+            guidance += "- Use available URL tools to fetch content from resource URIs\n"
+            guidance += "- Use search tools from connected MCP servers to find additional documentation\n"
+            
+            # Add the actual list of available resources
+            if available_resources:
+                guidance += "\n\n**Available Resources from MCP Server:**\n\n"
+                guidance += self._format_resources_list(available_resources)
+                guidance += "\n\n**Instructions:**\n"
+                guidance += "- Review the resources listed above\n"
+                guidance += "- Use URL tools to fetch content from the resource URIs\n"
+                guidance += "- Use these resources to find answers to your sub-questions\n"
+            else:
+                guidance += "\n\n**Note:** No resources are currently available from MCP servers. Use available search tools or URL tools to find documentation.\n"
+            
             # Add additional context if provided
             if additional_context:
                 guidance += f"\n\n**Additional Context:**\n{additional_context}"
@@ -767,33 +785,47 @@ If you need to revise or expand any part, you can return to the appropriate stag
             }
             next_stage = stage_flow.get(stage.lower(), "citation")
 
-            # Create response
+            # Create response (similar structure to sequential thinking - guidance-focused)
             response = {
                 "stage": stage.lower(),
                 "mainQuestion": question,
                 "guidance": guidance,
                 "nextStage": next_stage,
+                "availableResources": available_resources if available_resources else [],
+                "resourceCount": len(available_resources) if available_resources else 0,
                 "status": "success"
             }
+            logger.info(f"Response: {response}")
+            # Add search query hint if provided (for reference, but no search performed)
+            if search_query:
+                response["suggestedSearchQuery"] = search_query
+                response["guidance"] += f"\n\n**Note:** A search query was provided ('{search_query}'), but you should use available URL tools or MCP server search tools to perform the actual search."
 
-            # Add search results to response if available
-            if search_results:
-                response["searchResults"] = search_results
-                response["searchQuery"] = search_query
-
-            # Add available resources to response
-            if available_resources:
-                response["availableResources"] = available_resources
-
-            logger.info(f"IBM document search guidance provided - Stage: {stage}, Question: {question[:50]}...")
+            question_display = question[:50] + "..." if len(question) > 50 else question
+            logger.info(f"IBM document search guidance provided - Stage: {stage}, Question: {question_display} and response {response}")
 
             return ToolResult(content=[TextContent(type="text", text=json.dumps(response, indent=2))])
 
         except ValueError as e:
             logger.error(f"Validation error in IBM document search: {e}")
+            # Try to extract question from arguments using multiple possible keys
+            main_question = (
+                arguments.get("question") or 
+                arguments.get("Question") or
+                arguments.get("mainQuestion") or
+                arguments.get("main_question") or
+                arguments.get("search_query") or
+                arguments.get("searchQuery") or
+                ""
+            )
+            if isinstance(main_question, str):
+                main_question = main_question.strip()
+            else:
+                main_question = ""
+            
             error_response = {
                 "stage": "error",
-                "mainQuestion": arguments.get("question", ""),
+                "mainQuestion": main_question,
                 "guidance": f"Validation Error: {str(e)}",
                 "nextStage": None,
                 "status": "validation_error",
@@ -803,9 +835,24 @@ If you need to revise or expand any part, you can return to the appropriate stag
 
         except Exception as e:
             logger.error(f"Unexpected error in IBM document search: {e}")
+            # Try to extract question from arguments using multiple possible keys
+            main_question = (
+                arguments.get("question") or 
+                arguments.get("Question") or
+                arguments.get("mainQuestion") or
+                arguments.get("main_question") or
+                arguments.get("search_query") or
+                arguments.get("searchQuery") or
+                ""
+            )
+            if isinstance(main_question, str):
+                main_question = main_question.strip()
+            else:
+                main_question = ""
+            
             error_response = {
                 "stage": "error",
-                "mainQuestion": arguments.get("question", ""),
+                "mainQuestion": main_question,
                 "guidance": f"An unexpected error occurred: {str(e)}",
                 "nextStage": None,
                 "status": "failed",
