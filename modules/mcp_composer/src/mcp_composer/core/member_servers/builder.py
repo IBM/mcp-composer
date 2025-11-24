@@ -30,6 +30,8 @@ from mcp_composer.core.auth_handler import (
     OAuthRefreshClient,
     resolve_env_value,
     AsperaJWTClient,
+    SolisJWTClient,
+    SolisJWTTokenGenerator
 )
 from mcp_composer.core.tools.graphql_tool import GraphQLTool
 from mcp_composer.core.member_servers.layered_factory_oa import LayeredOpenAPIFactory
@@ -114,9 +116,17 @@ class MCPServerBuilder:
                 headers[ConfigKey.AUTH_HEADER.value] = (
                     f"Bearer {auth_token.get(ConfigKey.TOKEN)}"
                 )
+            elif auth_strategy == AuthStrategy.SOLIS_OAUTH_HANDLER:
+                logger.info("Setting up Solis OAuth authentication client")
+                auth_data = config.get(ConfigKey.AUTH, {})
+                token_generator = SolisJWTTokenGenerator(auth_data=auth_data)
+                jwt_token = await token_generator.get_jwt_token()
+                headers[ConfigKey.AUTH_HEADER.value] = (
+                    f"Bearer {jwt_token}"
+                )
 
             transport = TransportClass(url=endpoint, headers=headers, auth=auth)
-            print("the headers are >>>", headers)
+            logger.debug("the headers are >>> %s", headers)
             # Set up authentication if provided
             client = Client(transport, auth=auth)
             return FastMCP.as_proxy(client, name=self.mcp_id)
@@ -135,9 +145,6 @@ class MCPServerBuilder:
             raise ValueError(f"Unsupported transport type: {transport_type}")
 
     async def _build_from_client(self) -> FastMCP:
-        # auth = build_auth_strategy(self.config["auth_strategy"], self.config.get("auth", {}))
-        # headers = await auth.get_headers()
-
         client = Client(self.config[ConfigKey.ENDPOINT])
 
         headers = self.config.get(ConfigKey.HEADERS)
@@ -317,6 +324,13 @@ class MCPServerBuilder:
                     headers=headers
                 )
 
+            case AuthStrategy.SOLIS_OAUTH_HANDLER:
+                logger.info("Setting up Solis JWT authentication client with auto-refresh")
+                http_client = SolisJWTClient(
+                    base_url=base_url,
+                    auth_data=auth_config,
+                    headers=headers
+                )
             case _:
                 # Default/fallback client
                 if headers:

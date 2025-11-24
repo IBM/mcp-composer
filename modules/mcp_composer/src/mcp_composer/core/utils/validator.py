@@ -28,6 +28,7 @@ class ConfigKey(str, Enum):
     USERNAME = "username"
     PASSWORD = "password"
     LOGIN_URL = "login_url"
+    RETURN_URL = "return_url"
     TOKEN_TYPE = "token_type"
     TOKEN_GEN_AUTH_METHOD = "token_gen_auth_method"
     TOKEN_GEN_METHOD = "token_gen_method"
@@ -48,6 +49,11 @@ class ConfigKey(str, Enum):
     CWD = "cwd"
     LAYERED = "layered"
     CERT_PATH = "cert_path"
+    CERT_URL = "cert_url"
+    USER_EMAIL = "user_email"
+
+    USER_PASSWORD = "user_password"
+
 
 
 
@@ -74,6 +80,8 @@ class AuthStrategy(str, Enum):
     APITOKEN = "apiToken"
     JSESSIONID = "jessionid"
     ASPERA_OAUTH_HANDLER = "aspera_oauth_handler"
+    SOLIS_OAUTH_HANDLER = "solist_oauth_handler"
+
 
 
 class ValidationError(Exception):
@@ -111,6 +119,10 @@ class ServerConfigValidator:
                 self.config.get(ConfigKey.TYPE),
             )
 
+    def _has_any_key(self, auth: Dict[str, Any], *keys: str) -> bool:
+        """Check if any of the provided keys exist in auth dict."""
+        return any(auth.get(key) for key in keys)
+
     def _validate_stdio_requirements(self) -> None:
         """Ensure required fields exist for stdio type."""
 
@@ -144,7 +156,8 @@ class ServerConfigValidator:
             AuthStrategy.BEARER: ["token"],
             AuthStrategy.DYNAMIC_BEARER: ["apikey", "token_url", "id", "secret"],
             AuthStrategy.OAUTH: ["client_id", "client_secret", "token_url"],
-            AuthStrategy.ASPERA_OAUTH_HANDLER: ["client_id", "secret", "cert_path", "token_url"]
+            AuthStrategy.ASPERA_OAUTH_HANDLER: ["client_id", "secret", "cert_path", "token_url"],
+            AuthStrategy.SOLIS_DAL_JWT_HANDLER: ["login_url", "return_url"]
         }
 
         # Check if strategy is supported
@@ -167,7 +180,7 @@ class ServerConfigValidator:
         elif strategy == AuthStrategy.ASPERA_OAUTH_HANDLER:
             has_client_id = bool(auth.get(ConfigKey.CLIENT_ID) or auth.get("client_id"))
             has_secret = bool(
-                auth.get(ConfigKey.SECRET) 
+                auth.get(ConfigKey.SECRET)
                 or auth.get("secret")
                 or auth.get(ConfigKey.CLIENT_SECRET)
                 or auth.get("clientSecret")
@@ -183,6 +196,27 @@ class ServerConfigValidator:
                 missing.append("cert_path")
             if not has_token_url:
                 missing.append("token_url")
+        # Special logic for solis_dal_jwt_handler - check for login_url, return_url, and email/password
+        elif strategy == AuthStrategy.SOLIS_DAL_JWT_HANDLER:
+            missing = []
+
+            # Check login_url (supports multiple case variations)
+            if not self._has_any_key(auth, ConfigKey.LOGIN_URL):
+                missing.append("login_url or LOGIN_URL")
+
+            # Check return_url (supports multiple case variations)
+            if not self._has_any_key(auth, ConfigKey.RETURN_URL):
+                missing.append("return_url or returnUrl or RETURN_URL")
+
+            # Email can be provided directly or via email_var (for environment variable)
+            has_email = self._has_any_key(auth, )
+            if not (has_email):
+                missing.append("email or email_var (or EMAIL/EMAIL_VAR)")
+
+            # Password can be provided directly or via password_var (for environment variable)
+            has_password = self._has_any_key(auth, ConfigKey.PASSWORD, "password", "PASSWORD")
+            if not (has_password ):
+                missing.append("password or password_var (or PASSWORD/PASSWORD_VAR)")
         else:
             missing = [
                 key
