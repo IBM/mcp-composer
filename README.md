@@ -1506,7 +1506,7 @@ The A2A (Agent-to-Agent) module provides MCP tools for interacting with A2A agen
 
 ## A2A MCP Tools
 
-### `register_agent`
+#### `register_agent`
 
 Registers an A2A agent with the bridge server by fetching its agent card from the provided URL.
 
@@ -1543,7 +1543,7 @@ Registers an A2A agent with the bridge server by fetching its agent card from th
 }
 ```
 
-### `list_agents`
+#### `list_agents`
 
 Retrieves a list of all registered A2A agents.
 
@@ -1579,7 +1579,7 @@ Retrieves a list of all registered A2A agents.
 ]
 ```
 
-### `unregister_agent`
+#### `unregister_agent`
 
 Unregisters an A2A agent from the bridge server and cleans up associated task mappings.
 
@@ -1597,7 +1597,7 @@ Unregisters an A2A agent from the bridge server and cleans up associated task ma
 }
 ```
 
-### `send_message`
+#### `send_message`
 
 Sends a message to a registered A2A agent and returns the response with a task ID for future reference.
 
@@ -1620,7 +1620,7 @@ Sends a message to a registered A2A agent and returns the response with a task I
 }
 ```
 
-### `get_task_result`
+#### `get_task_result`
 
 Retrieves the result of a completed task from an A2A agent.
 
@@ -1638,7 +1638,7 @@ Retrieves the result of a completed task from an A2A agent.
 }
 ```
 
-### `cancel_task`
+#### `cancel_task`
 
 Cancels a running task on an A2A agent.
 
@@ -1656,7 +1656,7 @@ Cancels a running task on an A2A agent.
 }
 ```
 
-### `find_agent`
+#### `find_agent`
 
 Finds the most relevant A2A agent based on a natural language query using semantic similarity search with embeddings.
 
@@ -1690,7 +1690,7 @@ Finds the most relevant A2A agent based on a natural language query using semant
 }
 ```
 
-### `get_agent_cards`
+#### `get_agent_cards`
 
 Retrieves all loaded agent cards as MCP resource URIs.
 
@@ -1709,7 +1709,7 @@ Retrieves all loaded agent cards as MCP resource URIs.
 }
 ```
 
-### `get_agent_card`
+#### `get_agent_card`
 
 Retrieves a specific agent card by name as an MCP resource.
 
