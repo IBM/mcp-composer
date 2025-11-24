@@ -36,6 +36,7 @@
   - [MCP Composer Tools](#mcp-composer-tools)
   - [MCP Composer Prompts](#mcp-composer-prompts)
   - [MCP Composer OAuth](#oauth)
+  - [A2A](#a2a)
 - [Demo using MCP Inspector](#demo-using-mcp-inspector)
 - [MCP Composer Client with Chatbot UI](#mcp-composer-client-with-chatbot-ui)
 
@@ -1499,6 +1500,254 @@ Execute the following command to start the server and test the OAuth integration
 uv run test/test_composer_oauth_provider.py
 ```
 
+# A2A
+
+The A2A (Agent-to-Agent) module provides MCP tools for interacting with A2A agents, enabling seamless communication and task management between different agents.
+
+## A2A MCP Tools
+
+### `register_agent`
+
+Registers an A2A agent with the bridge server by fetching its agent card from the provided URL.
+
+**Input Parameters:**
+
+- `url` (str): URL of the A2A agent to register
+
+**Output Example:**
+
+```json
+{
+  "status": "success",
+  "agent": {
+    "name": "Example Agent",
+    "description": "An example A2A agent",
+    "url": "https://example-agent.com",
+    "version": "1.0.0",
+    "capabilities": {
+      "streaming": false
+    },
+    "default_input_modes": ["text"],
+    "default_output_modes": ["text"],
+    "skills": [
+      {
+        "id": "example_skill",
+        "name": "Example Skill",
+        "description": "An example skill",
+        "tags": [],
+        "input_modes": ["text"],
+        "output_modes": ["text"]
+      }
+    ]
+  }
+}
+```
+
+### `list_agents`
+
+Retrieves a list of all registered A2A agents.
+
+**Input Parameters:**
+
+- None
+
+**Output Example:**
+
+```json
+[
+  {
+    "name": "Example Agent",
+    "description": "An example A2A agent",
+    "url": "https://example-agent.com",
+    "version": "1.0.0",
+    "capabilities": {
+      "streaming": false
+    },
+    "default_input_modes": ["text"],
+    "default_output_modes": ["text"],
+    "skills": [
+      {
+        "id": "example_skill",
+        "name": "Example Skill",
+        "description": "An example skill",
+        "tags": [],
+        "input_modes": ["text"],
+        "output_modes": ["text"]
+      }
+    ]
+  }
+]
+```
+
+### `unregister_agent`
+
+Unregisters an A2A agent from the bridge server and cleans up associated task mappings.
+
+**Input Parameters:**
+
+- `url` (str): URL of the A2A agent to unregister
+
+**Output Example:**
+
+```json
+{
+  "status": "success",
+  "message": "Successfully unregistered agent: Example Agent",
+  "removed_tasks": 2
+}
+```
+
+### `send_message`
+
+Sends a message to a registered A2A agent and returns the response with a task ID for future reference.
+
+**Input Parameters:**
+
+- `agent_url` (str): URL of the registered A2A agent
+- `message` (str): Message to send to the agent
+
+**Output Example:**
+
+```json
+{
+  "status": "success",
+  "task_id": "task-12345-abcde",
+  "raw": [
+    {
+      "messages": "Hello! How can I help you today?"
+    }
+  ]
+}
+```
+
+### `get_task_result`
+
+Retrieves the result of a completed task from an A2A agent.
+
+**Input Parameters:**
+
+- `task_id` (str): ID of the task to retrieve results for
+
+**Output Example:**
+
+```json
+{
+  "status": "success",
+  "task_id": "task-12345-abcde",
+  "raw": "Task completed successfully with result: Example output"
+}
+```
+
+### `cancel_task`
+
+Cancels a running task on an A2A agent.
+
+**Input Parameters:**
+
+- `task_id` (str): ID of the task to cancel
+
+**Output Example:**
+
+```json
+{
+  "status": "success",
+  "task_id": "task-12345-abcde",
+  "raw": "Task cancelled successfully"
+}
+```
+
+### `find_agent`
+
+Finds the most relevant A2A agent based on a natural language query using semantic similarity search with embeddings.
+
+**Input Parameters:**
+
+- `query` (str): Natural language query to search for relevant agents
+
+**Output Example:**
+
+```json
+{
+  "name": "Example Agent",
+  "description": "An example A2A agent for data analysis",
+  "url": "https://example-agent.com",
+  "version": "1.0.0",
+  "capabilities": {
+    "streaming": false
+  },
+  "default_input_modes": ["text"],
+  "default_output_modes": ["text"],
+  "skills": [
+    {
+      "id": "data_analysis",
+      "name": "Data Analysis",
+      "description": "Analyze data and provide insights",
+      "tags": ["analysis", "data"],
+      "input_modes": ["text"],
+      "output_modes": ["text"]
+    }
+  ]
+}
+```
+
+### `get_agent_cards`
+
+Retrieves all loaded agent cards as MCP resource URIs.
+
+**Input Parameters:**
+
+- None
+
+**Output Example:**
+
+```json
+{
+  "agent_cards": [
+    "resource://agent_cards/example_agent",
+    "resource://agent_cards/another_agent"
+  ]
+}
+```
+
+### `get_agent_card`
+
+Retrieves a specific agent card by name as an MCP resource.
+
+**Input Parameters:**
+
+- `card_name` (str): Name of the agent card to retrieve
+
+**Output Example:**
+
+```json
+{
+  "agent_card": [
+    {
+      "name": "Example Agent",
+      "description": "An example A2A agent",
+      "url": "https://example-agent.com",
+      "version": "1.0.0",
+      "capabilities": {
+        "streaming": false
+      },
+      "default_input_modes": ["text"],
+      "default_output_modes": ["text"],
+      "skills": [
+        {
+          "id": "example_skill",
+          "name": "Example Skill",
+          "description": "An example skill",
+          "tags": [],
+          "input_modes": ["text"],
+          "output_modes": ["text"]
+        }
+      ]
+    }
+  ]
+}
+```
+
+
 ### MCP Composer Client with Chatbot UI
 
 MCP composer client provides an agent backend service to provide chatbot service that talks with all the tools from MCP Composer server.
@@ -1572,11 +1821,29 @@ Follow instruction in [Demo-Chatbot-UI](https://github.ibm.com/ai-elite/mcp-comp
 
 ## Troubleshooting
 
+### CI/CD Pipeline issues
+
+if build/pipeline failed due to the below issue
+
+```bash
+=== Execution of custom script for stage 'detect-secrets' finished. Exit Code: '1'. 
+error Stage detect-secrets collect evidence returned failure within the stage. Marking the stage as FAILED.
+```
+
+Run below commands and push the changes.
+
+```bash
+detect-secrets scan > .secrets.baseline
+
+detect-secrets audit .secrets.baseline
+```
+
 ### Common Issues
 
 1. **`KeyError: 'SERVER_CONFIG_FILE_PATH'`**
    - **Cause**: Missing environment variable configuration
    - **Solution**: Copy `env.example` to `.env` and set the required environment variables
+
    ```bash
    cp env.example .env
    ```
@@ -1584,6 +1851,7 @@ Follow instruction in [Demo-Chatbot-UI](https://github.ibm.com/ai-elite/mcp-comp
 2. **`error: Unable to find lockfile at uv.lock`**
    - **Cause**: Missing lock file (first-time setup)
    - **Solution**: Run `uv sync` first to create the initial lock file
+
    ```bash
    uv sync
    ```
@@ -1591,6 +1859,7 @@ Follow instruction in [Demo-Chatbot-UI](https://github.ibm.com/ai-elite/mcp-comp
 3. **Import errors when testing installation**
    - **Cause**: Environment variables not loaded
    - **Solution**: Ensure `.env` file exists and contains required variables
+
    ```bash
    # Check if .env file exists
    ls -la .env
@@ -1602,6 +1871,7 @@ Follow instruction in [Demo-Chatbot-UI](https://github.ibm.com/ai-elite/mcp-comp
 4. **Package not found when adding as local dependency**
    - **Cause**: Path issues or missing development install
    - **Solution**: Use the full path and install in editable mode
+
    ```bash
    uv add /full/path/to/mcp-composer --frozen
    uv pip install -e /full/path/to/mcp-composer
@@ -1610,6 +1880,7 @@ Follow instruction in [Demo-Chatbot-UI](https://github.ibm.com/ai-elite/mcp-comp
 5. **Database configuration not working**
    - **Cause**: Invalid environment variables or missing required parameters
    - **Solution**: Check environment variable format and required parameters
+
    ```bash
    # Check environment variables
    echo $MCP_DATABASE_TYPE
@@ -1652,6 +1923,7 @@ Follow instruction in [Demo-Chatbot-UI](https://github.ibm.com/ai-elite/mcp-comp
 7. **Server fails to start with database configuration errors**
    - **Cause**: Invalid database configuration (missing required fields, invalid URLs, etc.)
    - **Solution**: Fix the database configuration errors
+
    ```bash
    # Check the error logs for specific database configuration issues
    # Common issues: missing API keys, invalid service URLs, unsupported database types
