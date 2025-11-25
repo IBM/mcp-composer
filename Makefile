@@ -231,7 +231,7 @@ docker-test:
 	$(BUILD_ENGINE) run --rm \
 		-w /app \
 		$(TEST_IMAGE_URI) \
-		uv run pytest tests/unit/ -v --tb=short --ignore=tests/unit/test_oauth_callback.py
+		uv run pytest tests/unit/ -v --tb=short
 	@echo "✅ Docker test execution completed"
 	@echo "🧹 Cleaning up test artifacts..."
 	@$(MAKE) clean-test

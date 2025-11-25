@@ -1,10 +1,13 @@
 """Configuration loader for unified MCP Composer configuration."""
 
+from __future__ import annotations
+
 import json
-import logging
-import yaml
 from pathlib import Path
-from typing import Dict, List, Optional, Any, Union
+from typing import Any, Dict, List, Optional
+
+import yaml
+
 from mcp_composer.core.config.unified_config import (
     UnifiedConfig,
     ConfigSection,
@@ -34,12 +37,12 @@ class ConfigLoader:
         ext = path.suffix.lower()
         if ext in ['.yaml', '.yml']:
             return 'yaml'
-        elif ext == '.json':
+        if ext == '.json':
             return 'json'
-        else:
-            # Default to JSON if extension is not recognized
-            self.logger.warning(f"Unknown file extension '{ext}', defaulting to JSON parsing")
-            return 'json'
+
+        # Default to JSON if extension is not recognized
+        self.logger.warning("Unknown file extension '%s', defaulting to JSON parsing", ext)
+        return 'json'
 
     def _load_file_data(self, file_path: str) -> dict:
         """Load data from JSON or YAML file."""
@@ -49,14 +52,13 @@ class ConfigLoader:
             with open(file_path, 'r', encoding='utf-8') as f:
                 if file_type == 'yaml':
                     return yaml.safe_load(f)
-                else:  # json
-                    return json.load(f)
+                return json.load(f)
         except yaml.YAMLError as e:
-            raise ConfigValidationError(f"Invalid YAML in configuration file: {e}")
+            raise ConfigValidationError(f"Invalid YAML in configuration file: {e}") from e
         except json.JSONDecodeError as e:
-            raise ConfigValidationError(f"Invalid JSON in configuration file: {e}")
-        except Exception as e:
-            raise ConfigValidationError(f"Failed to load configuration file: {e}")
+            raise ConfigValidationError(f"Invalid JSON in configuration file: {e}") from e
+        except OSError as e:
+            raise ConfigValidationError(f"Failed to load configuration file: {e}") from e
 
     def load_from_file(self, file_path: str, config_type: str = "all") -> UnifiedConfig:
         """Load configuration from a JSON or YAML file with caching."""
@@ -80,10 +82,12 @@ class ConfigLoader:
                 # Single section configuration
                 return self._load_single_section(config_data, config_type, file_path)
 
-        except FileNotFoundError:
-            raise ConfigValidationError(f"Configuration file not found: {file_path}")
+        except FileNotFoundError as exc:
+            raise ConfigValidationError(f"Configuration file not found: {file_path}") from exc
+        except ConfigValidationError:
+            raise
         except Exception as e:
-            raise ConfigValidationError(f"Failed to load configuration: {e}")
+            raise ConfigValidationError(f"Failed to load configuration: {e}") from e
 
     def detect_config_type(self, file_path: str) -> str:
         """Auto-detect configuration type based on file content with caching."""
@@ -97,10 +101,12 @@ class ConfigLoader:
 
             return self._detect_config_type_from_data(config_data, file_path)
 
-        except FileNotFoundError:
-            raise ConfigValidationError(f"Configuration file not found: {file_path}")
+        except FileNotFoundError as exc:
+            raise ConfigValidationError(f"Configuration file not found: {file_path}") from exc
+        except ConfigValidationError:
+            raise
         except Exception as e:
-            raise ConfigValidationError(f"Failed to detect configuration type: {e}")
+            raise ConfigValidationError(f"Failed to detect configuration type: {e}") from e
 
     def _detect_config_type_from_data(self, config_data: dict, file_path: str) -> str:
         """Detect configuration type from already loaded data."""
@@ -108,18 +114,17 @@ class ConfigLoader:
         if isinstance(config_data, dict):
             if any(key in config_data for key in ['servers', 'middleware', 'prompts', 'tools']):
                 return "all"
-            else:
-                if self._looks_like_tools_config(config_data):
-                    return "tools"
-                else:
-                    raise ConfigValidationError(
-                        "Unable to detect configuration type. "
-                        "Expected one of: servers (list), middleware (list), prompts (list), tools (dict), or unified (dict with sections). "
-                        f"Got dictionary with keys: {list(config_data.keys())}"
-                    )
+            if self._looks_like_tools_config(config_data):
+                return "tools"
+
+            raise ConfigValidationError(
+                "Unable to detect configuration type. "
+                "Expected one of: servers (list), middleware (list), prompts (list), tools (dict), or unified (dict with sections). "
+                f"Got dictionary with keys: {list(config_data.keys())}"
+            )
 
         # Check if it's a list (single section)
-        elif isinstance(config_data, list):
+        if isinstance(config_data, list):
             if not config_data:
                 raise ConfigValidationError("Empty configuration file")
 
@@ -133,15 +138,16 @@ class ConfigLoader:
                 return "servers"
 
             # Check for middleware mandatory fields
-            elif all(field in first_item for field in ['name', 'kind', 'mode']):
+            if all(field in first_item for field in ['name', 'kind', 'mode']):
                 return "middleware"
 
             # Check for prompt mandatory fields
-            elif all(field in first_item for field in ['name', 'description', 'template']):
+            if all(field in first_item for field in ['name', 'description', 'template']):
                 return "prompts"
 
-            else:
-                raise ConfigValidationError("Unable to detect configuration type. Missing mandatory fields for servers, middleware, or prompts")
+            raise ConfigValidationError(
+                "Unable to detect configuration type. Missing mandatory fields for servers, middleware, or prompts"
+            )
 
         # This should never be reached due to the isinstance checks above
         raise ConfigValidationError("Configuration must be a JSON object or array")
@@ -260,9 +266,8 @@ class ConfigLoader:
                         f"Invalid tool configuration for '{key}': {e}. "
                         f"Tool configurations should contain OpenAPI specifications or tool definitions. "
                         f"Check that the configuration has the required fields for the tool type."
-                    )
-                else:
-                    raise ConfigValidationError(f"Invalid {config_type} configuration for '{key}': {e}")
+                    ) from e
+                raise ConfigValidationError(f"Invalid {config_type} configuration for '{key}': {e}") from e
         return items
 
     async def apply_config(

@@ -1,65 +1,67 @@
 # tracing_setup.py
 from __future__ import annotations
-from .config import (
-    TRACING_ENABLED,
-    TRACING_PROTOCOL,
-    TRACING_ENDPOINT,
-    SERVICE_NAME,
-    ENVIRONMENT,
-)
+
+import importlib
 import os
-from typing import Optional
+from typing import Any, Optional
+
+from .config import (
+    ENVIRONMENT,
+    SERVICE_NAME,
+    TRACING_ENABLED,
+    TRACING_ENDPOINT,
+    TRACING_PROTOCOL,
+)
 
 
-def init_tracing_if_enabled():
-    """_summary_
+def _require_module(module_path: str):
+    """Import an optional module, raising ImportError if unavailable."""
+    return importlib.import_module(module_path)
 
-    Returns:
-        _type_: _description_
-    """
+
+def init_tracing_if_enabled() -> bool:
+    """Initialize tracing if enabled and opentelemetry is installed."""
     if not TRACING_ENABLED:
         return False
     try:
-        from opentelemetry import trace
-        from opentelemetry.sdk.resources import Resource
-        from opentelemetry.sdk.trace import TracerProvider
-        from opentelemetry.sdk.trace.export import BatchSpanProcessor
+        trace = _require_module("opentelemetry.trace")
+        resources = _require_module("opentelemetry.sdk.resources")
+        trace_sdk = _require_module("opentelemetry.sdk.trace")
+        exporters = _require_module("opentelemetry.sdk.trace.export")
 
         if TRACING_PROTOCOL == "grpc":
-            # gRPC expects host:port (no /v1/traces)
-            from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import (
-                OTLPSpanExporter,
+            exporter_module = _require_module(
+                "opentelemetry.exporter.otlp.proto.grpc.trace_exporter"
             )
 
-            exporter = OTLPSpanExporter(endpoint=TRACING_ENDPOINT)
+            exporter = exporter_module.OTLPSpanExporter(endpoint=TRACING_ENDPOINT)
         else:
-            # HTTP must include /v1/traces when you pass endpoint here
-            from opentelemetry.exporter.otlp.proto.http.trace_exporter import (
-                OTLPSpanExporter,
+            exporter_module = _require_module(
+                "opentelemetry.exporter.otlp.proto.http.trace_exporter"
             )
 
             http_endpoint = TRACING_ENDPOINT.rstrip("/")
             if not http_endpoint.endswith("/v1/traces"):
                 http_endpoint = f"{http_endpoint}/v1/traces"
-            exporter = OTLPSpanExporter(endpoint=http_endpoint)
+            exporter = exporter_module.OTLPSpanExporter(endpoint=http_endpoint)
 
-        res = Resource.create({"service.name": SERVICE_NAME})
+        res = resources.Resource.create({"service.name": SERVICE_NAME})
         # merge extra resource attrs from ENVIRONMENT (comma-separated k=v)
         for kv in ENVIRONMENT.split(","):
             if "=" in kv:
                 k, v = kv.split("=", 1)
-                res = res.merge(Resource.create({k.strip(): v.strip()}))
+                res = res.merge(resources.Resource.create({k.strip(): v.strip()}))
 
-        provider = TracerProvider(resource=res)
-        provider.add_span_processor(BatchSpanProcessor(exporter))
+        provider = trace_sdk.TracerProvider(resource=res)
+        provider.add_span_processor(exporters.BatchSpanProcessor(exporter))
         trace.set_tracer_provider(provider)
         return True
-    except Exception as e:
-        print(f"[tracing] disabled (reason: {e})")
+    except (ImportError, ValueError, OSError) as err:
+        print(f"[tracing] disabled (reason: {err})")
         return False
 
 
-def init_metrics_if_enabled() -> Optional["Meter"]:
+def init_metrics_if_enabled() -> Optional[Any]:
     """
     Returns a meter if metrics are enabled and SDK is available, else None.
     Uses OTLP/HTTP exporter by default.
@@ -73,43 +75,45 @@ def init_metrics_if_enabled() -> Optional["Meter"]:
         return None
 
     try:
-        from opentelemetry import metrics
-        from opentelemetry.sdk.metrics import MeterProvider
-        from opentelemetry.sdk.metrics.export import PeriodicExportingMetricReader
-        from opentelemetry.exporter.otlp.proto.http.metric_exporter import (
-            OTLPMetricExporter,
+        metrics = _require_module("opentelemetry.metrics")
+        meter_sdk = _require_module("opentelemetry.sdk.metrics")
+        meter_export = _require_module("opentelemetry.sdk.metrics.export")
+        metric_exporter = _require_module(
+            "opentelemetry.exporter.otlp.proto.http.metric_exporter"
         )
-        from opentelemetry.sdk.resources import Resource
+        resources = _require_module("opentelemetry.sdk.resources")
 
-        # Endpoint: use OTEL_EXPORTER_OTLP_METRICS_ENDPOINT if set; otherwise OTEL_EXPORTER_OTLP_ENDPOINT; fallback :4318
-        endpoint = os.getenv("OTEL_EXPORTER_OTLP_METRICS_ENDPOINT") or os.getenv(
-            "OTEL_EXPORTER_OTLP_ENDPOINT", "http://localhost:4318"
+        # Endpoint preference: METRICS endpoint > generic endpoint > localhost:4318
+        endpoint = (
+            os.getenv("OTEL_EXPORTER_OTLP_METRICS_ENDPOINT")
+            or os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT")
+            or "http://localhost:4318"
         )
-        # Exporter expects full path for HTTP:
+        # Exporter expects full path for HTTP
         if endpoint.endswith("/"):
             endpoint = endpoint[:-1]
         if not endpoint.endswith("/v1/metrics"):
             endpoint = f"{endpoint}/v1/metrics"
 
-        resource = Resource.create(
+        resource = resources.Resource.create(
             {
                 "service.name": os.getenv("OTEL_SERVICE_NAME", "mcp-composer"),
                 "deployment.environment": os.getenv("MCP_ENV", "dev"),
             }
         )
 
-        reader = PeriodicExportingMetricReader(
-            OTLPMetricExporter(endpoint=endpoint),
+        reader = meter_export.PeriodicExportingMetricReader(
+            metric_exporter.OTLPMetricExporter(endpoint=endpoint),
             export_interval_millis=int(
                 os.getenv("OTEL_METRIC_EXPORT_INTERVAL", "60000")
-            ),  # 60s
+            ),
         )
 
-        provider = MeterProvider(resource=resource, metric_readers=[reader])
+        provider = meter_sdk.MeterProvider(resource=resource, metric_readers=[reader])
         metrics.set_meter_provider(provider)
         meter = metrics.get_meter("mcp-composer.metrics")
         return meter
 
-    except Exception as e:
-        print(f"[metrics] disabled (reason: {e})")
+    except (ImportError, ValueError, OSError) as err:
+        print(f"[metrics] disabled (reason: {err})")
         return None

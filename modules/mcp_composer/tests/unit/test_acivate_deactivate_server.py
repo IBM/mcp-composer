@@ -1,7 +1,10 @@
+from fastmcp.exceptions import ToolError
 import pytest
+
 from mcp_composer.core.composer import MCPComposer
 from mcp_composer.store.fake_database import FakeDatabase
-from fastmcp.exceptions import ToolError
+
+# pylint: disable=protected-access,redefined-outer-name
 
 
 @pytest.fixture
@@ -31,9 +34,7 @@ async def test_activate_mcp_server_success(fake_db, server_config):
 
     assert f"Server '{server_config['id']}' activated" in result
     reloaded = composer._server_manager.load_all_servers_db()
-    assert any(
-        s["id"] == server_config["id"] and s["status"] == "active" for s in reloaded
-    )
+    assert any(s["id"] == server_config["id"] and s["status"] == "active" for s in reloaded)
 
 
 @pytest.mark.asyncio

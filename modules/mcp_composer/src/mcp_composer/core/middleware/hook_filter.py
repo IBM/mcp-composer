@@ -2,7 +2,6 @@ from typing import Any
 
 # FastMCP interfaces
 from fastmcp.server.middleware import Middleware, MiddlewareContext, CallNext
-from fastmcp.exceptions import ToolError
 
 from mcp_composer.core.middleware.middleware_config import MiddlewareEntry
 from mcp_composer.core.middleware.hook_policy import HookPolicy

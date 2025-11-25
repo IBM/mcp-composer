@@ -1,13 +1,12 @@
+import json
 import time
 from typing import Any, Optional
-import json
-import urllib.parse
+
 import httpx
 import jwt
 
-
-from mcp_composer.core.utils import ConfigKey, LoggerFactory
 from mcp_composer.core.auth_handler.oauth_handler import resolve_env_value
+from mcp_composer.core.utils import ConfigKey, LoggerFactory
 
 logger = LoggerFactory.get_logger()
 
@@ -48,8 +47,9 @@ class AsperaJWTClient(httpx.AsyncClient):
 
         super().__init__(base_url=base_url, timeout=timeout, headers=headers or {}, **kwargs)
 
-    def _encode_dict_to_json(self, dict):
-        return json.dumps(dict)
+    def _encode_dict_to_json(self, input_dict: dict[str, Any]) -> str:
+        """Serialize a mapping to JSON."""
+        return json.dumps(input_dict)
 
     def _sign_payload(self, payload, headers):
         cert_value = resolve_env_value(self.auth_data.get(ConfigKey.CERT_VALUE))
@@ -93,20 +93,15 @@ class AsperaJWTClient(httpx.AsyncClient):
         # Do NOT log the assertion; it's sensitive.
         return signed_payload
 
-
-
     async def _refresh_token(self) -> None:
         """Refresh internal bearer token if missing/expired."""
         assertion = self._generate_jwt_assertion()
-
-
-
         scope = self.auth_data.get(ConfigKey.SCOPE) or DEFAULT_SCOPE
         scope = urllib.parse.quote(scope)
 
         token_url_with_org = self.auth_data.get(ConfigKey.TOKEN_URL_WITH_ORG)
 
-        if  not token_url_with_org:
+        if not token_url_with_org:
             raise ValueError("token_url_with_org must be provided")
 
         client_id = resolve_env_value(self.auth_data.get(ConfigKey.CLIENT_ID))
@@ -149,9 +144,7 @@ class AsperaJWTClient(httpx.AsyncClient):
 
         url_str = str(url)
         # Check if this is a token exchange request (hardcoded URL or org-scoped pattern)
-        is_token_url = (
-            "/oauth2/" in url_str and "/token" in url_str
-        ) or (
+        is_token_url = ("/oauth2/" in url_str and "/token" in url_str) or (
             self._resolved_token_url and url_str.startswith(str(self._resolved_token_url))
         )
 

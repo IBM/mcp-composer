@@ -3,12 +3,11 @@
 import argparse
 import asyncio
 import json
-import sys
 from pathlib import Path
 from typing import List, Optional, Dict, Any
 
 from mcp_composer.core.config.config_loader import ConfigManager
-from mcp_composer.core.config.unified_config import ConfigSection, ConfigValidationError
+from mcp_composer.core.config.unified_config import ConfigSection
 from mcp_composer.core.utils.logger import LoggerFactory
 
 logger = LoggerFactory.get_logger()
@@ -23,9 +22,9 @@ def cmd_validate_config(args: argparse.Namespace) -> int:
         if is_valid:
             print(f"✅ Configuration file '{args.configfilepath}' is valid")
             return 0
-        else:
-            print(f"❌ Configuration file '{args.configfilepath}' is invalid")
-            return 1
+
+        print(f"❌ Configuration file '{args.configfilepath}' is invalid")
+        return 1
 
     except Exception as e:
         print(f"❌ Error validating configuration: {e}")
@@ -182,13 +181,13 @@ def handle_config_commands(args: argparse.Namespace) -> int:
     """Handle unified configuration commands."""
     if args.config_command == 'validate':
         return cmd_validate_config(args)
-    elif args.config_command == 'show':
+    if args.config_command == 'show':
         return cmd_show_config(args)
-    elif args.config_command == 'apply':
+    if args.config_command == 'apply':
         return cmd_apply_config_sync(args)
-    else:
-        print(f"❌ Unknown config command: {args.config_command}")
-        return 1
+
+    print(f"❌ Unknown config command: {args.config_command}")
+    return 1
 
 
 def create_config_parser() -> argparse.ArgumentParser:

@@ -31,15 +31,13 @@ __all__ = [
     "TRACING_ENDPOINT",
     "SERVICE_NAME",
     "ENVIRONMENT",
-    
     # Tracing functions
     "init_tracing_if_enabled",
     "init_metrics_if_enabled",
-    
     # Metrics functions and instruments
     "init_instruments",
     "tool_calls",
-    "tool_errors", 
+    "tool_errors",
     "tool_duration",
     "in_bytes",
     "out_bytes",

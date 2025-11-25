@@ -1,13 +1,12 @@
-import pytest
-import sys
-import os
+from unittest.mock import AsyncMock, MagicMock, patch
 
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../src")))
+import pytest
+
 from mcp_composer.core.composer import MCPComposer
-from mcp_composer.core.prompts.prompt_manager import MCPPromptManager
-from mcp_composer.core.member_servers.server_manager import ServerManager
 from mcp_composer.core.member_servers.member_server import HealthStatus
-from unittest.mock import AsyncMock, patch, MagicMock
+from mcp_composer.core.prompts.prompt_manager import MCPPromptManager
+
+# pylint: disable=protected-access,too-many-lines
 
 
 @pytest.mark.asyncio
@@ -62,9 +61,7 @@ async def test_add_prompts():
 @pytest.mark.asyncio
 async def test_builder():
     """Test prompt builder functionality through composer interface."""
-    config = [
-        {"id": "mcp-prompt", "type": "local", "prompt_path": "test/data/prompts.json"}
-    ]
+    config = [{"id": "mcp-prompt", "type": "local", "prompt_path": "test/data/prompts.json"}]
     composer = MCPComposer("composer", config=config)
     await composer.setup_member_servers()
     prompts = await composer.get_all_prompts()
@@ -75,9 +72,7 @@ async def test_builder():
 @pytest.mark.asyncio
 async def test_builder_local():
     """Test local prompt builder functionality through composer interface."""
-    config = [
-        {"id": "mcp-prompt", "type": "local", "prompt_path": "test/data/prompts.json"}
-    ]
+    config = [{"id": "mcp-prompt", "type": "local", "prompt_path": "test/data/prompts.json"}]
     composer = MCPComposer("composer", config=config)
     await composer.setup_member_servers()
     prompts = await composer.get_all_prompts()
@@ -135,9 +130,7 @@ async def test_list_prompts_per_server_not_found():
     """Test listing prompts for non-existent server."""
     composer = MCPComposer("composer")
 
-    result = await composer._prompt_manager.list_prompts_per_server(
-        "non-existent-server"
-    )
+    result = await composer._prompt_manager.list_prompts_per_server("non-existent-server")
     assert result == []
 
 
@@ -206,13 +199,9 @@ async def test_disable_prompts():
     mock_prompt.description = "A test prompt"
     mock_prompt.__str__ = MagicMock(return_value="Hello, this is a test prompt.")
 
-    composer._prompt_manager.get_prompts = AsyncMock(
-        return_value={"test-server_test_prompt": mock_prompt}
-    )
+    composer._prompt_manager.get_prompts = AsyncMock(return_value={"test-server_test_prompt": mock_prompt})
 
-    result = await composer._prompt_manager.disable_prompts(
-        ["test_prompt"], "test-server"
-    )
+    result = await composer._prompt_manager.disable_prompts(["test_prompt"], "test-server")
     assert "Disabled" in result
 
 
@@ -238,13 +227,9 @@ async def test_enable_prompts():
     mock_prompt.description = "A test prompt"
     mock_prompt.__str__ = MagicMock(return_value="Hello, this is a test prompt.")
 
-    composer._prompt_manager.get_prompts = AsyncMock(
-        return_value={"test-server_test_prompt": mock_prompt}
-    )
+    composer._prompt_manager.get_prompts = AsyncMock(return_value={"test-server_test_prompt": mock_prompt})
 
-    result = await composer._prompt_manager.enable_prompts(
-        ["test_prompt"], "test-server"
-    )
+    result = await composer._prompt_manager.enable_prompts(["test_prompt"], "test-server")
     assert "Enabled" in result
 
 
@@ -283,15 +268,11 @@ async def test_disable_and_enable_prompts_integration():
     )
 
     # Disable prompts
-    result = await composer._prompt_manager.disable_prompts(
-        ["prompt1", "prompt2"], "test-server"
-    )
+    result = await composer._prompt_manager.disable_prompts(["prompt1", "prompt2"], "test-server")
     assert "Disabled" in result
 
     # Enable prompts
-    result = await composer._prompt_manager.enable_prompts(
-        ["prompt1", "prompt2"], "test-server"
-    )
+    result = await composer._prompt_manager.enable_prompts(["prompt1", "prompt2"], "test-server")
     assert "Enabled" in result
 
 
@@ -339,14 +320,10 @@ async def test_disable_prompts_with_mounted_server():
     mock_prompt.description = "A test prompt"
     mock_prompt.__str__ = MagicMock(return_value="Hello, this is a test prompt.")
 
-    composer._prompt_manager.get_prompts = AsyncMock(
-        return_value={"test-server_test_prompt": mock_prompt}
-    )
+    composer._prompt_manager.get_prompts = AsyncMock(return_value={"test-server_test_prompt": mock_prompt})
 
     # Disable prompt
-    result = await composer._prompt_manager.disable_prompts(
-        ["test_prompt"], "test-server"
-    )
+    result = await composer._prompt_manager.disable_prompts(["test_prompt"], "test-server")
     assert "Disabled" in result
 
 
@@ -371,14 +348,10 @@ async def test_enable_prompts_with_mounted_server():
     mock_prompt.description = "A test prompt"
     mock_prompt.__str__ = MagicMock(return_value="Hello, this is a test prompt.")
 
-    composer._prompt_manager.get_prompts = AsyncMock(
-        return_value={"test-server_test_prompt": mock_prompt}
-    )
+    composer._prompt_manager.get_prompts = AsyncMock(return_value={"test-server_test_prompt": mock_prompt})
 
     # Enable prompt
-    result = await composer._prompt_manager.enable_prompts(
-        ["test_prompt"], "test-server"
-    )
+    result = await composer._prompt_manager.enable_prompts(["test_prompt"], "test-server")
     assert "Enabled" in result
 
 
@@ -416,15 +389,11 @@ async def test_disable_and_enable_prompts_integration_with_mounted_server():
     )
 
     # Disable prompts
-    result = await composer._prompt_manager.disable_prompts(
-        ["prompt1", "prompt2"], "test-server"
-    )
+    result = await composer._prompt_manager.disable_prompts(["prompt1", "prompt2"], "test-server")
     assert "Disabled" in result
 
     # Enable prompts
-    result = await composer._prompt_manager.enable_prompts(
-        ["prompt1", "prompt2"], "test-server"
-    )
+    result = await composer._prompt_manager.enable_prompts(["prompt1", "prompt2"], "test-server")
     assert "Enabled" in result
 
 
@@ -494,7 +463,7 @@ async def test_prompt_manager_initialization():
     prompt_manager = MCPPromptManager(mock_server_manager)
 
     assert prompt_manager._server_manager == mock_server_manager
-    assert prompt_manager._prompts == {}
+    assert not prompt_manager._prompts
 
 
 @pytest.mark.asyncio
@@ -561,9 +530,7 @@ async def test_add_prompts_with_invalid_type():
     mock_server_manager = MagicMock()
     prompt_manager = MCPPromptManager(mock_server_manager)
 
-    with pytest.raises(
-        TypeError, match="Prompt config must be a dict or a list of dicts"
-    ):
+    with pytest.raises(TypeError, match="Prompt config must be a dict or a list of dicts"):
         prompt_manager.add_prompts("invalid_config")
 
 
@@ -674,9 +641,7 @@ async def test_disable_prompts_with_database():
     mock_prompt.description = "A test prompt"
     mock_prompt.__str__ = MagicMock(return_value="Hello, this is a test prompt.")
 
-    prompt_manager.get_prompts = AsyncMock(
-        return_value={"test-server_test_prompt": mock_prompt}
-    )
+    prompt_manager.get_prompts = AsyncMock(return_value={"test-server_test_prompt": mock_prompt})
 
     # Mock the server manager's disable_prompts method to call the database
     def mock_disable_prompts(prompts, server_id):
@@ -712,9 +677,7 @@ async def test_enable_prompts_with_database():
     mock_prompt.description = "A test prompt"
     mock_prompt.__str__ = MagicMock(return_value="Hello, this is a test prompt.")
 
-    prompt_manager.get_prompts = AsyncMock(
-        return_value={"test-server_test_prompt": mock_prompt}
-    )
+    prompt_manager.get_prompts = AsyncMock(return_value={"test-server_test_prompt": mock_prompt})
 
     # Mock the server manager's enable_prompts method to call the database
     def mock_enable_prompts(prompts, server_id):
@@ -949,9 +912,7 @@ async def test_add_prompts_with_errors():
     prompt_manager = MCPPromptManager(mock_server_manager)
 
     # Mock build_prompt_from_dict to fail on second call
-    with patch(
-        "mcp_composer.core.prompts.prompt_manager.build_prompt_from_dict"
-    ) as mock_build:
+    with patch("mcp_composer.core.prompts.prompt_manager.build_prompt_from_dict") as mock_build:
         mock_prompt = MagicMock()
         mock_prompt.name = "test_prompt"
         mock_build.side_effect = [mock_prompt, ValueError("Invalid prompt")]
@@ -972,14 +933,10 @@ async def test_add_prompts_all_fail():
     mock_server_manager = MagicMock()
     prompt_manager = MCPPromptManager(mock_server_manager)
 
-    with patch(
-        "mcp_composer.core.prompts.prompt_manager.build_prompt_from_dict"
-    ) as mock_build:
+    with patch("mcp_composer.core.prompts.prompt_manager.build_prompt_from_dict") as mock_build:
         mock_build.side_effect = ValueError("Invalid prompt")
 
-        prompt_config = [
-            {"name": "prompt1", "description": "Test 1", "template": "Template 1"}
-        ]
+        prompt_config = [{"name": "prompt1", "description": "Test 1", "template": "Template 1"}]
 
         result = prompt_manager.add_prompts(prompt_config)
         assert result == []  # Empty list when all fail
@@ -1023,9 +980,7 @@ async def test_list_prompts_per_server_different_server():
     """Test listing prompts per server with prompts from different server."""
     mock_server_manager = MagicMock()
     prompt_manager = MCPPromptManager(mock_server_manager)
-    prompt_manager.get_prompts = AsyncMock(
-        return_value={"other_server_prompt1": MagicMock()}
-    )
+    prompt_manager.get_prompts = AsyncMock(return_value={"other_server_prompt1": MagicMock()})
 
     result = await prompt_manager.list_prompts_per_server("test_server")
     assert result == []  # No prompts for test_server
@@ -1129,9 +1084,7 @@ async def test_disable_prompts_unhealthy_server():
 
     # Mock the get method to raise an exception for unhealthy server
     mock_server_manager.get.side_effect = Exception("MCP Server 'test_server' is down.")
-    prompt_manager._server_manager.check_server_exist.side_effect = Exception(
-        "MCP Server 'test_server' is down."
-    )
+    prompt_manager._server_manager.check_server_exist.side_effect = Exception("MCP Server 'test_server' is down.")
 
     result = await prompt_manager.disable_prompts(["test_prompt"], "test_server")
     assert "Failed to disable prompts" in result
@@ -1158,9 +1111,7 @@ async def test_enable_prompts_unhealthy_server():
 
     # Mock the get method to raise an exception for unhealthy server
     mock_server_manager.get.side_effect = Exception("MCP Server 'test_server' is down.")
-    prompt_manager._server_manager.check_server_exist.side_effect = Exception(
-        "MCP Server 'test_server' is down."
-    )
+    prompt_manager._server_manager.check_server_exist.side_effect = Exception("MCP Server 'test_server' is down.")
 
     result = await prompt_manager.enable_prompts(["test_prompt"], "test_server")
     assert "Failed to enable prompts" in result

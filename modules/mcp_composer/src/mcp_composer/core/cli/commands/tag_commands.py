@@ -1,8 +1,9 @@
 import json
-import typer
 import os
 from typing import List
-from rich import print
+
+import typer
+from rich import print as rprint
 
 from mcp_composer.tag.rule_dsl import Rule
 from mcp_composer.tag.engine import TagEngine
@@ -36,7 +37,7 @@ def generate_tag(
     mcp_scan_output: str = typer.Option(None, help="Path to MCP-Scan output JSON"),
     args: str = typer.Option(None, help="Arguments for the command in stdio mode"),
     rules: str = typer.Option("rules/rules_default.yaml", help="Rules YAML file"),
-    policy: str = typer.Option(None, help="Policy YAML (optional)"),
+    policy: str = typer.Option(None, help="Policy YAML (optional)"),  # pylint: disable=unused-argument
     output: str = typer.Option(
         None, help="Write MCP Tag/Scan/Catalog results to this path"
     ),
@@ -84,25 +85,24 @@ def generate_tag(
 
         # Tag the tools
         result = engine.scan(tools)
-        print(f"[green]Tagged {len(result.reports)} tools successfully[/green]")
+        rprint(f"[green]Tagged {len(result.reports)} tools successfully[/green]")
 
         if output:
-            json.dump(
-                result.model_dump(), open(output, "w"), indent=2, ensure_ascii=False
-            )
-            print(f"[green]Tagging results written to[/green] {output}")
+            with open(output, "w", encoding="utf-8") as f:
+                json.dump(result.model_dump(), f, indent=2, ensure_ascii=False)
+            rprint(f"[green]Tagging results written to[/green] {output}")
         else:
-            print(json.dumps(result.model_dump(), indent=2, ensure_ascii=False))
+            rprint(json.dumps(result.model_dump(), indent=2, ensure_ascii=False))
 
     except Exception as e:
-        print(f"[red]Error during tagging:[/red] {e}")
+        rprint(f"[red]Error during tagging:[/red] {e}")
         raise typer.Exit(1)
 
 
 def _load_from_mcp_scan(mcp_scan_output: str) -> List[ToolDescriptor]:
     """Load tools from MCP-Scan output format"""
     try:
-        with open(mcp_scan_output, "r") as f:
+        with open(mcp_scan_output, "r", encoding="utf-8") as f:
             data = json.load(f)
 
         tools = []
@@ -140,7 +140,7 @@ def _load_from_mcp_scan(mcp_scan_output: str) -> List[ToolDescriptor]:
     except Exception as e:
         raise RuntimeError(
             f"Failed to load tools from MCP-Scan output {mcp_scan_output}: {e}"
-        )
+        ) from e
 
 
 @app.command()
@@ -148,15 +148,16 @@ def check(
     report: str = typer.Option(..., help="Path to ScanResult JSON"),
     require: list[str] = typer.Option(None, help="One or more gating expressions"),
 ):
-    data = json.load(open(report))
+    with open(report, "r", encoding="utf-8") as f:
+        data = json.load(f)
     gate = PolicyGate(require or [])
     ok, failures = gate.evaluate(
         type("ScanResultObj", (), {"reports": data["reports"]})
     )
     if not ok:
-        print("[red]Policy gate failed:[/red]", failures)
+        rprint("[red]Policy gate failed:[/red]", failures)
         raise typer.Exit(1)
-    print("[green]Policy gate passed[/green]")
+    rprint("[green]Policy gate passed[/green]")
 
 
 @app.command()
@@ -165,13 +166,14 @@ def export(
     report: str = typer.Option(..., help="Path to ScanResult JSON"),
     out: str = typer.Option(..., help="Destination (dir or file)"),
 ):
-    data = json.load(open(report))
+    with open(report, "r", encoding="utf-8") as f:
+        data = json.load(f)
     reports = []
     for r in data["reports"]:
         reports.append(TagReport(**r))
 
     if backend == "backstage":
         BackstageExporter(out).write(reports)
-        print(f"[green]Exported Backstage entities to[/green] {out}")
+        rprint(f"[green]Exported Backstage entities to[/green] {out}")
     else:
         raise typer.BadParameter("Unsupported backend")

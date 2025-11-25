@@ -1,6 +1,7 @@
+from unittest.mock import Mock, patch
+
 import pytest
-from unittest.mock import patch, Mock
-from pydantic import AnyHttpUrl
+
 from mcp_composer.core.auth_handler.providers import OAuthProviderFactory
 
 
@@ -74,7 +75,7 @@ class TestOAuthProviderFactory:
         assert config == expected
 
     @patch("mcp_composer.core.auth_handler.providers.GitHubProvider")
-    def test_get_provider_instance_github(self, MockGitHubProvider):
+    def test_get_provider_instance_github(self, mock_github_provider):
         """Test get_provider_instance for GitHub"""
         factory = OAuthProviderFactory(
             client_id="test_id",
@@ -83,16 +84,16 @@ class TestOAuthProviderFactory:
             provider="github",
         )
         instance = factory.get_provider_instance()
-        MockGitHubProvider.assert_called_once_with(
+        mock_github_provider.assert_called_once_with(
             client_id="test_id",
             client_secret="test_secret",
             base_url="http://example.com",
             redirect_path="/auth/callback",
         )
-        assert instance == MockGitHubProvider.return_value
+        assert instance == mock_github_provider.return_value
 
     @patch("mcp_composer.core.auth_handler.providers.GoogleProvider")
-    def test_get_provider_instance_google(self, MockGoogleProvider):
+    def test_get_provider_instance_google(self, mock_google_provider):
         """Test get_provider_instance for Google"""
         factory = OAuthProviderFactory(
             client_id="test_id",
@@ -101,16 +102,16 @@ class TestOAuthProviderFactory:
             provider="google",
         )
         instance = factory.get_provider_instance()
-        MockGoogleProvider.assert_called_once_with(
+        mock_google_provider.assert_called_once_with(
             client_id="test_id",
             client_secret="test_secret",
             base_url="http://example.com",
             redirect_path="/auth/callback",
         )
-        assert instance == MockGoogleProvider.return_value
+        assert instance == mock_google_provider.return_value
 
     @patch("mcp_composer.core.auth_handler.providers.AWSCognitoProvider")
-    def test_get_provider_instance_aws(self, MockAWSCognitoProvider):
+    def test_get_provider_instance_aws(self, mock_aws_cognito_provider):
         """Test get_provider_instance for AWS Cognito"""
         factory = OAuthProviderFactory(
             client_id="test_id",
@@ -121,7 +122,7 @@ class TestOAuthProviderFactory:
             aws_region="us-east-1",
         )
         instance = factory.get_provider_instance()
-        MockAWSCognitoProvider.assert_called_once_with(
+        mock_aws_cognito_provider.assert_called_once_with(
             user_pool_id="pool123",
             aws_region="us-east-1",
             client_id="test_id",
@@ -129,7 +130,7 @@ class TestOAuthProviderFactory:
             base_url="http://example.com",
             redirect_path="/auth/callback",
         )
-        assert instance == MockAWSCognitoProvider.return_value
+        assert instance == mock_aws_cognito_provider.return_value
 
     def test_get_provider_instance_aws_missing_params(self):
         """Test get_provider_instance for AWS with missing params raises ValueError"""
@@ -139,9 +140,7 @@ class TestOAuthProviderFactory:
             base_url="http://example.com",
             provider="aws",
         )
-        with pytest.raises(
-            ValueError, match="AWS provider requires user_pool_id and aws_region"
-        ):
+        with pytest.raises(ValueError, match="AWS provider requires user_pool_id and aws_region"):
             factory.get_provider_instance()
 
     @patch("mcp_composer.core.auth_handler.providers.AzureProvider")
@@ -177,9 +176,7 @@ class TestOAuthProviderFactory:
 
     @patch("mcp_composer.core.auth_handler.providers.IntrospectionTokenVerifier")
     @patch("mcp_composer.core.auth_handler.providers.OIDCProxy")
-    def test_get_provider_instance_oidc(
-        self, MockOIDCProxy, MockIntrospectionTokenVerifier
-    ):
+    def test_get_provider_instance_oidc(self, MockOIDCProxy, MockIntrospectionTokenVerifier):
         """Test get_provider_instance for OIDC"""
         factory = OAuthProviderFactory(
             client_id="test_id",
@@ -242,7 +239,5 @@ class TestOAuthProviderFactory:
             base_url="http://example.com",
             provider="github",
         )
-        with pytest.raises(
-            ValueError, match="Error creating provider instance: Init error"
-        ):
+        with pytest.raises(ValueError, match="Error creating provider instance: Init error"):
             factory.get_provider_instance()

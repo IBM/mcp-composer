@@ -44,17 +44,13 @@ class TestMCPServerStdio:
 
     def test_mcp_server_stdio_creation_with_none_env(self):
         """Test creating MCPServerStdio with None env"""
-        server = MCPServerStdio(
-            id="test-server", type="stdio", args=["server.py"], env=None
-        )
+        server = MCPServerStdio(id="test-server", type="stdio", args=["server.py"], env=None)
 
         assert server.env is None
 
     def test_mcp_server_stdio_creation_with_none_cwd(self):
         """Test creating MCPServerStdio with None cwd"""
-        server = MCPServerStdio(
-            id="test-server", type="stdio", args=["server.py"], cwd=None
-        )
+        server = MCPServerStdio(id="test-server", type="stdio", args=["server.py"], cwd=None)
 
         assert server.cwd is None
 
@@ -100,11 +96,12 @@ class TestMCPServerStdio:
     def test_mcp_server_stdio_field_descriptions(self):
         """Test that field descriptions are properly set"""
         # Get field info
-        id_field = MCPServerStdio.model_fields["id"]
-        type_field = MCPServerStdio.model_fields["type"]
-        args_field = MCPServerStdio.model_fields["args"]
-        env_field = MCPServerStdio.model_fields["env"]
-        cwd_field = MCPServerStdio.model_fields["cwd"]
+        fields = dict(MCPServerStdio.model_fields)
+        id_field = fields["id"]
+        type_field = fields["type"]
+        args_field = fields["args"]
+        env_field = fields["env"]
+        cwd_field = fields["cwd"]
 
         assert "Name of the mcp server" in id_field.description
         assert "Type of mcp server" in type_field.description
@@ -141,9 +138,7 @@ class TestMCPServerStdio:
 
         server2 = MCPServerStdio(id="test-server", type="stdio", args=["server.py"])
 
-        server3 = MCPServerStdio(
-            id="different-server", type="stdio", args=["server.py"]
-        )
+        server3 = MCPServerStdio(id="different-server", type="stdio", args=["server.py"])
 
         assert server1 == server2
         assert server1 != server3

@@ -1,13 +1,15 @@
 """Test module for aspera_auth_handler.py"""
 
-import os
 import time
-import pytest
+from unittest.mock import AsyncMock, Mock, mock_open, patch
+
 import httpx
-import jwt
-from unittest.mock import Mock, patch, AsyncMock, mock_open
+import pytest
+
 from mcp_composer.core.auth_handler.aspera_auth_handler import AsperaJWTClient
 from mcp_composer.core.utils import ConfigKey
+
+# pylint: disable=protected-access,too-many-public-methods
 
 
 class TestAsperaJWTClient:
@@ -73,9 +75,13 @@ MIIEpAIBAAKCAQEA1234567890abcdefghijklmnopqrstuvwxyz
         client = AsperaJWTClient(base_url="https://api.example.com")
         assert client.auth_data == {}
 
-    @patch("builtins.open", new_callable=mock_open, read_data="-----BEGIN RSA PRIVATE KEY-----\nMOCK_KEY\n-----END RSA PRIVATE KEY-----")
+    @patch(
+        "builtins.open",
+        new_callable=mock_open,
+        read_data="-----BEGIN RSA PRIVATE KEY-----\nMOCK_KEY\n-----END RSA PRIVATE KEY-----",
+    )
     @patch("jwt.encode")
-    def test_generate_jwt_assertion_success(self, mock_jwt_encode, mock_file, client, mock_private_key):
+    def test_generate_jwt_assertion_success(self, mock_jwt_encode, mock_file, client):
         """Test successful JWT assertion generation"""
         mock_jwt_encode.return_value = "mock.jwt.token"
 
@@ -84,12 +90,12 @@ MIIEpAIBAAKCAQEA1234567890abcdefghijklmnopqrstuvwxyz
         assert assertion == "mock.jwt.token"
         mock_file.assert_called_once_with("/path/to/cert.pem", "r", encoding="utf-8")
         mock_jwt_encode.assert_called_once()
-        
+
         # Verify JWT payload structure
         call_args = mock_jwt_encode.call_args
         payload = call_args[0][0]
         headers = call_args[1]["headers"]
-        
+
         assert payload["iss"] == "test_client_id"
         assert payload["sub"] == "test@example.com"
         assert payload["aud"] == "https://api.example.com/oauth2/token"
@@ -105,26 +111,27 @@ MIIEpAIBAAKCAQEA1234567890abcdefghijklmnopqrstuvwxyz
         """Test JWT assertion generation with missing user_email"""
         # Mock resolve_env_value to return values for other fields but None/empty for user_email
         user_email_value = client.auth_data.get("user_email")
+
         def resolve_side_effect(x):
             # Return None/empty for user_email to simulate missing value
             if x == user_email_value:
                 return None  # user_email resolves to None (which will be falsy)
             # Return original value for other fields (or resolved value if it's an ENV_ var)
             return x if x is not None else ""
-        
+
         mock_resolve.side_effect = resolve_side_effect
 
         with pytest.raises(ValueError, match=r"user_email must be provided"):
             client._generate_jwt_assertion()
 
     @patch("builtins.open", side_effect=FileNotFoundError)
-    def test_sign_payload_file_not_found(self, mock_file, client):
+    def test_sign_payload_file_not_found(self, _mock_file, client):
         """Test _sign_payload raises ValueError when certificate file not found"""
         with pytest.raises(ValueError, match="Certificate/private key not found"):
             client._sign_payload("/nonexistent/cert.pem", {}, {})
 
     @patch("builtins.open", side_effect=PermissionError("Permission denied"))
-    def test_sign_payload_permission_error(self, mock_file, client):
+    def test_sign_payload_permission_error(self, _mock_file, client):
         """Test _sign_payload raises ValueError on permission error"""
         with pytest.raises(ValueError, match="Error reading private key"):
             client._sign_payload("/path/to/cert.pem", {}, {})
@@ -138,13 +145,13 @@ MIIEpAIBAAKCAQEA1234567890abcdefghijklmnopqrstuvwxyz
             "ENV_TOKEN_URL": "https://resolved.example.com/token",
             "ENV_CERT_PATH": "/resolved/cert.pem",
         }
-        
+
         def resolve_side_effect(x):
             # Return resolved value if it's an ENV_ variable, otherwise return the original value
             if x is None:
                 return ""
             return env_resolutions.get(x, x)
-        
+
         mock_resolve.side_effect = resolve_side_effect
 
         # Create a new auth_data dict to avoid modifying the fixture
@@ -156,8 +163,10 @@ MIIEpAIBAAKCAQEA1234567890abcdefghijklmnopqrstuvwxyz
 
         client = AsperaJWTClient(base_url="https://api.example.com", auth_data=test_auth_data)
 
-        with patch("builtins.open", new_callable=mock_open, read_data="MOCK_KEY"), \
-             patch("jwt.encode", return_value="mock.jwt.token"):
+        with (
+            patch("builtins.open", new_callable=mock_open, read_data="MOCK_KEY"),
+            patch("jwt.encode", return_value="mock.jwt.token"),
+        ):
             assertion = client._generate_jwt_assertion()
             assert assertion == "mock.jwt.token"
 
@@ -172,10 +181,11 @@ MIIEpAIBAAKCAQEA1234567890abcdefghijklmnopqrstuvwxyz
         mock_response.status_code = 201
         mock_response.raise_for_status.return_value = None
 
-        with patch("builtins.open", new_callable=mock_open, read_data=mock_private_key), \
-             patch("jwt.encode", return_value="mock.jwt.assertion"), \
-             patch.object(httpx.AsyncClient, "post", new_callable=AsyncMock, return_value=mock_response):
-            
+        with (
+            patch("builtins.open", new_callable=mock_open, read_data=mock_private_key),
+            patch("jwt.encode", return_value="mock.jwt.assertion"),
+            patch.object(httpx.AsyncClient, "post", new_callable=AsyncMock, return_value=mock_response),
+        ):
             await client._refresh_token()
 
             assert client._access_token == "new-access-token"
@@ -193,10 +203,11 @@ MIIEpAIBAAKCAQEA1234567890abcdefghijklmnopqrstuvwxyz
         mock_response.status_code = 201
         mock_response.raise_for_status.return_value = None
 
-        with patch("builtins.open", new_callable=mock_open, read_data=mock_private_key), \
-             patch("jwt.encode", return_value="mock.jwt.assertion"), \
-             patch.object(httpx.AsyncClient, "post", new_callable=AsyncMock, return_value=mock_response):
-            
+        with (
+            patch("builtins.open", new_callable=mock_open, read_data=mock_private_key),
+            patch("jwt.encode", return_value="mock.jwt.assertion"),
+            patch.object(httpx.AsyncClient, "post", new_callable=AsyncMock, return_value=mock_response),
+        ):
             await client._refresh_token()
 
             assert client._access_token == "token-field-value"
@@ -207,8 +218,10 @@ MIIEpAIBAAKCAQEA1234567890abcdefghijklmnopqrstuvwxyz
         """Test token refresh with missing token_url_with_org"""
         client.auth_data.pop(ConfigKey.TOKEN_URL_WITH_ORG, None)
 
-        with patch("builtins.open", new_callable=mock_open, read_data="MOCK_KEY"), \
-             patch("jwt.encode", return_value="mock.jwt.assertion"):
+        with (
+            patch("builtins.open", new_callable=mock_open, read_data="MOCK_KEY"),
+            patch("jwt.encode", return_value="mock.jwt.assertion"),
+        ):
             with pytest.raises(ValueError, match=r"token_url_with_org must be provided"):
                 await client._refresh_token()
 
@@ -222,10 +235,11 @@ MIIEpAIBAAKCAQEA1234567890abcdefghijklmnopqrstuvwxyz
         mock_response.status_code = 201
         mock_response.raise_for_status.return_value = None
 
-        with patch("builtins.open", new_callable=mock_open, read_data=mock_private_key), \
-             patch("jwt.encode", return_value="mock.jwt.assertion"), \
-             patch.object(httpx.AsyncClient, "post", new_callable=AsyncMock, return_value=mock_response):
-            
+        with (
+            patch("builtins.open", new_callable=mock_open, read_data=mock_private_key),
+            patch("jwt.encode", return_value="mock.jwt.assertion"),
+            patch.object(httpx.AsyncClient, "post", new_callable=AsyncMock, return_value=mock_response),
+        ):
             with pytest.raises(ValueError, match="No access_token in response"):
                 await client._refresh_token()
 
@@ -238,10 +252,11 @@ MIIEpAIBAAKCAQEA1234567890abcdefghijklmnopqrstuvwxyz
             "401", request=Mock(), response=mock_response
         )
 
-        with patch("builtins.open", new_callable=mock_open, read_data=mock_private_key), \
-             patch("jwt.encode", return_value="mock.jwt.assertion"), \
-             patch.object(httpx.AsyncClient, "post", new_callable=AsyncMock, return_value=mock_response):
-            
+        with (
+            patch("builtins.open", new_callable=mock_open, read_data=mock_private_key),
+            patch("jwt.encode", return_value="mock.jwt.assertion"),
+            patch.object(httpx.AsyncClient, "post", new_callable=AsyncMock, return_value=mock_response),
+        ):
             with pytest.raises(httpx.HTTPStatusError):
                 await client._refresh_token()
 
@@ -255,10 +270,11 @@ MIIEpAIBAAKCAQEA1234567890abcdefghijklmnopqrstuvwxyz
         mock_response.status_code = 201
         mock_response.raise_for_status.return_value = None
 
-        with patch("builtins.open", new_callable=mock_open, read_data=mock_private_key), \
-             patch("jwt.encode", return_value="mock.jwt.assertion"), \
-             patch.object(httpx.AsyncClient, "post", new_callable=AsyncMock, return_value=mock_response):
-            
+        with (
+            patch("builtins.open", new_callable=mock_open, read_data=mock_private_key),
+            patch("jwt.encode", return_value="mock.jwt.assertion"),
+            patch.object(httpx.AsyncClient, "post", new_callable=AsyncMock, return_value=mock_response),
+        ):
             await client._refresh_token()
 
             assert client._access_token == "new-token"
@@ -282,15 +298,16 @@ MIIEpAIBAAKCAQEA1234567890abcdefghijklmnopqrstuvwxyz
         mock_response.status_code = 201
         mock_response.raise_for_status.return_value = None
 
-        with patch("builtins.open", new_callable=mock_open, read_data=mock_private_key), \
-             patch("jwt.encode", return_value="mock.jwt.assertion"), \
-             patch.object(httpx.AsyncClient, "post", new_callable=AsyncMock, return_value=mock_response) as mock_post:
-            
+        with (
+            patch("builtins.open", new_callable=mock_open, read_data=mock_private_key),
+            patch("jwt.encode", return_value="mock.jwt.assertion"),
+            patch.object(httpx.AsyncClient, "post", new_callable=AsyncMock, return_value=mock_response) as mock_post,
+        ):
             await client._refresh_token()
 
             # Verify scope was included in the request
             call_args = mock_post.call_args
-            content = call_args[1]["content"].decode('utf-8')
+            content = call_args[1]["content"].decode("utf-8")
             assert "scope=custom%3Ascope" in content or "scope=custom:scope" in content
 
     @pytest.mark.asyncio
@@ -302,7 +319,9 @@ MIIEpAIBAAKCAQEA1234567890abcdefghijklmnopqrstuvwxyz
         mock_response = Mock()
         mock_response.raise_for_status.return_value = None
 
-        with patch("httpx.AsyncClient.request", new_callable=AsyncMock, return_value=mock_response) as mock_http_request:
+        with patch(
+            "httpx.AsyncClient.request", new_callable=AsyncMock, return_value=mock_response
+        ) as mock_http_request:
             await client.request("GET", "https://api.example.com/data")
 
             # Verify super().request was called with Authorization header
@@ -330,11 +349,14 @@ MIIEpAIBAAKCAQEA1234567890abcdefghijklmnopqrstuvwxyz
         mock_data_response = Mock()
         mock_data_response.raise_for_status.return_value = None
 
-        with patch("builtins.open", new_callable=mock_open, read_data=mock_private_key), \
-             patch("jwt.encode", return_value="mock.jwt.assertion"), \
-             patch.object(httpx.AsyncClient, "post", new_callable=AsyncMock, return_value=mock_token_response), \
-             patch("httpx.AsyncClient.request", new_callable=AsyncMock, return_value=mock_data_response) as mock_http_request:
-
+        with (
+            patch("builtins.open", new_callable=mock_open, read_data=mock_private_key),
+            patch("jwt.encode", return_value="mock.jwt.assertion"),
+            patch.object(httpx.AsyncClient, "post", new_callable=AsyncMock, return_value=mock_token_response),
+            patch(
+                "httpx.AsyncClient.request", new_callable=AsyncMock, return_value=mock_data_response
+            ) as mock_http_request,
+        ):
             await client.request("GET", "https://api.example.com/data")
 
             # Verify token was refreshed
@@ -355,7 +377,9 @@ MIIEpAIBAAKCAQEA1234567890abcdefghijklmnopqrstuvwxyz
         mock_response = Mock()
         mock_response.raise_for_status.return_value = None
 
-        with patch("httpx.AsyncClient.request", new_callable=AsyncMock, return_value=mock_response) as mock_http_request:
+        with patch(
+            "httpx.AsyncClient.request", new_callable=AsyncMock, return_value=mock_response
+        ) as mock_http_request:
             # Request to token URL should not trigger refresh
             await client.request("POST", "https://api.example.com/oauth2/token")
 
@@ -376,7 +400,9 @@ MIIEpAIBAAKCAQEA1234567890abcdefghijklmnopqrstuvwxyz
         mock_response = Mock()
         mock_response.raise_for_status.return_value = None
 
-        with patch("httpx.AsyncClient.request", new_callable=AsyncMock, return_value=mock_response) as mock_http_request:
+        with patch(
+            "httpx.AsyncClient.request", new_callable=AsyncMock, return_value=mock_response
+        ) as mock_http_request:
             # Request matching oauth2 token pattern should not trigger refresh
             await client.request("POST", "https://api.example.com/oauth2/org/token")
 
@@ -404,11 +430,14 @@ MIIEpAIBAAKCAQEA1234567890abcdefghijklmnopqrstuvwxyz
         mock_data_response = Mock()
         mock_data_response.raise_for_status.return_value = None
 
-        with patch("builtins.open", new_callable=mock_open, read_data=mock_private_key), \
-             patch("jwt.encode", return_value="mock.jwt.assertion"), \
-             patch.object(httpx.AsyncClient, "post", new_callable=AsyncMock, return_value=mock_token_response), \
-             patch("httpx.AsyncClient.request", new_callable=AsyncMock, return_value=mock_data_response) as mock_http_request:
-
+        with (
+            patch("builtins.open", new_callable=mock_open, read_data=mock_private_key),
+            patch("jwt.encode", return_value="mock.jwt.assertion"),
+            patch.object(httpx.AsyncClient, "post", new_callable=AsyncMock, return_value=mock_token_response),
+            patch(
+                "httpx.AsyncClient.request", new_callable=AsyncMock, return_value=mock_data_response
+            ) as mock_http_request,
+        ):
             await client.request("GET", "https://api.example.com/data")
 
             # Verify token was refreshed
@@ -428,10 +457,10 @@ MIIEpAIBAAKCAQEA1234567890abcdefghijklmnopqrstuvwxyz
         mock_response = Mock()
         mock_response.raise_for_status.return_value = None
 
-        with patch("httpx.AsyncClient.request", new_callable=AsyncMock, return_value=mock_response) as mock_http_request:
-            await client.request(
-                "GET", "https://api.example.com/data", headers={"X-Custom": "value"}
-            )
+        with patch(
+            "httpx.AsyncClient.request", new_callable=AsyncMock, return_value=mock_response
+        ) as mock_http_request:
+            await client.request("GET", "https://api.example.com/data", headers={"X-Custom": "value"})
 
             # Verify headers are preserved
             mock_http_request.assert_called_once()
@@ -450,7 +479,9 @@ MIIEpAIBAAKCAQEA1234567890abcdefghijklmnopqrstuvwxyz
         mock_response = Mock()
         mock_response.raise_for_status.return_value = None
 
-        with patch("httpx.AsyncClient.request", new_callable=AsyncMock, return_value=mock_response) as mock_http_request:
+        with patch(
+            "httpx.AsyncClient.request", new_callable=AsyncMock, return_value=mock_response
+        ) as mock_http_request:
             await client.request("POST", "https://api.example.com/data", json={"key": "value"})
 
             call_args = mock_http_request.call_args
@@ -466,7 +497,9 @@ MIIEpAIBAAKCAQEA1234567890abcdefghijklmnopqrstuvwxyz
         mock_response = Mock()
         mock_response.raise_for_status.return_value = None
 
-        with patch("httpx.AsyncClient.request", new_callable=AsyncMock, return_value=mock_response) as mock_http_request:
+        with patch(
+            "httpx.AsyncClient.request", new_callable=AsyncMock, return_value=mock_response
+        ) as mock_http_request:
             await client.request(
                 "POST",
                 "https://api.example.com/data",
@@ -493,28 +526,28 @@ MIIEpAIBAAKCAQEA1234567890abcdefghijklmnopqrstuvwxyz
         mock_response.status_code = 201
         mock_response.raise_for_status.return_value = None
 
-        with patch("builtins.open", new_callable=mock_open, read_data=mock_private_key), \
-             patch("jwt.encode", return_value="mock.jwt.assertion"), \
-             patch.object(httpx.AsyncClient, "post", new_callable=AsyncMock, return_value=mock_response) as mock_post:
-            
+        with (
+            patch("builtins.open", new_callable=mock_open, read_data=mock_private_key),
+            patch("jwt.encode", return_value="mock.jwt.assertion"),
+            patch.object(httpx.AsyncClient, "post", new_callable=AsyncMock, return_value=mock_response) as mock_post,
+        ):
             await client._refresh_token()
 
             # Verify POST was called with correct parameters
             mock_post.assert_called_once()
             call_args = mock_post.call_args
             assert call_args[0][0] == "https://api.example.com/oauth2/org/token"
-            
+
             # Verify content type
             assert call_args[1]["headers"]["Content-Type"] == "application/x-www-form-urlencoded"
-            
+
             # Verify BasicAuth was used
             assert call_args[1]["auth"] is not None
-            
+
             # Verify content contains required fields
-            content = call_args[1]["content"].decode('utf-8')
+            content = call_args[1]["content"].decode("utf-8")
             assert "assertion=" in content
             assert "grant_type=" in content
             assert "scope=" in content
             # The grant_type is URL-encoded, so check for the encoded version
             assert "urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Ajwt-bearer" in content
-

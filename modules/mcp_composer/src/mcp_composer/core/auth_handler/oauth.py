@@ -1,12 +1,12 @@
 import os
-import time
 import secrets
+import time
 import warnings
-from dotenv import load_dotenv
 from urllib.parse import quote
-from pydantic import AnyHttpUrl, AnyUrl
-from starlette.exceptions import HTTPException
-from pydantic_settings import BaseSettings, SettingsConfigDict
+
+from dotenv import load_dotenv
+from fastmcp.exceptions import NotFoundError
+from fastmcp.server.auth.auth import AccessToken, OAuthProvider
 from mcp.server.auth.provider import (
     AuthorizationCode,
     AuthorizationParams,
@@ -16,8 +16,9 @@ from mcp.server.auth.provider import (
 from mcp.server.auth.settings import ClientRegistrationOptions
 from mcp.shared._httpx_utils import create_mcp_http_client
 from mcp.shared.auth import OAuthClientInformationFull, OAuthToken
-from fastmcp.exceptions import NotFoundError
-from fastmcp.server.auth.auth import AccessToken, OAuthProvider
+from pydantic import AnyHttpUrl, AnyUrl
+from pydantic_settings import BaseSettings, SettingsConfigDict
+from starlette.exceptions import HTTPException
 from mcp_composer.core.utils import LoggerFactory
 
 logger = LoggerFactory.get_logger()

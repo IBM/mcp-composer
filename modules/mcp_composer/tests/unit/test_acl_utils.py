@@ -1,6 +1,5 @@
 """Test module for acl_utils.py"""
 
-import pytest
 import os
 from unittest.mock import patch
 from mcp_composer.middleware.acl.acl_utils import (
@@ -144,9 +143,7 @@ class TestACLUtils:
 
     def test_extract_context_info_from_headers(self):
         """Test extracting context information from headers"""
-        context = {
-            "headers": {"x-project": "header-project", "x-agent-type": "header-agent"}
-        }
+        context = {"headers": {"x-project": "header-project", "x-agent-type": "header-agent"}}
 
         extracted = extract_context_info(context)
 
@@ -268,8 +265,6 @@ class TestACLUtils:
         assert extracted["role"] == "admin"
         assert extracted["user_id"] == "user123"
         assert extracted["project"] == "direct-project"  # Direct field takes precedence
-        assert (
-            extracted["agent_type"] == "direct-agent"
-        )  # Direct field takes precedence
+        assert extracted["agent_type"] == "direct-agent"  # Direct field takes precedence
         assert extracted["resource_type"] == "api"
         assert extracted["timestamp"] == "2023-01-01T00:00:00Z"

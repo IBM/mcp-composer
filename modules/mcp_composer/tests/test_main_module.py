@@ -17,7 +17,7 @@ class TestMainModule:
         """Test that main function is called when module is executed"""
         # Mock the config building
         mock_build_config.return_value = []
-        
+
         # Test the main function directly - catch SystemExit from Typer
         try:
             main()
@@ -41,7 +41,7 @@ class TestMainModule:
         """Test that main function is called when module is run as script"""
         # Mock the config building
         mock_build_config.return_value = []
-        
+
         # Test the main function directly (which is what __main__.py calls)
         # This simulates the actual execution path when the module is run as a script
         try:

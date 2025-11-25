@@ -89,7 +89,7 @@ def default_heuristic_score(
                 matches["disallowed_urls"].append(u)
 
     # Enhanced weighted score
-    w_override = 0.4 if matches["override"] else 0.0
+    w_override = 0.6 if matches["override"] else 0.0
     w_tool = 0.35 if matches["tool_steer"] else 0.0
     w_exfil = 0.45 if matches["exfil"] else 0.0
     w_prompt = 0.3 if matches["prompt_manip"] else 0.0
