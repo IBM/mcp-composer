@@ -52,20 +52,15 @@ class AsperaJWTClient(httpx.AsyncClient):
     def _encode_dict_to_json(self, dict):
         return json.dumps(dict)
 
-    def _sign_payload(self, cert_path, payload, headers):
-        try:
-            with open(cert_path, "r", encoding="utf-8") as f:
-                assertion_string = jwt.encode(
-                payload,
-                f.read(),
-                algorithm='RS256',
-                headers=headers
-                )
-            return assertion_string
-        except FileNotFoundError:
-            raise ValueError(f"Certificate/private key not found: {cert_path}")
-        except Exception as e:
-            raise ValueError(f"Error reading private key: {e}")
+    def _sign_payload(self, payload, headers):
+        cert_value = resolve_env_value(self.auth_data.get(ConfigKey.CERT_VALUE))
+        asseert_string = jwt.encode(
+            payload,
+            cert_value,
+            algorithm="RS256",
+            headers=headers,
+        )
+        return asseert_string
 
 
 
@@ -73,13 +68,12 @@ class AsperaJWTClient(httpx.AsyncClient):
         """Create RS256 JWT for AoC JWT-bearer grant."""
         client_id = resolve_env_value(self.auth_data.get(ConfigKey.CLIENT_ID))
         token_url = resolve_env_value(self.auth_data.get(ConfigKey.Token_URL))
-        cert_path = resolve_env_value(self.auth_data.get(ConfigKey.CERT_PATH))
 
         user_email = resolve_env_value(self.auth_data.get("user_email"))
         if not user_email:
             raise ValueError("user_email must be provided (AoC JWT 'sub' claim)")
 
-
+        print(f"Generating JWT assertion for client_id={client_id}, token_url={token_url}, user_email={user_email}")
 
         now = int(time.time())
         payload = {
@@ -96,9 +90,7 @@ class AsperaJWTClient(httpx.AsyncClient):
             "typ": "JWT",
             "alg": "RS256"
         }
-        signed_payload = self._sign_payload(cert_path, payload, jwt_header)
-
-
+        signed_payload = self._sign_payload(payload, jwt_header)
 
 
         # Do NOT log the assertion; it's sensitive.
@@ -127,11 +119,13 @@ class AsperaJWTClient(httpx.AsyncClient):
         parameters = f"assertion={assertion_encoded}&grant_type={grant_type}&scope={scope}"
         headers = {"Content-Type": "application/x-www-form-urlencoded"}
 
-        #logger.debug("Exchanging JWT for access parameters at %s and headers %s", parameters, headers)
+        print("Exchanging JWT for access parameters at %s and headers %s", parameters, headers)
 
         auth = httpx.BasicAuth(client_id, client_secret)
         resp = await super().post(token_url_with_org,
             content=parameters.encode('utf-8'), headers=headers, auth=auth)
+        print("Received response status: %s and response %s", resp.status_code, resp.json())
+
         # Avoid printing tokens in logs; show status only
         resp.raise_for_status()
         token_data = resp.json()
@@ -179,5 +173,6 @@ class AsperaJWTClient(httpx.AsyncClient):
         # Only set JSON Content-Type if caller didn’t specify and is sending a body
         if "Content-Type" not in headers and any(k in kwargs for k in ("data", "json", "files")):
             headers["Content-Type"] = "application/json"
-
-        return await super().request(method, url, headers=headers, **kwargs)
+        print(f"Making authenticated request to {url} with headers {headers}")
+        response = await super().request(method, url, headers=headers, **kwargs)
+        return response
