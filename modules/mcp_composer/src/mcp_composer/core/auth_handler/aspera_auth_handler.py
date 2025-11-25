@@ -1,9 +1,7 @@
 import json
 import time
-import urllib.parse
-import uuid
 from typing import Any, Optional
-
+import urllib.parse
 import httpx
 import jwt
 
@@ -53,40 +51,44 @@ class AsperaJWTClient(httpx.AsyncClient):
         """Serialize a mapping to JSON."""
         return json.dumps(input_dict)
 
-    def _sign_payload(self, cert_path: str, payload: dict[str, Any], headers: dict[str, str]) -> str:
-        """Sign the JWT payload with the provided certificate."""
-        try:
-            with open(cert_path, "r", encoding="utf-8") as file_handle:
-                return jwt.encode(payload, file_handle.read(), algorithm="RS256", headers=headers)
-        except FileNotFoundError as exc:
-            raise ValueError(f"Certificate/private key not found: {cert_path}") from exc
-        except Exception as exc:  # pylint: disable=broad-exception-caught
-            raise ValueError(f"Error reading private key: {exc}") from exc
+    def _sign_payload(self, payload, headers):
+        cert_value = resolve_env_value(self.auth_data.get(ConfigKey.CERT_VALUE))
+        asseert_string = jwt.encode(
+            payload,
+            cert_value,
+            algorithm="RS256",
+            headers=headers,
+        )
+        return asseert_string
+
+
 
     def _generate_jwt_assertion(self) -> str:
         """Create RS256 JWT for AoC JWT-bearer grant."""
         client_id = resolve_env_value(self.auth_data.get(ConfigKey.CLIENT_ID))
         token_url = resolve_env_value(self.auth_data.get(ConfigKey.Token_URL))
-        cert_path = resolve_env_value(self.auth_data.get(ConfigKey.CERT_PATH))
 
         user_email = resolve_env_value(self.auth_data.get("user_email"))
         if not user_email:
             raise ValueError("user_email must be provided (AoC JWT 'sub' claim)")
 
+
         now = int(time.time())
+        # Match the working test: use longer window (1 hour) and omit iat/jti claims
         payload = {
             "iss": client_id,
             "sub": user_email,
-            # must EXACTLY match the token endpoint you POST to
-            "aud": token_url,
-            "iat": now,
-            "nbf": now - 10,
-            "exp": now + 300,  # short TTL
-            "jti": str(uuid.uuid4()),
+            "aud": token_url,   # base token URL (not org-scoped)
+            "nbf": now - 3600,  # Allow 1 hour in the past (matching working test)
+            "exp": now + 3600,  # 1 hour expiry (matching working test)
         }
+        #logger.debug("Generating JWT assertion for payload=%s", payload)
+        jwt_header = {
+            "typ": "JWT",
+            "alg": "RS256"
+        }
+        signed_payload = self._sign_payload(payload, jwt_header)
 
-        jwt_header = {"typ": "JWT", "alg": "RS256"}
-        signed_payload = self._sign_payload(cert_path, payload, jwt_header)
 
         # Do NOT log the assertion; it's sensitive.
         return signed_payload
@@ -108,13 +110,14 @@ class AsperaJWTClient(httpx.AsyncClient):
         assertion_encoded = urllib.parse.quote(assertion)
         parameters = f"assertion={assertion_encoded}&grant_type={grant_type}&scope={scope}"
         headers = {"Content-Type": "application/x-www-form-urlencoded"}
+
+
+
         auth = httpx.BasicAuth(client_id, client_secret)
-        resp = await super().post(
-            token_url_with_org,
-            content=parameters.encode("utf-8"),
-            headers=headers,
-            auth=auth,
-        )
+        resp = await super().post(token_url_with_org,
+            content=parameters.encode('utf-8'), headers=headers, auth=auth)
+
+
         # Avoid printing tokens in logs; show status only
         resp.raise_for_status()
         token_data = resp.json()
@@ -154,6 +157,8 @@ class AsperaJWTClient(httpx.AsyncClient):
 
         # Merge headers safely
         headers = (kwargs.pop("headers", {}) or {}).copy()
+
+        headers = {k: v for k, v in headers.items() if k.lower() != "authorization"}
         headers["Authorization"] = f"Bearer {self._access_token}"
         headers.setdefault("Accept", "application/json")
 
@@ -161,4 +166,5 @@ class AsperaJWTClient(httpx.AsyncClient):
         if "Content-Type" not in headers and any(k in kwargs for k in ("data", "json", "files")):
             headers["Content-Type"] = "application/json"
 
-        return await super().request(method, url, headers=headers, **kwargs)
+        response = await super().request(method, url, headers=headers, **kwargs)
+        return response

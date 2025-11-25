@@ -48,7 +48,7 @@ class ConfigKey(str, Enum):
     ENV = "env"
     CWD = "cwd"
     LAYERED = "layered"
-    CERT_PATH = "cert_path"
+    CERT_VALUE = "cert_private_key"
     CERT_URL = "cert_url"
     USER_EMAIL = "user_email"
 
@@ -157,8 +157,8 @@ class ServerConfigValidator:
             AuthStrategy.BEARER: ["token"],
             AuthStrategy.DYNAMIC_BEARER: ["apikey", "token_url", "id", "secret"],
             AuthStrategy.OAUTH: ["client_id", "client_secret", "token_url"],
-            AuthStrategy.ASPERA_OAUTH_HANDLER: ["client_id", "secret", "cert_path", "token_url"],
-            AuthStrategy.SOLIS_DAL_JWT_HANDLER: ["login_url", "return_url"]
+            AuthStrategy.ASPERA_OAUTH_HANDLER: ["client_id", "secret", ConfigKey.CERT_VALUE, "token_url"],
+            AuthStrategy.SOLIS_OAUTH_HANDLER: ["login_url", "return_url"]
         }
 
         # Check if strategy is supported
@@ -186,19 +186,19 @@ class ServerConfigValidator:
                 or auth.get(ConfigKey.CLIENT_SECRET)
                 or auth.get("clientSecret")
             )
-            has_cert_path = bool(auth.get(ConfigKey.CERT_PATH) or auth.get("cert_path"))
-            has_token_url = bool(auth.get(ConfigKey.Token_URL) or auth.get("token_url"))
+            has_cert = bool(auth.get(ConfigKey.CERT_VALUE) )
+            has_token_url = bool(auth.get(ConfigKey.Token_URL) )
             missing = []
             if not has_client_id:
                 missing.append("clientId or client_id")
             if not has_secret:
                 missing.append("secret or clientSecret")
-            if not has_cert_path:
-                missing.append("cert_path")
+            if not has_cert:
+                missing.append(ConfigKey.CERT_VALUE)
             if not has_token_url:
                 missing.append("token_url")
         # Special logic for solis_dal_jwt_handler - check for login_url, return_url, and email/password
-        elif strategy == AuthStrategy.SOLIS_DAL_JWT_HANDLER:
+        elif strategy == AuthStrategy.SOLIS_OAUTH_HANDLER:
             missing = []
 
             # Check login_url (supports multiple case variations)
