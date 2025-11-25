@@ -1,5 +1,4 @@
 import time
-import uuid
 from typing import Any, Optional
 import json
 import urllib.parse
@@ -73,17 +72,15 @@ class AsperaJWTClient(httpx.AsyncClient):
         if not user_email:
             raise ValueError("user_email must be provided (AoC JWT 'sub' claim)")
 
-        print(f"Generating JWT assertion for client_id={client_id}, token_url={token_url}, user_email={user_email}")
 
         now = int(time.time())
+        # Match the working test: use longer window (1 hour) and omit iat/jti claims
         payload = {
             "iss": client_id,
             "sub": user_email,
-            "aud": token_url,   # must EXACTLY match the token endpoint you POST to (base or org-scoped if that's what you use)
-            "iat": now,
-            "nbf": now - 10,
-            "exp": now + 300,   # short TTL
-            "jti": str(uuid.uuid4()),
+            "aud": token_url,   # base token URL (not org-scoped)
+            "nbf": now - 3600,  # Allow 1 hour in the past (matching working test)
+            "exp": now + 3600,  # 1 hour expiry (matching working test)
         }
         #logger.debug("Generating JWT assertion for payload=%s", payload)
         jwt_header = {
@@ -119,12 +116,12 @@ class AsperaJWTClient(httpx.AsyncClient):
         parameters = f"assertion={assertion_encoded}&grant_type={grant_type}&scope={scope}"
         headers = {"Content-Type": "application/x-www-form-urlencoded"}
 
-        print("Exchanging JWT for access parameters at %s and headers %s", parameters, headers)
+
 
         auth = httpx.BasicAuth(client_id, client_secret)
         resp = await super().post(token_url_with_org,
             content=parameters.encode('utf-8'), headers=headers, auth=auth)
-        print("Received response status: %s and response %s", resp.status_code, resp.json())
+
 
         # Avoid printing tokens in logs; show status only
         resp.raise_for_status()
@@ -167,12 +164,14 @@ class AsperaJWTClient(httpx.AsyncClient):
 
         # Merge headers safely
         headers = (kwargs.pop("headers", {}) or {}).copy()
+
+        headers = {k: v for k, v in headers.items() if k.lower() != "authorization"}
         headers["Authorization"] = f"Bearer {self._access_token}"
         headers.setdefault("Accept", "application/json")
 
         # Only set JSON Content-Type if caller didn’t specify and is sending a body
         if "Content-Type" not in headers and any(k in kwargs for k in ("data", "json", "files")):
             headers["Content-Type"] = "application/json"
-        print(f"Making authenticated request to {url} with headers {headers}")
+
         response = await super().request(method, url, headers=headers, **kwargs)
         return response
