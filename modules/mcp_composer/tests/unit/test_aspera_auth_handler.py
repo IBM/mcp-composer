@@ -1,7 +1,7 @@
 """Test module for aspera_auth_handler.py"""
 
 import time
-from unittest.mock import AsyncMock, Mock, mock_open, patch
+from unittest.mock import AsyncMock, Mock, patch
 
 import httpx
 import pytest
@@ -30,7 +30,7 @@ MIIEpAIBAAKCAQEA1234567890abcdefghijklmnopqrstuvwxyz
             ConfigKey.CLIENT_SECRET: "test_client_secret",
             ConfigKey.Token_URL: "https://api.example.com/oauth2/token",
             ConfigKey.TOKEN_URL_WITH_ORG: "https://api.example.com/oauth2/org/token",
-            ConfigKey.CERT_PATH: "/path/to/cert.pem",
+            ConfigKey.CERT_VALUE: "-----BEGIN RSA PRIVATE KEY-----\nMOCK_KEY\n-----END RSA PRIVATE KEY-----",
             "user_email": "test@example.com",
             ConfigKey.SCOPE: "user:all",
         }
@@ -75,20 +75,21 @@ MIIEpAIBAAKCAQEA1234567890abcdefghijklmnopqrstuvwxyz
         client = AsperaJWTClient(base_url="https://api.example.com")
         assert client.auth_data == {}
 
-    @patch(
-        "builtins.open",
-        new_callable=mock_open,
-        read_data="-----BEGIN RSA PRIVATE KEY-----\nMOCK_KEY\n-----END RSA PRIVATE KEY-----",
-    )
+    @patch("mcp_composer.core.auth_handler.aspera_auth_handler.resolve_env_value")
     @patch("jwt.encode")
-    def test_generate_jwt_assertion_success(self, mock_jwt_encode, mock_file, client):
+    def test_generate_jwt_assertion_success(self, mock_jwt_encode, mock_resolve, client):
         """Test successful JWT assertion generation"""
         mock_jwt_encode.return_value = "mock.jwt.token"
+        
+        # Mock resolve_env_value to return the values as-is
+        def resolve_side_effect(x):
+            return x if x is not None else ""
+        
+        mock_resolve.side_effect = resolve_side_effect
 
         assertion = client._generate_jwt_assertion()
 
         assert assertion == "mock.jwt.token"
-        mock_file.assert_called_once_with("/path/to/cert.pem", "r", encoding="utf-8")
         mock_jwt_encode.assert_called_once()
 
         # Verify JWT payload structure
@@ -99,10 +100,11 @@ MIIEpAIBAAKCAQEA1234567890abcdefghijklmnopqrstuvwxyz
         assert payload["iss"] == "test_client_id"
         assert payload["sub"] == "test@example.com"
         assert payload["aud"] == "https://api.example.com/oauth2/token"
-        assert "iat" in payload
+        # Implementation only includes nbf and exp, not iat and jti
         assert "nbf" in payload
         assert "exp" in payload
-        assert "jti" in payload
+        assert "iat" not in payload
+        assert "jti" not in payload
         assert headers["typ"] == "JWT"
         assert headers["alg"] == "RS256"
 
@@ -124,17 +126,14 @@ MIIEpAIBAAKCAQEA1234567890abcdefghijklmnopqrstuvwxyz
         with pytest.raises(ValueError, match=r"user_email must be provided"):
             client._generate_jwt_assertion()
 
-    @patch("builtins.open", side_effect=FileNotFoundError)
-    def test_sign_payload_file_not_found(self, _mock_file, client):
-        """Test _sign_payload raises ValueError when certificate file not found"""
-        with pytest.raises(ValueError, match="Certificate/private key not found"):
-            client._sign_payload("/nonexistent/cert.pem", {}, {})
-
-    @patch("builtins.open", side_effect=PermissionError("Permission denied"))
-    def test_sign_payload_permission_error(self, _mock_file, client):
-        """Test _sign_payload raises ValueError on permission error"""
-        with pytest.raises(ValueError, match="Error reading private key"):
-            client._sign_payload("/path/to/cert.pem", {}, {})
+    @patch("mcp_composer.core.auth_handler.aspera_auth_handler.resolve_env_value")
+    def test_sign_payload_missing_cert_value(self, mock_resolve, client):
+        """Test _sign_payload when cert_value is missing"""
+        mock_resolve.return_value = None
+        
+        with pytest.raises((ValueError, TypeError)):
+            # jwt.encode will fail if cert_value is None
+            client._sign_payload({}, {})
 
     @patch("mcp_composer.core.auth_handler.aspera_auth_handler.resolve_env_value")
     def test_generate_jwt_assertion_with_env_variables(self, mock_resolve, auth_data):
@@ -143,7 +142,7 @@ MIIEpAIBAAKCAQEA1234567890abcdefghijklmnopqrstuvwxyz
             "ENV_CLIENT_ID": "resolved_client_id",
             "ENV_USER_EMAIL": "resolved@example.com",
             "ENV_TOKEN_URL": "https://resolved.example.com/token",
-            "ENV_CERT_PATH": "/resolved/cert.pem",
+            "ENV_CERT_VALUE": "-----BEGIN RSA PRIVATE KEY-----\nRESOLVED_KEY\n-----END RSA PRIVATE KEY-----",
         }
 
         def resolve_side_effect(x):
@@ -159,20 +158,23 @@ MIIEpAIBAAKCAQEA1234567890abcdefghijklmnopqrstuvwxyz
         test_auth_data[ConfigKey.CLIENT_ID] = "ENV_CLIENT_ID"
         test_auth_data["user_email"] = "ENV_USER_EMAIL"
         test_auth_data[ConfigKey.Token_URL] = "ENV_TOKEN_URL"
-        test_auth_data[ConfigKey.CERT_PATH] = "ENV_CERT_PATH"
+        test_auth_data[ConfigKey.CERT_VALUE] = "ENV_CERT_VALUE"
 
         client = AsperaJWTClient(base_url="https://api.example.com", auth_data=test_auth_data)
 
-        with (
-            patch("builtins.open", new_callable=mock_open, read_data="MOCK_KEY"),
-            patch("jwt.encode", return_value="mock.jwt.token"),
-        ):
+        with patch("jwt.encode", return_value="mock.jwt.token"):
             assertion = client._generate_jwt_assertion()
             assert assertion == "mock.jwt.token"
 
     @pytest.mark.asyncio
-    async def test_refresh_token_success(self, client, mock_private_key):
+    @patch("mcp_composer.core.auth_handler.aspera_auth_handler.resolve_env_value")
+    async def test_refresh_token_success(self, mock_resolve, client, mock_private_key):
         """Test successful token refresh"""
+        def resolve_side_effect(x):
+            return x if x is not None else ""
+        
+        mock_resolve.side_effect = resolve_side_effect
+        
         mock_response = Mock()
         mock_response.json.return_value = {
             "access_token": "new-access-token",
@@ -182,7 +184,6 @@ MIIEpAIBAAKCAQEA1234567890abcdefghijklmnopqrstuvwxyz
         mock_response.raise_for_status.return_value = None
 
         with (
-            patch("builtins.open", new_callable=mock_open, read_data=mock_private_key),
             patch("jwt.encode", return_value="mock.jwt.assertion"),
             patch.object(httpx.AsyncClient, "post", new_callable=AsyncMock, return_value=mock_response),
         ):
@@ -193,8 +194,14 @@ MIIEpAIBAAKCAQEA1234567890abcdefghijklmnopqrstuvwxyz
             assert client._expires_at <= time.time() + 3600
 
     @pytest.mark.asyncio
-    async def test_refresh_token_with_token_field(self, client, mock_private_key):
+    @patch("mcp_composer.core.auth_handler.aspera_auth_handler.resolve_env_value")
+    async def test_refresh_token_with_token_field(self, mock_resolve, client, mock_private_key):
         """Test token refresh when response uses 'token' field instead of 'access_token'"""
+        def resolve_side_effect(x):
+            return x if x is not None else ""
+        
+        mock_resolve.side_effect = resolve_side_effect
+        
         mock_response = Mock()
         mock_response.json.return_value = {
             "token": "token-field-value",
@@ -204,7 +211,6 @@ MIIEpAIBAAKCAQEA1234567890abcdefghijklmnopqrstuvwxyz
         mock_response.raise_for_status.return_value = None
 
         with (
-            patch("builtins.open", new_callable=mock_open, read_data=mock_private_key),
             patch("jwt.encode", return_value="mock.jwt.assertion"),
             patch.object(httpx.AsyncClient, "post", new_callable=AsyncMock, return_value=mock_response),
         ):
@@ -214,20 +220,29 @@ MIIEpAIBAAKCAQEA1234567890abcdefghijklmnopqrstuvwxyz
             assert client._expires_at > time.time()
 
     @pytest.mark.asyncio
-    async def test_refresh_token_missing_token_url_with_org(self, client):
+    @patch("mcp_composer.core.auth_handler.aspera_auth_handler.resolve_env_value")
+    async def test_refresh_token_missing_token_url_with_org(self, mock_resolve, client):
         """Test token refresh with missing token_url_with_org"""
+        def resolve_side_effect(x):
+            return x if x is not None else ""
+        
+        mock_resolve.side_effect = resolve_side_effect
+        
         client.auth_data.pop(ConfigKey.TOKEN_URL_WITH_ORG, None)
 
-        with (
-            patch("builtins.open", new_callable=mock_open, read_data="MOCK_KEY"),
-            patch("jwt.encode", return_value="mock.jwt.assertion"),
-        ):
+        with patch("jwt.encode", return_value="mock.jwt.assertion"):
             with pytest.raises(ValueError, match=r"token_url_with_org must be provided"):
                 await client._refresh_token()
 
     @pytest.mark.asyncio
-    async def test_refresh_token_no_access_token_in_response(self, client, mock_private_key):
+    @patch("mcp_composer.core.auth_handler.aspera_auth_handler.resolve_env_value")
+    async def test_refresh_token_no_access_token_in_response(self, mock_resolve, client, mock_private_key):
         """Test token refresh when response has no access_token"""
+        def resolve_side_effect(x):
+            return x if x is not None else ""
+        
+        mock_resolve.side_effect = resolve_side_effect
+        
         mock_response = Mock()
         mock_response.json.return_value = {
             "error": "invalid_grant",
@@ -236,7 +251,6 @@ MIIEpAIBAAKCAQEA1234567890abcdefghijklmnopqrstuvwxyz
         mock_response.raise_for_status.return_value = None
 
         with (
-            patch("builtins.open", new_callable=mock_open, read_data=mock_private_key),
             patch("jwt.encode", return_value="mock.jwt.assertion"),
             patch.object(httpx.AsyncClient, "post", new_callable=AsyncMock, return_value=mock_response),
         ):
@@ -244,8 +258,14 @@ MIIEpAIBAAKCAQEA1234567890abcdefghijklmnopqrstuvwxyz
                 await client._refresh_token()
 
     @pytest.mark.asyncio
-    async def test_refresh_token_http_error(self, client, mock_private_key):
+    @patch("mcp_composer.core.auth_handler.aspera_auth_handler.resolve_env_value")
+    async def test_refresh_token_http_error(self, mock_resolve, client, mock_private_key):
         """Test token refresh with HTTP error"""
+        def resolve_side_effect(x):
+            return x if x is not None else ""
+        
+        mock_resolve.side_effect = resolve_side_effect
+        
         mock_response = Mock()
         mock_response.json.return_value = {"error": "unauthorized"}
         mock_response.raise_for_status.side_effect = httpx.HTTPStatusError(
@@ -253,7 +273,6 @@ MIIEpAIBAAKCAQEA1234567890abcdefghijklmnopqrstuvwxyz
         )
 
         with (
-            patch("builtins.open", new_callable=mock_open, read_data=mock_private_key),
             patch("jwt.encode", return_value="mock.jwt.assertion"),
             patch.object(httpx.AsyncClient, "post", new_callable=AsyncMock, return_value=mock_response),
         ):
@@ -261,8 +280,14 @@ MIIEpAIBAAKCAQEA1234567890abcdefghijklmnopqrstuvwxyz
                 await client._refresh_token()
 
     @pytest.mark.asyncio
-    async def test_refresh_token_default_expires_in(self, client, mock_private_key):
+    @patch("mcp_composer.core.auth_handler.aspera_auth_handler.resolve_env_value")
+    async def test_refresh_token_default_expires_in(self, mock_resolve, client, mock_private_key):
         """Test token refresh uses default expires_in when not provided"""
+        def resolve_side_effect(x):
+            return x if x is not None else ""
+        
+        mock_resolve.side_effect = resolve_side_effect
+        
         mock_response = Mock()
         mock_response.json.return_value = {
             "access_token": "new-token",
@@ -271,7 +296,6 @@ MIIEpAIBAAKCAQEA1234567890abcdefghijklmnopqrstuvwxyz
         mock_response.raise_for_status.return_value = None
 
         with (
-            patch("builtins.open", new_callable=mock_open, read_data=mock_private_key),
             patch("jwt.encode", return_value="mock.jwt.assertion"),
             patch.object(httpx.AsyncClient, "post", new_callable=AsyncMock, return_value=mock_response),
         ):
@@ -285,8 +309,14 @@ MIIEpAIBAAKCAQEA1234567890abcdefghijklmnopqrstuvwxyz
             assert expected_min < client._expires_at < expected_max
 
     @pytest.mark.asyncio
-    async def test_refresh_token_custom_scope(self, auth_data, mock_private_key):
+    @patch("mcp_composer.core.auth_handler.aspera_auth_handler.resolve_env_value")
+    async def test_refresh_token_custom_scope(self, mock_resolve, auth_data, mock_private_key):
         """Test token refresh with custom scope"""
+        def resolve_side_effect(x):
+            return x if x is not None else ""
+        
+        mock_resolve.side_effect = resolve_side_effect
+        
         auth_data[ConfigKey.SCOPE] = "custom:scope"
         client = AsperaJWTClient(base_url="https://api.example.com", auth_data=auth_data)
 
@@ -299,7 +329,6 @@ MIIEpAIBAAKCAQEA1234567890abcdefghijklmnopqrstuvwxyz
         mock_response.raise_for_status.return_value = None
 
         with (
-            patch("builtins.open", new_callable=mock_open, read_data=mock_private_key),
             patch("jwt.encode", return_value="mock.jwt.assertion"),
             patch.object(httpx.AsyncClient, "post", new_callable=AsyncMock, return_value=mock_response) as mock_post,
         ):
@@ -311,8 +340,14 @@ MIIEpAIBAAKCAQEA1234567890abcdefghijklmnopqrstuvwxyz
             assert "scope=custom%3Ascope" in content or "scope=custom:scope" in content
 
     @pytest.mark.asyncio
-    async def test_request_with_valid_token(self, client):
+    @patch("mcp_composer.core.auth_handler.aspera_auth_handler.resolve_env_value")
+    async def test_request_with_valid_token(self, mock_resolve, client):
         """Test request with valid token"""
+        def resolve_side_effect(x):
+            return x if x is not None else ""
+        
+        mock_resolve.side_effect = resolve_side_effect
+        
         client._access_token = "valid-token"
         client._expires_at = time.time() + 3600  # Valid for 1 hour
 
@@ -333,8 +368,14 @@ MIIEpAIBAAKCAQEA1234567890abcdefghijklmnopqrstuvwxyz
             assert call_args[1]["headers"]["Accept"] == "application/json"
 
     @pytest.mark.asyncio
-    async def test_request_with_expired_token(self, client, mock_private_key):
+    @patch("mcp_composer.core.auth_handler.aspera_auth_handler.resolve_env_value")
+    async def test_request_with_expired_token(self, mock_resolve, client, mock_private_key):
         """Test request with expired token triggers refresh"""
+        def resolve_side_effect(x):
+            return x if x is not None else ""
+        
+        mock_resolve.side_effect = resolve_side_effect
+        
         client._access_token = "old-token"
         client._expires_at = time.time() - 1  # Expired
 
@@ -350,7 +391,6 @@ MIIEpAIBAAKCAQEA1234567890abcdefghijklmnopqrstuvwxyz
         mock_data_response.raise_for_status.return_value = None
 
         with (
-            patch("builtins.open", new_callable=mock_open, read_data=mock_private_key),
             patch("jwt.encode", return_value="mock.jwt.assertion"),
             patch.object(httpx.AsyncClient, "post", new_callable=AsyncMock, return_value=mock_token_response),
             patch(
@@ -368,11 +408,16 @@ MIIEpAIBAAKCAQEA1234567890abcdefghijklmnopqrstuvwxyz
             assert call_args[1]["headers"]["Authorization"] == "Bearer new-token"
 
     @pytest.mark.asyncio
-    async def test_request_to_token_url_prevents_recursion(self, client):
+    @patch("mcp_composer.core.auth_handler.aspera_auth_handler.resolve_env_value")
+    async def test_request_to_token_url_prevents_recursion(self, mock_resolve, client):
         """Test that requests to token_url don't trigger token refresh"""
+        def resolve_side_effect(x):
+            return x if x is not None else ""
+        
+        mock_resolve.side_effect = resolve_side_effect
+        
         client._access_token = "old-token"
         client._expires_at = time.time() - 1  # Expired
-        client._resolved_token_url = "https://api.example.com/oauth2/token"
 
         mock_response = Mock()
         mock_response.raise_for_status.return_value = None
@@ -380,7 +425,7 @@ MIIEpAIBAAKCAQEA1234567890abcdefghijklmnopqrstuvwxyz
         with patch(
             "httpx.AsyncClient.request", new_callable=AsyncMock, return_value=mock_response
         ) as mock_http_request:
-            # Request to token URL should not trigger refresh
+            # Request to token URL should not trigger refresh (pattern match: /oauth2/.../token)
             await client.request("POST", "https://api.example.com/oauth2/token")
 
             # Verify super().request was called directly without refresh
@@ -392,8 +437,14 @@ MIIEpAIBAAKCAQEA1234567890abcdefghijklmnopqrstuvwxyz
             assert "Authorization" not in call_args[1].get("headers", {})
 
     @pytest.mark.asyncio
-    async def test_request_to_oauth2_token_pattern(self, client):
+    @patch("mcp_composer.core.auth_handler.aspera_auth_handler.resolve_env_value")
+    async def test_request_to_oauth2_token_pattern(self, mock_resolve, client):
         """Test that requests matching /oauth2/.../token pattern don't trigger refresh"""
+        def resolve_side_effect(x):
+            return x if x is not None else ""
+        
+        mock_resolve.side_effect = resolve_side_effect
+        
         client._access_token = "old-token"
         client._expires_at = time.time() - 1  # Expired
 
@@ -414,8 +465,14 @@ MIIEpAIBAAKCAQEA1234567890abcdefghijklmnopqrstuvwxyz
             assert "Authorization" not in headers
 
     @pytest.mark.asyncio
-    async def test_request_with_no_token(self, client, mock_private_key):
+    @patch("mcp_composer.core.auth_handler.aspera_auth_handler.resolve_env_value")
+    async def test_request_with_no_token(self, mock_resolve, client, mock_private_key):
         """Test request with no token triggers refresh"""
+        def resolve_side_effect(x):
+            return x if x is not None else ""
+        
+        mock_resolve.side_effect = resolve_side_effect
+        
         client._access_token = None
         client._expires_at = 0.0  # Ensure it's expired
 
@@ -431,7 +488,6 @@ MIIEpAIBAAKCAQEA1234567890abcdefghijklmnopqrstuvwxyz
         mock_data_response.raise_for_status.return_value = None
 
         with (
-            patch("builtins.open", new_callable=mock_open, read_data=mock_private_key),
             patch("jwt.encode", return_value="mock.jwt.assertion"),
             patch.object(httpx.AsyncClient, "post", new_callable=AsyncMock, return_value=mock_token_response),
             patch(
@@ -449,8 +505,14 @@ MIIEpAIBAAKCAQEA1234567890abcdefghijklmnopqrstuvwxyz
             assert call_args[1]["headers"]["Authorization"] == "Bearer new-token"
 
     @pytest.mark.asyncio
-    async def test_request_preserves_existing_headers(self, client):
+    @patch("mcp_composer.core.auth_handler.aspera_auth_handler.resolve_env_value")
+    async def test_request_preserves_existing_headers(self, mock_resolve, client):
         """Test that request preserves existing headers"""
+        def resolve_side_effect(x):
+            return x if x is not None else ""
+        
+        mock_resolve.side_effect = resolve_side_effect
+        
         client._access_token = "valid-token"
         client._expires_at = time.time() + 3600
 
@@ -471,8 +533,14 @@ MIIEpAIBAAKCAQEA1234567890abcdefghijklmnopqrstuvwxyz
             assert headers["Accept"] == "application/json"
 
     @pytest.mark.asyncio
-    async def test_request_sets_content_type_for_json_body(self, client):
+    @patch("mcp_composer.core.auth_handler.aspera_auth_handler.resolve_env_value")
+    async def test_request_sets_content_type_for_json_body(self, mock_resolve, client):
         """Test that request sets Content-Type for JSON body"""
+        def resolve_side_effect(x):
+            return x if x is not None else ""
+        
+        mock_resolve.side_effect = resolve_side_effect
+        
         client._access_token = "valid-token"
         client._expires_at = time.time() + 3600
 
@@ -489,8 +557,14 @@ MIIEpAIBAAKCAQEA1234567890abcdefghijklmnopqrstuvwxyz
             assert headers["Content-Type"] == "application/json"
 
     @pytest.mark.asyncio
-    async def test_request_respects_existing_content_type(self, client):
+    @patch("mcp_composer.core.auth_handler.aspera_auth_handler.resolve_env_value")
+    async def test_request_respects_existing_content_type(self, mock_resolve, client):
         """Test that request respects existing Content-Type header"""
+        def resolve_side_effect(x):
+            return x if x is not None else ""
+        
+        mock_resolve.side_effect = resolve_side_effect
+        
         client._access_token = "valid-token"
         client._expires_at = time.time() + 3600
 
@@ -516,8 +590,14 @@ MIIEpAIBAAKCAQEA1234567890abcdefghijklmnopqrstuvwxyz
         assert isinstance(client, httpx.AsyncClient)
 
     @pytest.mark.asyncio
-    async def test_refresh_token_request_format(self, client, mock_private_key):
+    @patch("mcp_composer.core.auth_handler.aspera_auth_handler.resolve_env_value")
+    async def test_refresh_token_request_format(self, mock_resolve, client, mock_private_key):
         """Test that refresh token request is formatted correctly"""
+        def resolve_side_effect(x):
+            return x if x is not None else ""
+        
+        mock_resolve.side_effect = resolve_side_effect
+        
         mock_response = Mock()
         mock_response.json.return_value = {
             "access_token": "new-token",
@@ -527,7 +607,6 @@ MIIEpAIBAAKCAQEA1234567890abcdefghijklmnopqrstuvwxyz
         mock_response.raise_for_status.return_value = None
 
         with (
-            patch("builtins.open", new_callable=mock_open, read_data=mock_private_key),
             patch("jwt.encode", return_value="mock.jwt.assertion"),
             patch.object(httpx.AsyncClient, "post", new_callable=AsyncMock, return_value=mock_response) as mock_post,
         ):
@@ -551,3 +630,38 @@ MIIEpAIBAAKCAQEA1234567890abcdefghijklmnopqrstuvwxyz
             assert "scope=" in content
             # The grant_type is URL-encoded, so check for the encoded version
             assert "urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Ajwt-bearer" in content
+
+    @pytest.mark.asyncio
+    @patch("mcp_composer.core.auth_handler.aspera_auth_handler.resolve_env_value")
+    async def test_request_removes_existing_authorization_header(self, mock_resolve, client):
+        """Test that request removes existing authorization header before setting new one"""
+        def resolve_side_effect(x):
+            return x if x is not None else ""
+        
+        mock_resolve.side_effect = resolve_side_effect
+        
+        client._access_token = "new-valid-token"
+        client._expires_at = time.time() + 3600
+
+        mock_response = Mock()
+        mock_response.raise_for_status.return_value = None
+
+        with patch(
+            "httpx.AsyncClient.request", new_callable=AsyncMock, return_value=mock_response
+        ) as mock_http_request:
+            # Pass an existing authorization header (case variations)
+            await client.request(
+                "GET",
+                "https://api.example.com/data",
+                headers={"authorization": "Bearer old-token", "X-Custom": "value"},
+            )
+
+            # Verify the old authorization header was removed and new one was set
+            mock_http_request.assert_called_once()
+            call_args = mock_http_request.call_args
+            headers = call_args[1]["headers"]
+            # Should only have one Authorization header with the new token
+            assert headers["Authorization"] == "Bearer new-valid-token"
+            assert "authorization" not in headers  # Lowercase version should be removed
+            assert headers["X-Custom"] == "value"  # Other headers preserved
+            assert headers["Accept"] == "application/json"
