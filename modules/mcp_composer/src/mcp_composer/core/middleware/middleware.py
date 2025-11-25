@@ -1,12 +1,4 @@
 # fastmcp_middleware_enhanced.py
-from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Optional, Union
-from dataclasses import dataclass
-from enum import Enum
-import yaml
-import json
-from pathlib import Path
-
 # Import FastMCP middleware classes
 from fastmcp.server.middleware import Middleware, MiddlewareContext, CallNext
 

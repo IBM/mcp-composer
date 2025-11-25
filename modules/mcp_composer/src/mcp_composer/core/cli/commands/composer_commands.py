@@ -12,12 +12,13 @@ import asyncio
 import json
 import os
 import signal
-import sys
+import subprocess
+import time
 from pathlib import Path
-from typing import Optional, List, Dict, Annotated
+from typing import Annotated, Dict, List, Optional, TYPE_CHECKING
 
 import typer
-from typer import Option, Argument
+from typer import Option
 
 from mcp_composer.core.utils.logger import LoggerFactory
 
@@ -33,7 +34,21 @@ app = typer.Typer(
 )
 
 
+# Lazy import helper to avoid circular dependencies
+if TYPE_CHECKING:
+    from mcp_composer.core.cli import cli_typer as cli_helpers_module
+
+
+def _get_cli_helpers():
+    """Return cli_typer module without creating circular imports."""
+    # pylint: disable=import-outside-toplevel
+    from mcp_composer.core.cli import cli_typer as cli_helpers_module  # type: ignore
+
+    return cli_helpers_module
+
+
 @app.command("start")
+# pylint: disable=too-many-arguments,too-many-positional-arguments,too-many-locals
 def start_composer(
     # Mode and basic configuration
     mode: Annotated[str, Option(
@@ -42,7 +57,7 @@ def start_composer(
         case_sensitive=False
     )] = "stdio",
 
-    id: Annotated[str, Option(
+    instance_id: Annotated[str, Option(
         "--id", "-i",
         help="Unique ID for this MCP instance"
     )] = "mcp-local",
@@ -110,10 +125,10 @@ def start_composer(
     )] = False,
 
     # Environment variables
-    env: Annotated[List[str], Option(
+    env: Annotated[Optional[List[str]], Option(
         "--env", "-E",
         help="Environment variables (format: KEY=VALUE). Can be used multiple times."
-    )] = [],
+    )] = None,
 
     pass_environment: Annotated[bool, Option(
         "--pass-environment/--no-pass-environment",
@@ -161,8 +176,7 @@ def start_composer(
     mcp-composer composer start --mode stdio --script-path server.py --env DEBUG=true --env LOG_LEVEL=debug
     """
 
-    # Import here to avoid circular imports
-    from ..cli_typer import run_dynamic_composer, build_config_from_args
+    cli_helpers = _get_cli_helpers()
 
     # Validate mode
     if mode not in ["http", "sse", "stdio"]:
@@ -177,7 +191,8 @@ def start_composer(
     base_env: Dict[str, str] = {}
 
     # Add environment variables from --env arguments
-    for env_var in env:
+    env_values = env or []
+    for env_var in env_values:
         if "=" not in env_var:
             raise typer.BadParameter(f"Environment variable must be in format KEY=VALUE, got: {env_var}")
         key, value = env_var.split("=", 1)
@@ -195,7 +210,9 @@ def start_composer(
     config = []
     try:
         if endpoint or script_path:
-            config = build_config_from_args(mode, endpoint, script_path, directory, id)
+            config = cli_helpers.build_config_from_args(
+                mode, endpoint, script_path, directory, instance_id
+            )
 
         if daemon:
             # Run as daemon
@@ -214,7 +231,7 @@ def start_composer(
             )
         else:
             # Run in foreground
-            asyncio.run(run_dynamic_composer(
+            asyncio.run(cli_helpers.run_dynamic_composer(
                 mode=mode,
                 config=config,
                 auth_type=auth_type,
@@ -245,6 +262,7 @@ def _run_as_daemon(
     log_file: Optional[str] = None,
 ) -> None:
     """Run MCP Composer as a daemon process."""
+    # pylint: disable=import-outside-toplevel
     import daemon
     from daemon.pidfile import TimeoutPIDLockFile
 
@@ -259,18 +277,10 @@ def _run_as_daemon(
     # Create PID file
     pid_lock = TimeoutPIDLockFile(pid_file, timeout=5)
 
-    # Daemon context
-    context = daemon.DaemonContext(
-        pidfile=pid_lock,
-        stdout=open(log_file, 'w'),
-        stderr=open(log_file, 'a'),
-        working_directory=os.getcwd(),
-    )
-
     def run_server():
         """Function to run inside daemon context."""
-        from ..cli_typer import run_dynamic_composer
-        asyncio.run(run_dynamic_composer(
+        cli_helpers = _get_cli_helpers()
+        asyncio.run(cli_helpers.run_dynamic_composer(
             mode=mode,
             config=config,
             auth_type=auth_type,
@@ -283,11 +293,20 @@ def _run_as_daemon(
         ))
 
     try:
-        with context:
-            typer.echo(f"MCP Composer daemon started with PID {os.getpid()}")
-            typer.echo(f"PID file: {pid_file}")
-            typer.echo(f"Log file: {log_file}")
-            run_server()
+        with open(log_file, "w", encoding="utf-8") as stdout_handle, open(
+            log_file, "a", encoding="utf-8"
+        ) as stderr_handle:
+            context = daemon.DaemonContext(
+                pidfile=pid_lock,
+                stdout=stdout_handle,
+                stderr=stderr_handle,
+                working_directory=os.getcwd(),
+            )
+            with context:
+                typer.echo(f"MCP Composer daemon started with PID {os.getpid()}")
+                typer.echo(f"PID file: {pid_file}")
+                typer.echo(f"Log file: {log_file}")
+                run_server()
     except Exception as e:
         logger.error("Daemon error: %s", e)
         raise typer.Exit(1)
@@ -344,7 +363,7 @@ def stop_composer(
 
     # Read PID
     try:
-        with open(pid_file, 'r') as f:
+        with open(pid_file, "r", encoding="utf-8") as f:
             pid = int(f.read().strip())
     except (ValueError, IOError) as e:
         typer.echo(f"Error reading PID file: {e}")
@@ -361,13 +380,14 @@ def stop_composer(
 
     # Stop the process
     try:
-        signal_to_send = signal.SIGTERM if not force else signal.SIGKILL
+        signal_to_send: signal.Signals = (
+            signal.SIGTERM if not force else signal.SIGKILL
+        )
         os.kill(pid, signal_to_send)
         typer.echo(f"Sent {signal_to_send.name} to process {pid}")
 
         # Wait for process to stop
         if not force:
-            import time
             for _ in range(10):  # Wait up to 10 seconds
                 try:
                     os.kill(pid, 0)
@@ -399,7 +419,7 @@ def status_composer(
         help="Port number to find PID file automatically"
     )] = None,
 
-    format: Annotated[str, Option(
+    output_format: Annotated[str, Option(
         "--format", "-f",
         help="Output format",
         case_sensitive=False
@@ -443,7 +463,7 @@ def status_composer(
     else:
         # Read PID
         try:
-            with open(pid_file, 'r') as f:
+            with open(pid_file, "r", encoding="utf-8") as f:
                 pid = int(f.read().strip())
         except (ValueError, IOError) as e:
             status_info = {
@@ -471,7 +491,7 @@ def status_composer(
                 }
 
     # Output status
-    if format == "json":
+    if output_format == "json":
         typer.echo(json.dumps(status_info, indent=2))
     else:
         typer.echo(f"Status: {status_info['status']}")
@@ -542,13 +562,18 @@ def logs_composer(
     try:
         if follow:
             # Follow logs (like tail -f)
-            import subprocess
-            subprocess.run(["tail", "-f", "-n", str(lines), log_file])
+            subprocess.run(
+                ["tail", "-f", "-n", str(lines), log_file],
+                check=False,
+            )
         else:
             # Show last N lines
-            import subprocess
-            result = subprocess.run(["tail", "-n", str(lines), log_file], 
-                                  capture_output=True, text=True)
+            result = subprocess.run(
+                ["tail", "-n", str(lines), log_file],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
             if result.returncode == 0:
                 typer.echo(result.stdout)
             else:
@@ -556,7 +581,7 @@ def logs_composer(
                 raise typer.Exit(1)
     except FileNotFoundError:
         # Fallback to Python implementation
-        with open(log_file, 'r') as f:
+        with open(log_file, "r", encoding="utf-8") as f:
             all_lines = f.readlines()
             if follow:
                 typer.echo("Follow mode not available without 'tail' command")
@@ -566,6 +591,7 @@ def logs_composer(
 
 
 @app.command("restart")
+# pylint: disable=too-many-arguments,too-many-positional-arguments,too-many-locals
 def restart_composer(
     # All the same options as start command
     mode: Annotated[str, Option(
@@ -574,7 +600,7 @@ def restart_composer(
         case_sensitive=False
     )] = "stdio",
 
-    id: Annotated[str, Option(
+    instance_id: Annotated[str, Option(
         "--id", "-i",
         help="Unique ID for this MCP instance"
     )] = "mcp-local",
@@ -634,10 +660,10 @@ def restart_composer(
         help="Disable composer tools (disabled by default)"
     )] = False,
 
-    env: Annotated[List[str], Option(
+    env: Annotated[Optional[List[str]], Option(
         "--env", "-E",
         help="Environment variables (format: KEY=VALUE). Can be used multiple times."
-    )] = [],
+    )] = None,
 
     pass_environment: Annotated[bool, Option(
         "--pass-environment/--no-pass-environment",
@@ -678,14 +704,13 @@ def restart_composer(
             typer.echo("Warning: Could not stop existing daemon")
 
     # Wait a moment
-    import time
     time.sleep(1)
 
     # Start the daemon again
     typer.echo("Starting MCP Composer daemon...")
     start_composer(
         mode=mode,
-        id=id,
+        instance_id=instance_id,
         endpoint=endpoint,
         script_path=script_path,
         directory=directory,

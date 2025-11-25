@@ -106,7 +106,7 @@ class OAuthProviderFactory:
                 )
 
             # --- Handle Azure Separately due to different required arguments ---
-            elif self.provider == "azure":
+            if self.provider == "azure":
                 logger.info("Creating Azure Provider")
                 if not self.tenant_id:
                     raise ValueError("Azure provider requires tenant_id.")
@@ -118,13 +118,13 @@ class OAuthProviderFactory:
                 )
 
             # --- Handle Standard Providers (GitHub, Google) ---
-            elif self.provider in provider_map:
+            if self.provider in provider_map:
                 ProviderClass = provider_map[self.provider]
-                logger.info(f"Creating {self.provider.capitalize()} Provider")
+                logger.info("Creating %s Provider", self.provider.capitalize())
                 return ProviderClass(**self._get_provider_config())
 
             # --- Handle OIDC Provider ---
-            elif self.provider == "oidc":
+            if self.provider == "oidc":
                 logger.info("Creating OIDC Provider")
                 common_config = self._get_provider_config()
                 if not self.introspection_url:
@@ -149,10 +149,10 @@ class OAuthProviderFactory:
                     **common_config,
                 )
 
-            # --- Default Case ---
-            else:
-                logger.error("Unknown OAuth provider: %s", self.provider)
-                raise ValueError(f"Unknown OAuth provider: {self.provider}")
+            # Unknown provider
+            logger.error("Unknown OAuth provider: %s", self.provider)
+            raise ValueError(f"Unknown OAuth provider: {self.provider}")
+
         except Exception as e:
             logger.error("Error creating provider instance for: %s", self.provider)
             raise ValueError(f"Error creating provider instance: {e}") from e

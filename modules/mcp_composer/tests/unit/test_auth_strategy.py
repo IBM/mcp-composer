@@ -1,6 +1,5 @@
-import pytest
 from unittest.mock import MagicMock, patch, AsyncMock
-import httpx
+import pytest
 from mcp_composer.core.utils.auth_strategy import get_client
 
 
@@ -32,9 +31,7 @@ class TestAuthStrategy:
             },
         }
 
-        with patch(
-            "mcp_composer.core.utils.auth_strategy.DynamicTokenClient"
-        ) as mock_client_class:
+        with patch("mcp_composer.core.utils.auth_strategy.DynamicTokenClient") as mock_client_class:
             mock_client = MagicMock()
             mock_client_class.return_value = mock_client
 
@@ -88,15 +85,11 @@ class TestAuthStrategy:
             },
         }
 
-        with patch(
-            "mcp_composer.core.utils.auth_strategy.DynamicTokenManager"
-        ) as mock_manager_class:
+        with patch("mcp_composer.core.utils.auth_strategy.DynamicTokenManager") as mock_manager_class:
             mock_manager = MagicMock()
             mock_client = MagicMock()
             mock_manager_class.return_value = mock_manager
-            mock_manager.get_authenticated_http_client_for_jessonid = AsyncMock(
-                return_value=mock_client
-            )
+            mock_manager.get_authenticated_http_client_for_jessonid = AsyncMock(return_value=mock_client)
 
             result = await get_client("https://example.com", auth_config)
 
@@ -129,9 +122,7 @@ class TestAuthStrategy:
             # Missing username and password
         }
 
-        with pytest.raises(
-            ValueError, match="username and password are required for BASIC strategy"
-        ):
+        with pytest.raises(ValueError, match="username and password are required for BASIC strategy"):
             await get_client("https://example.com", auth_config)
 
     @pytest.mark.asyncio
@@ -181,14 +172,10 @@ class TestAuthStrategy:
             # Missing token
         }
 
-        with patch(
-            "mcp_composer.core.utils.auth_strategy.DynamicTokenManager"
-        ) as mock_manager_class:
+        with patch("mcp_composer.core.utils.auth_strategy.DynamicTokenManager") as mock_manager_class:
             mock_manager = MagicMock()
             mock_manager_class.return_value = mock_manager
-            mock_manager.get_authenticated_http_client_for_jessonid = AsyncMock(
-                return_value=None
-            )
+            mock_manager.get_authenticated_http_client_for_jessonid = AsyncMock(return_value=None)
 
             with pytest.raises(
                 RuntimeError,
@@ -205,9 +192,7 @@ class TestAuthStrategy:
             # Missing token_url, client_id, client_secret
         }
 
-        with patch(
-            "mcp_composer.core.utils.auth_strategy.DynamicTokenClient"
-        ) as mock_client_class:
+        with patch("mcp_composer.core.utils.auth_strategy.DynamicTokenClient") as mock_client_class:
             mock_client = MagicMock()
             mock_client_class.return_value = mock_client
 
@@ -247,9 +232,7 @@ class TestAuthStrategy:
     @pytest.mark.asyncio
     async def test_get_client_with_headers(self):
         """Test getting client with custom headers."""
-        auth_config = {
-            "headers": {"User-Agent": "TestClient/1.0", "Accept": "application/json"}
-        }
+        auth_config = {"headers": {"User-Agent": "TestClient/1.0", "Accept": "application/json"}}
 
         with patch("httpx.AsyncClient") as mock_client_class:
             mock_client = MagicMock()

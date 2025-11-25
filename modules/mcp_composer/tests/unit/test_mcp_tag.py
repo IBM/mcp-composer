@@ -1,8 +1,12 @@
+from unittest.mock import patch
+
 import pytest
-from unittest.mock import AsyncMock, Mock, patch
 from mcp import Tool
-from mcp_composer.tag.scanner.mcp_protocol import McpProtocolScanner
+
 from mcp_composer.tag.models import ToolDescriptor
+from mcp_composer.tag.scanner.mcp_protocol import McpProtocolScanner
+
+# pylint: disable=protected-access
 
 
 class TestMcpProtocolScanner:
@@ -15,9 +19,7 @@ class TestMcpProtocolScanner:
         assert scanner.transport == "http"
         assert scanner.auth_token is None
 
-        scanner = McpProtocolScanner(
-            "http://localhost:8000", auth_token="test-token", transport="sse"
-        )
+        scanner = McpProtocolScanner("http://localhost:8000", auth_token="test-token", transport="sse")
         assert scanner.auth_token == "test-token"
         assert scanner.transport == "sse"
         assert "Authorization" in scanner.headers

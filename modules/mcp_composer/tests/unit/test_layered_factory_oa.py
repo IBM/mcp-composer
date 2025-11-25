@@ -9,21 +9,14 @@ Tests the enhanced OpenAPI processing capabilities including:
 - Enhanced service information
 """
 
+from unittest.mock import AsyncMock, Mock
+
 import pytest
-from unittest.mock import Mock, patch, MagicMock
-from typing import Dict, Any, List
-import json
-import os
+from fastmcp.server.openapi import MCPType, RouteMap
 
 from mcp_composer.core.member_servers.layered_factory_oa import LayeredOpenAPIFactory
-from mcp_composer.core.member_servers.layered_constants import (
-    SERVICE_KEYS,
-    PARAMETER_KEYS,
-    SCHEMA_KEYS,
-    OPERATION_KEYS,
-    DEFAULT_VALUES,
-    RESPONSE_KEYS,
-)
+
+# pylint: disable=protected-access,too-many-public-methods
 
 
 class TestLayeredOpenAPIFactory:
@@ -58,23 +51,13 @@ class TestLayeredOpenAPIFactory:
                             },
                         ],
                         "requestBody": {
-                            "content": {
-                                "application/json": {
-                                    "schema": {
-                                        "$ref": "#/components/schemas/TestRequest"
-                                    }
-                                }
-                            }
+                            "content": {"application/json": {"schema": {"$ref": "#/components/schemas/TestRequest"}}}
                         },
                         "responses": {
                             "200": {
                                 "description": "Success",
                                 "content": {
-                                    "application/json": {
-                                        "schema": {
-                                            "$ref": "#/components/schemas/TestResponse"
-                                        }
-                                    }
+                                    "application/json": {"schema": {"$ref": "#/components/schemas/TestResponse"}}
                                 },
                             },
                             "400": {"description": "Bad Request"},
@@ -112,8 +95,6 @@ class TestLayeredOpenAPIFactory:
     @pytest.fixture
     def layered_factory(self, mock_openapi_spec, mock_client):
         """Create a LayeredOpenAPIFactory instance for testing."""
-        # Create custom routes to include the test operation
-        from fastmcp.server.openapi import RouteMap, MCPType
         custom_routes = [RouteMap(methods=["GET"], pattern=".*", mcp_type=MCPType.TOOL)]
         return LayeredOpenAPIFactory(mock_openapi_spec, mock_client, custom_routes=custom_routes)
 
@@ -124,7 +105,7 @@ class TestLayeredOpenAPIFactory:
         assert layered_factory.openapi_spec is not None
         assert layered_factory.client is not None
         # Check that tools are added by checking the tool manager
-        assert hasattr(layered_factory, '_tool_manager')
+        assert hasattr(layered_factory, "_tool_manager")
         tools_dict = await layered_factory._tool_manager.get_tools()
         tools = list(tools_dict.values())
         assert len(tools) == 3
@@ -216,24 +197,18 @@ class TestLayeredOpenAPIFactory:
     def test_should_include_operation(self, layered_factory):
         """Test operation inclusion logic."""
         # Test with no custom routes (should include all)
-        assert (
-            layered_factory._should_include_operation("GET", "/test/endpoint") is True
-        )
+        assert layered_factory._should_include_operation("GET", "/test/endpoint") is True
 
     def test_matches_pattern(self, layered_factory):
         """Test pattern matching."""
         # Test exact match
-        assert (
-            layered_factory._matches_pattern("/test/endpoint", "/test/endpoint") is True
-        )
+        assert layered_factory._matches_pattern("/test/endpoint", "/test/endpoint") is True
 
         # Test regex pattern
         assert layered_factory._matches_pattern("/test/endpoint", ".*endpoint") is True
 
         # Test non-match
-        assert (
-            layered_factory._matches_pattern("/test/endpoint", "/other/path") is False
-        )
+        assert layered_factory._matches_pattern("/test/endpoint", "/other/path") is False
 
     def test_get_type_info(self, layered_factory):
         """Test get_type_info method."""
@@ -277,9 +252,7 @@ class TestLayeredOpenAPIFactory:
         mock_response = Mock()
         mock_response.status_code = 200
         mock_response.json.return_value = {"result": "success"}
-        
-        # Mock the client.request as an async function
-        from unittest.mock import AsyncMock
+
         mock_client.request = AsyncMock(return_value=mock_response)
 
         request = {
@@ -312,13 +285,9 @@ class TestLayeredOpenAPIFactory:
 
     def test_layered_factory_with_custom_routes(self, mock_openapi_spec, mock_client):
         """Test LayeredOpenAPIFactory with custom routes."""
-        from fastmcp.server.openapi import RouteMap, MCPType
-
         custom_routes = [RouteMap(methods=["GET"], pattern=".*", mcp_type=MCPType.TOOL)]
 
-        factory = LayeredOpenAPIFactory(
-            mock_openapi_spec, mock_client, custom_routes=custom_routes
-        )
+        factory = LayeredOpenAPIFactory(mock_openapi_spec, mock_client, custom_routes=custom_routes)
 
         assert factory.custom_routes == custom_routes
 
@@ -328,7 +297,4 @@ class TestLayeredOpenAPIFactory:
         assert "get_service_info" in instructions
         assert "get_type_info" in instructions
         assert "make_tool_call" in instructions
-        assert (
-            "Layered Tool Pattern" in instructions
-            or "three main capabilities" in instructions
-        )
+        assert "Layered Tool Pattern" in instructions or "three main capabilities" in instructions

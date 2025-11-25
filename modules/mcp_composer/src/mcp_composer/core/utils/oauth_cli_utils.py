@@ -2,17 +2,14 @@ import asyncio
 import base64
 import hashlib
 import secrets
-import uuid
 import socket
 import webbrowser
 from typing import Any
-from urllib.parse import urlparse, urlunparse
+from urllib.parse import urlparse, urlunparse, urlencode
 import httpx
 import jwt
-import os
 from aiohttp import web
 from mcp.server.auth.middleware.auth_context import get_access_token
-from urllib.parse import urlencode
 from starlette.exceptions import HTTPException
 from starlette.requests import Request
 from starlette.responses import JSONResponse, RedirectResponse, Response

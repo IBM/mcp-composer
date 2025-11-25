@@ -104,9 +104,7 @@ class TestToolBuilderConfig:
             ValidationError,
             match="Either 'curl_config' or 'script_config' must be provided.",
         ):
-            ToolBuilderConfig(
-                name="test-tool", tool_type="curl", description="A test tool"
-            )
+            ToolBuilderConfig(name="test-tool", tool_type="curl", description="A test tool")
 
     def test_tool_builder_config_empty_curl_config_key(self):
         """Test that empty curl_config key raises ValidationError"""
@@ -123,9 +121,7 @@ class TestToolBuilderConfig:
 
     def test_tool_builder_config_empty_curl_config_value(self):
         """Test that empty curl_config value raises ValidationError"""
-        with pytest.raises(
-            ValidationError, match="Curl config value for 'key' cannot be empty."
-        ):
+        with pytest.raises(ValidationError, match="Curl config value for 'key' cannot be empty."):
             ToolBuilderConfig(
                 name="test-tool",
                 tool_type="curl",
@@ -148,9 +144,7 @@ class TestToolBuilderConfig:
 
     def test_tool_builder_config_empty_script_config_value(self):
         """Test that empty script_config value raises ValidationError"""
-        with pytest.raises(
-            ValidationError, match="Python script value for 'key' cannot be empty."
-        ):
+        with pytest.raises(ValidationError, match="Python script value for 'key' cannot be empty."):
             ToolBuilderConfig(
                 name="test-tool",
                 tool_type="python",
@@ -173,9 +167,7 @@ class TestToolBuilderConfig:
 
     def test_tool_builder_config_whitespace_only_curl_config_value(self):
         """Test that whitespace-only curl_config value raises ValidationError"""
-        with pytest.raises(
-            ValidationError, match="Curl config value for 'key' cannot be empty."
-        ):
+        with pytest.raises(ValidationError, match="Curl config value for 'key' cannot be empty."):
             ToolBuilderConfig(
                 name="test-tool",
                 tool_type="curl",
@@ -198,9 +190,7 @@ class TestToolBuilderConfig:
 
     def test_tool_builder_config_whitespace_only_script_config_value(self):
         """Test that whitespace-only script_config value raises ValidationError"""
-        with pytest.raises(
-            ValidationError, match="Python script value for 'key' cannot be empty."
-        ):
+        with pytest.raises(ValidationError, match="Python script value for 'key' cannot be empty."):
             ToolBuilderConfig(
                 name="test-tool",
                 tool_type="python",
@@ -236,9 +226,7 @@ class TestOpenApiToolAuthConfig:
 
     def test_openapi_tool_auth_config_bearer(self):
         """Test creating OpenApiToolAuthConfig with bearer auth"""
-        config = OpenApiToolAuthConfig(
-            auth_strategy="bearer", auth={"token": "test-token"}
-        )
+        config = OpenApiToolAuthConfig(auth_strategy="bearer", auth={"token": "test-token"})
 
         assert config.auth_strategy == "bearer"
         assert isinstance(config.auth, BearerAuth)
@@ -258,9 +246,7 @@ class TestOpenApiToolAuthConfig:
 
     def test_openapi_tool_auth_config_basic(self):
         """Test creating OpenApiToolAuthConfig with basic auth"""
-        config = OpenApiToolAuthConfig(
-            auth_strategy="basic", auth={"username": "user", "password": "pass"}
-        )
+        config = OpenApiToolAuthConfig(auth_strategy="basic", auth={"username": "user", "password": "pass"})
 
         assert config.auth_strategy == "basic"
         assert isinstance(config.auth, BasicAuth)
@@ -269,9 +255,7 @@ class TestOpenApiToolAuthConfig:
 
     def test_openapi_tool_auth_config_api_key(self):
         """Test creating OpenApiToolAuthConfig with api_key auth"""
-        config = OpenApiToolAuthConfig(
-            auth_strategy="api_key", auth={"apikey": "api-key", "value": "key-value"}
-        )
+        config = OpenApiToolAuthConfig(auth_strategy="api_key", auth={"apikey": "api-key", "value": "key-value"})
 
         assert config.auth_strategy == "api_key"
         assert isinstance(config.auth, APIkey)
@@ -280,16 +264,12 @@ class TestOpenApiToolAuthConfig:
 
     def test_openapi_tool_auth_config_missing_auth_strategy(self):
         """Test that missing auth_strategy raises ValidationError"""
-        with pytest.raises(
-            ValidationError, match="Both 'auth_strategy' and 'auth' must be provided."
-        ):
+        with pytest.raises(ValidationError, match="Both 'auth_strategy' and 'auth' must be provided."):
             OpenApiToolAuthConfig(auth={"token": "test-token"})
 
     def test_openapi_tool_auth_config_missing_auth(self):
         """Test that missing auth raises ValidationError"""
-        with pytest.raises(
-            ValidationError, match="Both 'auth_strategy' and 'auth' must be provided."
-        ):
+        with pytest.raises(ValidationError, match="Both 'auth_strategy' and 'auth' must be provided."):
             OpenApiToolAuthConfig(auth_strategy="bearer")
 
     def test_openapi_tool_auth_config_unsupported_strategy(self):
@@ -300,24 +280,21 @@ class TestOpenApiToolAuthConfig:
     def test_openapi_tool_auth_config_invalid_literal(self):
         """Test that invalid literal auth_strategy raises ValidationError"""
         with pytest.raises(ValidationError):
-            OpenApiToolAuthConfig(
-                auth_strategy="invalid_strategy", auth={"token": "test-token"}
-            )
+            OpenApiToolAuthConfig(auth_strategy="invalid_strategy", auth={"token": "test-token"})
 
     def test_openapi_tool_auth_config_field_descriptions(self):
         """Test that field descriptions are properly set"""
         # Get field info
-        auth_strategy_field = OpenApiToolAuthConfig.model_fields["auth_strategy"]
-        auth_field = OpenApiToolAuthConfig.model_fields["auth"]
+        fields = dict(OpenApiToolAuthConfig.model_fields)
+        auth_strategy_field = fields["auth_strategy"]
+        auth_field = fields["auth"]
 
         assert auth_strategy_field is not None
         assert auth_field is not None
 
     def test_openapi_tool_auth_config_json_serialization(self):
         """Test JSON serialization and deserialization"""
-        config = OpenApiToolAuthConfig(
-            auth_strategy="bearer", auth={"token": "test-token"}
-        )
+        config = OpenApiToolAuthConfig(auth_strategy="bearer", auth={"token": "test-token"})
 
         # Serialize to dict
         config_dict = config.model_dump()

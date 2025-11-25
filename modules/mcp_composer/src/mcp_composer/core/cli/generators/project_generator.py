@@ -6,7 +6,6 @@ and example files for new MCP Composer projects.
 """
 
 import json
-import os
 from pathlib import Path
 from typing import Dict, Any
 
@@ -19,11 +18,11 @@ logger = LoggerFactory.get_logger()
 
 class ProjectGenerator:
     """Generates MCP Composer project structure and files."""
-    
+
     def __init__(self, config: Dict[str, Any], target_dir: Path):
         """
         Initialize the project generator.
-        
+
         Args:
             config: Project configuration dictionary
             target_dir: Target directory for the project
@@ -31,27 +30,27 @@ class ProjectGenerator:
         self.config = config
         self.target_dir = target_dir
         self.project_name = config["project_name"]
-    
+
     def generate(self) -> None:
         """Generate the complete project structure."""
         rprint("[cyan]📁 Creating project structure...[/cyan]")
         self._create_directory_structure()
-        
+
         rprint("[cyan]📝 Generating configuration files...[/cyan]")
         self._create_config_files()
-        
+
         rprint("[cyan]🐍 Creating Python files...[/cyan]")
         self._create_python_files()
-        
+
         if self.config.get("with_examples"):
             rprint("[cyan]📚 Adding example files...[/cyan]")
             self._create_example_files()
-        
+
         rprint("[cyan]📄 Creating documentation...[/cyan]")
         self._create_documentation()
-        
+
         rprint("[green]✅ Project structure created successfully![/green]")
-    
+
     def _create_directory_structure(self) -> None:
         """Create the project directory structure."""
         directories = [
@@ -63,176 +62,185 @@ class ProjectGenerator:
             self.target_dir / "logs",
             self.target_dir / "data",
         ]
-        
+
         if self.config.get("with_examples"):
-            directories.extend([
-                self.target_dir / "examples",
-                self.target_dir / "examples" / "tools",
-                self.target_dir / "examples" / "middleware",
-                self.target_dir / "examples" / "configs",
-            ])
-        
+            directories.extend(
+                [
+                    self.target_dir / "examples",
+                    self.target_dir / "examples" / "tools",
+                    self.target_dir / "examples" / "middleware",
+                    self.target_dir / "examples" / "configs",
+                ]
+            )
+
         for directory in directories:
             directory.mkdir(parents=True, exist_ok=True)
-            logger.info(f"Created directory: {directory}")
-    
+            logger.info("Created directory: %s", directory)
+
     def _create_config_files(self) -> None:
         """Create configuration files."""
         # Create main config.json
         config_json = self._generate_main_config()
         config_path = self.target_dir / "config" / "config.json"
         self._write_json_file(config_path, config_json)
-        
+
         # Create middleware config
         middleware_config = self._generate_middleware_config()
         middleware_path = self.target_dir / "config" / "middleware.json"
         self._write_json_file(middleware_path, middleware_config)
-        
+
         # Create .env file
         env_content = self._generate_env_file()
         env_path = self.target_dir / ".env"
         self._write_text_file(env_path, env_content)
-        
+
         # Create .env.example
         env_example_path = self.target_dir / ".env.example"
         self._write_text_file(env_example_path, env_content)
-        
+
         # Create .gitignore
         gitignore_content = self._generate_gitignore()
         gitignore_path = self.target_dir / ".gitignore"
         self._write_text_file(gitignore_path, gitignore_content)
-    
+
     def _create_python_files(self) -> None:
         """Create Python files."""
         # Create __init__.py
         init_path = self.target_dir / "__init__.py"
         self._write_text_file(init_path, '"""MCP Composer project."""\n')
-        
+
         # Create server.py (main entry point)
         server_content = self._generate_server_file()
         server_path = self.target_dir / "server.py"
         self._write_text_file(server_path, server_content)
-        
+
         # Create pyproject.toml
         pyproject_content = self._generate_pyproject_toml()
         pyproject_path = self.target_dir / "pyproject.toml"
         self._write_text_file(pyproject_path, pyproject_content)
-        
+
         # Create requirements.txt
         requirements_content = self._generate_requirements()
         requirements_path = self.target_dir / "requirements.txt"
         self._write_text_file(requirements_path, requirements_content)
-    
+
     def _create_example_files(self) -> None:
         """Create example files."""
         # Example tool
         example_tool = self._generate_example_tool()
         tool_path = self.target_dir / "examples" / "tools" / "example_tool.py"
         self._write_text_file(tool_path, example_tool)
-        
+
         # Example middleware
         example_middleware = self._generate_example_middleware()
         middleware_path = self.target_dir / "examples" / "middleware" / "example_middleware.py"
         self._write_text_file(middleware_path, example_middleware)
-        
+
         # Example config
         example_config = self._generate_example_config()
         config_path = self.target_dir / "examples" / "configs" / "example_config.json"
         self._write_json_file(config_path, example_config)
-    
+
     def _create_documentation(self) -> None:
         """Create documentation files."""
         # README.md
         readme_content = self._generate_readme()
         readme_path = self.target_dir / "README.md"
         self._write_text_file(readme_path, readme_content)
-        
+
         # CONTRIBUTING.md (if with_examples)
         if self.config.get("with_examples"):
             contributing_content = self._generate_contributing()
             contributing_path = self.target_dir / "CONTRIBUTING.md"
             self._write_text_file(contributing_path, contributing_content)
-    
+
     def _generate_main_config(self) -> Dict:
         """Generate main configuration file content."""
         mode = self.config["mode"]
-        
+
         config = {
             "project": {
                 "name": self.config["project_name"],
                 "description": self.config["description"],
-                "version": "0.1.0"
+                "version": "0.1.0",
             },
-            "servers": []
+            "servers": [],
         }
-        
+
         # Add example server configuration based on mode
         if mode == "stdio":
-            config["servers"].append({
-                "id": "example-server",
-                "type": "stdio",
-                "command": "python",
-                "args": ["server.py"],
-                "label": "Example STDIO Server",
-                "enabled": True
-            })
+            config["servers"].append(
+                {
+                    "id": "example-server",
+                    "type": "stdio",
+                    "command": "python",
+                    "args": ["server.py"],
+                    "label": "Example STDIO Server",
+                    "enabled": True,
+                }
+            )
         elif mode == "local":
-            config["servers"].append({
-                "id": "example-local-server",
-                "type": "local",
-                "command": "python",
-                "args": ["server.py"],
-                "cwd": ".",
-                "label": "Example Local Server",
-                "enabled": True
-            })
+            config["servers"].append(
+                {
+                    "id": "example-local-server",
+                    "type": "local",
+                    "command": "python",
+                    "args": ["server.py"],
+                    "cwd": ".",
+                    "label": "Example Local Server",
+                    "enabled": True,
+                }
+            )
         elif mode in ["http", "sse"]:
-            config["servers"].append({
-                "id": "example-server",
-                "type": mode,
-                "endpoint": f"http://{self.config['host']}:{self.config['port']}",
-                "label": f"Example {mode.upper()} Server",
-                "enabled": True
-            })
+            config["servers"].append(
+                {
+                    "id": "example-server",
+                    "type": mode,
+                    "endpoint": f"http://{self.config['host']}:{self.config['port']}",
+                    "label": f"Example {mode.upper()} Server",
+                    "enabled": True,
+                }
+            )
         elif mode == "openapi":
-            config["servers"].append({
-                "id": "example-api-server",
-                "type": "openapi",
-                "open_api": {
-                    "spec_url": "https://api.example.com/openapi.json",
-                    "base_url": "https://api.example.com"
-                },
-                "label": "Example OpenAPI Server",
-                "enabled": True
-            })
+            config["servers"].append(
+                {
+                    "id": "example-api-server",
+                    "type": "openapi",
+                    "open_api": {
+                        "spec_url": "https://api.example.com/openapi.json",
+                        "base_url": "https://api.example.com",
+                    },
+                    "label": "Example OpenAPI Server",
+                    "enabled": True,
+                }
+            )
         elif mode == "graphql":
-            config["servers"].append({
-                "id": "example-graphql-server",
-                "type": "graphql",
-                "endpoint": f"http://{self.config['host']}:{self.config['port']}/graphql",
-                "label": "Example GraphQL Server",
-                "enabled": True
-            })
+            config["servers"].append(
+                {
+                    "id": "example-graphql-server",
+                    "type": "graphql",
+                    "endpoint": f"http://{self.config['host']}:{self.config['port']}/graphql",
+                    "label": "Example GraphQL Server",
+                    "enabled": True,
+                }
+            )
         elif mode == "client":
-            config["servers"].append({
-                "id": "example-client-server",
-                "type": "client",
-                "endpoint": f"http://{self.config['host']}:{self.config['port']}",
-                "label": "Example Client Server",
-                "enabled": True
-            })
-        
+            config["servers"].append(
+                {
+                    "id": "example-client-server",
+                    "type": "client",
+                    "endpoint": f"http://{self.config['host']}:{self.config['port']}",
+                    "label": "Example Client Server",
+                    "enabled": True,
+                }
+            )
+
         return config
-    
+
     def _generate_middleware_config(self) -> Dict:
         """Generate middleware configuration."""
-        return {
-            "middleware": [],
-            "middleware_settings": {
-                "enabled": True
-            }
-        }
-    
+        return {"middleware": [], "middleware_settings": {"enabled": True}}
+
     def _generate_env_file(self) -> str:
         """Generate .env file content."""
         lines = [
@@ -242,60 +250,70 @@ class ProjectGenerator:
             "# Server Configuration",
             f"MCP_MODE={self.config['mode']}",
         ]
-        
+
         if self.config["mode"] in ["http", "sse"]:
-            lines.extend([
-                f"MCP_HOST={self.config['host']}",
-                f"MCP_PORT={self.config['port']}",
-            ])
-        
+            lines.extend(
+                [
+                    f"MCP_HOST={self.config['host']}",
+                    f"MCP_PORT={self.config['port']}",
+                ]
+            )
+
         # Authentication
         if self.config["auth_type"] == "oauth":
-            lines.extend([
-                "",
-                "# OAuth Configuration",
-                "ENABLE_OAUTH=False",
-                "OAUTH_CLIENT_ID=your_client_id",
-                "OAUTH_CLIENT_SECRET=your_client_secret",
-                "OAUTH_AUTH_URL=https://auth.example.com/authorize",
-                "OAUTH_TOKEN_URL=https://auth.example.com/token",
-                "OAUTH_CALLBACK_PATH=http://localhost:9000/auth/callback",
-            ])
-        
+            lines.extend(
+                [
+                    "",
+                    "# OAuth Configuration",
+                    "ENABLE_OAUTH=False",
+                    "OAUTH_CLIENT_ID=your_client_id",
+                    "OAUTH_CLIENT_SECRET=your_client_secret",
+                    "OAUTH_AUTH_URL=https://auth.example.com/authorize",
+                    "OAUTH_TOKEN_URL=https://auth.example.com/token",
+                    "OAUTH_CALLBACK_PATH=http://localhost:9000/auth/callback",
+                ]
+            )
+
         # Database
         if self.config["database"] == "postgres":
-            lines.extend([
-                "",
-                "# Database Configuration",
-                "DATABASE_TYPE=postgres",
-                "DATABASE_HOST=localhost",
-                "DATABASE_PORT=5432",
-                "DATABASE_NAME=mcp_composer",
-                "DATABASE_USER=postgres",
-                "DATABASE_PASSWORD=postgres",
-            ])
+            lines.extend(
+                [
+                    "",
+                    "# Database Configuration",
+                    "DATABASE_TYPE=postgres",
+                    "DATABASE_HOST=localhost",
+                    "DATABASE_PORT=5432",
+                    "DATABASE_NAME=mcp_composer",
+                    "DATABASE_USER=postgres",
+                    "DATABASE_PASSWORD=postgres",
+                ]
+            )
         elif self.config["database"] == "sqlite":
-            lines.extend([
+            lines.extend(
+                [
+                    "",
+                    "# Database Configuration",
+                    "DATABASE_TYPE=sqlite",
+                    "DATABASE_PATH=data/mcp_composer.db",
+                ]
+            )
+
+        lines.extend(
+            [
                 "",
-                "# Database Configuration",
-                "DATABASE_TYPE=sqlite",
-                "DATABASE_PATH=data/mcp_composer.db",
-            ])
-        
-        lines.extend([
-            "",
-            "# Logging",
-            "LOG_LEVEL=INFO",
-            "LOG_FILE=logs/mcp_composer.log",
-            "",
-            "# Paths",
-            "CONFIG_PATH=config/config.json",
-            "MIDDLEWARE_CONFIG_PATH=config/middleware.json",
-            "",
-        ])
-        
+                "# Logging",
+                "LOG_LEVEL=INFO",
+                "LOG_FILE=logs/mcp_composer.log",
+                "",
+                "# Paths",
+                "CONFIG_PATH=config/config.json",
+                "MIDDLEWARE_CONFIG_PATH=config/middleware.json",
+                "",
+            ]
+        )
+
         return "\n".join(lines)
-    
+
     def _generate_gitignore(self) -> str:
         """Generate .gitignore content."""
         return """# Python
@@ -355,21 +373,21 @@ mcp_composer.log
 member_servers.json
 *.pid
 """
-    
+
     def _generate_server_file(self) -> str:
         """Generate server.py content."""
         mode = self.config["mode"]
-        
+
         # Build mode-specific startup code
         mode_startup = ""
         if mode == "stdio":
-            mode_startup = '''    if mode == "stdio":
+            mode_startup = """    if mode == "stdio":
         logger.info("Starting in STDIO mode")
-        await composer.run_stdio_async()'''
+        await composer.run_stdio_async()"""
         elif mode == "local":
-            mode_startup = '''    if mode == "local":
+            mode_startup = """    if mode == "local":
         logger.info("Starting in LOCAL mode")
-        await composer.run_stdio_async()'''
+        await composer.run_stdio_async()"""
         elif mode == "sse":
             mode_startup = f'''    if mode == "sse":
         host = os.getenv("MCP_HOST", "{self.config.get("host", "0.0.0.0")}")
@@ -383,11 +401,11 @@ member_servers.json
         logger.info(f"Starting in HTTP mode on {{host}}:{{port}}")
         await composer.run_http_async(host=host, port=port, path="/mcp")'''
         elif mode == "openapi":
-            mode_startup = '''    if mode == "openapi":
+            mode_startup = """    if mode == "openapi":
         logger.info("Starting in OpenAPI mode")
         # OpenAPI servers are configured via config.json
         logger.info("OpenAPI server configured - access via composer tools")
-        await composer.run_stdio_async()'''
+        await composer.run_stdio_async()"""
         elif mode == "graphql":
             mode_startup = f'''    if mode == "graphql":
         host = os.getenv("MCP_HOST", "{self.config.get("host", "0.0.0.0")}")
@@ -401,9 +419,9 @@ member_servers.json
         logger.info(f"Starting in CLIENT mode on {{host}}:{{port}}")
         await composer.run_http_async(host=host, port=port, path="/mcp")'''
         else:
-            mode_startup = '''    if mode == "stdio":
-        await composer.run_stdio_async()'''
-        
+            mode_startup = """    if mode == "stdio":
+        await composer.run_stdio_async()"""
+
         content = f'''"""
 {self.config["project_name"]} - MCP Composer Server
 
@@ -461,7 +479,7 @@ if __name__ == "__main__":
         raise
 '''
         return content
-    
+
     def _generate_pyproject_toml(self) -> str:
         """Generate pyproject.toml content."""
         return f'''[project]
@@ -507,13 +525,13 @@ target-version = "py311"
 asyncio_mode = "auto"
 testpaths = ["tests"]
 '''
-    
+
     def _generate_requirements(self) -> str:
         """Generate requirements.txt content."""
         return """mcp-composer>=0.1.0
 python-dotenv>=1.0.0
 """
-    
+
     def _generate_example_tool(self) -> str:
         """Generate example tool content."""
         return '''"""
@@ -556,7 +574,7 @@ async def async_example_tool(name: str = "World") -> Dict[str, Any]:
         "status": "success"
     }
 '''
-    
+
     def _generate_example_middleware(self) -> str:
         """Generate example middleware content."""
         return '''"""
@@ -598,7 +616,7 @@ class ExampleMiddleware(BaseMiddleware):
         
         return result
 '''
-    
+
     def _generate_example_config(self) -> Dict:
         """Generate example configuration."""
         return {
@@ -609,7 +627,7 @@ class ExampleMiddleware(BaseMiddleware):
                     "type": "stdio",
                     "command": "python",
                     "args": ["example_server.py"],
-                    "label": "Example Server 1"
+                    "label": "Example Server 1",
                 }
             ],
             "middleware": [
@@ -619,23 +637,21 @@ class ExampleMiddleware(BaseMiddleware):
                     "mode": "enabled",
                     "priority": 100,
                     "applied_hooks": ["on_call_tool"],
-                    "conditions": {
-                        "include_tools": ["*"]
-                    }
+                    "conditions": {"include_tools": ["*"]},
                 }
-            ]
+            ],
         }
-    
+
     def _generate_readme(self) -> str:
         """Generate README.md content."""
         mode = self.config["mode"]
-        
+
         start_command = f"mcp-composer run --mode {mode}"
         if mode in ["http", "sse"]:
             start_command += f" --host {self.config['host']} --port {self.config['port']}"
         start_command += " --config-path config/config.json"
-        
-        return f'''# {self.config["project_name"]}
+
+        return f"""# {self.config["project_name"]}
 
 {self.config["description"]}
 
@@ -716,13 +732,17 @@ python server.py
 ```
 
 {"### Server Access" if mode in ["http", "sse"] else ""}
-{"" if mode == "stdio" else f'''
+{
+            ""
+            if mode == "stdio"
+            else f'''
 Once the server is running, you can access it at:
 
 - URL: http://{self.config["host"]}:{self.config["port"]}
 {"- SSE Endpoint: /sse" if mode == "sse" else ""}
 {"- HTTP Endpoint: /mcp" if mode == "http" else ""}
-'''}
+'''
+        }
 
 ## Development
 
@@ -745,13 +765,17 @@ Once the server is running, you can access it at:
 3. Restart the server
 
 {"## Examples" if self.config.get("with_examples") else ""}
-{"" if not self.config.get("with_examples") else '''
+{
+            ""
+            if not self.config.get("with_examples")
+            else '''
 Check the `examples/` directory for:
 
 - Example tools (`examples/tools/`)
 - Example middleware (`examples/middleware/`)
 - Example configurations (`examples/configs/`)
-'''}
+'''
+        }
 
 ## Logging
 
@@ -783,11 +807,11 @@ This project is licensed under the MIT License.
 ## Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request.
-'''
-    
+"""
+
     def _generate_contributing(self) -> str:
         """Generate CONTRIBUTING.md content."""
-        return f'''# Contributing to {self.config["project_name"]}
+        return f"""# Contributing to {self.config["project_name"]}
 
 Thank you for your interest in contributing to this project!
 
@@ -841,20 +865,19 @@ ruff check .
 ## Questions?
 
 Feel free to open an issue for any questions or concerns.
-'''
-    
+"""
+
     def _write_text_file(self, path: Path, content: str) -> None:
         """Write text content to a file."""
         path.parent.mkdir(parents=True, exist_ok=True)
         with open(path, "w", encoding="utf-8") as f:
             f.write(content)
-        logger.info(f"Created file: {path}")
-    
+        logger.info("Created file: %s", path)
+
     def _write_json_file(self, path: Path, content: Dict) -> None:
         """Write JSON content to a file."""
         path.parent.mkdir(parents=True, exist_ok=True)
         with open(path, "w", encoding="utf-8") as f:
             json.dump(content, f, indent=2)
             f.write("\n")
-        logger.info(f"Created file: {path}")
-
+        logger.info("Created file: %s", path)

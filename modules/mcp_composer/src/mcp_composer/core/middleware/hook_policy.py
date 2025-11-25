@@ -1,5 +1,5 @@
 import re
-from typing import Any, Dict, List
+from typing import Any, List
 
 # FastMCP interfaces
 from fastmcp.server.middleware import MiddlewareContext

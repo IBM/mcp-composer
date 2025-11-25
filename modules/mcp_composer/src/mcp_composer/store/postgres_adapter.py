@@ -1,11 +1,11 @@
 """postgres_adapter.py"""
 
 from __future__ import annotations
-from typing import TYPE_CHECKING, Dict, List, Any, Union, Optional
 import json
-import asyncpg
-from urllib.parse import urlparse
 import asyncio
+from typing import TYPE_CHECKING, Dict, List, Any, Union, Optional
+from urllib.parse import urlparse
+import asyncpg
 
 from mcp_composer.core.utils.exceptions import ToolDuplicateError
 from mcp_composer.core.utils import LoggerFactory

@@ -2,11 +2,10 @@
 from __future__ import annotations
 
 import importlib
-import json
 import re
 import sys
-from pathlib import Path
 from typing import Any, Dict, List, Optional
+from fastmcp.server.middleware import Middleware
 
 from mcp_composer.core.middleware.middleware_config import (
     MiddlewareConfig,
@@ -15,8 +14,6 @@ from mcp_composer.core.middleware.middleware_config import (
 from mcp_composer.core.middleware.hook_filter import HookFilter
 
 # FastMCP interfaces
-from fastmcp.server.middleware import Middleware, MiddlewareContext, CallNext
-from fastmcp.exceptions import ToolError
 
 
 # =========================

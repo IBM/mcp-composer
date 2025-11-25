@@ -1,6 +1,5 @@
 # metrics_registry.py
 from __future__ import annotations
-from typing import Optional
 
 # These are set after init_metrics_if_enabled() returns a meter.
 tool_calls = None

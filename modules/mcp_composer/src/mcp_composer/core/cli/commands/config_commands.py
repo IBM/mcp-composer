@@ -4,14 +4,12 @@ Unified configuration commands for MCP Composer CLI using Typer.
 
 import asyncio
 import json
-from pathlib import Path
 from typing import Optional, List
 
 import typer
 from typer import Option, Argument
 from rich.console import Console
 from rich.table import Table
-from rich.panel import Panel
 from rich import print as rprint
 
 from mcp_composer.core.config.config_loader import ConfigManager
@@ -60,7 +58,7 @@ def validate_config(
 def show_config(
     configfilepath: str = Argument(..., help="Path to the configuration file to show"),
     section: Optional[str] = Option(None, "--section", "-s", help="Show only a specific section (servers, middleware, prompts, tools)"),
-    format: str = Option("table", "--format", "-f", help="Output format (table, json)")
+    config_format: str = Option("table", "--format", "-f", help="Output format (table, json)")
 ) -> None:
     """Show configuration file contents in a formatted way."""
     try:
@@ -70,7 +68,7 @@ def show_config(
         # Convert to dict for JSON serialization
         config_dict = config.model_dump()
 
-        if format == "json":
+        if config_format == "json":
             rprint(json.dumps(config_dict, indent=2))
             return
 

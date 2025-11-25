@@ -102,7 +102,7 @@ def validate_middleware(
             "--ensure-imports", help="Ensure all middleware classes can be imported"
         ),
     ] = False,
-    format: Annotated[str, Option("--format", help="Output format")] = "text",
+    output_format: Annotated[str, Option("--format", help="Output format")] = "text",
     show_middlewares: Annotated[
         bool,
         Option(
@@ -120,13 +120,13 @@ def validate_middleware(
         args = argparse.Namespace()
         args.path = path
         args.ensure_imports = ensure_imports
-        args.format = format
+        args.format = output_format
         args.show_middlewares = show_middlewares
 
         sys.exit(cmd_validate(args))
-    except ImportError:
+    except ImportError as exc:
         typer.echo("Middleware CLI functions not available", err=True)
-        raise typer.Exit(1)
+        raise typer.Exit(1) from exc
 
 
 @app.command("list")
@@ -138,8 +138,8 @@ def list_middlewares(
             "--ensure-imports", help="Ensure all middleware classes can be imported"
         ),
     ] = False,
-    format: Annotated[str, Option("--format", help="Output format")] = "text",
-    all: Annotated[
+    output_format: Annotated[str, Option("--format", help="Output format")] = "text",
+    show_all: Annotated[
         bool, Option("--all", help="Show all middlewares including disabled ones")
     ] = False,
 ) -> None:
@@ -152,13 +152,13 @@ def list_middlewares(
         args = argparse.Namespace()
         args.config = config
         args.ensure_imports = ensure_imports
-        args.format = format
-        args.all = all
+        args.format = output_format
+        args.all = show_all
 
         sys.exit(cmd_list(args))
-    except ImportError:
+    except ImportError as exc:
         typer.echo("Middleware CLI functions not available", err=True)
-        raise typer.Exit(1)
+        raise typer.Exit(1) from exc
 
 
 @app.command("add-middleware")
@@ -173,7 +173,7 @@ def add_middleware(
     description: Annotated[
         Optional[str], Option("--description", help="Description of the middleware")
     ] = None,
-    version: Annotated[
+    version: Annotated[  # pylint: disable=redefined-outer-name
         Optional[str], Option("--version", help="Version of the middleware")
     ] = None,
     mode: Annotated[str, Option("--mode", help="Middleware mode")] = "enabled",
@@ -267,9 +267,9 @@ def add_middleware(
         args.show_middlewares = show_middlewares
 
         sys.exit(cmd_add_middleware(args))
-    except ImportError:
+    except ImportError as exc:
         typer.echo("Middleware CLI functions not available", err=True)
-        raise typer.Exit(1)
+        raise typer.Exit(1) from exc
 
 
 @app.command("run")
@@ -326,7 +326,11 @@ def run_composer(
         Optional[str],
         Option(
             "--auth_provider",
-            help="Optional auth provider. by default 'IBM W3' is used for OAuth. Currently only 'oidc' is supported support GitHub, Google, AWS Cognito and Azure",
+            help=(
+                "Optional auth provider. by default 'IBM W3' is used for OAuth. "
+                "Currently only 'oidc' is supported support GitHub, Google, "
+                "AWS Cognito and Azure"
+            ),
         ),
     ] = "oidc",
     # Remote server configuration
@@ -540,7 +544,10 @@ def init_command(
         Optional[str],
         Option(
             "--adapter",
-            help="Setup variant: 'local' (stdio/local development), 'cloud' (http/sse deployment), or 'api' (openapi/graphql)",
+            help=(
+                "Setup variant: 'local' (stdio/local development), "
+                "'cloud' (http/sse deployment), or 'api' (openapi/graphql)"
+            ),
             case_sensitive=False,
         ),
     ] = None,
@@ -609,7 +616,7 @@ def init_command(
 
 
 def main_callback(
-    ctx: typer.Context,
+    ctx: typer.Context,  # pylint: disable=unused-argument
     # Server parameters matching original CLI
     mode: Annotated[
         Optional[str],
@@ -655,7 +662,11 @@ def main_callback(
         Optional[str],
         Option(
             "--auth_provider",
-            help="Optional auth provider. by default 'IBM W3' is used for OAuth. Currently only 'oidc' is supported support GitHub, Google, AWS Cognito and Azure",
+            help=(
+                "Optional auth provider. by default 'IBM W3' is used for OAuth. "
+                "Currently only 'oidc' is supported support GitHub, Google, "
+                "AWS Cognito and Azure"
+            ),
         ),
     ] = "oidc",
     sse_url: Annotated[
@@ -719,7 +730,10 @@ def main_callback(
         Optional[str],
         Option(
             "--config",
-            help="Configuration type to load (servers, middleware, prompts, tools, all) or command (validate, show, apply)",
+            help=(
+                "Configuration type to load (servers, middleware, prompts, tools, all) "
+                "or command (validate, show, apply)"
+            ),
         ),
     ] = None,
     configfilepath: Annotated[
@@ -931,7 +945,7 @@ async def run_dynamic_composer(
         filtered_settings = {
             key: value
             for key, value in settings.model_dump(exclude_none=True).items()
-            if value != "" and value != b""  # Also consider bytes if applicable
+            if value not in ("", b"")  # Also consider bytes if applicable
         }
         filtered_settings["provider"] = auth_provider
         oauth_provider = OAuthProviderFactory(
@@ -963,7 +977,7 @@ async def run_dynamic_composer(
             filtered_settings = {
                 key: value
                 for key, value in remote_settings.model_dump(exclude_none=True).items()
-                if value != "" and value != b""  # Also consider bytes if applicable
+                if value not in ("", b"")  # Also consider bytes if applicable
             }
             filtered_settings["provider"] = auth_provider
             oauth_provider = OAuthProviderFactory(
@@ -1041,12 +1055,12 @@ async def run_dynamic_composer(
                 )
         else:
             raise ValueError(f"Unknown config type: {mode}")
-    except asyncio.TimeoutError:
+    except asyncio.TimeoutError as exc:
         logger.error("Server operation timed out after %d seconds", timeout)
-        raise typer.Exit(1)
+        raise typer.Exit(1) from exc
     except Exception as e:
         logger.error("Server operation failed: %s", e)
-        raise typer.Exit(1)
+        raise typer.Exit(1) from e
 
 
 def build_config_from_args(
@@ -1116,26 +1130,26 @@ async def _start_server(
 def _apply_config_and_start_server(
     config: str,
     configfilepath: Optional[str],
-    config_format: Optional[str],
+    config_format: Optional[str],  # pylint: disable=unused-argument
     dry_run: Optional[bool],
     mode: str,
     id: Optional[str],
     endpoint: Optional[str],
-    config_path: Optional[str],
+    config_path: Optional[str],  # pylint: disable=unused-argument
     directory: Optional[str],
     script_path: Optional[str],
     host: Optional[str],
     port: Optional[int],
     auth_type: Optional[str],
     auth_provider: str,
-    sse_url: Optional[str],
+    sse_url: Optional[str],  # pylint: disable=unused-argument
     disable_composer_tools: Optional[bool],
-    pass_environment: Optional[bool],
-    remote_auth_type: Optional[str],
-    client_auth_type: Optional[str],
-    env: Optional[List[str]],
-    log_level: Optional[str],
-    timeout: Optional[int],
+    pass_environment: Optional[bool],  # pylint: disable=unused-argument
+    remote_auth_type: Optional[str],  # pylint: disable=unused-argument
+    client_auth_type: Optional[str],  # pylint: disable=unused-argument
+    env: Optional[List[str]],  # pylint: disable=unused-argument
+    log_level: Optional[str],  # pylint: disable=unused-argument
+    timeout: Optional[int],  # pylint: disable=unused-argument
 ) -> None:
     """Apply configuration and start the server."""
     try:
@@ -1147,10 +1161,10 @@ def _apply_config_and_start_server(
         if config_type in ["servers", "middleware", "prompts", "tools"]:
             try:
                 sections = [ConfigSection(config_type)]
-            except ValueError:
+            except ValueError as exc:
                 typer.echo(f"❌ Invalid config type: {config_type}")
                 typer.echo("Valid types: servers, middleware, prompts, tools, all")
-                raise typer.Exit(1)
+                raise typer.Exit(1) from exc
         elif config_type == "all":
             sections = None  # Apply all sections
         else:
@@ -1251,7 +1265,7 @@ def _create_composer_instance(
         filtered_settings = {
             key: value
             for key, value in settings.model_dump(exclude_none=True).items()
-            if value != "" and value != b""  # Also consider bytes if applicable
+            if value not in ("", b"")  # Also consider bytes if applicable
         }
         filtered_settings["provider"] = auth_provider
         oauth_provider = OAuthProviderFactory(
@@ -1313,7 +1327,7 @@ def _build_config_from_args(
 def _handle_unified_config_commands(
     config: str,
     configfilepath: Optional[str],
-    config_format: Optional[str],
+    config_format: Optional[str],  # pylint: disable=unused-argument
     dry_run: Optional[bool],
 ) -> None:
     """Handle unified configuration commands as global options with optimized error handling."""
@@ -1618,8 +1632,6 @@ def main() -> None:
     logger.info("Starting MCP Composer CLI...")
 
     # Pre-process command line arguments to handle --env KEY VALUE format
-    import sys
-
     processed_args = []
     i = 0
     while i < len(sys.argv):
@@ -1636,7 +1648,7 @@ def main() -> None:
                 value = sys.argv[i + 2]
                 processed_args.append("--env")
                 processed_args.append(f"{key}={value}")
-                logger.info(f"Converted --env {key} {value} to --env {key}={value}")
+                logger.info("Converted --env %s %s to --env %s=%s", key, value, key, value)
                 i += 3
             else:
                 # Invalid format, keep as is
@@ -1647,9 +1659,9 @@ def main() -> None:
             i += 1
 
     # Update sys.argv with processed arguments
-    logger.info(f"Original args: {sys.argv}")
+    logger.info("Original args: %s", sys.argv)
     sys.argv = processed_args
-    logger.info(f"Processed args: {sys.argv}")
+    logger.info("Processed args: %s", processed_args)
 
     app()
 

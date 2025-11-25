@@ -1,7 +1,7 @@
 # config_models.py
+import re
 from typing import Any, Dict, List, Optional, Literal
 from pydantic import BaseModel, Field, field_validator, model_validator
-import re
 
 AllowedHook = Literal[
     "on_request",

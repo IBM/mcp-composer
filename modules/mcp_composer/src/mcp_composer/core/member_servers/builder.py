@@ -131,7 +131,7 @@ class MCPServerBuilder:
             client = Client(transport, auth=auth)
             return FastMCP.as_proxy(client, name=self.mcp_id)
 
-        elif transport_type == MemberServerType.STDIO:
+        if transport_type == MemberServerType.STDIO:
             # For stdio, we need to pass the command and args
             command = config.get(ConfigKey.COMMAND, "mcp-composer")
             args = config.get(ConfigKey.ARGS, [])
@@ -141,8 +141,8 @@ class MCPServerBuilder:
             # Set up authentication if provided
             client = Client(transport)
             return FastMCP.as_proxy(client, name=self.mcp_id)
-        else:
-            raise ValueError(f"Unsupported transport type: {transport_type}")
+
+        raise ValueError(f"Unsupported transport type: {transport_type}")
 
     async def _build_from_client(self) -> FastMCP:
         client = Client(self.config[ConfigKey.ENDPOINT])
