@@ -2,6 +2,7 @@ import re
 from unittest.mock import AsyncMock, Mock
 
 import pytest
+from fastmcp.exceptions import ToolError
 
 from mcp_composer.middleware.circuit_breaker import CircuitBreakerMiddleware
 from mcp_composer.middleware.pii_middleware import (
@@ -100,7 +101,7 @@ async def test_prompt_injection_middleware_hooks():
 
     # Test on_call_tool with high risk
     # The text "ignore all previous instructions" should trigger high risk
-    with pytest.raises(Exception, match="Prompt injection risk blocked"):
+    with pytest.raises(ToolError, match="Prompt injection risk blocked"):
         await middleware.on_call_tool(context, call_next)
 
     # Test with low risk

@@ -1,5 +1,8 @@
 """countries_graphql_mcp.py"""
 
+import inspect
+import json
+
 import httpx
 from fastmcp.tools import Tool
 
@@ -73,46 +76,56 @@ async def create_tools(schema):
                 def make_tool(tool_name, arg_defs):
                     # Create function signature dynamically based on arguments
                     if arg_defs:
-                        # Create a function with explicit named parameters
-                        param_names = [arg["name"] for arg in arg_defs]
+                        param_names = [arg["name"] for arg in arg_defs if arg.get("name")]
 
-                        # For now, let's create a simple function that can handle the test case
-                        # This is a workaround for the fastmcp limitation
-                        if len(param_names) == 1 and param_names[0] == "code":
+                        async def dynamic_arg_tool(**kwargs):
+                            missing = [p for p in param_names if p not in kwargs]
+                            if missing:
+                                raise ValueError(
+                                    f"Missing required arguments: {', '.join(missing)}"
+                                )
 
-                            async def country_func(country_code):
-                                query_body = (
-                                    f"""
+                            arg_assignments = []
+                            for name in param_names:
+                                value = kwargs[name]
+                                if isinstance(value, bool):
+                                    formatted_value = "true" if value else "false"
+                                elif value is None:
+                                    formatted_value = "null"
+                                else:
+                                    formatted_value = json.dumps(value)
+                                arg_assignments.append(f"{name}: {formatted_value}")
+
+                            args_string = ", ".join(arg_assignments)
+                            query_body = (
+                                f"""
                         query {{
-                          {tool_name}(code: "{country_code}") {{
+                          {tool_name}({args_string}) {{
                             __typename
                           }}
                         }}"""
-                                )
-                                response = await http_client.post(
-                                    "", json={"query": query_body}
-                                )
-                                response.raise_for_status()
-                                return response.json()
-
-                            return Tool.from_function(
-                                country_func,
-                                name=tool_name,
-                                description=f"Query {tool_name} with parameters: {', '.join(param_names)}",
                             )
-                        # Generic case - create a function with the specific parameters
-                        # This is a simplified approach for the test
-                        async def generic_func():
-                            # This is a placeholder - in real usage, we'd need to handle dynamic parameters
-                            query_body = f"query {{ {tool_name} {{ __typename }} }}"
+
                             response = await http_client.post(
                                 "", json={"query": query_body}
                             )
                             response.raise_for_status()
                             return response.json()
 
+                        dynamic_arg_tool.__name__ = f"{tool_name}_tool"
+                        dynamic_arg_tool.__signature__ = inspect.Signature(
+                            [
+                                inspect.Parameter(
+                                    name,
+                                    inspect.Parameter.KEYWORD_ONLY,
+                                    default=inspect._empty,
+                                )
+                                for name in param_names
+                            ]
+                        )
+
                         return Tool.from_function(
-                            generic_func,
+                            dynamic_arg_tool,
                             name=tool_name,
                             description=f"Query {tool_name} with parameters: {', '.join(param_names)}",
                         )

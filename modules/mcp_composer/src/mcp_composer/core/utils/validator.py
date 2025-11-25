@@ -81,6 +81,7 @@ class AuthStrategy(str, Enum):
     JSESSIONID = "jessionid"
     ASPERA_OAUTH_HANDLER = "aspera_oauth_handler"
     SOLIS_OAUTH_HANDLER = "solis_oauth_handler"
+    SOLIS_DAL_JWT_HANDLER = "solis_dal_jwt_handler"
 
 
 
