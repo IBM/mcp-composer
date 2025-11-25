@@ -1,14 +1,14 @@
+import json
 import time
+import urllib.parse
 import uuid
 from typing import Any, Optional
-import json
-import urllib.parse
+
 import httpx
 import jwt
 
-
-from mcp_composer.core.utils import ConfigKey, LoggerFactory
 from mcp_composer.core.auth_handler.oauth_handler import resolve_env_value
+from mcp_composer.core.utils import ConfigKey, LoggerFactory
 
 logger = LoggerFactory.get_logger()
 
@@ -49,25 +49,19 @@ class AsperaJWTClient(httpx.AsyncClient):
 
         super().__init__(base_url=base_url, timeout=timeout, headers=headers or {}, **kwargs)
 
-    def _encode_dict_to_json(self, dict):
-        return json.dumps(dict)
+    def _encode_dict_to_json(self, input_dict: dict[str, Any]) -> str:
+        """Serialize a mapping to JSON."""
+        return json.dumps(input_dict)
 
-    def _sign_payload(self, cert_path, payload, headers):
+    def _sign_payload(self, cert_path: str, payload: dict[str, Any], headers: dict[str, str]) -> str:
+        """Sign the JWT payload with the provided certificate."""
         try:
-            with open(cert_path, "r", encoding="utf-8") as f:
-                assertion_string = jwt.encode(
-                payload,
-                f.read(),
-                algorithm='RS256',
-                headers=headers
-                )
-            return assertion_string
-        except FileNotFoundError:
-            raise ValueError(f"Certificate/private key not found: {cert_path}")
-        except Exception as e:
-            raise ValueError(f"Error reading private key: {e}")
-
-
+            with open(cert_path, "r", encoding="utf-8") as file_handle:
+                return jwt.encode(payload, file_handle.read(), algorithm="RS256", headers=headers)
+        except FileNotFoundError as exc:
+            raise ValueError(f"Certificate/private key not found: {cert_path}") from exc
+        except Exception as exc:  # pylint: disable=broad-exception-caught
+            raise ValueError(f"Error reading private key: {exc}") from exc
 
     def _generate_jwt_assertion(self) -> str:
         """Create RS256 JWT for AoC JWT-bearer grant."""
@@ -79,45 +73,33 @@ class AsperaJWTClient(httpx.AsyncClient):
         if not user_email:
             raise ValueError("user_email must be provided (AoC JWT 'sub' claim)")
 
-
-
         now = int(time.time())
         payload = {
             "iss": client_id,
             "sub": user_email,
-            "aud": token_url,   # must EXACTLY match the token endpoint you POST to (base or org-scoped if that's what you use)
+            # must EXACTLY match the token endpoint you POST to
+            "aud": token_url,
             "iat": now,
             "nbf": now - 10,
-            "exp": now + 300,   # short TTL
+            "exp": now + 300,  # short TTL
             "jti": str(uuid.uuid4()),
         }
-        #logger.debug("Generating JWT assertion for payload=%s", payload)
-        jwt_header = {
-            "typ": "JWT",
-            "alg": "RS256"
-        }
+
+        jwt_header = {"typ": "JWT", "alg": "RS256"}
         signed_payload = self._sign_payload(cert_path, payload, jwt_header)
-
-
-
 
         # Do NOT log the assertion; it's sensitive.
         return signed_payload
 
-
-
     async def _refresh_token(self) -> None:
         """Refresh internal bearer token if missing/expired."""
         assertion = self._generate_jwt_assertion()
-
-
-
         scope = self.auth_data.get(ConfigKey.SCOPE) or DEFAULT_SCOPE
         scope = urllib.parse.quote(scope)
 
         token_url_with_org = self.auth_data.get(ConfigKey.TOKEN_URL_WITH_ORG)
 
-        if  not token_url_with_org:
+        if not token_url_with_org:
             raise ValueError("token_url_with_org must be provided")
 
         client_id = resolve_env_value(self.auth_data.get(ConfigKey.CLIENT_ID))
@@ -126,12 +108,13 @@ class AsperaJWTClient(httpx.AsyncClient):
         assertion_encoded = urllib.parse.quote(assertion)
         parameters = f"assertion={assertion_encoded}&grant_type={grant_type}&scope={scope}"
         headers = {"Content-Type": "application/x-www-form-urlencoded"}
-
-        #logger.debug("Exchanging JWT for access parameters at %s and headers %s", parameters, headers)
-
         auth = httpx.BasicAuth(client_id, client_secret)
-        resp = await super().post(token_url_with_org,
-            content=parameters.encode('utf-8'), headers=headers, auth=auth)
+        resp = await super().post(
+            token_url_with_org,
+            content=parameters.encode("utf-8"),
+            headers=headers,
+            auth=auth,
+        )
         # Avoid printing tokens in logs; show status only
         resp.raise_for_status()
         token_data = resp.json()
@@ -158,9 +141,7 @@ class AsperaJWTClient(httpx.AsyncClient):
 
         url_str = str(url)
         # Check if this is a token exchange request (hardcoded URL or org-scoped pattern)
-        is_token_url = (
-            "/oauth2/" in url_str and "/token" in url_str
-        ) or (
+        is_token_url = ("/oauth2/" in url_str and "/token" in url_str) or (
             self._resolved_token_url and url_str.startswith(str(self._resolved_token_url))
         )
 

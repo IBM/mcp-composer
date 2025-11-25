@@ -1,7 +1,7 @@
 """Test module for base_adapter.py"""
 
-import pytest
 from abc import ABC
+import pytest
 from mcp_composer.core.settings.base_adapter import SecretAdapter
 
 
@@ -84,9 +84,7 @@ class TestSecretAdapter:
 
         # Test functionality
         adapter.save_config("server1", [{"id": "v1", "config": {"key": "value1"}}])
-        assert adapter.get_all_versions("server1") == [
-            {"id": "v1", "config": {"key": "value1"}}
-        ]
+        assert adapter.get_all_versions("server1") == [{"id": "v1", "config": {"key": "value1"}}]
         assert adapter.get_latest_version("server1") == {
             "id": "v1",
             "config": {"key": "value1"},
@@ -231,9 +229,7 @@ class TestSecretAdapter:
             def rollback(self, server_id: str, version_id: str):
                 version = self.get_version_by_id(server_id, version_id)
                 if version is None:
-                    raise ValueError(
-                        f"Version {version_id} not found for server {server_id}"
-                    )
+                    raise ValueError(f"Version {version_id} not found for server {server_id}")
                 self.configs[server_id] = version
                 return version
 

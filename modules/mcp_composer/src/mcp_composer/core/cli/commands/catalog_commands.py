@@ -7,17 +7,18 @@ from MCP servers using fastmcp client to discover tools, resources, and prompts.
 
 import asyncio
 import json
-import yaml
+from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Optional, List, Dict, Any, Annotated
+from typing import Annotated, Any, Dict, List, Optional
 from urllib.parse import urlparse
 
 import typer
+import yaml
+from fastmcp.client import Client
+from fastmcp.client.transports import SSETransport, StreamableHttpTransport
 from typer import Option
 
 from mcp_composer.core.utils.logger import LoggerFactory
-from fastmcp.client import Client
-from fastmcp.client.transports import StreamableHttpTransport, SSETransport
 
 # Initialize logger
 logger = LoggerFactory.get_logger()
@@ -72,7 +73,7 @@ def generate_catalog(
     output_path = Path(output_dir)
     if not dry_run:
         output_path.mkdir(parents=True, exist_ok=True)
-        logger.info(f"Created output directory: {output_path}")
+        logger.info("Created output directory: %s", output_path)
 
     # Run the catalog generation
     try:
@@ -90,9 +91,9 @@ def generate_catalog(
         else:
             typer.echo("✅ Dry run completed successfully")
 
-    except Exception as e:
-        logger.error(f"Failed to generate catalog: {e}")
-        typer.echo(f"❌ Error generating catalog: {e}")
+    except Exception as error:  # pylint: disable=broad-exception-caught
+        logger.error("Failed to generate catalog: %s", error)
+        typer.echo(f"❌ Error generating catalog: {error}")
         raise typer.Exit(1)
 
 
@@ -132,15 +133,14 @@ async def _generate_catalog_async(
 
     try:
         async with client:
-            logger.info(f"Connected to MCP server: {mcp_url}")
+            logger.info("Connected to MCP server: %s", mcp_url)
 
             # Collect data from MCP server
             components = []
 
-            # Discover tools
             logger.info("Discovering tools...")
             tools = await _discover_tools(client)
-            logger.info(f"Found {len(tools)} tools")
+            logger.info("Found %s tools", len(tools))
 
             # Generate tool components
             for tool in tools:
@@ -173,7 +173,7 @@ async def _generate_catalog_async(
             # Discover resources
             logger.info("Discovering resources...")
             resources = await _discover_resources(client)
-            logger.info(f"Found {len(resources)} resources")
+            logger.info("Found %s resources", len(resources))
 
             # Generate resource components
             for resource in resources:
@@ -201,7 +201,7 @@ async def _generate_catalog_async(
             # Discover prompts
             logger.info("Discovering prompts...")
             prompts = await _discover_prompts(client)
-            logger.info(f"Found {len(prompts)} prompts")
+            logger.info("Found %s prompts", len(prompts))
 
             # Generate prompt components
             for prompt in prompts:
@@ -232,10 +232,10 @@ async def _generate_catalog_async(
             else:
                 _display_dry_run_results(components, format)
 
-            logger.info(f"Generated {len(components)} catalog components")
+            logger.info("Generated %s catalog components", len(components))
 
     except Exception as e:
-        logger.error(f"Error during catalog generation: {e}")
+        logger.error("Error during catalog generation: %s", e)
         raise
 
 
@@ -259,7 +259,7 @@ def _create_mcp_client(
             mcp_url = f"{mcp_url.rstrip('/')}/sse"
         transport_obj = SSETransport(mcp_url, headers=headers)
     else:
-        raise ValueError(f"Unsupported transport: {transport}")
+        raise ValueError("Unsupported transport: %s", transport)
 
     return Client(transport_obj)
 
@@ -286,8 +286,8 @@ async def _discover_tools(client: Client) -> List[Dict[str, Any]]:
             tools.append(tool_data)
 
         return tools
-    except Exception as e:
-        logger.warning(f"Failed to discover tools: {e}")
+    except Exception as error:  # pylint: disable=broad-exception-caught
+        logger.warning("Failed to discover tools: %s", error)
         # Return a sample tool for MVP
         return [
             {
@@ -323,8 +323,8 @@ async def _discover_resources(client: Client) -> List[Dict[str, Any]]:
             resources.append(resource_data)
 
         return resources
-    except Exception as e:
-        logger.warning(f"Failed to discover resources: {e}")
+    except Exception as error:  # pylint: disable=broad-exception-caught
+        logger.warning("Failed to discover resources: %s", error)
         # Return a sample resource for MVP
         return [
             {
@@ -361,8 +361,8 @@ async def _discover_prompts(client: Client) -> List[Dict[str, Any]]:
             prompts.append(prompt_data)
 
         return prompts
-    except Exception as e:
-        logger.warning(f"Failed to discover prompts: {e}")
+    except Exception as error:  # pylint: disable=broad-exception-caught
+        logger.warning("Failed to discover prompts: %s", error)
         # Return a sample prompt for MVP
         return [
             {
@@ -439,13 +439,15 @@ def _create_backstage_component(
                         ] = str(v)
 
         return component
-    except Exception as e:
-        logger.error(f"Error creating Backstage component for {name}: {e}")
+    except Exception as error:  # pylint: disable=broad-exception-caught
+        logger.error(
+            "Error creating Backstage component for %s: %s", name, error
+        )
         raise
 
 
 async def _write_components_to_files(
-    components: List[Dict[str, Any]], output_dir: Path, format: str
+    components: List[Dict[str, Any]], output_dir: Path, catalog_format: str
 ) -> None:
     """Write components to individual files."""
     try:
@@ -453,14 +455,14 @@ async def _write_components_to_files(
             component_name = component["metadata"]["name"]
             filepath = None
 
-            if format == "yaml":
+            if catalog_format == "yaml":
                 filename = f"{component_name}.yaml"
                 filepath = output_dir / filename
 
                 with open(filepath, "w", encoding="utf-8") as f:
                     yaml.dump(component, f, default_flow_style=False, sort_keys=False)
 
-            elif format == "json":
+            elif catalog_format == "json":
                 filename = f"{component_name}.json"
                 filepath = output_dir / filename
 
@@ -468,27 +470,29 @@ async def _write_components_to_files(
                     json.dump(component, f, indent=2, ensure_ascii=False)
 
             if filepath:
-                logger.info(f"Written component: {filepath}")
+                logger.info("Written component: %s", filepath)
 
         # Also write a combined catalog file
-        combined_filename = f"catalog.{format}"
+        combined_filename = f"catalog.{catalog_format}"
         combined_filepath = output_dir / combined_filename
 
-        if format == "yaml":
+        if catalog_format == "yaml":
             with open(combined_filepath, "w", encoding="utf-8") as f:
                 yaml.dump_all(components, f, default_flow_style=False, sort_keys=False)
-        elif format == "json":
+        elif catalog_format == "json":
             with open(combined_filepath, "w", encoding="utf-8") as f:
                 json.dump(components, f, indent=2, ensure_ascii=False)
 
-        logger.info(f"Written combined catalog: {combined_filepath}")
+        logger.info("Written combined catalog: %s", combined_filepath)
 
-    except Exception as e:
-        logger.error(f"Error writing components to files: {e}")
+    except Exception as error:  # pylint: disable=broad-exception-caught
+        logger.error("Error writing components to files: %s", error)
         raise
 
 
-def _display_dry_run_results(components: List[Dict[str, Any]], format: str) -> None:
+def _display_dry_run_results(
+    components: List[Dict[str, Any]], catalog_format: str
+) -> None:
     """Display dry run results."""
 
     typer.echo(f"\n🔍 Dry run results - would generate {len(components)} components:")
@@ -499,7 +503,7 @@ def _display_dry_run_results(components: List[Dict[str, Any]], format: str) -> N
         title = component["metadata"]["title"]
         component_type = component["spec"]["type"]
 
-        typer.echo(f"📄 {name}.{format}")
+        typer.echo(f"📄 {name}.{catalog_format}")
         typer.echo(f"   Title: {title}")
         typer.echo(f"   Type: {component_type}")
         typer.echo(f"   Owner: {component['spec']['owner']}")
@@ -512,7 +516,7 @@ def _display_dry_run_results(components: List[Dict[str, Any]], format: str) -> N
     # Show sample component
     if components:
         typer.echo(f"\n📋 Sample component ({components[0]['metadata']['name']}):")
-        if format == "yaml":
+        if catalog_format == "yaml":
             typer.echo(
                 yaml.dump(components[0], default_flow_style=False, sort_keys=False)
             )
@@ -564,10 +568,10 @@ def _load_from_mcp_scan(mcp_scan_output: str) -> Dict[str, Any]:
                 tools.update({tool_name: descriptor})
 
         return tools
-    except Exception as e:
+    except Exception as error:  # pylint: disable=broad-exception-caught
         raise RuntimeError(
-            f"Failed to load tools from MCP-Scan output {mcp_scan_output}: {e}"
-        )
+            f"Failed to load tools from MCP-Scan output {mcp_scan_output}: {error}"
+        ) from error
 
 
 if __name__ == "__main__":

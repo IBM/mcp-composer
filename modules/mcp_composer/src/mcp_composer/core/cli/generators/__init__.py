@@ -7,4 +7,3 @@ This package contains generator modules for creating projects, configurations, a
 from .project_generator import ProjectGenerator
 
 __all__ = ["ProjectGenerator"]
-

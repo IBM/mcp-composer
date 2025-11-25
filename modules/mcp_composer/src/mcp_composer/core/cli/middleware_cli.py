@@ -1,17 +1,21 @@
 from __future__ import annotations
+
+import argparse
+import importlib
+import json
+import sys
+from typing import Any, List
+
+from pydantic import ValidationError
+
 from mcp_composer.core.middleware.middleware_config import (
+    Conditions,
+    MiddlewareConfig,
+    MiddlewareEntry,
+    MiddlewareSettings,
     load_and_validate_config,
-    export_json_schema,
 )
 from mcp_composer.core.middleware.middleware_manager import MiddlewareManager
-from mcp_composer.core.middleware.middleware_config import MiddlewareConfig, MiddlewareSettings, MiddlewareEntry, Conditions
-import argparse
-import json
-from pydantic import ValidationError
-import sys
-
-
-from typing import Any, List
 def _print_error(msg: str) -> None:
     print(f"ERROR: {msg}", file=sys.stderr)
 
@@ -20,7 +24,7 @@ def _print_validation_error(e: ValidationError) -> None:
     _print_error("Config validation failed:")
     try:
         details = e.errors()
-    except Exception:
+    except (AttributeError, TypeError):
         _print_error(str(e))
         return
     for i, err in enumerate(details, start=1):
@@ -58,7 +62,7 @@ def _save_json_file(path: str, obj: Any) -> None:
 
 def cmd_validate(args: argparse.Namespace) -> int:
     try:
-        cfg = load_and_validate_config(args.path, ensure_imports=args.ensure_imports)
+        load_and_validate_config(args.path, ensure_imports=args.ensure_imports)
     except FileNotFoundError:
         _print_error(f"File not found: {args.path}")
         return 2
@@ -198,7 +202,7 @@ def cmd_add_middleware(args: argparse.Namespace) -> int:
             entry_config = _load_json_file(args.config_file)
             if not isinstance(entry_config, dict):
                 raise ValueError("config file must contain a JSON object")
-        except Exception as e:
+        except (OSError, json.JSONDecodeError, ValueError) as e:
             _print_error(f"Could not read --config-file: {e}")
             return 2
     else:
@@ -247,7 +251,6 @@ def cmd_add_middleware(args: argparse.Namespace) -> int:
     new_cfg = MiddlewareConfig(middleware=items, middleware_settings=cfg.middleware_settings)
 
     if args.ensure_imports:
-        import importlib
         try:
             for m in new_cfg.middleware:
                 mod, clsname = m.kind.rsplit(".", 1)
@@ -265,7 +268,11 @@ def cmd_add_middleware(args: argparse.Namespace) -> int:
         return 0
 
     _save_json_file(args.config, new_cfg.model_dump(mode="json"))
-    print(f"✔ Middleware '{entry.name}' {'updated' if entry.name in names and args.update else 'added'} in {args.config}")
+    print(
+        f"✔ Middleware '{entry.name}' "
+        f"{'updated' if entry.name in names and args.update else 'added'} "
+        f"in {args.config}"
+    )
 
     if args.show_middlewares and MiddlewareManager is not None:
         mgr = MiddlewareManager(args.config, ensure_imports=False)
@@ -275,4 +282,3 @@ def cmd_add_middleware(args: argparse.Namespace) -> int:
             print(f" - {info['name']}  (priority={info['priority']}, hooks=[{hooks}])")
 
     return 0
-

@@ -1,9 +1,11 @@
+from unittest.mock import AsyncMock, Mock, patch
+
 import pytest
-import json
-from unittest.mock import patch, Mock, AsyncMock
-from mcp_composer.tag.scanner.mcp_protocol import McpProtocolScanner
-from mcp_composer.tag.scanner.mcp_protocol import MCPTransportMessage
+
 from mcp_composer.tag.models import ToolDescriptor
+from mcp_composer.tag.scanner.mcp_protocol import MCPTransportMessage, McpProtocolScanner
+
+# pylint: disable=protected-access,too-many-public-methods,too-few-public-methods
 
 # Import the class and other necessary components from the module
 # Assuming the code above is saved in a file like 'mcp_scanner.py'
@@ -33,7 +35,6 @@ class Tool:
 
 @pytest.mark.asyncio
 class TestMcpProtocolScanner:
-
     def setup_method(self):
         """Initialize a scanner instance for each test."""
         # Use a generic endpoint since it will be mocked anyway
@@ -49,27 +50,21 @@ class TestMcpProtocolScanner:
 
     def test_classify_tool_destructive(self):
         """Test classification for a destructive tool."""
-        mock_tool = Tool(
-            name="delete_user", description="permanently destroy data.", schema={}
-        )
+        mock_tool = Tool(name="delete_user", description="permanently destroy data.", schema={})
         classification = self.scanner._classify_tool(mock_tool)
         assert classification["Destructive"][0] is True
         assert self.scanner._determine_risk_level(classification) == self.CRITICAL_LEVEL
 
     def test_classify_tool_private_data_only(self):
         """Test classification for a Private Data source only."""
-        mock_tool = Tool(
-            name="get_secrets", description="fetch private user data.", schema={}
-        )
+        mock_tool = Tool(name="get_secrets", description="fetch private user data.", schema={})
         classification = self.scanner._classify_tool(mock_tool)
         assert classification["Private Data"][0] is True
         assert self.scanner._determine_risk_level(classification) == self.MEDIUM_LEVEL
 
     def test_classify_tool_public_sink_only(self):
         """Test classification for a Public Sink only."""
-        mock_tool = Tool(
-            name="upload_file", description="send data to external server.", schema={}
-        )
+        mock_tool = Tool(name="upload_file", description="send data to external server.", schema={})
         classification = self.scanner._classify_tool(mock_tool)
         assert classification["Public Sink"][0] is True
         assert self.scanner._determine_risk_level(classification) == self.MEDIUM_LEVEL
@@ -88,23 +83,17 @@ class TestMcpProtocolScanner:
 
     def test_classify_tool_low_risk(self):
         """Test classification for a benign tool."""
-        mock_tool = Tool(
-            name="calculate_sum", description="compute two numbers.", schema={}
-        )
+        mock_tool = Tool(name="calculate_sum", description="compute two numbers.", schema={})
         classification = self.scanner._classify_tool(mock_tool)
         assert classification["Destructive"][0] is False
         assert self.scanner._determine_risk_level(classification) == self.LOW_LEVEL
 
     def test_scan_tool_output_format(self):
         """Test the final output format of _scan_tool."""
-        mock_tool = Tool(
-            name="calculate_sum", description="compute two numbers.", schema={}
-        )
+        mock_tool = Tool(name="calculate_sum", description="compute two numbers.", schema={})
         report = self.scanner._scan_tool(mock_tool)
         assert report["Level"] == self.LOW_LEVEL
-        assert (
-            report["Private Data"] == "❌ NO (File/DB Read or Secret Access Operation)"
-        )
+        assert report["Private Data"] == "❌ NO (File/DB Read or Secret Access Operation)"
         assert "✅ YES" not in report["Destructive"]
 
     ## ------------------------------------------------------------------
@@ -169,9 +158,7 @@ class TestMcpProtocolScanner:
     ## Test Cases for _get_tools_list
     ## ------------------------------------------------------------------
 
-    @patch(
-        "mcp_composer.tag.scanner.mcp_protocol.Client"
-    )  # Adjust patch path as necessary
+    @patch("mcp_composer.tag.scanner.mcp_protocol.Client")  # Adjust patch path as necessary
     async def test_get_tools_list_failure(self, MockClient):
         """Test tool retrieval failure via the Client object."""
 
@@ -197,14 +184,10 @@ class TestMcpProtocolScanner:
 
     def test_convert_to_tool_descriptor_basic(self):
         """Test conversion of a basic Tool object."""
-        mock_tool = Tool(
-            name="api_tool", description="a public api.", schema={"type": "object"}
-        )
+        mock_tool = Tool(name="api_tool", description="a public api.", schema={"type": "object"})
         mock_server_info = {"name": "vendor-server", "version": "2.0"}
 
-        descriptor = self.scanner._convert_to_tool_descriptor(
-            mock_tool, mock_server_info
-        )
+        descriptor = self.scanner._convert_to_tool_descriptor(mock_tool, mock_server_info)
 
         assert isinstance(descriptor, ToolDescriptor)
         assert descriptor.name == "api_tool"
@@ -221,9 +204,7 @@ class TestMcpProtocolScanner:
     @patch.object(McpProtocolScanner, "_get_server_info", new_callable=AsyncMock)
     @patch.object(McpProtocolScanner, "_create_mcp_client")
     @patch("asyncio.run")
-    def test_collect_entry_point(
-        self, mock_async_run, mock_create_client, mock_server_info, mock_tools_list
-    ):
+    def test_collect_entry_point(self, mock_async_run, mock_create_client, mock_server_info, mock_tools_list):
         """Test the main public entry point 'collect'."""
 
         # Setup: Mock the return value of asyncio.run to avoid actual async execution in this sync test

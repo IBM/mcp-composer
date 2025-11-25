@@ -7,8 +7,8 @@ This module provides commands for managing middleware configurations:
 - add: Add or update middleware in configuration files
 """
 
+import importlib
 import json
-import sys
 from pathlib import Path
 from typing import Optional, List, Annotated
 
@@ -85,7 +85,7 @@ def validate_middleware(
         "--ensure-imports",
         help="Ensure all middleware classes can be imported"
     )] = False,
-    format: Annotated[str, Option(
+    output_format: Annotated[str, Option(
         "--format", "-f",
         help="Output format",
         case_sensitive=False
@@ -122,21 +122,21 @@ def validate_middleware(
     """
 
     try:
-        cfg = load_and_validate_config(path, ensure_imports=ensure_imports)
-    except FileNotFoundError:
+        load_and_validate_config(path, ensure_imports=ensure_imports)
+    except FileNotFoundError as exc:
         _print_error(f"File not found: {path}")
-        raise typer.Exit(2)
+        raise typer.Exit(2) from exc
     except json.JSONDecodeError as je:
         _print_error(f"Invalid JSON in {path}: {je}")
-        raise typer.Exit(2)
+        raise typer.Exit(2) from je
     except ValidationError as ve:
         _print_validation_error(ve)
-        raise typer.Exit(1)
+        raise typer.Exit(1) from ve
     except (ImportError, AttributeError) as ie:
         _print_error(f"Import check failed: {ie}")
-        raise typer.Exit(1)
+        raise typer.Exit(1) from ie
 
-    if format == "json":
+    if output_format == "json":
         typer.echo(json.dumps({"status": "ok"}, indent=2))
     else:
         typer.echo("✔ Config is valid")
@@ -160,12 +160,12 @@ def list_middlewares(
         "--ensure-imports",
         help="Ensure all middleware classes can be imported"
     )] = False,
-    format: Annotated[str, Option(
+    output_format: Annotated[str, Option(
         "--format", "-f",
         help="Output format",
         case_sensitive=False
     )] = "text",
-    all: Annotated[bool, Option(
+    show_all: Annotated[bool, Option(
         "--all",
         help="Show all middlewares including disabled ones"
     )] = False,
@@ -198,20 +198,20 @@ def list_middlewares(
     # Load and validate (optionally ensure imports)
     try:
         cfg = load_and_validate_config(config, ensure_imports=ensure_imports)
-    except FileNotFoundError:
+    except FileNotFoundError as exc:
         _print_error(f"File not found: {config}")
-        raise typer.Exit(2)
+        raise typer.Exit(2) from exc
     except json.JSONDecodeError as je:
         _print_error(f"Invalid JSON in {config}: {je}")
-        raise typer.Exit(2)
+        raise typer.Exit(2) from je
     except ValidationError as ve:
         _print_validation_error(ve)
-        raise typer.Exit(1)
+        raise typer.Exit(1) from ve
     except (ImportError, AttributeError) as ie:
         _print_error(f"Import check failed: {ie}")
-        raise typer.Exit(1)
+        raise typer.Exit(1) from ie
 
-    include_disabled = all
+    include_disabled = show_all
 
     # Prefer manager for true runtime order (enabled only)
     items_out: List[dict] = []
@@ -254,7 +254,7 @@ def list_middlewares(
                 "attached": None,
             })
 
-    if format == "json":
+    if output_format == "json":
         typer.echo(json.dumps({"middlewares": items_out}, indent=2))
     else:
         if not items_out:
@@ -361,23 +361,35 @@ def add_middleware(
 
     \b
     # Add a simple middleware
-    mcp-composer middleware add --config middleware-config.json --name Logger --kind mcp_composer.middleware.logging_middleware.LoggingMiddleware
+    mcp-composer middleware add --config middleware-config.json \\
+        --name Logger \\
+        --kind mcp_composer.middleware.logging_middleware.LoggingMiddleware
 
     \b
     # Add middleware with custom priority and hooks
-    mcp-composer middleware add --config middleware-config.json --name RateLimiter --kind mcp_composer.middleware.rate_limit_filter.RateLimitingMiddleware --priority 10 --applied-hooks on_call_tool
+    mcp-composer middleware add --config middleware-config.json \\
+        --name RateLimiter \\
+        --kind mcp_composer.middleware.rate_limit_filter.RateLimitingMiddleware \\
+        --priority 10 --applied-hooks on_call_tool
 
     \b
     # Add middleware with tool filtering
-    mcp-composer middleware add --config middleware-config.json --name PIIFilter --kind mcp_composer.middleware.pii_middleware.SecretsAndPIIMiddleware --include-tools get_data --exclude-tools get_prompts
+    mcp-composer middleware add --config middleware-config.json \\
+        --name PIIFilter \\
+        --kind mcp_composer.middleware.pii_middleware.SecretsAndPIIMiddleware \\
+        --include-tools get_data --exclude-tools get_prompts
 
     \b
     # Update existing middleware
-    mcp-composer middleware add --config middleware-config.json --name Logger --kind mcp_composer.middleware.logging_middleware.LoggingMiddleware --update
+    mcp-composer middleware add --config middleware-config.json \\
+        --name Logger \\
+        --kind mcp_composer.middleware.logging_middleware.LoggingMiddleware \\
+        --update
 
     \b
     # Dry run to see what would be added
-    mcp-composer middleware add --config middleware-config.json --name TestMiddleware --kind test.middleware.TestMiddleware --dry-run
+    mcp-composer middleware add --config middleware-config.json \\
+        --name TestMiddleware --kind test.middleware.TestMiddleware --dry-run
     """
 
     # Validate mode
@@ -461,7 +473,6 @@ def add_middleware(
     new_cfg = MiddlewareConfig(middleware=items, middleware_settings=cfg.middleware_settings)
 
     if ensure_imports:
-        import importlib
         try:
             for m in new_cfg.middleware:
                 mod, clsname = m.kind.rsplit(".", 1)
@@ -524,16 +535,16 @@ def remove_middleware(
     try:
         existing = _load_json_file(config)
         cfg = MiddlewareConfig.model_validate(existing)
-    except FileNotFoundError:
+    except FileNotFoundError as exc:
         _print_error(f"File not found: {config}")
-        raise typer.Exit(2)
+        raise typer.Exit(2) from exc
     except json.JSONDecodeError as je:
         _print_error(f"Invalid JSON in {config}: {je}")
-        raise typer.Exit(2)
+        raise typer.Exit(2) from je
     except ValidationError as ve:
         _print_error("Config is invalid; fix it before removing middleware.")
         _print_validation_error(ve)
-        raise typer.Exit(1)
+        raise typer.Exit(1) from ve
 
     # Find and remove middleware
     items = list(cfg.middleware)

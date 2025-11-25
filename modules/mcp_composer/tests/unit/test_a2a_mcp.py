@@ -41,9 +41,7 @@ def reset_state(monkeypatch):
     monkeypatch.setattr(module_under_test, "load_from_json", lambda *args, **kwargs: {})
 
 
-def build_agent_card(
-    name: str = "Test Agent", url: str = "http://agent:10000"
-) -> AgentCard:
+def build_agent_card(name: str = "Test Agent", url: str = "http://agent:10000") -> AgentCard:
     """Return agent card for testing."""
     return AgentCard(
         name=name,
@@ -93,7 +91,6 @@ class DummyA2AClient:
         return TaskQueryParams(id="task-123")
 
     async def cancel_task(self, _req):
-
         return TaskIdParams(id="task-123")
 
 
@@ -457,9 +454,7 @@ async def test_send_message_no_task_id(monkeypatch):
 
             async def gen() -> AsyncIterator[Any]:
                 # Mock a non-Task event (no task_id)
-                non_task_event = SimpleNamespace(
-                    type="message", content="response without task"
-                )
+                non_task_event = SimpleNamespace(type="message", content="response without task")
                 yield non_task_event
 
             return gen()

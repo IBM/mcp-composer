@@ -151,5 +151,3 @@ class OAuthRefreshClient(httpx.AsyncClient):
             headers["Authorization"] = f"Bearer {self._access_token}"
             response = await super().request(method, url, headers=headers, **kwargs)
         return response
-
-

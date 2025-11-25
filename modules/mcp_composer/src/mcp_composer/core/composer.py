@@ -48,7 +48,6 @@ from mcp_composer.a2a_service.a2a_mcp import (
     load_registered_agents,
     get_agent_cards,
     get_agent_card,
-    find_agent,
 )
 
 load_dotenv()
@@ -62,6 +61,9 @@ class MCPComposer(FastMCP):
     Extended FastMCP server with dynamic runtime server composition.
     """
 
+    # pylint: disable=too-many-instance-attributes,too-many-public-methods
+
+    # pylint: disable=too-many-arguments,too-many-positional-arguments,too-many-locals,too-many-branches,too-many-statements
     def __init__(
         self,
         name: str = "",
@@ -125,7 +127,10 @@ class MCPComposer(FastMCP):
                         # Use individual parameters
                         required_keys = ["host", "database", "user", "password"]
                         if not all(k in effective_db_config for k in required_keys):
-                            error_msg = "Missing required PostgreSQL config keys: host, database, user, password (or provide 'url')"
+                            error_msg = (
+                                "Missing required PostgreSQL config keys: host, "
+                                "database, user, password (or provide 'url')"
+                            )
                             logger.error("Database configuration error: %s", error_msg)
                             raise ValueError(error_msg)
 
@@ -401,19 +406,32 @@ class MCPComposer(FastMCP):
 
                 # Validate required fields - fail fast on missing required fields
                 if not host or not host.strip():
-                    error_msg = "PostgreSQL database type specified but MCP_DATABASE_HOST is missing or empty (or provide MCP_DATABASE_URL)"
+                    error_msg = (
+                        "PostgreSQL database type specified but MCP_DATABASE_HOST is "
+                        "missing or empty (or provide MCP_DATABASE_URL)"
+                    )
                     logger.error("Database configuration error: %s", error_msg)
                     raise ValueError(error_msg)
                 if not database or not database.strip():
-                    error_msg = "PostgreSQL database type specified but MCP_DATABASE_DATABASE is missing or empty (or provide MCP_DATABASE_URL)"
+                    error_msg = (
+                        "PostgreSQL database type specified but MCP_DATABASE_DATABASE "
+                        "is missing or empty (or provide MCP_DATABASE_URL)"
+                    )
                     logger.error("Database configuration error: %s", error_msg)
                     raise ValueError(error_msg)
                 if not user or not user.strip():
-                    error_msg = "PostgreSQL database type specified but MCP_DATABASE_USER is missing or empty (or provide MCP_DATABASE_URL)"
+                    error_msg = (
+                        "PostgreSQL database type specified but MCP_DATABASE_USER is "
+                        "missing or empty (or provide MCP_DATABASE_URL)"
+                    )
                     logger.error("Database configuration error: %s", error_msg)
                     raise ValueError(error_msg)
                 if not password or not password.strip():
-                    error_msg = "PostgreSQL database type specified but MCP_DATABASE_PASSWORD is missing or empty (or provide MCP_DATABASE_URL)"
+                    error_msg = (
+                        "PostgreSQL database type specified but "
+                        "MCP_DATABASE_PASSWORD is missing or empty "
+                        "(or provide MCP_DATABASE_URL)"
+                    )
                     logger.error("Database configuration error: %s", error_msg)
                     raise ValueError(error_msg)
 
@@ -478,17 +496,20 @@ class MCPComposer(FastMCP):
                     registered = len(result.get("registered", []))
                     failed = len(result.get("failed", []))
                     logger.info(
-                        f"Applied {section}: {registered} registered, {failed} failed"
+                        "Applied %s: %s registered, %s failed",
+                        section,
+                        registered,
+                        failed,
                     )
 
                     # Log failures
                     for failure in result.get("failed", []):
-                        logger.error(f"Failed to apply {section}: {failure}")
+                        logger.error("Failed to apply %s: %s", section, failure)
 
             logger.info("Successfully applied unified configuration")
 
         except Exception as e:
-            logger.error(f"Failed to apply unified configuration: {e}")
+            logger.error("Failed to apply unified configuration: %s", e)
             raise
 
     async def _load_custom_tools(self):
@@ -537,6 +558,7 @@ class MCPComposer(FastMCP):
             )
             return f"Failed to mount server {config.get('id', '<missing‑id>')}"
 
+    # pylint: disable=too-many-branches,too-many-statements
     async def setup_member_servers(self):
         """
         Mount multiple servers from a JSON list in self.config.
@@ -566,11 +588,11 @@ class MCPComposer(FastMCP):
 
             if server_type == "composer":
                 new_disabled_tools = cfg.get("disabled_tools", [])
+                # pylint: disable=protected-access
                 combined_unique_tools = set(self._tool_manager._disabled_tools)
                 combined_unique_tools.update(new_disabled_tools)
-                self._tool_manager._disabled_tools = list(
-                    combined_unique_tools
-                )  # pylint: disable=W0212
+                self._tool_manager._disabled_tools = list(combined_unique_tools)
+                # pylint: enable=protected-access
                 logger.info("Disabled tool list in composer: %s", cfg)
                 continue
 

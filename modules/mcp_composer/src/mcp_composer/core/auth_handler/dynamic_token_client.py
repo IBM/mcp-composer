@@ -1,9 +1,11 @@
+import base64
 import time
 from typing import Any
-import base64
+
 import httpx
+
 from mcp_composer.core.auth_handler.oauth_handler import resolve_env_value
-from mcp_composer.core.utils import ConfigKey, LoggerFactory, AuthStrategy
+from mcp_composer.core.utils import AuthStrategy, ConfigKey, LoggerFactory
 
 logger = LoggerFactory.get_logger()
 
@@ -38,6 +40,7 @@ class DynamicTokenClient(httpx.AsyncClient):
             **kwargs,
         )
 
+    # pylint: disable=too-many-locals,too-many-branches,too-many-statements
     async def _refresh_token(self) -> None:
         try:
             if not self.auth_data:
@@ -55,7 +58,7 @@ class DynamicTokenClient(httpx.AsyncClient):
             if not apikey and not (_id and _secret):
                 raise ValueError("Either apikey or (id and secret) must be provided in auth_data.")
 
-            logger.debug(f"Refreshing token using method: {auth_generation_method}")
+            logger.debug("Refreshing token using method: %s", auth_generation_method)
 
             if auth_generation_method == "jwt" and apikey:
                 headers = {"Content-Type": "application/json", "Accept": "application/json"}
@@ -77,10 +80,13 @@ class DynamicTokenClient(httpx.AsyncClient):
                         response = await super().post(token_url, headers=headers, auth=auth)
                     else:
                         response = await super().get(token_url, headers=headers, auth=auth)
-                except Exception as e:
-                    logger.error(f"Basic auth request failed: {e}")
-                    logger.error(f"Token URL: {token_url}")
-                    logger.error(f"ID: {_id}, Secret: {'*' * len(str(_secret)) if _secret else None}")
+                except httpx.HTTPError as exc:
+                    logger.error("Basic auth request failed: %s", exc)
+                    logger.error("Token URL: %s", token_url)
+                    masked_secret = (
+                        "*" * len(str(_secret)) if _secret else None
+                    )
+                    logger.error("ID: %s, Secret: %s", _id, masked_secret)
                     raise
             else:
                 # IAM-style
@@ -97,11 +103,16 @@ class DynamicTokenClient(httpx.AsyncClient):
             self._access_token = token_data.get("access_token") or token_data.get("token")
 
             if self._access_token:
-                # We got a valid token, even if status was 401 - some APIs return 401 with valid tokens
-                logger.debug(f"Obtained new access token despite {response.status_code} status: {self._access_token}")
+                logger.debug(
+                    "Obtained new access token despite %s status: %s",
+                    response.status_code,
+                    self._access_token,
+                )
                 expires_in = int(token_data.get("expires_in", DEFAULT_TOKEN_EXPIRY))
                 self._expires_at = time.time() + expires_in - TOKEN_REFRESH_BUFFER
-                logger.debug(f"Token refreshed successfully, expires in {expires_in} seconds")
+                logger.debug(
+                    "Token refreshed successfully, expires in %s seconds", expires_in
+                )
             else:
                 # No token received, raise the status error
                 response.raise_for_status()
@@ -112,23 +123,38 @@ class DynamicTokenClient(httpx.AsyncClient):
                 error_data = e.response.json()
                 error_token = error_data.get("access_token") or error_data.get("token")
                 if error_token:
-                    logger.warning(f"Received token despite {e.response.status_code} status: {error_token}")
+                    logger.warning(
+                        "Received token despite %s status: %s",
+                        e.response.status_code,
+                        error_token,
+                    )
                     self._access_token = error_token
                     expires_in = int(error_data.get("expires_in", DEFAULT_TOKEN_EXPIRY))
                     self._expires_at = time.time() + expires_in - TOKEN_REFRESH_BUFFER
-                    logger.debug(f"Token refreshed successfully from error response, expires in {expires_in} seconds")
+                    logger.debug(
+                        "Token refreshed successfully from error response, expires in %s seconds",
+                        expires_in,
+                    )
                 else:
-                    logger.error(f"HTTP error during token refresh: {e.response.status_code} - {e.response.text}")
+                    logger.error(
+                        "HTTP error during token refresh: %s - %s",
+                        e.response.status_code,
+                        e.response.text,
+                    )
                     raise
             except (ValueError, KeyError):
                 # Couldn't parse JSON or no token in error response
-                logger.error(f"HTTP error during token refresh: {e.response.status_code} - {e.response.text}")
+                logger.error(
+                    "HTTP error during token refresh: %s - %s",
+                    e.response.status_code,
+                    e.response.text,
+                )
                 raise
         except httpx.RequestError as e:
-            logger.error(f"Request error during token refresh: {e}")
+            logger.error("Request error during token refresh: %s", e)
             raise
-        except Exception as e:
-            logger.error(f"Unexpected error during token refresh: {e}")
+        except (ValueError, RuntimeError) as e:
+            logger.error("Unexpected error during token refresh: %s", e)
             raise
 
     async def request(
@@ -136,18 +162,19 @@ class DynamicTokenClient(httpx.AsyncClient):
     ) -> httpx.Response:
         # Prevent recursion if the token_url is being called
         token_url = self.auth_data.get("token_url") if self.auth_data else None
-        if (token_url and
-            str(url).startswith(str(token_url))):
-            logger.debug("Requesting token, skipping token refresh. %s", **kwargs)
+        if token_url and str(url).startswith(str(token_url)):
+            logger.debug(
+                "Requesting token, skipping token refresh. kwargs=%s", kwargs
+            )
             try:
                 return await super().request(method, url, **kwargs)
-            except Exception as e:
-                logger.error(f"Failed to make token request to {url}: {e}")
+            except httpx.HTTPError as e:
+                logger.error("Failed to make token request to %s: %s", url, e)
         if not self._access_token or time.time() >= self._expires_at:
             try:
                 await self._refresh_token()
-            except Exception as e:
-                logger.error(f"Failed to refresh token: {e}")
+            except (httpx.HTTPError, ValueError, RuntimeError) as e:
+                logger.error("Failed to refresh token: %s", e)
                 # Clear the expired token to prevent using stale credentials
                 self._access_token = None
                 self._expires_at = 0

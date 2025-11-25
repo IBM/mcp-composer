@@ -78,17 +78,17 @@ async def create_tools(schema):
 
                         # For now, let's create a simple function that can handle the test case
                         # This is a workaround for the fastmcp limitation
-                        if (
-                            len(param_names) == 1 and param_names[0] == "code"
-                        ):  # pylint: disable=R1705
+                        if len(param_names) == 1 and param_names[0] == "code":
 
-                            async def country_func(code):
-                                query_body = f"""
+                            async def country_func(country_code):
+                                query_body = (
+                                    f"""
                         query {{
-                          {tool_name}(code: "{{code}}") {{
+                          {tool_name}(code: "{country_code}") {{
                             __typename
                           }}
                         }}"""
+                                )
                                 response = await http_client.post(
                                     "", json={"query": query_body}
                                 )
@@ -100,26 +100,10 @@ async def create_tools(schema):
                                 name=tool_name,
                                 description=f"Query {tool_name} with parameters: {', '.join(param_names)}",
                             )
-                        else:
-                            # Generic case - create a function with the specific parameters
-                            # This is a simplified approach for the test
-                            async def generic_func():
-                                # This is a placeholder - in real usage, we'd need to handle dynamic parameters
-                                query_body = f"query {{ {tool_name} {{ __typename }} }}"
-                                response = await http_client.post(
-                                    "", json={"query": query_body}
-                                )
-                                response.raise_for_status()
-                                return response.json()
-
-                            return Tool.from_function(
-                                generic_func,
-                                name=tool_name,
-                                description=f"Query {tool_name} with parameters: {', '.join(param_names)}",
-                            )
-                    else:
-                        # Create a function without parameters
-                        async def tool_func_without_args():
+                        # Generic case - create a function with the specific parameters
+                        # This is a simplified approach for the test
+                        async def generic_func():
+                            # This is a placeholder - in real usage, we'd need to handle dynamic parameters
                             query_body = f"query {{ {tool_name} {{ __typename }} }}"
                             response = await http_client.post(
                                 "", json={"query": query_body}
@@ -127,12 +111,26 @@ async def create_tools(schema):
                             response.raise_for_status()
                             return response.json()
 
-                        # Create the tool with the function that has no parameters
                         return Tool.from_function(
-                            tool_func_without_args,
+                            generic_func,
                             name=tool_name,
-                            description=f"Query {tool_name}",
+                            description=f"Query {tool_name} with parameters: {', '.join(param_names)}",
                         )
+                    # Create a function without parameters
+                    async def tool_func_without_args():
+                        query_body = f"query {{ {tool_name} {{ __typename }} }}"
+                        response = await http_client.post(
+                            "", json={"query": query_body}
+                        )
+                        response.raise_for_status()
+                        return response.json()
+
+                    # Create the tool with the function that has no parameters
+                    return Tool.from_function(
+                        tool_func_without_args,
+                        name=tool_name,
+                        description=f"Query {tool_name}",
+                    )
 
                 tools.append(make_tool(tool_name, arg_defs))
     return tools

@@ -15,9 +15,7 @@ def test_member_mcp_server_instantiation():
         "foo": "bar",
         "open_api": {"endpoint": "http://api", "spec_url": "http://spec"},
     }
-    server = MemberMCPServer(
-        id="test", endpoint="http://api", type="openapi", config=config
-    )
+    server = MemberMCPServer(id="test", endpoint="http://api", type="openapi", config=config)
     assert server.id == "test"
     assert server.type == "openapi"
     assert server.config == config
@@ -30,27 +28,21 @@ def test_member_mcp_server_instantiation():
 
 def test_set_and_get_server():
     mcp_mock = MagicMock()
-    server = MemberMCPServer(
-        id="test", endpoint="http://api", type="openapi", config={}
-    )
+    server = MemberMCPServer(id="test", endpoint="http://api", type="openapi", config={})
     server.set_server(mcp_mock)
     assert server.server is mcp_mock
     assert server.get_server() is mcp_mock
 
 
 def test_get_server_raises_if_not_set():
-    server = MemberMCPServer(
-        id="test", endpoint="http://api", type="openapi", config={}
-    )
+    server = MemberMCPServer(id="test", endpoint="http://api", type="openapi", config={})
     with pytest.raises(RuntimeError):
         server.get_server()
 
 
 def test_to_dict_excludes_server():
     mcp_mock = MagicMock()
-    server = MemberMCPServer(
-        id="test", endpoint="http://api", type="openapi", config={}
-    )
+    server = MemberMCPServer(id="test", endpoint="http://api", type="openapi", config={})
     server.set_server(mcp_mock)
     d = server.to_dict()
     assert "server" not in d

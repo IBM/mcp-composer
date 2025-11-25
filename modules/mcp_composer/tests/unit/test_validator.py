@@ -1,7 +1,7 @@
 import unittest
-import pytest
 import os
 import json
+import pytest
 from mcp_composer.core.utils.validator import ValidationError, AllServersValidator
 
 
@@ -447,9 +447,7 @@ class TestValidatorExtended:
         config = {"id": "test-server", "type": "openapi"}
         validator = ServerConfigValidator(config)
 
-        with pytest.raises(
-            ValueError, match="Missing required ConfigKey.OPEN_API section in config."
-        ):
+        with pytest.raises(ValueError, match="Missing required ConfigKey.OPEN_API section in config."):
             validator._validate_openapi_requirements()
 
     def test_validate_client_requirements_with_endpoint(self):
