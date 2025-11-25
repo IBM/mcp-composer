@@ -80,7 +80,7 @@ class AuthStrategy(str, Enum):
     APITOKEN = "apiToken"
     JSESSIONID = "jessionid"
     ASPERA_OAUTH_HANDLER = "aspera_oauth_handler"
-    SOLIS_OAUTH_HANDLER = "solist_oauth_handler"
+    SOLIS_OAUTH_HANDLER = "solis_oauth_handler"
 
 
 
