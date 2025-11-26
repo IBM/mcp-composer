@@ -5,7 +5,7 @@ from mcp_composer.middleware.tool.tool_filter import ListFilteredTool
 from mcp_composer import MCPComposer
 
 
-gw = MCPComposer("solis-composer")
+gw = MCPComposer("mcp-composer")
 
 
 async def main():
