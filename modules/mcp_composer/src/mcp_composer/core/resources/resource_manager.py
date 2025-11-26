@@ -337,6 +337,9 @@ class MCPResourceManager(ResourceManager):
             parameters = resource_config.get("parameters", {})
             tags = set(resource_config.get("tags", []))
             enabled = resource_config.get("enabled", True)
+            template_text = resource_config.get("text")
+            if template_text is None:
+                template_text = resource_config.get("template", "")
 
             # If a function is provided, use from_function, else create a static template
             fn = resource_config.get("function")
@@ -352,8 +355,8 @@ class MCPResourceManager(ResourceManager):
                 )
             else:
                 # If 'template' is provided as a string, create a function that returns it
-                template_content = resource_config.get("template")
-                if template_content:
+                template_content = template_text
+                if template_content is not None:
 
                     def template_fn(param: str = "default"):
                         return template_content
@@ -383,6 +386,9 @@ class MCPResourceManager(ResourceManager):
                         enabled=enabled,
                     )
 
+            if template_text is not None:
+                setattr(template, "_composer_text", template_text)
+
             self.add_template(template)
             logger.info(
                 "Resource template %s added successfully", resource_config["name"]
@@ -399,13 +405,17 @@ class MCPResourceManager(ResourceManager):
         try:
             if "name" not in resource_config:
                 return "Error: 'name' is required for resource"
+            if "uri" not in resource_config:
+                return "Error: 'uri' is required for resource"
 
             uri = resource_config.get("uri", f"resource://{resource_config['name']}")
             description = resource_config.get("description", "")
             mime_type = resource_config.get("mime_type", "text/plain")
             tags = set(resource_config.get("tags", []))
             enabled = resource_config.get("enabled", True)
-            content = resource_config.get("content", "")
+            content = resource_config.get("text")
+            if content is None:
+                content = resource_config.get("content", "")
 
             # If a function is provided, use from_function, else create a static resource
             fn = resource_config.get("function")
@@ -422,8 +432,12 @@ class MCPResourceManager(ResourceManager):
             else:
                 # Create a simple resource with a static read method
                 class StaticResource(Resource):
+                    def __init__(self, *, text: str, **kwargs):
+                        super().__init__(**kwargs)
+                        self._composer_text = text
+
                     async def read(self) -> str:
-                        return content
+                        return self._composer_text
 
                 resource = StaticResource(
                     name=resource_config["name"],
@@ -432,6 +446,7 @@ class MCPResourceManager(ResourceManager):
                     mime_type=mime_type,
                     tags=tags,
                     enabled=enabled,
+                    text=content,
                 )
 
             self.add_resource(resource)

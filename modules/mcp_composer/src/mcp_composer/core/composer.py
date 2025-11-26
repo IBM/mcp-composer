@@ -758,30 +758,38 @@ class MCPComposer(FastMCP):
     async def list_resource_templates(self) -> list[dict]:
         """List all available resource templates from composer and mounted servers."""
         templates = await self._resource_manager.list_resource_templates()
-        return [
-            {
-                "name": template.name,
-                "description": template.description,
-                "uri_template": str(template.uri_template),
-                "mime_type": template.mime_type,
-                "tags": list(template.tags) if template.tags else [],
-            }
-            for template in templates
-        ]
+        result = []
+        for template in templates:
+            text = getattr(template, "_composer_text", "")
+            result.append(
+                {
+                    "name": template.name,
+                    "description": template.description,
+                    "uri_template": str(template.uri_template),
+                    "mime_type": template.mime_type,
+                    "tags": list(template.tags) if template.tags else [],
+                    "text": text,
+                }
+            )
+        return result
 
     async def list_resources(self) -> list[dict]:
         """List all available resources from composer and mounted servers."""
         resources = await self._resource_manager.list_resources()
-        return [
-            {
-                "name": resource.name,
-                "description": resource.description,
-                "uri": str(resource.uri),
-                "mime_type": resource.mime_type,
-                "tags": list(resource.tags) if resource.tags else [],
-            }
-            for resource in resources
-        ]
+        result = []
+        for resource in resources:
+            text = getattr(resource, "_composer_text", "")
+            result.append(
+                {
+                    "name": resource.name,
+                    "description": resource.description,
+                    "uri": str(resource.uri),
+                    "mime_type": resource.mime_type,
+                    "tags": list(resource.tags) if resource.tags else [],
+                    "text": text,
+                }
+            )
+        return result
 
     async def list_resources_per_server(self, server_id: str) -> list[dict]:
         """List all resources from a specific server."""
