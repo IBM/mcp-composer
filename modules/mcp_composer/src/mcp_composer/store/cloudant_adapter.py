@@ -22,6 +22,7 @@ if TYPE_CHECKING:
 class CloudantAdapter(DatabaseInterface):
     def __init__(self, api_key: str, service_url: str, db_name: str = "mcp_servers"):
         self._db_name = db_name
+        self._resources_db_name = f"{db_name}_resources"
         self._api_key = api_key
         self._service_url = service_url
         self._client = self._initialize_client()
@@ -34,8 +35,11 @@ class CloudantAdapter(DatabaseInterface):
         client = CloudantV1(authenticator=authenticator)
         client.set_service_url(self._service_url)
 
-        if self._db_name not in client.get_all_dbs().get_result():
+        existing_dbs = client.get_all_dbs().get_result()
+        if self._db_name not in existing_dbs:
             client.put_database(self._db_name)
+        if self._resources_db_name not in existing_dbs:
+            client.put_database(self._resources_db_name)
 
         return client
 
@@ -523,4 +527,55 @@ class CloudantAdapter(DatabaseInterface):
                 raise ValueError(f"Server '{server_id}' not found in Cloudant.") from e
             else:
                 logger.error("Failed to update server '%s': %s", server_id, e)
+                raise
+
+    def load_all_resources(self) -> List[Dict]:
+        try:
+            result = self._client.post_all_docs(
+                db=self._resources_db_name, include_docs=True
+            ).get_result()
+            return [row["doc"] for row in result.get("rows", []) if "doc" in row]
+        except Exception as exc:
+            logger.error("Cloudant resource read failed: %s", exc)
+            return []
+
+    def upsert_resource(self, resource: Dict) -> None:
+        doc_id = resource["storage_id"]
+        resource_doc = dict(resource)
+        resource_doc["_id"] = doc_id
+        try:
+            existing = self._client.get_document(
+                db=self._resources_db_name, doc_id=doc_id
+            ).get_result()
+            resource_doc["_rev"] = existing["_rev"]
+            self._client.post_document(
+                db=self._resources_db_name, document=Document(**resource_doc)
+            ).get_result()
+            logger.info("Updated resource '%s' in Cloudant", doc_id)
+        except ApiException as e:
+            if e.code == 404:
+                self._client.post_document(
+                    db=self._resources_db_name, document=Document(**resource_doc)
+                ).get_result()
+                logger.info("Saved resource '%s' to Cloudant", doc_id)
+            else:
+                logger.error("Failed to upsert resource '%s': %s", doc_id, e)
+                raise
+
+    def delete_resource(self, resource_id: str) -> None:
+        try:
+            existing = self._client.get_document(
+                db=self._resources_db_name, doc_id=resource_id
+            ).get_result()
+            self._client.delete_document(
+                db=self._resources_db_name,
+                doc_id=existing["_id"],
+                rev=existing["_rev"],
+            )
+            logger.info("Deleted resource '%s' from Cloudant", resource_id)
+        except ApiException as e:
+            if e.code == 404:
+                logger.info("Resource '%s' already absent in Cloudant", resource_id)
+            else:
+                logger.error("Failed to delete resource '%s': %s", resource_id, e)
                 raise

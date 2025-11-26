@@ -63,3 +63,18 @@ class DatabaseInterface(ABC):
     @abstractmethod
     def update_server_config(self, config: dict) -> None:
         pass
+
+    @abstractmethod
+    def load_all_resources(self) -> List[Dict]:
+        """Return all stored resource/template definitions."""
+        pass
+
+    @abstractmethod
+    def upsert_resource(self, resource: Dict) -> None:
+        """Insert or update a stored resource/template definition."""
+        pass
+
+    @abstractmethod
+    def delete_resource(self, resource_id: str) -> None:
+        """Remove a stored resource/template definition."""
+        pass
