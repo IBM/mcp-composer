@@ -1,8 +1,15 @@
 ARG BUILDER_IMAGE=icr.io/ibm-dreadnought-prod-images/ubi9/python312-builder
-ARG DREADNOUGHT_PYTHON312_TAG=SET_VALID_TAG
+ARG RUNTIME_IMAGE=icr.io/ibm-dreadnought-prod-images/ubi9/python312-runtime
+ARG DREADNOUGHT_PYTHON312_TAG=v9.6.84
 
-FROM ${BUILDER_IMAGE}:${DREADNOUGHT_PYTHON312_TAG}
+#########################################
+# -------- Stage 1: Builder --------
+#########################################
+FROM ${BUILDER_IMAGE}:${DREADNOUGHT_PYTHON312_TAG} AS builder
 
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+
+# Must be set BEFORE using dnf
 ENV ENABLE_PACKAGE_MANAGER=true
 
 USER root
@@ -18,34 +25,35 @@ RUN dnf -y update-minimal --security && \
         gdb-gdbserver && \
     dnf clean all && rm -rf /var/cache/dnf /tmp/*
 
-RUN g++ --version
-
-RUN find / -name Python.h || true
-
-ENV CXXFLAGS="-std=c++11"
-
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
 RUN python3.12 -m pip install --no-cache-dir --upgrade "pip==25.2"
 
 WORKDIR /app
 
-RUN mkdir -p /app && chmod -R 0777 /app
-RUN mkdir -p /.cache/uv && chmod -R 0777 /.cache/uv
-
 COPY pyproject.toml uv.lock ./
 
-RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync --locked --no-install-project --no-dev
+RUN uv sync --locked --no-install-project --no-dev
 
 COPY . /app
 
-RUN chmod -R 0777 /app
+
+#########################################
+# -------- Stage 2: Runtime --------
+#########################################
+FROM ${RUNTIME_IMAGE}:${DREADNOUGHT_PYTHON312_TAG} AS final
+
+# OpenShift hardened images → no RUN allowed and no fixed user.
+USER 1001
+
+WORKDIR /app
+
+COPY --from=builder /app /app
+COPY --from=builder /bin/uv /bin/uv
+COPY --from=builder /bin/uvx /bin/uvx
 
 ENV PATH="/app/.venv/bin:$PATH"
-ENV UV_CACHE_DIR=/.cache/uv
 ENV PYTHONPATH=/app/src
-
-RUN ld.gold --version && gdbserver --version
+ENV UV_CACHE_DIR="/.cache/uv"
 
 CMD ["uv", "run", "--no-project", "composers/solis_composer.py"]
