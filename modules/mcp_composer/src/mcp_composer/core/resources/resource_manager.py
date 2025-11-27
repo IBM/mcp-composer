@@ -1,7 +1,8 @@
 """Resource management module for MCP Composer."""
 
+import asyncio
 import logging
-from typing import Dict, List
+from typing import Dict, List, Any
 
 from fastmcp.resources import Resource, ResourceManager, ResourceTemplate
 from fastmcp.settings import DuplicateBehavior
@@ -16,6 +17,9 @@ logger = logging.getLogger(__name__)
 class MCPResourceManager(ResourceManager):
     """Custom resource manager that works with FastMCP's internal ResourceManager."""
 
+    RESOURCE_KIND = "resource"
+    TEMPLATE_KIND = "template"
+
     def __init__(
         self,
         server_manager: ServerManager,
@@ -25,9 +29,102 @@ class MCPResourceManager(ResourceManager):
         super().__init__(duplicate_behavior)
         self._server_manager = server_manager
         self._database = database
+        # Store references to parent's dicts before we shadow them
+        # Access parent's _resources and _templates from instance dict before shadowing
+        instance_dict = object.__getattribute__(self, '__dict__')
+        self._parent_resources = instance_dict.get('_resources', {})
+        self._parent_templates = instance_dict.get('_templates', {})
         # self._fastmcp_resource_manager = fastmcp_resource_manager
         self._resource_templates: Dict[str, ResourceTemplate] = {}
         self._resources: Dict[str, Resource] = {}
+        self._storage_enabled = database is not None
+        self._restore_task = None
+
+    def schedule_persisted_restore(self) -> None:
+        """Schedule restoration of persisted resources/templates."""
+        if not self._storage_enabled:
+            return
+        try:
+            loop = asyncio.get_running_loop()
+            self._restore_task = loop.create_task(self.restore_persisted_resources())
+        except RuntimeError:
+            asyncio.run(self.restore_persisted_resources())
+
+    async def restore_persisted_resources(self) -> None:
+        """Load resources/templates from storage."""
+        if not self._storage_enabled or not self._database:
+            return
+        stored = self._database.load_all_resources()
+        for record in stored:
+            kind = record.get("resource_type")
+            name = record.get("name")
+            if not name:
+                continue
+            if kind == self.RESOURCE_KIND:
+                if any(res.name == name for res in self._resources.values()):
+                    continue
+                config = {
+                    "name": name,
+                    "description": record.get("description", ""),
+                    "uri": record.get("uri"),
+                    "text": record.get("text"),
+                    "mime_type": record.get("mime_type"),
+                    "tags": record.get("tags", []),
+                    "enabled": record.get("enabled", True),
+                }
+                await self.create_resource(config, persist=False)
+            elif kind == self.TEMPLATE_KIND:
+                if any(tmpl.name == name for tmpl in self._resource_templates.values()):
+                    continue
+                config = {
+                    "name": name,
+                    "description": record.get("description", ""),
+                    "uri_template": record.get("uri_template"),
+                    "text": record.get("text"),
+                    "mime_type": record.get("mime_type"),
+                    "tags": record.get("tags", []),
+                    "enabled": record.get("enabled", True),
+                }
+                await self.create_resource_template(config, persist=False)
+
+    def _storage_id(self, kind: str, name: str) -> str:
+        return f"{kind}:{name}"
+
+    def _persist_record(self, record: dict) -> None:
+        if self._storage_enabled and self._database:
+            self._database.upsert_resource(record)
+
+    def _remove_persisted_record(self, storage_id: str) -> None:
+        if self._storage_enabled and self._database:
+            self._database.delete_resource(storage_id)
+
+    def _resource_record(
+        self,
+        *,
+        kind: str,
+        name: str,
+        description: str,
+        text: str,
+        uri: str | None,
+        mime_type: str,
+        tags: set[str],
+        enabled: bool,
+    ) -> dict:
+        record: dict[str, Any] = {
+            "storage_id": self._storage_id(kind, name),
+            "resource_type": kind,
+            "name": name,
+            "description": description,
+            "text": text or "",
+            "mime_type": mime_type,
+            "tags": sorted(list(tags)) if tags else [],
+            "enabled": enabled,
+        }
+        if kind == self.RESOURCE_KIND and uri is not None:
+            record["uri"] = uri
+        if kind == self.TEMPLATE_KIND and uri is not None:
+            record["uri_template"] = uri
+        return record
 
     def _get_mounted_servers(self):
         """Safely access _mounted_servers, returning empty list if not initialized."""
@@ -319,7 +416,9 @@ class MCPResourceManager(ResourceManager):
             logger.error("Error enabling resources: %s", e)
             return f"Failed to enable resources: {str(e)}"
 
-    async def create_resource_template(self, resource_config: dict) -> str:
+    async def create_resource_template(
+        self, resource_config: dict, persist: bool = True
+    ) -> str:
         """
         Add a resource template to the composer using FastMCP's built-in add_template.
         """
@@ -337,6 +436,9 @@ class MCPResourceManager(ResourceManager):
             parameters = resource_config.get("parameters", {})
             tags = set(resource_config.get("tags", []))
             enabled = resource_config.get("enabled", True)
+            template_text = resource_config.get("text")
+            if template_text is None:
+                template_text = resource_config.get("template", "")
 
             # If a function is provided, use from_function, else create a static template
             fn = resource_config.get("function")
@@ -352,8 +454,8 @@ class MCPResourceManager(ResourceManager):
                 )
             else:
                 # If 'template' is provided as a string, create a function that returns it
-                template_content = resource_config.get("template")
-                if template_content:
+                template_content = template_text
+                if template_content is not None:
 
                     def template_fn(param: str = "default"):
                         return template_content
@@ -383,7 +485,22 @@ class MCPResourceManager(ResourceManager):
                         enabled=enabled,
                     )
 
+            if template_text is not None:
+                setattr(template, "_composer_text", template_text)
+
             self.add_template(template)
+            if persist and not fn:
+                record = self._resource_record(
+                    kind=self.TEMPLATE_KIND,
+                    name=resource_config["name"],
+                    description=description,
+                    text=template_text or "",
+                    uri=uri_template,
+                    mime_type=mime_type,
+                    tags=tags,
+                    enabled=enabled,
+                )
+                self._persist_record(record)
             logger.info(
                 "Resource template %s added successfully", resource_config["name"]
             )
@@ -392,20 +509,26 @@ class MCPResourceManager(ResourceManager):
             logger.error("Error adding resource template: %s", e)
             return f"Failed to add resource template: {str(e)}"
 
-    async def create_resource(self, resource_config: dict) -> str:
+    async def create_resource(
+        self, resource_config: dict, persist: bool = True
+    ) -> str:
         """
         Create a resource in the composer using FastMCP's built-in add_resource.
         """
         try:
             if "name" not in resource_config:
                 return "Error: 'name' is required for resource"
+            if "uri" not in resource_config:
+                return "Error: 'uri' is required for resource"
 
             uri = resource_config.get("uri", f"resource://{resource_config['name']}")
             description = resource_config.get("description", "")
             mime_type = resource_config.get("mime_type", "text/plain")
             tags = set(resource_config.get("tags", []))
             enabled = resource_config.get("enabled", True)
-            content = resource_config.get("content", "")
+            content = resource_config.get("text")
+            if content is None:
+                content = resource_config.get("content", "")
 
             # If a function is provided, use from_function, else create a static resource
             fn = resource_config.get("function")
@@ -422,8 +545,12 @@ class MCPResourceManager(ResourceManager):
             else:
                 # Create a simple resource with a static read method
                 class StaticResource(Resource):
+                    def __init__(self, *, text: str, **kwargs):
+                        super().__init__(**kwargs)
+                        self._composer_text = text
+
                     async def read(self) -> str:
-                        return content
+                        return self._composer_text
 
                 resource = StaticResource(
                     name=resource_config["name"],
@@ -432,14 +559,84 @@ class MCPResourceManager(ResourceManager):
                     mime_type=mime_type,
                     tags=tags,
                     enabled=enabled,
+                    text=content,
                 )
 
             self.add_resource(resource)
+            if persist and not fn:
+                record = self._resource_record(
+                    kind=self.RESOURCE_KIND,
+                    name=resource_config["name"],
+                    description=description,
+                    text=content or "",
+                    uri=str(uri),
+                    mime_type=mime_type,
+                    tags=tags,
+                    enabled=enabled,
+                )
+                self._persist_record(record)
             logger.info("Resource %s created successfully", resource_config["name"])
             return f"Resource '{resource_config['name']}' created successfully"
         except Exception as e:
             logger.error("Error creating resource: %s", e)
             return f"Failed to create resource: {str(e)}"
+
+    async def delete_resources(
+        self, resource_names: list[str], resource_type: str | None = None
+    ) -> str:
+        """Delete stored resources or templates."""
+        if not resource_names:
+            return "No resource names provided"
+
+        targets = {name.lower() for name in resource_names}
+        removed: list[str] = []
+
+        # Delete from our shadowed _resources dict
+        # The parent's add_resource() actually modifies self._resources (our shadowed version)
+        # because Python's attribute lookup finds our shadowed attribute first
+        if resource_type in (None, self.RESOURCE_KIND):
+            # Iterate through our _resources dict and match by name
+            for key, resource in list(self._resources.items()):
+                if hasattr(resource, 'name') and resource.name.lower() in targets:
+                    removed.append(resource.name)
+                    del self._resources[key]
+                    self._remove_persisted_record(
+                        self._storage_id(self.RESOURCE_KIND, resource.name)
+                    )
+            # Also check parent's dict in case resources were stored there
+            for key, resource in list(self._parent_resources.items()):
+                if hasattr(resource, 'name') and resource.name.lower() in targets:
+                    if resource.name not in removed:  # Avoid duplicate removal messages
+                        removed.append(resource.name)
+                    del self._parent_resources[key]
+                    self._remove_persisted_record(
+                        self._storage_id(self.RESOURCE_KIND, resource.name)
+                    )
+
+        # Delete from our shadowed _resource_templates dict
+        if resource_type in (None, self.TEMPLATE_KIND):
+            # Iterate through our _resource_templates dict and match by name
+            for key, template in list(self._resource_templates.items()):
+                if hasattr(template, 'name') and template.name.lower() in targets:
+                    removed.append(template.name)
+                    del self._resource_templates[key]
+                    self._remove_persisted_record(
+                        self._storage_id(self.TEMPLATE_KIND, template.name)
+                    )
+            # Also check parent's dict in case templates were stored there
+            for key, template in list(self._parent_templates.items()):
+                if hasattr(template, 'name') and template.name.lower() in targets:
+                    if template.name not in removed:  # Avoid duplicate removal messages
+                        removed.append(template.name)
+                    del self._parent_templates[key]
+                    self._remove_persisted_record(
+                        self._storage_id(self.TEMPLATE_KIND, template.name)
+                    )
+
+        if not removed:
+            return "No matching resources or templates found to delete"
+
+        return f"Deleted resources/templates: {', '.join(sorted(set(removed)))}"
 
     async def list_resources_per_server(self, server_id: str) -> List[Dict]:
         """List all resources from a specific server."""

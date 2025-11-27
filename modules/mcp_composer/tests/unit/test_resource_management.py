@@ -5,6 +5,7 @@ import pytest
 from mcp_composer.core.composer import MCPComposer
 from mcp_composer.core.member_servers.member_server import HealthStatus
 from mcp_composer.core.resources.resource_manager import MCPResourceManager
+from mcp_composer.store.fake_database import FakeDatabase
 
 # pylint: disable=protected-access
 
@@ -18,6 +19,7 @@ async def test_add_resource_template():
         "name": "test_resource",
         "description": "A test resource",
         "template": "Resource template",
+        "uri_template": "resource://test_resource/{item}",
     }
 
     result = await composer._resource_manager.create_resource_template(resource_config)
@@ -49,6 +51,7 @@ async def test_create_resource():
 
     # Test creating with minimal config
     minimal_config = {"name": "minimal_resource"}
+    minimal_config["uri"] = "resource://minimal_resource"
     result = await composer._resource_manager.create_resource(minimal_config)
     assert "created successfully" in result
 
@@ -63,6 +66,7 @@ async def test_list_resource_templates():
         "name": "test_template",
         "description": "A test resource template",
         "template": "Resource template content",
+        "uri_template": "resource://test_template/{item}",
     }
     await composer._resource_manager.create_resource_template(resource_config)
 
@@ -81,6 +85,7 @@ async def test_list_resources():
         "name": "test_resource",
         "description": "A test resource",
         "content": "Test content",
+        "uri": "resource://test_resource",
     }
     await composer._resource_manager.create_resource(resource_config)
 
@@ -99,12 +104,88 @@ async def test_list_resources_via_composer():
         "name": "test_resource",
         "description": "A test resource",
         "content": "Test content",
+        "uri": "resource://test_resource_composer",
     }
     await composer._resource_manager.create_resource(resource_config)
 
     result = await composer.list_resources()
     assert len(result) >= 1
     assert any(r["name"] == "test_resource" for r in result)
+
+
+@pytest.mark.asyncio
+async def test_list_resources_preserves_fields():
+    """Ensure list_resources returns full metadata for created resources."""
+    composer = MCPComposer("test-composer")
+
+    resource_config = {
+        "name": "metadata_resource",
+        "description": "Resource with explicit metadata",
+        "content": "Resource body",
+        "uri": "resource://metadata/resource",
+    }
+
+    await composer._resource_manager.create_resource(resource_config)
+
+    listed_resources = await composer.list_resources()
+    target = next(
+        (resource for resource in listed_resources if resource["name"] == "metadata_resource"),
+        None,
+    )
+
+    assert target is not None, "Resource should be present in listed resources"
+    assert target["name"] == resource_config["name"]
+    assert target["description"] == resource_config["description"]
+    assert target["uri"] == resource_config["uri"]
+    assert target["text"] == resource_config["content"]
+
+    # resources/read equivalent: verify the underlying resource exposes the same metadata/content
+    manager_resources = await composer._resource_manager.list_resources()
+    manager_target = next((res for res in manager_resources if res.name == "metadata_resource"), None)
+    assert manager_target is not None, "Underlying resource should exist"
+    assert manager_target.description == resource_config["description"]
+    assert str(manager_target.uri) == resource_config["uri"]
+    assert await manager_target.read() == resource_config["content"]
+
+
+@pytest.mark.asyncio
+async def test_list_resources_returns_text_field():
+    """Composer list_resources should expose stored text field."""
+    composer = MCPComposer("test-composer")
+
+    resource_config = {
+        "name": "textual_resource",
+        "description": "Contains body text",
+        "text": "Full body text",
+        "uri": "resource://textual_resource",
+    }
+
+    await composer._resource_manager.create_resource(resource_config)
+
+    listed_resources = await composer.list_resources()
+    target = next((resource for resource in listed_resources if resource["name"] == "textual_resource"), None)
+    assert target is not None
+    assert target["text"] == resource_config["text"]
+
+
+@pytest.mark.asyncio
+async def test_list_resource_templates_returns_text_field():
+    """Composer list_resource_templates should expose stored template text."""
+    composer = MCPComposer("test-composer")
+
+    template_config = {
+        "name": "textual_template",
+        "description": "Template with body text",
+        "text": "Template body content",
+        "uri_template": "resource://textual_template/{item}",
+    }
+
+    await composer._resource_manager.create_resource_template(template_config)
+
+    listed_templates = await composer.list_resource_templates()
+    target = next((template for template in listed_templates if template["name"] == "textual_template"), None)
+    assert target is not None
+    assert target["text"] == template_config["text"]
 
 
 @pytest.mark.asyncio
@@ -117,6 +198,7 @@ async def test_list_resource_templates_via_composer():
         "name": "test_template",
         "description": "A test resource template",
         "template": "Resource template content",
+        "uri_template": "resource://test_template_via/{item}",
     }
     await composer._resource_manager.create_resource_template(resource_config)
 
@@ -135,6 +217,7 @@ async def test_list_resources_per_server():
         "name": "test_resource",
         "description": "A test resource",
         "content": "Test content",
+        "uri": "resource://per_server_resource",
     }
     await composer._resource_manager.create_resource(resource_config)
 
@@ -162,16 +245,19 @@ async def test_comprehensive_filtering():
             "name": "api_docs",
             "description": "API documentation",
             "content": "API documentation content",
+            "uri": "resource://api_docs",
         },
         {
             "name": "user_guide",
             "description": "User guide",
             "content": "User guide content",
+            "uri": "resource://user_guide",
         },
         {
             "name": "config_file",
             "description": "Configuration file",
             "content": "Configuration content",
+            "uri": "resource://config_file",
         },
     ]
 
@@ -208,11 +294,13 @@ async def test_filter_resources():
             "name": "test_resource_1",
             "description": "First test resource",
             "content": "Content for first resource",
+            "uri": "resource://test_resource_1",
         },
         {
             "name": "test_resource_2",
             "description": "Second test resource",
             "content": "Content for second resource",
+            "uri": "resource://test_resource_2",
         },
     ]
 
@@ -245,8 +333,18 @@ async def test_filter_with_empty_criteria():
 
     # Add test resources
     resources = [
-        {"name": "resource1", "description": "First resource", "content": "Content 1"},
-        {"name": "resource2", "description": "Second resource", "content": "Content 2"},
+        {
+            "name": "resource1",
+            "description": "First resource",
+            "content": "Content 1",
+            "uri": "resource://resource1",
+        },
+        {
+            "name": "resource2",
+            "description": "Second resource",
+            "content": "Content 2",
+            "uri": "resource://resource2",
+        },
     ]
 
     for resource in resources:
@@ -268,6 +366,7 @@ async def test_resource_vs_template_distinction():
         "name": "template_test",
         "description": "A template",
         "template": "Template content with {{ variable }}",
+        "uri_template": "resource://template_test/{variable}",
     }
     await composer._resource_manager.create_resource_template(template_config)
 
@@ -276,6 +375,7 @@ async def test_resource_vs_template_distinction():
         "name": "resource_test",
         "description": "A resource",
         "content": "Resource content",
+        "uri": "resource://resource_test",
     }
     await composer._resource_manager.create_resource(resource_config)
 
@@ -312,6 +412,7 @@ async def test_disable_resources():
         "name": "test_resource",
         "description": "A test resource",
         "content": "Test content",
+        "uri": "resource://disable_test_resource",
     }
     await composer._resource_manager.create_resource(resource_config)
 
@@ -376,8 +477,18 @@ async def test_disable_and_enable_resources_integration():
 
     # Add test resources
     resources = [
-        {"name": "resource1", "description": "First resource", "content": "Content 1"},
-        {"name": "resource2", "description": "Second resource", "content": "Content 2"},
+        {
+            "name": "resource1",
+            "description": "First resource",
+            "content": "Content 1",
+            "uri": "resource://integration_resource1",
+        },
+        {
+            "name": "resource2",
+            "description": "Second resource",
+            "content": "Content 2",
+            "uri": "resource://integration_resource2",
+        },
     ]
 
     for resource in resources:
@@ -431,6 +542,7 @@ async def test_disable_resources_with_mounted_server():
         "name": "test_resource",
         "description": "A test resource",
         "content": "Test content",
+        "uri": "resource://disable_mounted_test_resource",
     }
     await composer._resource_manager.create_resource(resource_config)
 
@@ -495,8 +607,18 @@ async def test_disable_and_enable_resources_integration_with_mounted_server():
 
     # Add test resources
     resources = [
-        {"name": "resource1", "description": "First resource", "content": "Content 1"},
-        {"name": "resource2", "description": "Second resource", "content": "Content 2"},
+        {
+            "name": "resource1",
+            "description": "First resource",
+            "content": "Content 1",
+            "uri": "resource://mounted_resource1",
+        },
+        {
+            "name": "resource2",
+            "description": "Second resource",
+            "content": "Content 2",
+            "uri": "resource://mounted_resource2",
+        },
     ]
 
     for resource in resources:
@@ -712,6 +834,7 @@ async def test_create_resource_template_with_function():
         "name": "function_template",
         "description": "A template with function",
         "template": "Template with {{ param }}",
+        "uri_template": "resource://function_template/{param}",
     }
 
     result = await resource_manager.create_resource_template(template_config)
@@ -744,6 +867,7 @@ async def test_create_resource_with_content():
         "name": "content_resource",
         "description": "A resource with content",
         "content": "This is the resource content",
+        "uri": "resource://content_resource",
     }
 
     result = await resource_manager.create_resource(resource_config)
@@ -840,3 +964,58 @@ async def test_enable_resources_with_database():
 
     # Note: The database is not called directly by enable_resources,
     # it's called by the server manager, so we don't assert this
+
+
+@pytest.mark.asyncio
+async def test_persisted_resources_reload_from_store():
+    """Resources saved to the database should reload on a new manager."""
+    fake_db = FakeDatabase()
+    manager = MCPResourceManager(MagicMock(), database=fake_db)
+
+    resource_config = {
+        "name": "persisted_resource",
+        "description": "Persisted resource",
+        "uri": "resource://persisted/resource",
+        "text": "Persisted text",
+        "tags": ["persisted"],
+    }
+
+    await manager.create_resource(resource_config)
+    assert fake_db.load_all_resources()
+
+    new_manager = MCPResourceManager(MagicMock(), database=fake_db)
+    await new_manager.restore_persisted_resources()
+    resources = await new_manager.list_resources()
+    assert any(res.name == "persisted_resource" for res in resources)
+
+
+@pytest.mark.asyncio
+async def test_delete_resources_removes_from_store():
+    """Deleting resources/templates removes persisted definitions."""
+    fake_db = FakeDatabase()
+    manager = MCPResourceManager(MagicMock(), database=fake_db)
+
+    await manager.create_resource(
+        {
+            "name": "resource_to_delete",
+            "description": "Delete me",
+            "uri": "resource://delete/me",
+            "text": "remove",
+        }
+    )
+    await manager.create_resource_template(
+        {
+            "name": "template_to_delete",
+            "description": "Template delete",
+            "uri_template": "resource://template_to_delete/{x}",
+            "text": "template body",
+        }
+    )
+
+    assert len(fake_db.load_all_resources()) == 2
+
+    result = await manager.delete_resources(
+        ["resource_to_delete", "template_to_delete"]
+    )
+    assert "Deleted resources/templates" in result
+    assert not fake_db.load_all_resources()
