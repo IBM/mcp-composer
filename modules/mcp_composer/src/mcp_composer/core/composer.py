@@ -180,6 +180,7 @@ class MCPComposer(FastMCP):
         self._resource_manager = MCPResourceManager(
             server_manager=self._server_manager, database=database
         )
+        self._resource_manager.schedule_persisted_restore()
         self._prompt_manager = MCPPromptManager(
             server_manager=self._server_manager, database=database
         )
@@ -286,6 +287,7 @@ class MCPComposer(FastMCP):
             self.filter_resources,
             self.disable_resources,
             self.enable_resources,
+            self.delete_resources,
         ]
 
         # Combine all tools into a single list
@@ -810,6 +812,14 @@ class MCPComposer(FastMCP):
         Enable a resource or multiple resources from the member server
         """
         return await self._resource_manager.enable_resources(resources, server_id)
+
+    async def delete_resources(
+        self, resources: list[str], resource_type: str | None = None
+    ) -> str:
+        """
+        Delete one or more stored resources or templates.
+        """
+        return await self._resource_manager.delete_resources(resources, resource_type)
 
     def disable_composer_tool(self, tools: Optional[list[str]] = None) -> str:
         """

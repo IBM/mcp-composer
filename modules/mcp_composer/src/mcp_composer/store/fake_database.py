@@ -8,6 +8,7 @@ class FakeDatabase(DatabaseInterface):
     def __init__(self) -> None:
         self._servers: dict[str, Dict] = {}
         self._tools: list[Dict] = []
+        self._resources: dict[str, Dict] = {}
 
     def load_all_servers(self) -> list[Dict]:
         return list(self._servers.values())
@@ -21,6 +22,7 @@ class FakeDatabase(DatabaseInterface):
     def reset(self) -> None:
         self._servers.clear()
         self._tools.clear()
+        self._resources.clear()
 
     def mark_deactivated(self, server_id: str) -> None:
         if server_id in self._servers:
@@ -82,3 +84,12 @@ class FakeDatabase(DatabaseInterface):
 
     def update_server_config(self, config: dict) -> None:
         self._servers[config["id"]] = config
+
+    def load_all_resources(self) -> list[Dict]:
+        return list(self._resources.values())
+
+    def upsert_resource(self, resource: Dict) -> None:
+        self._resources[resource["storage_id"]] = resource
+
+    def delete_resource(self, resource_id: str) -> None:
+        self._resources.pop(resource_id, None)

@@ -5,6 +5,7 @@ import pytest
 from mcp_composer.core.composer import MCPComposer
 from mcp_composer.core.member_servers.member_server import HealthStatus
 from mcp_composer.core.resources.resource_manager import MCPResourceManager
+from mcp_composer.store.fake_database import FakeDatabase
 
 # pylint: disable=protected-access
 
@@ -963,3 +964,58 @@ async def test_enable_resources_with_database():
 
     # Note: The database is not called directly by enable_resources,
     # it's called by the server manager, so we don't assert this
+
+
+@pytest.mark.asyncio
+async def test_persisted_resources_reload_from_store():
+    """Resources saved to the database should reload on a new manager."""
+    fake_db = FakeDatabase()
+    manager = MCPResourceManager(MagicMock(), database=fake_db)
+
+    resource_config = {
+        "name": "persisted_resource",
+        "description": "Persisted resource",
+        "uri": "resource://persisted/resource",
+        "text": "Persisted text",
+        "tags": ["persisted"],
+    }
+
+    await manager.create_resource(resource_config)
+    assert fake_db.load_all_resources()
+
+    new_manager = MCPResourceManager(MagicMock(), database=fake_db)
+    await new_manager.restore_persisted_resources()
+    resources = await new_manager.list_resources()
+    assert any(res.name == "persisted_resource" for res in resources)
+
+
+@pytest.mark.asyncio
+async def test_delete_resources_removes_from_store():
+    """Deleting resources/templates removes persisted definitions."""
+    fake_db = FakeDatabase()
+    manager = MCPResourceManager(MagicMock(), database=fake_db)
+
+    await manager.create_resource(
+        {
+            "name": "resource_to_delete",
+            "description": "Delete me",
+            "uri": "resource://delete/me",
+            "text": "remove",
+        }
+    )
+    await manager.create_resource_template(
+        {
+            "name": "template_to_delete",
+            "description": "Template delete",
+            "uri_template": "resource://template_to_delete/{x}",
+            "text": "template body",
+        }
+    )
+
+    assert len(fake_db.load_all_resources()) == 2
+
+    result = await manager.delete_resources(
+        ["resource_to_delete", "template_to_delete"]
+    )
+    assert "Deleted resources/templates" in result
+    assert not fake_db.load_all_resources()
