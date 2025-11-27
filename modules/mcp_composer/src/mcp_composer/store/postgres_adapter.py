@@ -46,6 +46,7 @@ class PostgresAdapter(DatabaseInterface):
             max_size: Maximum connections in the pool
         """
         self._table_name = table_name
+        self._resources_table_name = f"{table_name}_resources"
         self._pool: Optional[asyncpg.Pool] = None
         self._min_size = min_size
         self._max_size = max_size
@@ -158,6 +159,24 @@ class PostgresAdapter(DatabaseInterface):
                 CREATE INDEX IF NOT EXISTS idx_{self._table_name}_id
                 ON {self._table_name} (id);
             """)
+
+            await conn.execute(
+                f"""
+                CREATE TABLE IF NOT EXISTS {self._resources_table_name} (
+                    id VARCHAR(255) PRIMARY KEY,
+                    data JSONB NOT NULL,
+                    kind VARCHAR(32) NOT NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                );
+                """
+            )
+            await conn.execute(
+                f"""
+                CREATE INDEX IF NOT EXISTS idx_{self._resources_table_name}_id
+                ON {self._resources_table_name} (id);
+                """
+            )
 
             logger.info("PostgreSQL database and table initialized successfully")
         finally:
@@ -819,6 +838,72 @@ class PostgresAdapter(DatabaseInterface):
 
         except Exception as e:
             logger.error("Failed to update server '%s': %s", server_id, e)
+            raise
+
+    def load_all_resources(self) -> List[Dict[str, Any]]:
+        return self._run_async(self._async_load_all_resources())
+
+    async def _async_load_all_resources(self) -> List[Dict[str, Any]]:
+        try:
+            conn = await self._get_connection()
+            try:
+                result = await conn.fetch(
+                    f"SELECT data FROM {self._resources_table_name}"
+                )
+                resources: List[Dict[str, Any]] = []
+                for row in result:
+                    resources.append(self._parse_config(row["data"]))
+                return resources
+            finally:
+                await conn.close()
+        except Exception as exc:
+            logger.error("PostgreSQL resource load failed: %s", exc)
+            return []
+
+    def upsert_resource(self, resource: Dict[str, Any]) -> None:
+        self._run_async(self._async_upsert_resource(resource))
+
+    async def _async_upsert_resource(self, resource: Dict[str, Any]) -> None:
+        storage_id = resource["storage_id"]
+        try:
+            conn = await self._get_connection()
+            try:
+                await conn.execute(
+                    f"""
+                    INSERT INTO {self._resources_table_name} (id, data, kind, updated_at)
+                    VALUES ($1, $2, $3, CURRENT_TIMESTAMP)
+                    ON CONFLICT (id) DO UPDATE SET
+                        data = EXCLUDED.data,
+                        kind = EXCLUDED.kind,
+                        updated_at = CURRENT_TIMESTAMP
+                    """,
+                    storage_id,
+                    json.dumps(resource),
+                    resource.get("resource_type", "resource"),
+                )
+                logger.info("Saved resource '%s' to PostgreSQL", storage_id)
+            finally:
+                await conn.close()
+        except Exception as exc:
+            logger.error("Failed to save resource '%s': %s", storage_id, exc)
+            raise
+
+    def delete_resource(self, resource_id: str) -> None:
+        self._run_async(self._async_delete_resource(resource_id))
+
+    async def _async_delete_resource(self, resource_id: str) -> None:
+        try:
+            conn = await self._get_connection()
+            try:
+                await conn.execute(
+                    f"DELETE FROM {self._resources_table_name} WHERE id = $1",
+                    resource_id,
+                )
+                logger.info("Deleted resource '%s' from PostgreSQL", resource_id)
+            finally:
+                await conn.close()
+        except Exception as exc:
+            logger.error("Failed to delete resource '%s': %s", resource_id, exc)
             raise
 
     def close(self) -> None:
