@@ -22,18 +22,26 @@ class LocalFileAdapter(DatabaseInterface):
     def __init__(
         self,
         file_path: str | None = None,
+        resources_file_path: str | None = None,
     ):
         if file_path is None:
             file_path = os.getenv("SERVER_CONFIG_FILE_PATH", "member_servers.json")
         self._file_path = Path(file_path)
+        if resources_file_path is None:
+            resources_file_path = os.getenv(
+                "RESOURCE_CONFIG_FILE_PATH", "composer_resources.json"
+            )
+        self._resources_file_path = Path(resources_file_path)
         logger.info(
             "Using local file storage for configuration storage: %s", self._file_path
         )
 
         # Initialize file availability flag to False (pessimistic approach)
         self._file_available = False
+        self._resources_file_available = False
 
         self._ensure_file_exists()
+        self._ensure_resources_file_exists()
 
     def _ensure_file_exists(self) -> None:
         """Ensure the file exists, create it if it doesn't. Fail gracefully if creation fails."""
@@ -55,6 +63,25 @@ class LocalFileAdapter(DatabaseInterface):
                 self._file_available = True
         else:
             self._file_available = True
+
+    def _ensure_resources_file_exists(self) -> None:
+        if not self._resources_file_path.exists():
+            try:
+                logger.info("Creating composer resources storage file")
+                self._resources_file_path.parent.mkdir(parents=True, exist_ok=True)
+                with open(self._resources_file_path, "w", encoding="utf-8") as f:
+                    json.dump([], f)
+                logger.info("Successfully created composer resources storage file")
+            except Exception as e:
+                logger.warning(
+                    "Failed to create composer resources storage file: %s. Continuing without file persistence.",
+                    e,
+                )
+                self._resources_file_available = False
+            else:
+                self._resources_file_available = True
+        else:
+            self._resources_file_available = True
 
     def _read_data(self) -> List[Dict]:
         if not self._file_available:
@@ -84,6 +111,35 @@ class LocalFileAdapter(DatabaseInterface):
             logger.warning("Failed to write to member_servers.json file: %s", e)
             # Mark file as unavailable for future operations
             self._file_available = False
+
+    def _read_resources_data(self) -> List[Dict]:
+        if not self._resources_file_available:
+            return []
+
+        try:
+            with open(self._resources_file_path, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except (json.JSONDecodeError, FileNotFoundError):
+            return []
+        except Exception as e:
+            logger.warning(
+                "Failed to read from composer resources storage file: %s", e
+            )
+            self._resources_file_available = False
+            return []
+
+    def _write_resources_data(self, data: List[Dict]) -> None:
+        if not self._resources_file_available:
+            return
+
+        try:
+            with open(self._resources_file_path, "w", encoding="utf-8") as f:
+                json.dump(data, f, indent=2)
+        except Exception as e:
+            logger.warning(
+                "Failed to write to composer resources storage file: %s", e
+            )
+            self._resources_file_available = False
 
     def load_all_servers(self) -> List[Dict]:
         """Fetch all member server from file storage"""
@@ -221,6 +277,30 @@ class LocalFileAdapter(DatabaseInterface):
                     )
 
         self._write_data(data)
+
+    def _find_resource_index(self, storage_id: str, data: List[Dict]) -> int:
+        for idx, record in enumerate(data):
+            if record.get("storage_id") == storage_id:
+                return idx
+        return -1
+
+    def load_all_resources(self) -> List[Dict]:
+        return self._read_resources_data()
+
+    def upsert_resource(self, resource: Dict) -> None:
+        data = self._read_resources_data()
+        idx = self._find_resource_index(resource["storage_id"], data)
+        if idx >= 0:
+            data[idx] = resource
+        else:
+            data.append(resource)
+        self._write_resources_data(data)
+
+    def delete_resource(self, resource_id: str) -> None:
+        data = self._read_resources_data()
+        updated = [record for record in data if record.get("storage_id") != resource_id]
+        if len(updated) != len(data):
+            self._write_resources_data(updated)
 
     def disable_prompts(self, prompts: list[str], server_id: str) -> None:
         """Add or Update disabled prompts in file for the member server"""

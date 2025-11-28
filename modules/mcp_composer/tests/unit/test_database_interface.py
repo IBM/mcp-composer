@@ -31,6 +31,9 @@ class TestDatabaseInterface:
             "mark_deactivated",
             "get_server_status",
             "update_server_config",
+            "load_all_resources",
+            "upsert_resource",
+            "delete_resource",
         }
 
         assert abstract_methods == expected_methods
@@ -95,6 +98,15 @@ class TestDatabaseInterface:
                 return "active"
 
             def update_server_config(self, config):
+                pass
+
+            def load_all_resources(self):
+                return []
+
+            def upsert_resource(self, record):
+                pass
+
+            def delete_resource(self, storage_id):
                 pass
 
         # Should work without raising TypeError
@@ -196,6 +208,21 @@ class TestDatabaseInterface:
         sig = DatabaseInterface.update_server_config.__annotations__
         assert "config" in sig
         assert sig["config"] == dict
+
+        # Test load_all_resources
+        sig = DatabaseInterface.load_all_resources.__annotations__
+        assert "return" in sig
+        assert sig["return"] == List[Dict]
+
+        # Test upsert_resource
+        sig = DatabaseInterface.upsert_resource.__annotations__
+        assert "resource" in sig
+        assert sig["resource"] == Dict
+
+        # Test delete_resource
+        sig = DatabaseInterface.delete_resource.__annotations__
+        assert "resource_id" in sig
+        assert sig["resource_id"] == str
 
     def test_docstrings_exist(self):
         """Test that methods have docstrings"""
