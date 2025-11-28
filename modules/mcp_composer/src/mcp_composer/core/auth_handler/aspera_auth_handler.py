@@ -14,7 +14,7 @@ DEFAULT_TOKEN_EXPIRY = 3600
 TOKEN_REFRESH_BUFFER = 60
 DEFAULT_SCOPE = "user:all"
 
-
+DEFAULT_TIMEOUT = 30.0
 
 class AsperaJWTClient(httpx.AsyncClient):
     """
@@ -31,7 +31,7 @@ class AsperaJWTClient(httpx.AsyncClient):
         self,
         base_url: str,
         auth_data: dict[str, Any] | None = None,
-        timeout: float = 10.0,
+        timeout: float = DEFAULT_TIMEOUT,
         headers: dict[str, str] | None = None,
         **kwargs: Any,
     ) -> None:

@@ -15,7 +15,7 @@ class DynamicTokenManager(httpx.AsyncClient):
         self,
         *,
         base_url: str,
-        timeout: float = 10.0,
+        timeout: float = 30.0,
         **kwargs: Any,
     ) -> None:
         self.auth_strategy = kwargs.pop(ConfigKey.AUTH_STRATEGY, None)
