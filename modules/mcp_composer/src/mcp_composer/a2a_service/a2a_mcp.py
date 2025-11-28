@@ -188,7 +188,7 @@ async def register_agent(url: str, ctx: Context) -> Dict[str, Any]:
         # Store the agent information
         if not agent_card.description:
             agent_card.description = "No description provided"
-        registered_agents[agent_card.url] = agent_card
+        registered_agents[url] = agent_card
 
         # Save to disk immediately
         agents_data = {
@@ -519,7 +519,7 @@ def build_agent_card_embeddings() -> pd.DataFrame:
     card_uris, agent_cards = load_agent_cards()
     logger.info("Generating Embeddings for agent cards:%s: %s", card_uris, agent_cards)
     try:
-        if agent_cards:
+        if agent_cards and len(agent_cards) > 0:
             df = pd.DataFrame({"card_uri": card_uris, "agent_card": agent_cards})
             df["card_embeddings"] = df["agent_card"].apply(
                 lambda card: generate_embeddings(json.dumps(card))
@@ -592,7 +592,10 @@ def get_agent_cards() -> dict:
     df = build_agent_card_embeddings()
     resources = {}
     logger.info("Starting read resources")
-    resources["agent_cards"] = df["card_uri"].to_list()
+    if df.empty:
+        resources["agent_cards"] = []
+    else:
+        resources["agent_cards"] = df["card_uri"].to_list()
     return resources
 
 
@@ -608,6 +611,9 @@ def get_agent_card(card_name: str) -> dict:
     df = build_agent_card_embeddings()
     resources = {}
     logger.info(f"Starting read resource resource://agent_cards/{card_name}")
+    if df.empty:
+        resources["agent_card"] = []
+        return resources
     resources["agent_card"] = (
         df.loc[
             df["card_uri"] == f"resource://agent_cards/{card_name}",
