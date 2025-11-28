@@ -19,7 +19,7 @@ class DynamicTokenClient(httpx.AsyncClient):
         self,
         base_url: str,
         auth_data: dict[str, Any] | None = None,
-        timeout: float = 10.0,
+        timeout: float = 30.0,
         headers: dict[str, str] | None = None,
         **kwargs: Any,
     ) -> None:
