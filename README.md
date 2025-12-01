@@ -1702,9 +1702,12 @@ Retrieves all loaded agent cards as MCP resource URIs.
 
 ```json
 {
-  "agent_cards": [
-    "resource://agent_cards/example_agent",
-    "resource://agent_cards/another_agent"
+  "contents": [
+    {
+      "uri": "resource://agent_cards/list",
+      "mimeType": "application/json",
+      "text": "{\"agent_cards\":[\"resource://agent_cards/hello_world_agent\"]}"
+    }
   ]
 }
 ```
@@ -1721,27 +1724,11 @@ Retrieves a specific agent card by name as an MCP resource.
 
 ```json
 {
-  "agent_card": [
+  "contents": [
     {
-      "name": "Example Agent",
-      "description": "An example A2A agent",
-      "url": "https://example-agent.com",
-      "version": "1.0.0",
-      "capabilities": {
-        "streaming": false
-      },
-      "default_input_modes": ["text"],
-      "default_output_modes": ["text"],
-      "skills": [
-        {
-          "id": "example_skill",
-          "name": "Example Skill",
-          "description": "An example skill",
-          "tags": [],
-          "input_modes": ["text"],
-          "output_modes": ["text"]
-        }
-      ]
+      "uri": "agent://agent_cards/hello_world_agent",
+      "mimeType": "application/json",
+      "text": "{\"agent_card\":[{\"additionalInterfaces\":null,\"capabilities\":{\"extensions\":null,\"pushNotifications\":null,\"stateTransitionHistory\":null,\"streaming\":true},\"defaultInputModes\":[\"text\"],\"defaultOutputModes\":[\"text\"],\"description\":\"Just a hello world agent\",\"documentationUrl\":null,\"iconUrl\":null,\"name\":\"Hello World Agent\",\"preferredTransport\":\"JSONRPC\",\"protocolVersion\":\"0.3.0\",\"provider\":null,\"security\":null,\"securitySchemes\":null,\"signatures\":null,\"skills\":[{\"description\":\"just returns hello world\",\"examples\":[\"hi\",\"hello world\"],\"id\":\"hello_world\",\"inputModes\":null,\"name\":\"Returns hello world\",\"outputModes\":null,\"security\":null,\"tags\":[\"hello world\"]}],\"supportsAuthenticatedExtendedCard\":true,\"url\":\"http://localhost:9999/\",\"version\":\"1.0.0\"}]}"
     }
   ]
 }

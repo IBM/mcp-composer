@@ -11,6 +11,7 @@ from fastmcp import FastMCP
 from fastmcp.server.auth.auth import OAuthProvider
 from fastmcp.tools.tool import Tool
 from fastmcp.resources.resource import Resource
+from fastmcp.resources.template import ResourceTemplate
 from mcp_composer.core.tools import MCPToolManager
 from mcp_composer.core.utils import (
     LoggerFactory,
@@ -234,11 +235,12 @@ class MCPComposer(FastMCP):
             )
         )
 
-        self.add_resource(
-            Resource.from_function(
+        self.add_template(
+            ResourceTemplate.from_function(
                 get_agent_card,
-                uri="resource://agent_cards/{card_name}",
+                uri_template="agent://agent_cards/{card_name}",
                 mime_type="application/json",
+                description="Retrieves a specific agent card by name.",
             )
         )
 
