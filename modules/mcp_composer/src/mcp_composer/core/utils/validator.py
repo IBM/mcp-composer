@@ -208,14 +208,18 @@ class ServerConfigValidator:
                 missing.append("return_url")
 
             # Email can be provided directly or via email_var (for environment variable)
-            has_email = self._has_any_key(auth, ConfigKey.USER_EMAIL)
+            # Support both USER_EMAIL and email for backward compatibility
+            has_email = self._has_any_key(auth, ConfigKey.USER_EMAIL, "email")
             if not (has_email):
-                missing.append("user_email")
+                missing.append("user_email (or email)")
 
             # Password can be provided directly or via password_var (for environment variable)
-            has_password = self._has_any_key(auth, ConfigKey.PASSWORD)
-            if not (has_password ):
-                missing.append("password")
+            # Support both USER_PASSWORD, PASSWORD, and password for backward compatibility
+            has_password = self._has_any_key(
+                auth, ConfigKey.USER_PASSWORD, ConfigKey.PASSWORD, "password"
+            )
+            if not (has_password):
+                missing.append("user_password (or password)")
         else:
             missing = [
                 key
