@@ -1,5 +1,5 @@
 version = 1
-revision = 3
+revision = 2
 requires-python = ">=3.11"
 resolution-markers = [
     "python_full_version >= '3.13'",
@@ -1456,7 +1456,6 @@ dependencies = [
     { name = "aiohttp" },
     { name = "asyncpg" },
     { name = "deepdiff" },
-    { name = "detect-secrets" },
     { name = "dotenv" },
     { name = "duckduckgo-search" },
     { name = "fastmcp" },
@@ -1495,6 +1494,7 @@ dev = [
     { name = "black" },
     { name = "coverage" },
     { name = "debugpy" },
+    { name = "detect-secrets" },
     { name = "dirty-equals" },
     { name = "mypy" },
     { name = "pre-commit" },
@@ -1516,7 +1516,6 @@ requires-dist = [
     { name = "aiohttp", specifier = "==3.12.14" },
     { name = "asyncpg", specifier = ">=0.29.0" },
     { name = "deepdiff", specifier = ">=8.6.1" },
-    { name = "detect-secrets", specifier = ">=1.5.0" },
     { name = "dotenv", specifier = ">=0.9.9" },
     { name = "duckduckgo-search", specifier = ">=6.3.0" },
     { name = "fastmcp", specifier = "==2.13.1" },
@@ -1552,6 +1551,7 @@ dev = [
     { name = "black", specifier = "==24.4" },
     { name = "coverage", specifier = "==7.5" },
     { name = "debugpy", specifier = ">=1.8.16" },
+    { name = "detect-secrets", specifier = ">=1.5.0" },
     { name = "dirty-equals", specifier = "==0.9.0" },
     { name = "mypy", specifier = "==1.10.0" },
     { name = "pre-commit" },
