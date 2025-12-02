@@ -247,6 +247,36 @@ class TestValidatorExtended:
         # Should not raise an exception
         validator.validate()
 
+    def test_validate_solis_oauth_handler_missing_email(self):
+        """Test SOLIS_OAUTH_HANDLER auth strategy fails when email is missing."""
+        from mcp_composer.core.utils.validator import ServerConfigValidator, AuthStrategy, ConfigKey
+
+        config = {
+            "id": "mcp-dal",
+            "type": "http",
+            "endpoint": "https://zertg.us-east.ibm.stepzen.net/solis-dal/suite-automation/mcp",
+            "auth_strategy": AuthStrategy.SOLIS_OAUTH_HANDLER,
+            "auth": {
+                # Note: 'email' intentionally omitted to trigger validator error
+                "password": "ENV_INSTANA_SOLIS_PASSWORD_DEV",
+                # Different values, same URL-encoded / URL format
+                "return_url": "https%3A%2F%2Fexample.sangria.instana.tools%2Fcallback%2F",
+                "login_url": "https://example.xangria.instana.tools/auth/signIn",
+                "cert_url": "ENV_CERT_URL",
+            },
+        }
+
+        validator = ServerConfigValidator(config)
+
+        with pytest.raises(
+            ValidationError,
+            match=(
+                "Missing field\\(s\\) in ConfigKey.AUTH for 'solis_oauth_handler' strategy on server "
+                "'mcp-dal': email or email_var \\(or EMAIL/EMAIL_VAR\\)"
+            ),
+        ):
+            validator.validate()
+
     def test_validate_stdio_server(self):
         """Test stdio server validation"""
         from mcp_composer.core.utils.validator import ServerConfigValidator
