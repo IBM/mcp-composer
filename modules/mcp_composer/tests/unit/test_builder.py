@@ -143,6 +143,64 @@ async def test_build_from_transport_http_with_oauth():
 
 
 @pytest.mark.asyncio
+async def test_build_from_transport_http_with_solis_oauth_handler():
+    """Register HTTP MCP server using solis_oauth_handler auth strategy."""
+    config = {
+        ConfigKey.ID: "mcp-dal",
+        ConfigKey.TYPE: MemberServerType.HTTP,
+        ConfigKey.ENDPOINT: "https://kamahuha.us-east-a.ibm.stepzen.net/solis-dal/suite-automation/mcp",
+        # 'layered' flag is ignored for HTTP/SSE, but included to mirror real config
+        ConfigKey.LAYERED: True,
+        ConfigKey.AUTH_STRATEGY: AuthStrategy.SOLIS_OAUTH_HANDLER,
+        ConfigKey.AUTH: {
+            # These mirror the JSON config fields; actual values are resolved by SolisJWTTokenGenerator
+            "email": "ENV_INSTANA_SOLIS_EMAIL_DEV",
+            ConfigKey.PASSWORD: "ENV_INSTANA_SOLIS_PASSWORD_DEV",
+            ConfigKey.RETURN_URL: "https%3A%2F%2Funit02-techpreview002.sangria.instana.tools%2F",
+            ConfigKey.LOGIN_URL: "https://unit02-techpreview002.sangria.instana.tools/auth/signIn",
+            ConfigKey.CERT_URL: "ENV_CERT_URL",
+        },
+    }
+
+    builder = MCPServerBuilder(config)
+
+    with (
+        patch("mcp_composer.core.member_servers.builder.StreamableHttpTransport") as mock_transport,
+        patch("mcp_composer.core.member_servers.builder.Client") as mock_client_cls,
+        patch("mcp_composer.core.member_servers.builder.FastMCP") as mock_fastmcp,
+        patch("mcp_composer.core.member_servers.builder.SolisJWTTokenGenerator") as mock_token_gen_cls,
+    ):
+        mock_token_gen = MagicMock()
+        mock_token_gen.get_jwt_token = AsyncMock(return_value="mock-jwt-token")
+        mock_token_gen_cls.return_value = mock_token_gen
+
+        mock_client = MagicMock()
+        mock_client_cls.return_value = mock_client
+
+        mock_fastmcp.as_proxy.return_value = "proxy-server"
+
+        result = await builder._build_from_transport(MemberServerType.HTTP)
+
+        # Ensure the FastMCP proxy is returned
+        assert result == "proxy-server"
+
+        # SolisJWTTokenGenerator should be constructed with the auth config
+        mock_token_gen_cls.assert_called_once_with(auth_data=config[ConfigKey.AUTH])
+        mock_token_gen.get_jwt_token.assert_awaited_once()
+
+        # Transport should be created with a Bearer Authorization header using the JWT
+        assert mock_transport.call_count == 1
+        _args, kwargs = mock_transport.call_args
+        assert kwargs["url"] == config[ConfigKey.ENDPOINT]
+        headers = kwargs.get("headers", {})
+        assert headers.get(ConfigKey.AUTH_HEADER.value) == "Bearer mock-jwt-token"
+
+        # Client should be created with the transport, and FastMCP.as_proxy called with it
+        mock_client_cls.assert_called_once_with(mock_transport.return_value, auth=None)
+        mock_fastmcp.as_proxy.assert_called_once_with(mock_client, name="mcp-dal")
+
+
+@pytest.mark.asyncio
 async def test_build_from_transport_invalid():
     config = {ConfigKey.ID: "srv", ConfigKey.TYPE: "invalid"}
     builder = MCPServerBuilder(config)
