@@ -725,6 +725,13 @@ def main_callback(
             help="Set timeout in seconds for server operations and connections (optional - no timeout by default)",
         ),
     ] = None,
+    version: Annotated[
+        Optional[bool],
+        Option(
+            "--version",
+            help="Show version information and exit",
+        ),
+    ] = False,
     # Unified configuration options
     config: Annotated[
         Optional[str],
@@ -750,6 +757,15 @@ def main_callback(
     ] = None,
 ) -> None:
     """Main callback to handle direct command execution matching original CLI."""
+
+    # Handle version flag
+    if version:
+        try:
+            from mcp_composer import __version__
+            typer.echo(f"MCP Composer version: {__version__}")
+        except ImportError:
+            typer.echo("MCP Composer version: unknown")
+        raise typer.Exit(0)
 
     # Handle unified configuration commands first
     if config is not None:
