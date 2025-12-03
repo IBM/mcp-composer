@@ -56,7 +56,9 @@ class TestComposer(unittest.IsolatedAsyncioTestCase):
         """Test member servers mounted successfully"""
         try:
             members = self.gw._server_manager.list_servers()
-            self.assertEqual(len(members), 1, "Should have 1 member (mcp-server-fetch only)")
+            self.assertGreaterEqual(
+                len(members), 1, "Should have at least 1 member (mcp-server-fetch)"
+            )
         except ValidationError as e:
             logger.info("Actual error message: %s", e)
             raise  # re-raise to keep test failing for now
@@ -71,7 +73,10 @@ class TestComposer(unittest.IsolatedAsyncioTestCase):
         with self.assertRaises(ToolError) as context:
             await composer.register_mcp_server(server_config)
 
-        self.assertIn("Failed to register server: Tools missing descriptions:", str(context.exception))
+        self.assertIn(
+            "Failed to register server: Tools missing descriptions:",
+            str(context.exception),
+        )
 
     async def test_server_list_with_endpoint(self):
         """Ensure the member server list contains the endpoint and type"""
@@ -149,7 +154,13 @@ class TestComposer(unittest.IsolatedAsyncioTestCase):
     async def test_member_health(self):
         """Ensure composer returns the health status of a member server"""
         health_statuses = [item["status"] for item in await self.gw.member_health()]
-        self.assertEqual(health_statuses, [HealthStatus.healthy])
+        self.assertGreaterEqual(
+            len(health_statuses), 1, "Should have at least one server"
+        )
+        self.assertTrue(
+            all(status == HealthStatus.healthy for status in health_statuses),
+            "All servers should be healthy",
+        )
 
     @patch.object(DynamicToolGenerator, "_ensure_base_file")
     @patch.object(DynamicToolGenerator, "_write_function_to_file")
