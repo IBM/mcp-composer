@@ -80,7 +80,7 @@ class AuthStrategy(str, Enum):
     APITOKEN = "apiToken"
     JSESSIONID = "jessionid"
     ASPERA_OAUTH_HANDLER = "aspera_oauth_handler"
-    SOLIS_OAUTH_HANDLER = "solis_oauth_handler"
+    SOLIS_JWT_HANDLER = "solis_jwt_handler"
 
 
 
@@ -157,7 +157,7 @@ class ServerConfigValidator:
             AuthStrategy.DYNAMIC_BEARER: ["apikey", "token_url", "id", "secret"],
             AuthStrategy.OAUTH: ["client_id", "client_secret", "token_url"],
             AuthStrategy.ASPERA_OAUTH_HANDLER: ["client_id", "secret", ConfigKey.CERT_VALUE, "token_url"],
-            AuthStrategy.SOLIS_OAUTH_HANDLER: ["login_url", "return_url", "user_email", "password"],
+            AuthStrategy.SOLIS_JWT_HANDLER: ["login_url", "return_url", "user_email", "password"],
         }
 
         # Check if strategy is supported
@@ -196,7 +196,7 @@ class ServerConfigValidator:
                 missing.append(ConfigKey.CERT_VALUE)
             if not has_token_url:
                 missing.append("token_url")
-        elif strategy == AuthStrategy.SOLIS_OAUTH_HANDLER:
+        elif strategy == AuthStrategy.SOLIS_JWT_HANDLER:
             missing = []
 
             # Check login_url (supports multiple case variations)

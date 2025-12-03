@@ -247,15 +247,15 @@ class TestValidatorExtended:
         # Should not raise an exception
         validator.validate()
 
-    def test_validate_solis_oauth_handler_missing_email(self):
-        """Test SOLIS_OAUTH_HANDLER auth strategy fails when email is missing."""
+    def test_validate_solis_jwt_handler_missing_email(self):
+        """Test SOLIS_JWT_HANDLER auth strategy fails when email is missing."""
         from mcp_composer.core.utils.validator import ServerConfigValidator, AuthStrategy, ConfigKey
 
         config = {
             "id": "mcp-dal",
             "type": "http",
             "endpoint": "https://zertg.us-east.ibm.stepzen.net/solis-dal/suite-automation/mcp",
-            "auth_strategy": AuthStrategy.SOLIS_OAUTH_HANDLER,
+            "auth_strategy": AuthStrategy.SOLIS_JWT_HANDLER,
             "auth": {
                 # Note: 'user_email' intentionally omitted to trigger validator error
                 "password": "ENV_INSTANA_SOLIS_PASSWORD_DEV",
@@ -271,21 +271,21 @@ class TestValidatorExtended:
         with pytest.raises(
             ValidationError,
             match=(
-                "Missing field\\(s\\) in ConfigKey.AUTH for 'solis_oauth_handler' strategy on server "
+                "Missing field\\(s\\) in ConfigKey.AUTH for 'solis_jwt_handler' strategy on server "
                 "'mcp-dal': user_email"
             ),
         ):
             validator.validate()
 
-    def test_validate_solis_oauth_handler_with_user_email(self):
-        """Test SOLIS_OAUTH_HANDLER passes when user_email is provided."""
+    def test_validate_solis_jwt_handler_with_user_email(self):
+        """Test SOLIS_JWT_HANDLER passes when user_email is provided."""
         from mcp_composer.core.utils.validator import ServerConfigValidator, AuthStrategy
 
         config = {
             "id": "mcp-dal",
             "type": "http",
             "endpoint": "https://zertg.us-east.ibm.stepzen.net/solis-dal/suite-automation/mcp",
-            "auth_strategy": AuthStrategy.SOLIS_OAUTH_HANDLER,
+            "auth_strategy": AuthStrategy.SOLIS_JWT_HANDLER,
             "auth": {
                 # Complete auth block including required user_email
                 "user_email": "ENV_INSTANA_SOLIS_EMAIL_DEV",
@@ -301,8 +301,8 @@ class TestValidatorExtended:
         # Should not raise a ValidationError when user_email is present
         validator.validate()
 
-    def test_all_servers_validator_with_complete_solis_oauth_config(self):
-        """Test AllServersValidator passes when a full solis_oauth_handler config is present."""
+    def test_all_servers_validator_with_complete_solis_jwt_config(self):
+        """Test AllServersValidator passes when a full solis_jwt_handler config is present."""
         from mcp_composer.core.utils.validator import AllServersValidator, AuthStrategy
 
         servers = [
@@ -310,7 +310,7 @@ class TestValidatorExtended:
                 "id": "mcp-dal",
                 "type": "http",
                 "endpoint": "https://zertg.us-east.ibm.stepzen.net/solis-dal/suite-automation/mcp",
-                "auth_strategy": AuthStrategy.SOLIS_OAUTH_HANDLER,
+                "auth_strategy": AuthStrategy.SOLIS_JWT_HANDLER,
                 "auth": {
                     "user_email": "ENV_INSTANA_SOLIS_EMAIL_DEV",
                     "password": "ENV_INSTANA_SOLIS_PASSWORD_DEV",

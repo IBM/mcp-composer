@@ -13,6 +13,7 @@ logger = LoggerFactory.get_logger()
 DEFAULT_TOKEN_EXPIRY = 3600
 TOKEN_REFRESH_BUFFER = 60
 MIN_VALIDITY_SECONDS = 600  # 10 minutes
+DEFAULT_TIMEOUT = 30.0
 
 
 class SolisJWTTokenGenerator:
@@ -179,7 +180,7 @@ class SolisJWTTokenGenerator:
         }
 
         # Create a temporary client for the login request
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(timeout=DEFAULT_TIMEOUT) as client:
             # Make login request (don't follow redirects to capture Set-Cookie)
             # CRITICAL: follow_redirects=False is required to get Set-Cookie from 302 response
             try:
@@ -250,7 +251,7 @@ class SolisJWTClient(httpx.AsyncClient):
         self,
         base_url: str,
         auth_data: dict[str, Any] | None = None,
-        timeout: float = 10.0,
+        timeout: float = DEFAULT_TIMEOUT,
         headers: dict[str, str] | None = None,
         **kwargs: Any,
     ) -> None:

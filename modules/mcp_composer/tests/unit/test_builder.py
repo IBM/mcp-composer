@@ -143,15 +143,15 @@ async def test_build_from_transport_http_with_oauth():
 
 
 @pytest.mark.asyncio
-async def test_build_from_transport_http_with_solis_oauth_handler():
-    """Register HTTP MCP server using solis_oauth_handler auth strategy."""
+async def test_build_from_transport_http_with_solis_jwt_handler():
+    """Register HTTP MCP server using solis_jwt_handler auth strategy."""
     config = {
         ConfigKey.ID: "mcp-dal",
         ConfigKey.TYPE: MemberServerType.HTTP,
         ConfigKey.ENDPOINT: "https://kamahuha.us-east-a.ibm.stepzen.net/solis-dal/suite-automation/mcp",
         # 'layered' flag is ignored for HTTP/SSE, but included to mirror real config
         ConfigKey.LAYERED: True,
-        ConfigKey.AUTH_STRATEGY: AuthStrategy.SOLIS_OAUTH_HANDLER,
+        ConfigKey.AUTH_STRATEGY: AuthStrategy.SOLIS_JWT_HANDLER,
         ConfigKey.AUTH: {
             # These mirror the JSON config fields; actual values are resolved by SolisJWTTokenGenerator
             "email": "ENV_INSTANA_SOLIS_EMAIL_DEV",

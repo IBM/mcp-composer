@@ -116,7 +116,7 @@ class MCPServerBuilder:
                 headers[ConfigKey.AUTH_HEADER.value] = (
                     f"Bearer {auth_token.get(ConfigKey.TOKEN)}"
                 )
-            elif auth_strategy == AuthStrategy.SOLIS_OAUTH_HANDLER:
+            elif auth_strategy == AuthStrategy.SOLIS_JWT_HANDLER:
                 logger.info("Setting up Solis OAuth authentication client")
                 auth_data = config.get(ConfigKey.AUTH, {})
                 token_generator = SolisJWTTokenGenerator(auth_data=auth_data)
@@ -324,12 +324,13 @@ class MCPServerBuilder:
                     headers=headers
                 )
 
-            case AuthStrategy.SOLIS_OAUTH_HANDLER:
+            case AuthStrategy.SOLIS_JWT_HANDLER:
                 logger.info("Setting up Solis JWT authentication client with auto-refresh")
                 http_client = SolisJWTClient(
                     base_url=base_url,
                     auth_data=auth_config,
-                    headers=headers
+                    headers=headers,
+                    timeout=30.0
                 )
             case _:
                 # Default/fallback client
