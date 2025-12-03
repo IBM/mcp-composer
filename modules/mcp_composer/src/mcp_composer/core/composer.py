@@ -5,10 +5,11 @@ Extends FastMCP with runtime composition, tool management, and database-backed c
 
 import os
 import sys
-from typing import Any, Dict, Optional, Union
+from typing import Any, Dict, Optional, Union, Literal
 from dotenv import load_dotenv
 from fastmcp import FastMCP
 from fastmcp.server.auth.auth import OAuthProvider
+from starlette.middleware import Middleware as ASGIMiddleware
 from fastmcp.tools.tool import Tool
 from fastmcp.resources.resource import Resource
 from fastmcp.resources.template import ResourceTemplate
@@ -19,6 +20,7 @@ from mcp_composer.core.utils import (
     ValidationError,
     get_version_adapter,
 )
+from mcp_composer.core.utils.banner import print_mcp_composer_banner
 from mcp_composer.core.member_servers import (
     ServerManager,
     MemberMCPServer,
@@ -826,3 +828,53 @@ class MCPComposer(FastMCP):
         Disable a tool or multiple tools in the composer server
         """
         return self._tool_manager.disable_composer_tool(tools)
+
+    async def run_stdio_async(
+        self, show_banner: bool = True, log_level: str | None = None
+    ) -> None:
+        """
+        Override the default banner to display MCP Composer branding when using stdio.
+        """
+        if show_banner:
+            print_mcp_composer_banner(
+                server_name=self.name or "mcp-composer",
+                transport="stdio",
+            )
+        await super().run_stdio_async(show_banner=False, log_level=log_level)
+
+    async def run_http_async(
+        self,
+        show_banner: bool = True,
+        transport: Literal["http", "streamable-http", "sse"] = "http",
+        host: str | None = None,
+        port: int | None = None,
+        log_level: str | None = None,
+        path: str | None = None,
+        uvicorn_config: dict[str, Any] | None = None,
+        middleware: list[ASGIMiddleware] | None = None,
+        json_response: bool | None = None,
+        stateless_http: bool | None = None,
+    ) -> None:
+        """
+        Override the default banner to display MCP Composer branding for HTTP transports.
+        """
+        if show_banner:
+            print_mcp_composer_banner(
+                server_name=self.name or "mcp-composer",
+                transport=transport,
+                host=host,
+                port=port,
+                path=path,
+            )
+        await super().run_http_async(
+            show_banner=False,
+            transport=transport,
+            host=host,
+            port=port,
+            log_level=log_level,
+            path=path,
+            uvicorn_config=uvicorn_config,
+            middleware=middleware,
+            json_response=json_response,
+            stateless_http=stateless_http,
+        )
