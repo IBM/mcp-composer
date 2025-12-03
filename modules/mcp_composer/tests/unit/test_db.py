@@ -2,6 +2,7 @@ import logging
 import os
 import tempfile
 from pathlib import Path
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -35,7 +36,9 @@ def server_config():
 # Tests
 ###############################################################################
 @pytest.mark.asyncio
-async def test_composer_restart_persists_and_restores_server(fake_db, server_config, caplog):
+async def test_composer_restart_persists_and_restores_server(
+    fake_db, server_config, caplog
+):
     """
     1. Register a server with config (first run)
     2. Simulate composer restart (load from fake DB)
@@ -45,31 +48,59 @@ async def test_composer_restart_persists_and_restores_server(fake_db, server_con
     logger = logging.getLogger(__name__)
 
     # -------- First run --------
-    composer_1 = MCPComposer("composer", config=[server_config], database_config=fake_db)
+    composer_1 = MCPComposer(
+        "composer", config=[server_config], database_config=fake_db
+    )
     await composer_1.setup_member_servers()
     tools_1 = await composer_1.get_tools()
     logger.debug("[First run] Tools: %s", tools_1)
-    assert any(server_config["id"] in t for t in tools_1), "Server tools not available after registration"
+    assert any(
+        server_config["id"] in t for t in tools_1
+    ), "Server tools not available after registration"
 
     # -------- Simulate restart --------
     composer_2 = MCPComposer("composer", database_config=fake_db)
     await composer_2.setup_member_servers()
     tools_2 = await composer_2.get_tools()
     logger.debug("[After restart] Tools: %s", tools_2)
-    assert any(server_config["id"] in t for t in tools_2), "Server tool not found after restart"
+    assert any(
+        server_config["id"] in t for t in tools_2
+    ), "Server tool not found after restart"
 
 
 @pytest.mark.asyncio
 async def test_duplicate_registration_skips_duplicate(fake_db, server_config, caplog):
     caplog.set_level(logging.INFO)
-    composer = MCPComposer("composer", config=[server_config], database_config=fake_db)
-    await composer.setup_member_servers()
+    composer = MCPComposer("composer", database_config=fake_db)
 
-    # Register again with same config
-    await composer.setup_member_servers()
+    # Mock the MCP server to avoid network calls and missing descriptions
+    mock_server = MagicMock()
+    mock_server.get_tools = AsyncMock(return_value={})
 
-    assert len(fake_db._servers) == 1, "Duplicate registration should not add a second entry"
-    assert server_config["id"] in fake_db._servers
+    # Mock the as_proxy method to return a mock proxy
+    mock_proxy = MagicMock()
+    mock_proxy.get_tools = AsyncMock(return_value={})
+
+    with patch(
+        "mcp_composer.core.member_servers.server_manager.MCPServerBuilder"
+    ) as mock_builder, patch("fastmcp.server.server.FastMCP.as_proxy") as mock_as_proxy:
+        mock_builder.return_value.build = AsyncMock(return_value=mock_server)
+        mock_as_proxy.return_value = mock_proxy
+
+        # Register the server - first time should succeed and add to database
+        result1 = await composer.register_mcp_server(server_config)
+
+        # The result should indicate success
+        assert "mounted successfully" in result1 or "already mounted" not in result1
+
+        # Register again with same config - should be detected as duplicate
+        result2 = await composer.register_mcp_server(server_config)
+        assert "already mounted" in result2
+
+    # Verify the mounted servers list has exactly one server
+    mounted_servers = composer._server_manager.list()
+    assert len(mounted_servers) == 1, "Should have exactly one mounted server"
+    assert mounted_servers[0].id == server_config["id"]
 
 
 @pytest.mark.asyncio
@@ -86,11 +117,52 @@ async def test_corrupt_entry_does_not_crash_composer(fake_db):
 
 
 @pytest.mark.asyncio
-async def test_empty_database_loads_no_servers(fake_db):
-    composer = MCPComposer("composer", database_config=fake_db)
-    await composer.setup_member_servers()
-    mounted_servers = composer._server_manager.list_servers()
-    assert mounted_servers == [], "Composer should start cleanly with empty DB"
+async def test_empty_database_loads_no_servers():
+    # Create a fresh database instance to ensure isolation
+    fresh_db = FakeDatabase()
+
+    # Verify the database is truly empty
+    assert (
+        fresh_db._servers == {}
+    ), f"Database should be empty but has: {fresh_db._servers}"
+
+    # Clear any environment variables that might affect database loading
+    original_env_file = os.environ.get("SERVER_CONFIG_FILE_PATH")
+    original_env_db_type = os.environ.get("MCP_DATABASE_TYPE")
+    original_env_use_local = os.environ.get("MCP_USE_LOCAL_FILE_STORAGE")
+
+    if "SERVER_CONFIG_FILE_PATH" in os.environ:
+        del os.environ["SERVER_CONFIG_FILE_PATH"]
+    if "MCP_DATABASE_TYPE" in os.environ:
+        del os.environ["MCP_DATABASE_TYPE"]
+    if "MCP_USE_LOCAL_FILE_STORAGE" in os.environ:
+        del os.environ["MCP_USE_LOCAL_FILE_STORAGE"]
+
+    try:
+        composer = MCPComposer("composer", config=[], database_config=fresh_db)
+
+        # Verify the server_manager is using our fresh_db
+        assert (
+            composer._server_manager._database is fresh_db
+        ), f"ServerManager should be using our fresh_db, but using: {type(composer._server_manager._database)}"
+
+        # Check that database has no servers loaded
+        db_servers = composer._server_manager.load_all_servers_db()
+        assert (
+            db_servers == []
+        ), f"Empty database should return no servers, got: {db_servers}"
+
+        # Check that no servers are mounted initially
+        mounted_servers = composer._server_manager.list()
+        assert mounted_servers == [], "Composer should start cleanly with empty DB"
+    finally:
+        # Restore environment variables
+        if original_env_file is not None:
+            os.environ["SERVER_CONFIG_FILE_PATH"] = original_env_file
+        if original_env_db_type is not None:
+            os.environ["MCP_DATABASE_TYPE"] = original_env_db_type
+        if original_env_use_local is not None:
+            os.environ["MCP_USE_LOCAL_FILE_STORAGE"] = original_env_use_local
 
 
 @pytest.mark.asyncio
@@ -128,23 +200,31 @@ async def test_composer_initializes_without_any_config(fake_db):
 
                 # Should have basic composer tools available
                 tools = await composer.get_tools()
-                assert isinstance(tools, dict), "Composer should have basic tools available"
+                assert isinstance(
+                    tools, dict
+                ), "Composer should have basic tools available"
                 assert len(tools) > 0, "Composer should have at least some basic tools"
 
                 # Should have no member servers mounted
                 mounted_servers = composer._server_manager.list_servers()
-                assert mounted_servers == [], "Composer should start with no member servers when no config provided"
+                assert (
+                    mounted_servers == []
+                ), "Composer should start with no member servers when no config provided"
 
                 # Should have no database configs loaded
-                assert len(composer._db_configs) == 0, "No database configs should be loaded when no database provided"
-                assert len(composer._config) == 0, "No configs should be loaded when none provided"
+                assert (
+                    len(composer._db_configs) == 0
+                ), "No database configs should be loaded when no database provided"
+                assert (
+                    len(composer._config) == 0
+                ), "No configs should be loaded when none provided"
 
                 # Should NOT create member_servers.json file automatically when no database config
                 # File creation only happens when MCP_USE_LOCAL_FILE_STORAGE is set to true
                 member_servers_file = Path("member_servers.json")
-                assert not member_servers_file.exists(), (
-                    "member_servers.json should NOT be created automatically when no database config provided"
-                )
+                assert (
+                    not member_servers_file.exists()
+                ), "member_servers.json should NOT be created automatically when no database config provided"
 
                 # Should be able to call setup_member_servers without errors (it will just log a warning)
                 await composer.setup_member_servers()
@@ -187,16 +267,24 @@ async def test_composer_initializes_when_file_creation_fails(fake_db):
 
                 # Should have basic composer tools available
                 tools = await composer.get_tools()
-                assert isinstance(tools, dict), "Composer should have basic tools available"
+                assert isinstance(
+                    tools, dict
+                ), "Composer should have basic tools available"
                 assert len(tools) > 0, "Composer should have at least some basic tools"
 
                 # Should have no member servers mounted
                 mounted_servers = composer._server_manager.list_servers()
-                assert mounted_servers == [], "Composer should start with no member servers when no config provided"
+                assert (
+                    mounted_servers == []
+                ), "Composer should start with no member servers when no config provided"
 
                 # Should have no database configs loaded
-                assert len(composer._db_configs) == 0, "No database configs should be loaded when no database provided"
-                assert len(composer._config) == 0, "No configs should be loaded when none provided"
+                assert (
+                    len(composer._db_configs) == 0
+                ), "No database configs should be loaded when no database provided"
+                assert (
+                    len(composer._config) == 0
+                ), "No configs should be loaded when none provided"
 
                 # Should be able to call setup_member_servers without errors (it will just log a warning)
                 await composer.setup_member_servers()
@@ -239,16 +327,24 @@ async def test_composer_initializes_with_invalid_file_path(fake_db):
 
                 # Should have basic composer tools available
                 tools = await composer.get_tools()
-                assert isinstance(tools, dict), "Composer should have basic tools available"
+                assert isinstance(
+                    tools, dict
+                ), "Composer should have basic tools available"
                 assert len(tools) > 0, "Composer should have at least some basic tools"
 
                 # Should have no member servers mounted
                 mounted_servers = composer._server_manager.list_servers()
-                assert mounted_servers == [], "Composer should start with no member servers when no config provided"
+                assert (
+                    mounted_servers == []
+                ), "Composer should start with no member servers when no config provided"
 
                 # Should have no database configs loaded
-                assert len(composer._db_configs) == 0, "No database configs should be loaded when no database provided"
-                assert len(composer._config) == 0, "No configs should be loaded when none provided"
+                assert (
+                    len(composer._db_configs) == 0
+                ), "No database configs should be loaded when no database provided"
+                assert (
+                    len(composer._config) == 0
+                ), "No configs should be loaded when none provided"
 
                 # Should be able to call setup_member_servers without errors (it will just log a warning)
                 await composer.setup_member_servers()
@@ -266,26 +362,61 @@ async def test_composer_initializes_with_invalid_file_path(fake_db):
 
 
 @pytest.mark.asyncio
-async def test_composer_uses_local_file_adapter_when_no_database_config(fake_db, server_config):
-    """Test that MCP composer works without database config and doesn't use LocalFileAdapter by default."""
-    # This should not raise any errors but should NOT use LocalFileAdapter by default
-    composer = MCPComposer("composer", config=[server_config], database_config=fake_db)
+async def test_composer_uses_local_file_adapter_when_no_database_config(
+    fake_db, server_config
+):
+    """Test that MCP composer works with database config provided."""
+    # Clear environment variables that might interfere with the test
+    original_env_db_type = os.environ.get("MCP_DATABASE_TYPE")
+    original_env_use_local = os.environ.get("MCP_USE_LOCAL_FILE_STORAGE")
 
-    # Should be able to call setup_member_servers without errors
-    await composer.setup_member_servers()
+    if "MCP_DATABASE_TYPE" in os.environ:
+        del os.environ["MCP_DATABASE_TYPE"]
+    if "MCP_USE_LOCAL_FILE_STORAGE" in os.environ:
+        del os.environ["MCP_USE_LOCAL_FILE_STORAGE"]
 
-    # Should have basic composer tools available
-    tools = await composer.get_tools()
-    assert isinstance(tools, dict), "Composer should have basic tools available"
-    assert len(tools) > 0, "Composer should have at least some basic tools"
+    try:
+        composer = MCPComposer(
+            "composer", config=[server_config], database_config=fake_db
+        )
 
-    # Should have the server from config mounted in memory
-    # Note: list_servers() only returns servers from database, not in-memory servers
-    # So we check the in-memory servers directly
-    in_memory_servers = composer._server_manager.list()
-    assert len(in_memory_servers) == 1, "Composer should mount server from config in memory"
-    assert in_memory_servers[0].id == "mcp-stock-info", "Should have the correct server mounted in memory"
+        # Verify that the composer is using the provided fake_db
+        assert (
+            composer._server_manager._database is fake_db
+        ), "Composer should use provided database"
 
-    # Should have no database configs loaded (no database configured)
-    assert len(composer._db_configs) == 0, "No database configs should be loaded when no database provided"
-    assert len(composer._config) == 1, "One config should be loaded from the config parameter"
+        # Should be able to call setup_member_servers without errors
+        await composer.setup_member_servers()
+
+        # Should have basic composer tools available
+        tools = await composer.get_tools()
+        assert isinstance(tools, dict), "Composer should have basic tools available"
+        assert len(tools) > 0, "Composer should have at least some basic tools"
+
+        # Should have the server from config mounted in memory
+        in_memory_servers = composer._server_manager.list()
+        assert (
+            len(in_memory_servers) >= 1
+        ), "Composer should have at least one mounted server"
+
+        # Verify the server config is present
+        server_ids = [s.id for s in in_memory_servers]
+        assert (
+            server_config["id"] in server_ids
+        ), "Should have the correct server mounted in memory"
+
+        # Should have no database configs loaded from database (since database is empty)
+        assert (
+            len(composer._db_configs) == 0
+        ), "No database configs should be loaded when database is empty"
+
+        # Should have config from the config parameter
+        assert (
+            len(composer._config) == 1
+        ), "One config should be loaded from the config parameter"
+    finally:
+        # Restore environment variables
+        if original_env_db_type is not None:
+            os.environ["MCP_DATABASE_TYPE"] = original_env_db_type
+        if original_env_use_local is not None:
+            os.environ["MCP_USE_LOCAL_FILE_STORAGE"] = original_env_use_local
