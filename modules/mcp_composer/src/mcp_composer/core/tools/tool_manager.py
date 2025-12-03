@@ -55,25 +55,18 @@ class MCPToolManager(ToolManager):
 
     def _get_mounted_servers(self):
         """Safely access _mounted_servers, returning empty list if not initialized."""
-        # Check if the parent class has this attribute
-        if not hasattr(super(), '_mounted_servers'):
-            return []
-        return super()._mounted_servers
+        return self._composer._mounted_servers
 
     def unmount(self, server_id):
         """Unmount a member server"""
         # Find the matching mounted server
         # First try to get from parent class
         parent_mounted = self._get_mounted_servers()
-        # Also check if we have our own _mounted_servers (for tests)
-        if hasattr(self, '_mounted_servers'):
-            # Use our own list if it exists
-            parent_mounted = self._mounted_servers
         if not parent_mounted:
             return
         # Access the parent class's _mounted_servers directly for deletion
         for idx, mounted_server in enumerate(parent_mounted):
-            if hasattr(mounted_server, 'prefix') and mounted_server.prefix == server_id:
+            if hasattr(mounted_server, "prefix") and mounted_server.prefix == server_id:
                 del parent_mounted[idx]
                 break
 
@@ -97,6 +90,7 @@ class MCPToolManager(ToolManager):
         2. Updates tool descriptions.
         """
         try:
+
             # 1. Special case: If all tools are disabled locally
             if self._disabled_tools == ["all"]:
                 tool = self.add_tool(Tool.from_function(self.enable_all_tools))
@@ -124,13 +118,14 @@ class MCPToolManager(ToolManager):
 
             # 3. Filter and update the tools dictionary
             filtered_tools = {
-                name: tool
-                for name, tool in tools.items()
+                tool.name: tool
+                for _, tool in tools.items()
                 if tool.name not in remove_set
             }
 
             # Update descriptions for the remaining tools
             for name, description in description_updates.items():
+
                 if name in filtered_tools:
                     filtered_tools[name].description = description
 
@@ -165,7 +160,6 @@ class MCPToolManager(ToolManager):
     ) -> dict[str, Tool]:
         """Fetch member server tools"""
         result = {}
-
         # Find the matching mounted server and get its tools
         mounted_servers = self._get_mounted_servers()
         if not mounted_servers:
