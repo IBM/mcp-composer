@@ -90,6 +90,7 @@ class MCPToolManager(ToolManager):
         2. Updates tool descriptions.
         """
         try:
+
             # 1. Special case: If all tools are disabled locally
             if self._disabled_tools == ["all"]:
                 tool = self.add_tool(Tool.from_function(self.enable_all_tools))
@@ -117,13 +118,14 @@ class MCPToolManager(ToolManager):
 
             # 3. Filter and update the tools dictionary
             filtered_tools = {
-                name: tool
-                for name, tool in tools.items()
+                tool.name: tool
+                for _, tool in tools.items()
                 if tool.name not in remove_set
             }
 
             # Update descriptions for the remaining tools
             for name, description in description_updates.items():
+
                 if name in filtered_tools:
                     filtered_tools[name].description = description
 
