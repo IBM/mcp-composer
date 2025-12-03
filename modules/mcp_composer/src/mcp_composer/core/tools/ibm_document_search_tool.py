@@ -874,8 +874,9 @@ To upload files to Aspera on Cloud, you can use several methods:
             question_display = question[:50] + "..." if len(question) > 50 else question
             logger.info(f"IBM document search guidance provided - Stage: {params.stage}, Question: {question_display}")
 
-            return ToolResult(content=[TextContent(type="text", text=json.dumps(response, indent=2))])
-
+            response = ToolResult(content=[TextContent(type="text", text=json.dumps(response, indent=2))])
+            logger.debug(f"IBM document search tool response: {response}")
+            return response
         except ValidationError as e:
             return self._handle_validation_error(e, arguments)
 
