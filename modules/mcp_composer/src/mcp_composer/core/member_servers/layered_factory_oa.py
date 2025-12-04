@@ -35,6 +35,7 @@ class LayeredOpenAPIFactory(FastMCP):
         client: httpx.AsyncClient,
         custom_routes: list[RouteMap] | None = None,
         custom_routes_exclude_all: list[RouteMap] | None = None,  # pylint: disable=unused-argument
+        tool_descriptions: dict[str, str] | None = None,
     ):
         # Initialize the parent FastMCP class first
         super().__init__(
@@ -63,20 +64,77 @@ Usage workflow:
 
 All tools automatically resolve OpenAPI schema references and provide enhanced metadata including examples and cleaned schemas.""",
         )
+        LAYERED_SERVICE_ARGS_RETURNS = """
+        Args:
+            service: Optional service name (operationId). If None, lists all services.
+
+        Returns:
+            List of operations or details about a specific operation.
+        """
+
+        LAYERED_TYPE_ARGS_RETURNS = """
+        Args:
+            service: The service name (operationId)
+
+        Returns:
+            List of operations or details about a specific operation.
+        """
+
+        LAYERED_CALL_ARGS_RETURNS = """
+        Args:
+            service: The service name (operationId)
+            request: Request data with path_params, query_params, headers, body
+
+        Returns:
+            The response from the API call.
+        """
 
         self.openapi_spec = openapi_spec
         self.client = client
         self.custom_routes = custom_routes or []
         self.service_info = self._build_service_metadata()
+        self._tool_descriptions = tool_descriptions or {}
 
         # Create the underlying FastMCP server with custom routes
         # self._mcp_server = FastMCP.from_openapi(self.openapi_spec,
         # client=self.client, route_maps= custom_routes_exclude_all)
+        get_service_desc = (
+            (self._tool_descriptions.get("get_service_info", "").strip() or
+            "Discover and list available OpenAPI services (operations) for this layered server.")
+            + LAYERED_SERVICE_ARGS_RETURNS
+        ).strip()
 
-        # Add our custom tools
-        self.add_tool(Tool.from_function(self.get_service_info))
-        self.add_tool(Tool.from_function(self.get_type_info))
-        self.add_tool(Tool.from_function(self.make_tool_call))
+        get_type_desc = (
+            (self._tool_descriptions.get("get_type_info", "").strip() or
+            "Show detailed parameter, request, and response schema information for a chosen OpenAPI service.")
+            + LAYERED_TYPE_ARGS_RETURNS
+        ).strip()
+
+        make_call_desc = (
+            (self._tool_descriptions.get("make_tool_call", "").strip() or
+            "Execute an HTTP request against the underlying API for a chosen OpenAPI service.")
+            + LAYERED_CALL_ARGS_RETURNS
+        ).strip()
+
+        # Add our custom tools with configurable descriptions
+        self.add_tool(
+            Tool.from_function(
+                self.get_service_info,
+                description=get_service_desc,
+            )
+        )
+        self.add_tool(
+            Tool.from_function(
+                self.get_type_info,
+                description=get_type_desc,
+            )
+        )
+        self.add_tool(
+            Tool.from_function(
+                self.make_tool_call,
+                description=make_call_desc,
+            )
+        )
 
     def _resolve_schema_reference(self, ref: str) -> Dict[str, Any]:
         """

@@ -355,11 +355,15 @@ class MCPServerBuilder:
             if http_client is None:
                 raise ValueError("HTTP client cannot be None")
 
+            # Optional per-tool descriptions for layered tools
+            tool_descriptions = openapi_config.get("tool_description", {}) or {}
+
             mcp = LayeredOpenAPIFactory(
                 openapi_spec=spec,
                 client=http_client,
                 custom_routes=custom_mappings,
                 custom_routes_exclude_all=exclude_all_route,
+                tool_descriptions=tool_descriptions,
             )
         else:
             # Default behavior when layered is not enabled
