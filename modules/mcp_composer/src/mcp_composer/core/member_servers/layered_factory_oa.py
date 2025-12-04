@@ -98,23 +98,27 @@ All tools automatically resolve OpenAPI schema references and provide enhanced m
         # Create the underlying FastMCP server with custom routes
         # self._mcp_server = FastMCP.from_openapi(self.openapi_spec,
         # client=self.client, route_maps= custom_routes_exclude_all)
+
         get_service_desc = (
-            (self._tool_descriptions.get("get_service_info", "").strip() or
-            "Discover and list available OpenAPI services (operations) for this layered server.")
-            + LAYERED_SERVICE_ARGS_RETURNS
-        ).strip()
+            self._safe_tool_description(
+                "get_service_info",
+                "Discover and list available OpenAPI services (operations) for this layered server."
+                )
+            + LAYERED_SERVICE_ARGS_RETURNS).strip()
 
         get_type_desc = (
-            (self._tool_descriptions.get("get_type_info", "").strip() or
-            "Show detailed parameter, request, and response schema information for a chosen OpenAPI service.")
-            + LAYERED_TYPE_ARGS_RETURNS
-        ).strip()
+            self._safe_tool_description(
+                "get_type_info",
+                "Show detailed parameter, request, and response schema information for a chosen OpenAPI service."
+                )
+            + LAYERED_TYPE_ARGS_RETURNS).strip()
 
         make_call_desc = (
-            (self._tool_descriptions.get("make_tool_call", "").strip() or
-            "Execute an HTTP request against the underlying API for a chosen OpenAPI service.")
-            + LAYERED_CALL_ARGS_RETURNS
-        ).strip()
+            self._safe_tool_description(
+                "make_tool_call",
+                "Execute an HTTP request against the underlying API for a chosen OpenAPI service."
+                )
+            + LAYERED_CALL_ARGS_RETURNS).strip()
 
         # Add our custom tools with configurable descriptions
         self.add_tool(
@@ -135,6 +139,11 @@ All tools automatically resolve OpenAPI schema references and provide enhanced m
                 description=make_call_desc,
             )
         )
+    def _safe_tool_description(self, key, fallback):
+        value = self._tool_descriptions.get(key, "")
+        if not isinstance(value, str):
+            value = ""
+        return (value.strip() or fallback)
 
     def _resolve_schema_reference(self, ref: str) -> Dict[str, Any]:
         """
