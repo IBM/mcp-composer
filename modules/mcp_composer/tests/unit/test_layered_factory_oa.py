@@ -298,3 +298,80 @@ class TestLayeredOpenAPIFactory:
         assert "get_type_info" in instructions
         assert "make_tool_call" in instructions
         assert "Layered Tool Pattern" in instructions or "three main capabilities" in instructions
+    # -------------------
+    # Additional description tests
+    # -------------------
+
+    def _get_tool_description(self, tool):
+        """
+        Helper to extract a tool's description in a tolerant way.
+        Supports objects with attribute `.description`, dict-like `.get("description")`,
+        and objects with `.metadata` or `.tool` dictionaries.
+        """
+        # attribute
+        desc = None
+        if hasattr(tool, "description"):
+            desc = getattr(tool, "description")
+        # dict-like
+        elif isinstance(tool, dict):
+            desc = tool.get("description") or tool.get("metadata", {}).get("description")
+        else:
+            # try common attribute containers
+            meta = getattr(tool, "metadata", None) or getattr(tool, "tool", None)
+            if isinstance(meta, dict):
+                desc = meta.get("description")
+            elif hasattr(tool, "get"):
+                try:
+                    desc = tool.get("description")
+                except Exception:
+                    desc = None
+        # ensure string or empty
+        return (desc or "") if desc is not None else ""
+
+    @pytest.mark.asyncio
+    async def test_all_tools_have_descriptions(self, layered_factory):
+        """Ensure each registered tool has a non-empty description."""
+        tools_dict = await layered_factory._tool_manager.get_tools()
+        tools = list(tools_dict.values())
+        for tool in tools:
+            desc = self._get_tool_description(tool)
+            assert isinstance(desc, str)
+            assert desc.strip() != "", f"Tool {getattr(tool, 'name', str(tool))} missing description"
+
+    @pytest.mark.asyncio
+    async def test_get_service_info_tool_description(self, layered_factory):
+        """Check that get_service_info tool description refers to 'service' or 'services'."""
+        tools_dict = await layered_factory._tool_manager.get_tools()
+        tools = list(tools_dict.values())
+
+        # find the tool object
+        svc_tool = next((t for t in tools if getattr(t, "name", None) == "get_service_info"), None)
+        assert svc_tool is not None, "get_service_info tool not registered"
+
+        desc = self._get_tool_description(svc_tool).lower()
+        # expect the description to mention service(s)
+        assert ("service" in desc) or ("services" in desc) or ("available" in desc)
+
+    @pytest.mark.asyncio
+    async def test_get_type_info_tool_description(self, layered_factory):
+        """Check that get_type_info tool description refers to 'type' or 'parameters' or 'schema'."""
+        tools_dict = await layered_factory._tool_manager.get_tools()
+        tools = list(tools_dict.values())
+
+        type_tool = next((t for t in tools if getattr(t, "name", None) == "get_type_info"), None)
+        assert type_tool is not None, "get_type_info tool not registered"
+
+        desc = self._get_tool_description(type_tool).lower()
+        assert ("type" in desc) or ("parameter" in desc) or ("schema" in desc)
+
+    @pytest.mark.asyncio
+    async def test_make_tool_call_tool_description(self, layered_factory):
+        """Check that make_tool_call tool description refers to 'call', 'invoke' or 'request'."""
+        tools_dict = await layered_factory._tool_manager.get_tools()
+        tools = list(tools_dict.values())
+
+        call_tool = next((t for t in tools if getattr(t, "name", None) == "make_tool_call"), None)
+        assert call_tool is not None, "make_tool_call tool not registered"
+
+        desc = self._get_tool_description(call_tool).lower()
+        assert ("call" in desc) or ("invoke" in desc) or ("request" in desc)
