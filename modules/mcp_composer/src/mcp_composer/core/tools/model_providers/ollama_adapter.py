@@ -43,6 +43,31 @@ class OllamaAdapter(ModelProviderAdapter):
         self.base_url = base_url
         self._client = AsyncClient(host=base_url)
     
+    async def check_model_available(self, model_name: str) -> bool:
+        """
+        Check if a model is available in Ollama.
+        
+        Args:
+            model_name: Name of the model to check
+            
+        Returns:
+            True if model is available, False otherwise
+        """
+        try:
+            # List available models
+            models = await self._client.list()
+            available_models = [model.model for model in models.models]
+            
+            # Check if exact match or partial match (handles tags)
+            model_base = model_name.split(":")[0]  # Remove tag if present
+            for available in available_models:
+                if available == model_name or available.startswith(model_base):
+                    return True
+            return False
+        except Exception as e:
+            logger.warning(f"Could not check model availability: {e}")
+            return False  # Assume not available if we can't check
+    
     async def chat(
         self,
         model_name: str,
@@ -106,7 +131,35 @@ class OllamaAdapter(ModelProviderAdapter):
                 chat_params[key] = value
         
         # Call Ollama
-        response = await self._client.chat(**chat_params)
+        try:
+            response = await self._client.chat(**chat_params)
+        except Exception as e:
+            error_msg = str(e).lower()
+            # Provide more helpful error messages for common issues
+            if "model" in error_msg and ("not found" in error_msg or "does not exist" in error_msg):
+                logger.error(
+                    f"Model '{model_name}' not found in Ollama. "
+                    f"Please ensure:\n"
+                    f"1. Ollama is running: 'ollama serve'\n"
+                    f"2. Model is pulled: 'ollama pull {model_name}'\n"
+                    f"3. Check available models: 'ollama list'"
+                )
+            elif "connection" in error_msg or "refused" in error_msg:
+                logger.error(
+                    f"Cannot connect to Ollama at {self.base_url}. "
+                    f"Please ensure Ollama is running: 'ollama serve'"
+                )
+            raise
+        
+        # Verify the response came from the requested model
+        response_model = getattr(response, 'model', None)
+        if response_model and response_model != model_name:
+            logger.warning(
+                f"Model mismatch: requested '{model_name}' but response indicates model '{response_model}'. "
+                f"This may indicate a fallback or routing issue."
+            )
+        elif response_model:
+            logger.debug(f"Verified response from model: {response_model}")
         
         # Extract response content
         response_text = response.message.content
@@ -123,7 +176,8 @@ class OllamaAdapter(ModelProviderAdapter):
                 usage_info.get("completion_tokens", 0)
             )
         
-        return {
+        # Include model verification in response
+        result = {
             "response": response_text,
             "usage": usage_info if usage_info else {
                 "prompt_tokens": None,
@@ -131,6 +185,13 @@ class OllamaAdapter(ModelProviderAdapter):
                 "total_tokens": None
             }
         }
+        
+        # Add model verification info if available
+        if response_model:
+            result["model_verified"] = response_model == model_name
+            result["response_model"] = response_model
+        
+        return result
     
     def is_available(self) -> bool:
         """Check if ollama-python is available."""

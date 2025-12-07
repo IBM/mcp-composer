@@ -107,6 +107,20 @@ class LiteLLMAdapter(ModelProviderAdapter):
         # Call LiteLLM
         response = await litellm.acompletion(**params)
         
+        # Verify the response came from the requested model
+        response_model = getattr(response, 'model', None)
+        if response_model:
+            # LiteLLM may return model in different format, extract base model name
+            response_model_clean = response_model.replace("ollama/", "").replace("ollama:", "")
+            model_name_clean = model_name.replace("ollama/", "").replace("ollama:", "")
+            if response_model_clean != model_name_clean:
+                logger.warning(
+                    f"Model mismatch: requested '{model_name}' but response indicates model '{response_model}'. "
+                    f"This may indicate a fallback or routing issue."
+                )
+            else:
+                logger.debug(f"Verified response from model: {response_model}")
+        
         # Extract response text
         response_text = response.choices[0].message.content
         
@@ -119,7 +133,8 @@ class LiteLLMAdapter(ModelProviderAdapter):
                 "total_tokens": response.usage.total_tokens
             }
         
-        return {
+        # Include model verification in response
+        result = {
             "response": response_text,
             "usage": usage_info if usage_info else {
                 "prompt_tokens": None,
@@ -127,6 +142,15 @@ class LiteLLMAdapter(ModelProviderAdapter):
                 "total_tokens": None
             }
         }
+        
+        # Add model verification info if available
+        if response_model:
+            response_model_clean = response_model.replace("ollama/", "").replace("ollama:", "")
+            model_name_clean = model_name.replace("ollama/", "").replace("ollama:", "")
+            result["model_verified"] = response_model_clean == model_name_clean
+            result["response_model"] = response_model
+        
+        return result
     
     def is_available(self) -> bool:
         """Check if LiteLLM is available."""

@@ -55,7 +55,7 @@ async def main():
             },
             # Vision model with Ollama provider
             "vision": {
-                "model": "ibm/granite3.3-vision:2b",
+                "model": "ibm/granite-docling",
                 "provider": "ollama",
                 "base_url": os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
             }

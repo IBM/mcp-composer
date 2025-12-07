@@ -533,8 +533,12 @@ class ModelMeshTool(BaseSpecializedTool):
             }
             capability_description = capability_descriptions.get(task.lower(), f"{task.capitalize()} - Specialized task processing")
             
-            logger.info(f"Routing task '{task}' to model '{model_name}' via provider '{provider}'")
+            logger.info(
+                f"Routing task '{task}' to model '{model_name}' via provider '{provider}' "
+                f"(base_url: {base_url})"
+            )
             logger.debug(f"Prompt: {final_prompt[:100]}...")
+            logger.debug(f"Model config: {model_config}")
             
             # Get the provider adapter
             try:
@@ -556,6 +560,19 @@ class ModelMeshTool(BaseSpecializedTool):
             
             # Call the model via the adapter
             try:
+                # Optional: Check if model is available (for Ollama provider)
+                if provider == "ollama" and hasattr(adapter, "check_model_available"):
+                    try:
+                        is_available = await adapter.check_model_available(model_name)
+                        if not is_available:
+                            logger.warning(
+                                f"Model '{model_name}' may not be available in Ollama. "
+                                f"Available models can be checked with: 'ollama list'. "
+                                f"To install: 'ollama pull {model_name}'"
+                            )
+                    except Exception as check_error:
+                        logger.debug(f"Could not verify model availability: {check_error}")
+                
                 # Prepare adapter-specific kwargs
                 adapter_kwargs = {}
                 
@@ -571,6 +588,18 @@ class ModelMeshTool(BaseSpecializedTool):
                     options=config_options,
                     **adapter_kwargs
                 )
+                logger.info(f"Response data: {response_data}")
+                
+                # Verify model response (if verification info is available)
+                if "model_verified" in response_data:
+                    if not response_data["model_verified"]:
+                        logger.warning(
+                            f"Model verification failed: requested '{model_name}' but got response from "
+                            f"'{response_data.get('response_model', 'unknown')}'. Response may not be from "
+                            f"the designated model."
+                        )
+                    else:
+                        logger.debug(f"Model verification passed: response confirmed from '{model_name}'")
                 
                 # Add common fields
                 response_data["status"] = "success"
@@ -592,9 +621,37 @@ class ModelMeshTool(BaseSpecializedTool):
                 
             except Exception as e:
                 error_msg = str(e)
+                error_lower = error_msg.lower()
+                
+                # Provide more specific error messages based on error type
+                if "model" in error_lower and ("not found" in error_lower or "does not exist" in error_lower):
+                    detailed_error = (
+                        f"Model '{model_name}' is not available in Ollama. "
+                        f"This usually means:\n"
+                        f"1. The model hasn't been pulled: 'ollama pull {model_name}'\n"
+                        f"2. The model name is incorrect (check with 'ollama list')\n"
+                        f"3. Common vision model names: 'ibm/granite3.2-vision', 'llava', 'llava:13b'"
+                    )
+                elif "connection" in error_lower or "refused" in error_lower:
+                    detailed_error = (
+                        f"Cannot connect to Ollama at {base_url}. "
+                        f"Please ensure:\n"
+                        f"1. Ollama is running: 'ollama serve'\n"
+                        f"2. The base_url is correct: {base_url}\n"
+                        f"3. Check if Ollama is accessible: 'curl {base_url}/api/tags'"
+                    )
+                else:
+                    detailed_error = (
+                        f"Error calling model '{model_name}' via provider '{provider}': {error_msg}\n"
+                        f"Please check:\n"
+                        f"1. The model is installed/pulled (e.g., 'ollama pull {model_name}')\n"
+                        f"2. The provider '{provider}' is available\n"
+                        f"3. Ollama is running (if using Ollama models)\n"
+                        f"4. Check available models: 'ollama list'"
+                    )
+                
                 logger.warning(
-                    f"Error calling model '{model_name}' via provider '{provider}': {error_msg}. "
-                    f"This may indicate the model is not available or not installed."
+                    f"Error calling model '{model_name}' via provider '{provider}': {error_msg}"
                 )
                 
                 # Return a graceful error response instead of raising
@@ -612,13 +669,7 @@ class ModelMeshTool(BaseSpecializedTool):
                         "model_attempted": model_name,
                         "provider_attempted": provider
                     },
-                    "suggestion": (
-                        f"Model '{model_name}' may not be available. "
-                        f"Please check:\n"
-                        f"1. The model is installed/pulled (e.g., 'ollama pull {model_name}')\n"
-                        f"2. The provider '{provider}' is available\n"
-                        f"3. Ollama is running (if using Ollama models)"
-                    )
+                    "suggestion": detailed_error
                 }
                 
                 error_response = await self._create_success_response(error_response)
