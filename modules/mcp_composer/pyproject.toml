@@ -36,6 +36,8 @@ dependencies = [
     "numpy==2.3.3",
     "pandas==2.3.3",
     "a2a-sdk==0.3.15",
+    "litellm>=1.0.0",
+    "ollama>=0.6.1",
 ]
 
 [project.urls]

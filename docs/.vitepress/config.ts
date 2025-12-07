@@ -57,8 +57,8 @@ export default withMermaid(
               { text: 'Authentication', link: '/guide/authentication' },
               { text: 'Policy Based ACL', link: '/guide/policy-acl' },
               { text: 'Middleware as Plugin', link: '/guide/middleware' },
-              { text: 'Monitoring', link: '/guide/monitoring' }
-
+              { text: 'Monitoring', link: '/guide/monitoring' },
+              { text: 'Model Mesh Guide', link: '/guide/model_mesh' }
             ]
           }
         ],
@@ -77,9 +77,11 @@ export default withMermaid(
               { text: 'Overview', link: '/examples/' },
               { text: 'MCP Inspector Demo', link: '/examples/mcp-inspector' },
               { text: 'wx Data Demo', link: '/examples/watsonx-data' },
-              { text: 'Open API V2 fix', link: '/examples/using-swagger-2-api-spec' }
+              { text: 'Open API V2 fix', link: '/examples/using-swagger-2-api-spec' },
+              { text: 'Claude Desktop Guide', link: '/examples/claude_desktop_guide' }
             ]
           }
+          
         ]
       },
 

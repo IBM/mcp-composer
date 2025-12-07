@@ -1,0 +1,23 @@
+{
+  "model_config": {
+    "guardian": {
+      "model": "ibm/granite3.3-guardian:8b",
+      "provider": "ollama",
+      "base_url": "http://localhost:11434",
+      "options": {
+        "think": true,
+        "temperature": 0
+      }
+    },
+    "vision": {
+      "model": "ibm/granite3.3-vision:2b",
+      "provider": "ollama",
+      "base_url": "http://localhost:11434"
+    },
+    "text": {
+      "model": "llama2",
+      "provider": "ollama",
+      "base_url": "http://localhost:11434"
+    }
+  }
+}
