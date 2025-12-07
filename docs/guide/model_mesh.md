@@ -5,13 +5,14 @@ A comprehensive guide to the Model Mesh Tool, a configurable small-model mesh MC
 ## Table of Contents
 
 1. [Overview](#overview)
-2. [Architecture](#architecture)
-3. [Provider Communication](#provider-communication)
-4. [Task-to-Model Mapping](#task-to-model-mapping)
-5. [Configuration](#configuration)
-6. [Usage Examples](#usage-examples)
-7. [Response Format](#response-format)
-8. [Troubleshooting](#troubleshooting)
+2. [Concept](#concept)
+3. [Architecture](#architecture)
+4. [Provider Communication](#provider-communication)
+5. [Task-to-Model Mapping](#task-to-model-mapping)
+6. [Configuration](#configuration)
+7. [Usage Examples](#usage-examples)
+8. [Response Format](#response-format)
+9. [Troubleshooting](#troubleshooting)
 
 ---
 
@@ -60,51 +61,272 @@ Models are accessed via configurable providers (LiteLLM by default, Ollama as al
 
 ---
 
+## Concept
+
+### What is a Model Mesh?
+
+A **Model Mesh** is an architectural pattern that routes different types of tasks to specialized models optimized for those specific tasks. Instead of using a single large general-purpose model for everything, a model mesh uses multiple smaller, specialized models, each optimized for a particular domain.
+
+### Why Use a Model Mesh?
+
+1. **Specialization**: Each model is optimized for its specific task type
+   - Guardian models are trained for content safety and moderation
+   - Vision models are optimized for image understanding
+   - Text models handle language tasks efficiently
+   - Speech models excel at audio processing
+
+2. **Cost Efficiency**: Smaller specialized models are often more cost-effective than large general-purpose models
+   - Run models locally (e.g., via Ollama)
+   - Use smaller models that are faster and cheaper
+   - Only load/use models when needed
+
+3. **Performance**: Specialized models often perform better at their specific tasks
+   - Guardian models provide better safety assessments
+   - Vision models have better image understanding
+   - Task-specific optimizations improve accuracy
+
+4. **Flexibility**: Mix and match models based on your needs
+   - Use different providers for different models
+   - Configure models independently
+   - Easy to add or remove models
+
+### Model Mesh vs. Single Model
+
+**Single Model Approach:**
+```
+User Request → Large General Model → Response
+```
+- One model handles all tasks
+- Higher resource usage
+- May not be optimal for specialized tasks
+- Single point of failure
+
+**Model Mesh Approach:**
+```
+User Request → Task Router → Specialized Model → Response
+                ↓
+         (guardian/vision/text/speech)
+```
+- Multiple specialized models
+- Optimal for each task type
+- Better resource utilization
+- Graceful degradation (if one model fails, others still work)
+
+### Key Concepts
+
+#### Task-Based Routing
+The core concept is **task-based routing**: when a request comes in, the system identifies the task type (guardian, vision, text, speech) and routes it to the appropriate specialized model.
+
+#### Provider Abstraction
+Models can be accessed through different **providers** (LiteLLM, Ollama, etc.), allowing flexibility in how models are accessed while maintaining a consistent interface.
+
+#### Configuration-Driven
+The model mesh is **configuration-driven**: you define which models handle which tasks through a simple JSON configuration, making it easy to change models without code changes.
+
+#### Graceful Degradation
+The system is designed for **graceful degradation**: if a model is unavailable, the system warns but continues to work with available models, rather than failing completely.
+
+---
+
 ## Architecture
 
 ### System Architecture
 
+The Model Mesh Tool follows a layered architecture with clear separation of concerns:
+
 ```
-User Request
-    ↓
-ModelMeshTool.run()
-    ↓
-Task Type Detection (guardian/vision/text/speech)
-    ↓
-Model Selection (from model_config)
-    ↓
-Provider Detection (from model_config JSON)
-    ↓
-┌─────────────────┬──────────────────┐
-│   LiteLLM       │  ollama-python   │
-│   Provider      │  Provider        │
-│   (default)     │  (direct)        │
-│                 │                  │
-│  litellm.       │  AsyncClient()   │
-│  acompletion()  │  .chat()         │
-└─────────────────┴──────────────────┘
-    ↓                    ↓
-Ollama API          Ollama API
-    ↓                    ↓
-Specialized Model   Specialized Model
-    ↓                    ↓
-Response            Response
+┌─────────────────────────────────────────────────────────┐
+│                    User Request                          │
+│              (task, prompt, options)                    │
+└────────────────────┬────────────────────────────────────┘
+                     ↓
+┌─────────────────────────────────────────────────────────┐
+│              ModelMeshTool.run()                        │
+│  - Validates input parameters                           │
+│  - Extracts task type                                   │
+│  - Gets prompt (direct or from template)                │
+└────────────────────┬────────────────────────────────────┘
+                     ↓
+┌─────────────────────────────────────────────────────────┐
+│         Task Type Detection & Routing                   │
+│  - Identifies task: guardian/vision/text/speech          │
+│  - Looks up model configuration                         │
+│  - Handles model override if provided                  │
+└────────────────────┬────────────────────────────────────┘
+                     ↓
+┌─────────────────────────────────────────────────────────┐
+│            Model Configuration Lookup                   │
+│  - Retrieves model name from model_config               │
+│  - Determines provider (litellm/ollama)                 │
+│  - Gets provider-specific options                      │
+└────────────────────┬────────────────────────────────────┘
+                     ↓
+┌─────────────────────────────────────────────────────────┐
+│           Provider Adapter Selection                    │
+│  - Gets or creates provider adapter                    │
+│  - Caches adapters for reuse                           │
+│  - Handles provider fallback if needed                 │
+└────────────────────┬────────────────────────────────────┘
+                     ↓
+        ┌────────────┴────────────┐
+        ↓                         ↓
+┌───────────────┐         ┌───────────────┐
+│  LiteLLM      │         │  Ollama        │
+│  Adapter      │         │  Adapter       │
+│               │         │                │
+│  - Formats    │         │  - Direct      │
+│    model name │         │    API calls   │
+│  - Calls      │         │  - Supports    │
+│    litellm    │         │    think=True  │
+│    API        │         │  - AsyncClient │
+└───────┬───────┘         └───────┬───────┘
+        ↓                         ↓
+┌─────────────────────────────────────────┐
+│         Ollama API / Model Backend       │
+│  - Local Ollama server                   │
+│  - Remote model APIs                     │
+└────────────────────┬────────────────────┘
+                     ↓
+┌─────────────────────────────────────────────────────────┐
+│              Specialized Model                          │
+│  - Guardian: ibm/granite3.3-guardian:8b                │
+│  - Vision: ibm/granite3.2-vision / llava               │
+│  - Text: llama2 / other text models                    │
+│  - Speech: whisper                                     │
+└────────────────────┬────────────────────────────────────┘
+                     ↓
+┌─────────────────────────────────────────────────────────┐
+│              Response Processing                        │
+│  - Extracts model response                              │
+│  - Verifies model used                                 │
+│  - Adds metadata (capability, usage, etc.)             │
+│  - Formats as ToolResult                               │
+└────────────────────┬────────────────────────────────────┘
+                     ↓
+┌─────────────────────────────────────────────────────────┐
+│                    Response                              │
+│  - Model output                                         │
+│  - Capability information                              │
+│  - Usage statistics                                    │
+└─────────────────────────────────────────────────────────┘
 ```
 
-### Provider Adapter Pattern
+### Component Architecture
+
+#### 1. ModelMeshTool (Main Orchestrator)
+- **Responsibility**: Routes requests to appropriate models
+- **Key Methods**:
+  - `run()`: Main entry point for tool execution
+  - `_get_model_config_for_task()`: Retrieves model configuration
+  - `_get_prompt()`: Handles prompt templates and variables
+  - `_validate_model_configs()`: Validates configuration at startup
+
+#### 2. Provider Adapter Pattern
 
 The Model Mesh Tool uses a provider adapter pattern for flexibility:
 
-- **Base Adapter Interface**: `ModelProviderAdapter` - Abstract base class
-- **LiteLLM Adapter**: `LiteLLMAdapter` - Uses LiteLLM library
-- **Ollama Adapter**: `OllamaAdapter` - Uses ollama-python library directly
-- **Provider Factory**: `ModelProviderFactory` - Creates adapters based on configuration
+```
+┌─────────────────────────────────────┐
+│    ModelProviderAdapter (Abstract)  │
+│  - chat()                            │
+│  - is_available()                    │
+│  - get_provider_name()               │
+└──────────────┬──────────────────────┘
+               │
+       ┌───────┴────────┐
+       ↓                ↓
+┌──────────────┐  ┌──────────────┐
+│ LiteLLM      │  │ Ollama       │
+│ Adapter      │  │ Adapter      │
+│              │  │              │
+│ - Uses       │  │ - Uses       │
+│   litellm    │  │   ollama-    │
+│   library    │  │   python     │
+│ - Formats:   │  │ - Direct     │
+│   ollama/    │  │   model name │
+│   model_name │  │ - Supports   │
+│              │  │   think=True │
+└──────────────┘  └──────────────┘
+```
 
-This architecture allows:
-- Easy addition of new providers
-- Provider-specific feature access (e.g., `think=True` for Ollama)
+**Components:**
+- **Base Adapter Interface**: `ModelProviderAdapter` - Abstract base class defining the interface
+- **LiteLLM Adapter**: `LiteLLMAdapter` - Uses LiteLLM library for unified model access
+- **Ollama Adapter**: `OllamaAdapter` - Uses ollama-python library directly for Ollama-specific features
+- **Provider Factory**: `ModelProviderFactory` - Creates and manages adapter instances
+
+**Benefits:**
+- Easy addition of new providers (OpenAI, Anthropic, etc.)
+- Provider-specific feature access (e.g., `think=True` for Ollama Guardian models)
 - Graceful fallback between providers
-- Consistent interface across providers
+- Consistent interface across all providers
+- Adapter caching for performance
+
+#### 3. Configuration Management
+
+```
+┌─────────────────────────────────────┐
+│      Configuration Sources          │
+│                                     │
+│  1. model_config (dict)             │
+│     - Task → Model mapping          │
+│     - Provider selection            │
+│     - Model-specific options        │
+│                                     │
+│  2. prompt_config_path (JSON file)  │
+│     - Prompt templates              │
+│     - Variable substitution         │
+│     - Task type associations        │
+│                                     │
+│  3. Runtime parameters              │
+│     - temperature, max_tokens       │
+│     - model_override                │
+└─────────────────────────────────────┘
+```
+
+#### 4. Request Flow Details
+
+**Step 1: Input Validation**
+- Validates task parameter (required)
+- Ensures either prompt or prompt_key is provided
+- Validates temperature and max_tokens ranges
+
+**Step 2: Prompt Resolution**
+- If `prompt` provided: use directly
+- If `prompt_key` provided: load template from JSON config
+- Substitute variables if `prompt_variables` provided
+
+**Step 3: Model Selection**
+- Look up task in `model_config`
+- Handle `model_override` if provided
+- Extract model name, provider, and options
+
+**Step 4: Provider Adapter**
+- Get or create adapter for provider
+- Cache adapter for reuse
+- Handle provider fallback if needed
+
+**Step 5: Model Call**
+- Prepare provider-specific parameters
+- Call adapter's `chat()` method
+- Handle provider-specific features (e.g., `think=True`)
+
+**Step 6: Response Processing**
+- Extract model response
+- Verify model used matches requested
+- Add metadata (capability, usage, etc.)
+- Format as ToolResult
+
+### Error Handling Architecture
+
+The system implements multi-level error handling:
+
+1. **Initialization Level**: Validates configuration, warns about unavailable providers/models
+2. **Runtime Level**: Graceful error responses instead of exceptions
+3. **Provider Level**: Handles connection errors, model not found, etc.
+4. **Response Level**: Includes error details and suggestions in response
+
+This ensures the tool continues to work even if some models are unavailable.
 
 ---
 

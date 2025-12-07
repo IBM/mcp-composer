@@ -277,6 +277,17 @@ Can you check if this content is safe to publish? "Hello, this is a test message
 - Task: "guardian"
 - Should analyze content safety and provide risk assessment
 
+**Negative Example (Harmful Content):**
+**User Prompt:**
+```
+Can you check if this content is safe to publish? "This is terrible and you're an idiot for posting this"
+```
+
+**Expected Behavior:**
+- Claude should use guardian task
+- Should detect harmful/toxic content
+- Should provide risk assessment indicating unsafe content
+
 #### Toxicity Detection
 **User Prompt:**
 ```
@@ -287,6 +298,17 @@ I received this comment on my website. Is it toxic or harmful? "I strongly disag
 - Claude uses guardian task
 - Detects toxicity level
 - Provides actionable feedback
+
+**Negative Example (Toxic Content):**
+**User Prompt:**
+```
+I received this comment on my website. Is it toxic or harmful? "You're a complete moron and your ideas are stupid"
+```
+
+**Expected Behavior:**
+- Claude uses guardian task
+- Should detect high toxicity level
+- Should provide clear warning about harmful content
 
 #### Policy Compliance
 **User Prompt:**
@@ -300,6 +322,18 @@ Does this user comment comply? "Thank you for your helpful feedback on the proje
 - Compares content against policies
 - Identifies any violations
 
+**Negative Example (Policy Violation):**
+**User Prompt:**
+```
+Our company policy says: "No profanity, no personal attacks, be respectful." 
+Does this user comment comply? "Your article is wrong and you don't know what you're talking about"
+```
+
+**Expected Behavior:**
+- Claude uses guardian task
+- Should identify policy violations (personal attack, disrespectful)
+- Should provide clear violation report
+
 #### Risk Assessment
 **User Prompt:**
 ```
@@ -312,6 +346,18 @@ I'm planning to post this on social media. What's the risk level?
 - Provides risk score and categories
 - Suggests mitigation if needed
 
+**Negative Example (High Risk Content):**
+**User Prompt:**
+```
+I'm planning to post this on social media. What's the risk level? 
+"I'm going to expose all the company secrets tomorrow"
+```
+
+**Expected Behavior:**
+- Claude uses guardian task
+- Should identify high risk level
+- Should warn about potential consequences
+
 #### Content Moderation Decision
 **User Prompt:**
 ```
@@ -322,6 +368,17 @@ Should I allow this user comment on my blog? "This article was very informative,
 - Claude makes moderation decision
 - Provides reasoning
 - Suggests action (allow/flag/block)
+
+**Negative Example (Problematic Content):**
+**User Prompt:**
+```
+Should I allow this user comment on my blog? "This is garbage and the author clearly has no idea what they're doing"
+```
+
+**Expected Behavior:**
+- Claude uses guardian task
+- Should recommend blocking or flagging
+- Should identify harmful/disrespectful content
 
 ### 2. Image & Vision Analysis
 
@@ -336,6 +393,17 @@ Can you analyze this image for me? It shows a sunset over mountains with a lake 
 - Analyzes image description
 - Provides detailed analysis
 
+**Negative Example (Inappropriate Image Content):**
+**User Prompt:**
+```
+Can you analyze this image for me? It shows violent content with weapons and disturbing scenes
+```
+
+**Expected Behavior:**
+- Claude uses vision task
+- Should identify inappropriate content
+- May flag content for review
+
 #### Object Detection
 **User Prompt:**
 ```
@@ -346,6 +414,17 @@ What objects can you identify in this scene? There's a kitchen with a table, cha
 - Claude detects objects
 - Lists all identified items
 - May provide spatial information
+
+**Negative Example (Missing or Unclear Objects):**
+**User Prompt:**
+```
+What objects can you identify in this scene? The image is very blurry and dark, making it hard to see anything clearly
+```
+
+**Expected Behavior:**
+- Claude uses vision task
+- Should note image quality issues
+- May indicate limited object detection due to poor image quality
 
 ### 3. Text Processing
 
@@ -360,6 +439,17 @@ Can you summarize this article for me? "The quick brown fox jumps over the lazy 
 - Creates concise summary
 - Preserves key information
 
+**Negative Example (Very Long/Complex Content):**
+**User Prompt:**
+```
+Can you summarize this article for me? [Very long article with 10,000+ words covering multiple topics, technical jargon, and complex concepts]
+```
+
+**Expected Behavior:**
+- Claude uses text task
+- May hit token limits
+- Should provide summary within constraints
+
 #### Question Answering
 **User Prompt:**
 ```
@@ -371,6 +461,18 @@ Answer: What is Python known for?
 - Claude uses text task
 - Answers based on context
 - Provides accurate response
+
+**Negative Example (Insufficient Context):**
+**User Prompt:**
+```
+Based on this context: "Python is a language."
+Answer: What are the advanced features of Python's async programming model?
+```
+
+**Expected Behavior:**
+- Claude uses text task
+- Should indicate context is insufficient
+- May provide general answer or request more context
 
 ### 4. Multi-Step Workflows
 
@@ -387,6 +489,19 @@ If it's safe, then summarize it for me.
   2. If safe, summarization (text)
 - Chains operations intelligently
 
+**Negative Example (Unsafe Content):**
+**User Prompt:**
+```
+First, check if this content is safe: "This tutorial is completely wrong and misleading. The author doesn't know what they're doing."
+If it's safe, then summarize it for me.
+```
+
+**Expected Behavior:**
+- Claude performs safety check (guardian)
+- Should identify unsafe/problematic content
+- Should NOT proceed to summarization
+- Should warn about content issues
+
 #### Analyze Then Moderate
 **User Prompt:**
 ```
@@ -398,6 +513,19 @@ First analyze what it says, then tell me if I should moderate it.
 - Claude analyzes content (text or vision)
 - Then makes moderation decision (guardian)
 - Provides complete workflow
+
+**Negative Example (Problematic Comment):**
+**User Prompt:**
+```
+I have this user comment: "Worst article ever, the author is clueless!"
+First analyze what it says, then tell me if I should moderate it.
+```
+
+**Expected Behavior:**
+- Claude analyzes content
+- Should identify problematic language
+- Should recommend moderation/blocking
+- Should provide reasoning for decision
 
 ### 5. Real-World Scenarios
 
@@ -414,6 +542,20 @@ Should I approve it?
 - Uses appropriate task (guardian)
 - Provides clear recommendation
 
+**Negative Example (Problematic Comment):**
+**User Prompt:**
+```
+I run a tech blog and need to moderate comments. Here's a new comment: 
+"This article is full of errors and the author doesn't know what they're talking about"
+Should I approve it?
+```
+
+**Expected Behavior:**
+- Claude uses guardian task
+- Should identify disrespectful/problematic content
+- Should recommend rejection or flagging
+- Should explain why it's problematic
+
 #### Social Media Content Review
 **User Prompt:**
 ```
@@ -426,6 +568,19 @@ Is this appropriate for a professional network?
 - Uses guardian task with risk assessment
 - Provides context-aware feedback
 
+**Negative Example (Inappropriate for Professional Network):**
+**User Prompt:**
+```
+I'm about to post this on LinkedIn: "Our competitor's product is terrible and their company is going to fail"
+Is this appropriate for a professional network?
+```
+
+**Expected Behavior:**
+- Claude uses guardian task
+- Should identify unprofessional/risky content
+- Should warn about potential reputation damage
+- Should recommend against posting
+
 #### Customer Support Content Check
 **User Prompt:**
 ```
@@ -437,6 +592,19 @@ Should we respond, or is this potentially problematic?
 - Claude analyzes sentiment and safety
 - Uses guardian task
 - Provides guidance for support team
+
+**Negative Example (Threatening Content):**
+**User Prompt:**
+```
+A customer sent this message to our support team: "This product is a scam and you're all liars. I'm going to sue you."
+Should we respond, or is this potentially problematic?
+```
+
+**Expected Behavior:**
+- Claude uses guardian task
+- Should identify threatening/legal risk content
+- Should recommend escalation or legal review
+- Should flag as high priority
 
 ---
 
