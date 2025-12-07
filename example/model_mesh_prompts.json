@@ -1,0 +1,57 @@
+{
+  "vision_analysis": {
+    "template": "Analyze the following image and describe what you see: {image_description}. Focus on: {focus_areas}",
+    "description": "Template for vision analysis tasks",
+    "task_type": "vision"
+  },
+  "vision_object_detection": {
+    "template": "Identify and list all objects in this image: {image_description}. Provide bounding box coordinates if possible.",
+    "description": "Template for object detection in images",
+    "task_type": "vision"
+  },
+  "speech_transcription": {
+    "template": "Transcribe the following audio: {audio_description}. Include timestamps and speaker identification if available.",
+    "description": "Template for speech-to-text transcription",
+    "task_type": "speech"
+  },
+  "speech_sentiment": {
+    "template": "Analyze the sentiment and emotional tone of this audio: {audio_description}. Provide a detailed analysis.",
+    "description": "Template for speech sentiment analysis",
+    "task_type": "speech"
+  },
+  "text_summarization": {
+    "template": "Summarize the following text in {max_sentences} sentences: {text}",
+    "description": "Template for text summarization",
+    "task_type": "text"
+  },
+  "text_qa": {
+    "template": "Answer the following question based on the context: {context}\n\nQuestion: {question}",
+    "description": "Template for question answering",
+    "task_type": "text"
+  },
+  "guardian_content_safety": {
+    "template": "Analyze the following content for safety and policy compliance: {content}\n\nProvide a safety assessment including:\n- Risk level (low/medium/high)\n- Policy violations (if any)\n- Recommended actions",
+    "description": "Template for content safety assessment using Guardian model",
+    "task_type": "guardian"
+  },
+  "guardian_toxicity_check": {
+    "template": "Check the following text for toxic content, hate speech, or harmful language: {text}\n\nIdentify any toxic elements and provide a toxicity score.",
+    "description": "Template for toxicity detection and scoring",
+    "task_type": "guardian"
+  },
+  "guardian_policy_compliance": {
+    "template": "Review the following content against these policies: {policies}\n\nContent to review: {content}\n\nDetermine if the content complies with the specified policies and identify any violations.",
+    "description": "Template for policy compliance checking",
+    "task_type": "guardian"
+  },
+  "guardian_risk_assessment": {
+    "template": "Assess the risk level of the following content: {content}\n\nContext: {context}\n\nProvide a detailed risk assessment including:\n- Overall risk score (0-100)\n- Risk categories identified\n- Severity level\n- Recommended mitigation steps",
+    "description": "Template for comprehensive risk assessment",
+    "task_type": "guardian"
+  },
+  "guardian_content_moderation": {
+    "template": "Moderate the following content: {content}\n\nUser context: {user_context}\n\nDetermine if this content should be:\n- Allowed as-is\n- Flagged for review\n- Blocked/rejected\n\nProvide reasoning for your decision.",
+    "description": "Template for content moderation decisions",
+    "task_type": "guardian"
+  }
+}
