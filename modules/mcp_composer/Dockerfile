@@ -25,6 +25,10 @@ RUN dnf -y update-minimal --security && \
         gdb-gdbserver && \
     dnf clean all && rm -rf /var/cache/dnf /tmp/*
 
+RUN dnf --refresh update -y \
+    && dnf install -y libgcc \
+    && dnf clean all
+
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
 RUN ln -sf /usr/bin/python3.12 /usr/bin/python3 && \
