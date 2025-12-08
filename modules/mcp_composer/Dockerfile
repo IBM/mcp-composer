@@ -1,6 +1,6 @@
 ARG BUILDER_IMAGE=icr.io/ibm-dreadnought-prod-images/ubi9/python312-builder
 ARG RUNTIME_IMAGE=icr.io/ibm-dreadnought-prod-images/ubi9/python312-runtime
-ARG DREADNOUGHT_PYTHON312_TAG=v9.6.84
+ARG DREADNOUGHT_PYTHON312_TAG=v9.7.3
 
 #########################################
 # -------- Stage 1: Builder --------
@@ -27,7 +27,8 @@ RUN dnf -y update-minimal --security && \
 
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
-RUN python3.12 -m pip install --no-cache-dir --upgrade "pip==25.2"
+RUN ln -sf /usr/bin/python3.12 /usr/bin/python3 && \
+    ln -sf /usr/bin/pip3.12    /usr/bin/pip
 
 WORKDIR /app
 
@@ -51,6 +52,8 @@ WORKDIR /app
 COPY --from=builder /app /app
 COPY --from=builder /bin/uv /bin/uv
 COPY --from=builder /bin/uvx /bin/uvx
+COPY --from=builder /usr/lib64/libgcc_s.so.1 /usr/lib64/
+
 
 ENV PATH="/app/.venv/bin:$PATH"
 ENV PYTHONPATH=/app/src
