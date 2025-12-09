@@ -12,64 +12,612 @@ MCP Composer uses multiple configuration files and environment variables to mana
 - **Database Configuration**: Storage settings
 - **Authentication**: Auth strategy settings
 
-## Environment Variables
+## MCP Composer Server Configuration
 
-### Basic Configuration
+### `MCP_BASE_URL`
 
-Create your environment file:
+**Description:** Base URL for the MCP Composer server endpoint.
+
+**Type:** URL String
+
+**Default:** `http://0.0.0.0:9000/mcp`
+
+**Example:**
 
 ```bash
-cp src/.env.example src/.env
+MCP_BASE_URL=http://0.0.0.0:9000/mcp
+# For production
+MCP_BASE_URL=https://mcp-composer.example.com/mcp
 ```
 
-### Core Settings
+---
 
-```env
-# Server Configuration
-MCP_SERVER_CONFIG_PATH=config/member_servers.json
-MCP_TOOL_CONFIG_PATH=config/tools.json
-MCP_PROMPT_CONFIG_PATH=config/prompts.json
+### `SERVER_CONFIG_FILE_PATH`
 
-# Database Configuration
-DATABASE_TYPE=local_file
-DATABASE_PATH=data/mcp_composer.db
+**Description:** Path to the server configuration JSON file. This file is automatically created when you register a server and contains all registered MCP server configurations.
 
-# Logging
-LOG_LEVEL=INFO
-LOG_FORMAT=json
+**Type:** File Path
 
-# Server Settings
-HOST=0.0.0.0
-PORT=9000
-MCP_PATH=/mcp
+**Default:** `mcp_servers.json` (in root folder)
 
-# Security
-SECRET_KEY=your-secret-key-here
-ALLOWED_HOSTS=localhost,127.0.0.1
+**Example:**
+
+```bash
+SERVER_CONFIG_FILE_PATH=mcp_servers.json
+# Custom path
+SERVER_CONFIG_FILE_PATH=/etc/mcp-composer/servers.json
 ```
 
-### Advanced Settings
+---
 
-```env
-# Performance
-MAX_CONCURRENT_REQUESTS=100
-REQUEST_TIMEOUT=30
-HEALTH_CHECK_INTERVAL=60
+### `VERSION_CONFIG_FILE_PATH`
 
-# Caching
-CACHE_ENABLED=true
-CACHE_TTL=300
-CACHE_MAX_SIZE=1000
+**Description:** Path to the versioned configuration file that tracks different versions of server configurations.
 
-# Rate Limiting
-RATE_LIMIT_ENABLED=true
-RATE_LIMIT_REQUESTS=100
-RATE_LIMIT_WINDOW=60
+**Type:** File Path
 
-# Monitoring
-METRICS_ENABLED=true
-METRICS_PORT=9090
+**Default:** `versioned_config.json` (in root folder)
+
+**Example:**
+
+```bash
+VERSION_CONFIG_FILE_PATH=versioned_config.json
+# Custom path
+VERSION_CONFIG_FILE_PATH=/var/lib/mcp-composer/versions.json
 ```
+
+---
+
+### `MCP_USE_LOCAL_FILE_STORAGE`
+
+**Description:** Enable or disable local file storage for server configurations. When enabled, configurations are stored in local JSON files instead of a database.
+
+**Type:** Boolean
+
+**Default:** `False`
+
+**Allowed Values:** `True`, `False`
+
+**Example:**
+
+```bash
+MCP_USE_LOCAL_FILE_STORAGE=True
+```
+
+---
+
+### `VERSION_ADAPTER_TYPE`
+
+**Description:** Specifies the adapter type for version management. Use `file` for local file storage or `ibm_vault` for IBM Secret Manager.
+
+**Type:** String
+
+**Default:** `file`
+
+**Allowed Values:** `file`, `ibm_vault`
+
+**Example:**
+
+```bash
+VERSION_ADAPTER_TYPE=file
+# For IBM Secret Manager
+VERSION_ADAPTER_TYPE=ibm_vault
+```
+
+---
+
+### `MCP_COMPOSER_MODE`
+
+**Description:** Defines the operational mode for MCP Composer. Affects logging levels, error handling, and debugging features.
+
+**Type:** String
+
+**Default:** `dev`
+
+**Allowed Values:** `dev`, `prod`
+
+**Example:**
+
+```bash
+# Development mode (verbose logging, detailed errors)
+MCP_COMPOSER_MODE=dev
+
+# Production mode (minimal logging, sanitized errors)
+MCP_COMPOSER_MODE=prod
+```
+
+---
+
+### `MCP_MODE`
+
+**Description:** Transport mode for MCP Composer server communication.
+
+**Type:** String
+
+**Default:** `stdio`
+
+**Allowed Values:** `stdio`, `sse`, `http`
+
+**Example:**
+
+```bash
+# Server-Sent Events mode
+MCP_MODE=sse
+
+# Standard I/O mode
+MCP_MODE=stdio
+
+# HTTP mode
+MCP_MODE=http
+```
+
+---
+
+## Database Configuration
+
+### `MCP_DATABASE_TYPE`
+
+**Description:** Type of database backend to use for storing MCP configurations.
+
+**Type:** String
+
+**Default:** `local_file`
+
+**Allowed Values:** `local_file`, `postgresql`, `mongodb`, etc.
+
+**Example:**
+
+```bash
+# Local file-based storage
+MCP_DATABASE_TYPE=local_file
+
+# PostgreSQL database
+MCP_DATABASE_TYPE=postgresql
+```
+
+---
+
+### `MCP_DATABASE_FILE_PATH`
+
+**Description:** Path to the local database file when using `local_file` database type.
+
+**Type:** File Path
+
+**Default:** `mcp_servers.json`
+
+**Example:**
+
+```bash
+MCP_DATABASE_FILE_PATH=mcp_servers.json
+# Custom location
+MCP_DATABASE_FILE_PATH=/var/lib/mcp-composer/database.json
+```
+
+---
+
+## OAuth Authentication
+
+### `ENABLE_OAUTH`
+
+**Description:** Enable or disable OAuth authentication for MCP Composer.
+
+**Type:** Boolean
+
+**Default:** `False`
+
+**Allowed Values:** `True`, `False`
+
+**Example:**
+
+```bash
+# Enable OAuth
+ENABLE_OAUTH=True
+
+# Disable OAuth
+ENABLE_OAUTH=False
+```
+
+---
+
+### GitHub OAuth
+
+#### `OAUTH_PROVIDER`
+
+**Description:** Specifies the OAuth provider.
+
+**Type:** String
+
+**Allowed Values:** `github`, `google`
+
+**Example:**
+
+```bash
+OAUTH_PROVIDER=github
+```
+
+#### `OAUTH_BASE_URL`
+
+**Description:** Base URL of your application for OAuth callbacks.
+
+**Type:** URL String
+
+**Example:**
+
+```bash
+OAUTH_BASE_URL=http://localhost:9000
+# Production
+OAUTH_BASE_URL=https://mcp-composer.example.com
+```
+
+#### `OAUTH_CLIENT_ID`
+
+**Description:** OAuth client ID provided by GitHub.
+
+**Type:** String
+
+**Example:**
+
+```bash
+OAUTH_CLIENT_ID=xxxxxxx
+```
+
+#### `OAUTH_CLIENT_SECRET`
+
+**Description:** OAuth client secret provided by GitHub.
+
+**Type:** String (Sensitive)
+
+**Example:**
+
+```bash
+OAUTH_CLIENT_SECRET=xxxxxxx
+```
+
+**Complete GitHub OAuth Example:**
+
+```bash
+ENABLE_OAUTH=True
+OAUTH_PROVIDER=github
+OAUTH_BASE_URL=http://localhost:9000
+OAUTH_CLIENT_ID=xxxxxxx
+OAUTH_CLIENT_SECRET=xxxxxxx
+```
+
+---
+
+### IBM W3 OAuth (New)
+
+#### `OAUTH_CONFIG_URL`
+
+**Description:** OpenID Connect configuration URL for IBM W3 authentication.
+
+**Type:** URL String
+
+**Example:**
+
+```bash
+OAUTH_CONFIG_URL=https://preprod.login.w3.ibm.com/oidc/endpoint/default/.well-known/openid-configuration
+```
+
+#### `OAUTH_INTROSPECTION_URL`
+
+**Description:** Token introspection endpoint for validating OAuth tokens.
+
+**Type:** URL String
+
+**Example:**
+
+```bash
+OAUTH_INTROSPECTION_URL=https://preprod.login.w3.ibm.com/v1.0/endpoint/default/introspect
+```
+
+**Complete IBM W3 OAuth (New) Example:**
+
+```bash
+ENABLE_OAUTH=True
+OAUTH_CLIENT_ID=xxxxxxx
+OAUTH_CLIENT_SECRET=xxxxxxx
+OAUTH_BASE_URL=http://localhost:9000
+OAUTH_CONFIG_URL=https://preprod.login.w3.ibm.com/oidc/endpoint/default/.well-known/openid-configuration
+OAUTH_INTROSPECTION_URL=https://preprod.login.w3.ibm.com/v1.0/endpoint/default/introspect
+```
+
+---
+
+### IBM W3 OAuth (Old)
+
+#### `OAUTH_HOST`
+
+**Description:** Hostname for OAuth server.
+
+**Type:** String
+
+**Example:**
+
+```bash
+OAUTH_HOST=localhost
+```
+
+#### `OAUTH_PORT`
+
+**Description:** Port number for OAuth server.
+
+**Type:** Integer
+
+**Example:**
+
+```bash
+OAUTH_PORT=9000
+```
+
+#### `OAUTH_SERVER_URL`
+
+**Description:** Full server URL for OAuth.
+
+**Type:** URL String
+
+**Example:**
+
+```bash
+OAUTH_SERVER_URL=http://localhost:9000
+```
+
+#### `OAUTH_CALLBACK_PATH`
+
+**Description:** OAuth callback URL path.
+
+**Type:** URL String
+
+**Example:**
+
+```bash
+OAUTH_CALLBACK_PATH=http://localhost:9000/auth/idaas/callback
+```
+
+#### `OAUTH_AUTH_URL`
+
+**Description:** Authorization endpoint URL.
+
+**Type:** URL String
+
+**Example:**
+
+```bash
+# IBM W3
+OAUTH_AUTH_URL=https://preprod.login.w3.ibm.com/v1.0/endpoint/default/authorize
+
+# GitHub
+OAUTH_AUTH_URL=https://github.com/login/oauth/authorize
+```
+
+#### `OAUTH_TOKEN_URL`
+
+**Description:** Token endpoint URL for exchanging authorization codes.
+
+**Type:** URL String
+
+**Example:**
+
+```bash
+# IBM W3
+OAUTH_TOKEN_URL=https://preprod.login.w3.ibm.com/v1.0/endpoint/default/token
+
+# GitHub
+OAUTH_TOKEN_URL=https://github.com/login/oauth/access_token
+```
+
+#### `OAUTH_MCP_SCOPE`
+
+**Description:** OAuth scope for MCP Composer.
+
+**Type:** String
+
+**Example:**
+
+```bash
+OAUTH_MCP_SCOPE=user
+```
+
+#### `OAUTH_PROVIDER_SCOPE`
+
+**Description:** OAuth scope required by the provider.
+
+**Type:** String
+
+**Example:**
+
+```bash
+OAUTH_PROVIDER_SCOPE=openid
+```
+
+**Complete IBM W3 OAuth (Old) Example:**
+
+```bash
+ENABLE_OAUTH=True
+OAUTH_HOST=localhost
+OAUTH_PORT=9000
+OAUTH_SERVER_URL=http://localhost:9000
+OAUTH_CALLBACK_PATH=http://localhost:9000/auth/idaas/callback
+OAUTH_CLIENT_ID=xxxxxxx
+OAUTH_CLIENT_SECRET=xxxxxxx
+OAUTH_AUTH_URL=https://preprod.login.w3.ibm.com/v1.0/endpoint/default/authorize
+OAUTH_TOKEN_URL=https://preprod.login.w3.ibm.com/v1.0/endpoint/default/token
+OAUTH_MCP_SCOPE=user
+OAUTH_PROVIDER_SCOPE=openid
+```
+
+---
+
+## OpenTelemetry Configuration
+
+### `MCP_TRACING_ENABLED`
+
+**Description:** Enable or disable distributed tracing with OpenTelemetry.
+
+**Type:** Boolean
+
+**Default:** `False`
+
+**Allowed Values:** `true`, `false`
+
+**Example:**
+
+```bash
+MCP_TRACING_ENABLED=true
+```
+
+---
+
+### `MCP_TRACING_PROTOCOL`
+
+**Description:** Protocol to use for OpenTelemetry tracing.
+
+**Type:** String
+
+**Allowed Values:** `http`, `grpc`
+
+**Example:**
+
+```bash
+MCP_TRACING_PROTOCOL=http
+# For gRPC
+MCP_TRACING_PROTOCOL=grpc
+```
+
+---
+
+### `OTEL_SERVICE_NAME`
+
+**Description:** Service name identifier for OpenTelemetry traces.
+
+**Type:** String
+
+**Default:** `mcp-composer`
+
+**Example:**
+
+```bash
+OTEL_SERVICE_NAME=mcp-composer
+# Custom service name
+OTEL_SERVICE_NAME=mcp-composer-production
+```
+
+---
+
+### `OTEL_EXPORTER_OTLP_ENDPOINT`
+
+**Description:** OpenTelemetry collector endpoint URL.
+
+**Type:** URL String
+
+**Default:** `http://localhost:4318`
+
+**Example:**
+
+```bash
+# Local collector
+OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318
+
+# Remote collector
+OTEL_EXPORTER_OTLP_ENDPOINT=https://otel-collector.example.com:4318
+```
+
+---
+
+### `MCP_METRICS_ENABLED`
+
+**Description:** Enable or disable metrics collection with OpenTelemetry.
+
+**Type:** Boolean
+
+**Default:** `False`
+
+**Allowed Values:** `true`, `false`
+
+**Example:**
+
+```bash
+MCP_METRICS_ENABLED=true
+```
+
+---
+
+### `MCP_ENV`
+
+**Description:** Environment identifier for telemetry data.
+
+**Type:** String
+
+**Allowed Values:** `dev`, `staging`, `prod`
+
+**Example:**
+
+```bash
+# Development
+MCP_ENV=dev
+
+# Staging
+MCP_ENV=staging
+
+# Production
+MCP_ENV=prod
+```
+
+**Complete OpenTelemetry Configuration Example:**
+
+```bash
+MCP_TRACING_ENABLED=true
+MCP_TRACING_PROTOCOL=http
+OTEL_SERVICE_NAME=mcp-composer
+OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318
+MCP_METRICS_ENABLED=true
+MCP_ENV=dev
+```
+
+---
+
+## Common Configuration Examples
+
+### Development Setup
+
+```bash
+# Basic dev configuration
+MCP_BASE_URL=http://0.0.0.0:9000/mcp
+MCP_COMPOSER_MODE=dev
+MCP_MODE=sse
+MCP_DATABASE_TYPE=local_file
+MCP_DATABASE_FILE_PATH=mcp_servers.json
+MCP_USE_LOCAL_FILE_STORAGE=True
+ENABLE_OAUTH=False
+```
+
+### Production Setup with OAuth
+
+```bash
+# Production configuration
+MCP_BASE_URL=https://mcp-composer.example.com/mcp
+MCP_COMPOSER_MODE=prod
+MCP_MODE=sse
+MCP_DATABASE_TYPE=postgresql
+ENABLE_OAUTH=True
+
+# IBM W3 OAuth
+OAUTH_CLIENT_ID=your-client-id
+OAUTH_CLIENT_SECRET=your-client-secret
+OAUTH_BASE_URL=https://mcp-composer.example.com
+OAUTH_CONFIG_URL=https://verify.example.com/oidc/endpoint/default/.well-known/openid-configuration
+OAUTH_INTROSPECTION_URL=https://verify.example.com/v1.0/endpoint/default/introspect
+
+# OpenTelemetry
+MCP_TRACING_ENABLED=true
+MCP_TRACING_PROTOCOL=http
+OTEL_SERVICE_NAME=mcp-composer-prod
+OTEL_EXPORTER_OTLP_ENDPOINT=https://otel-collector.example.com:4318
+MCP_METRICS_ENABLED=true
+MCP_ENV=prod
+```
+
+---
 
 ## Server Configurations
 
@@ -265,46 +813,9 @@ Location: `config/tools.json`
 }
 ```
 
-## Authentication Configuration
+### Database Configuration Examples
 
-### OAuth Configuration
-
-```env
-# OAuth Settings
-OAUTH_HOST=localhost
-OAUTH_PORT=8080
-OAUTH_SERVER_URL=http://localhost:8080
-OAUTH_CALLBACK_PATH=/oauth/callback
-OAUTH_CLIENT_ID=your-client-id
-OAUTH_CLIENT_SECRET=your-client-secret
-OAUTH_AUTH_URL=https://provider.com/oauth/authorize
-OAUTH_TOKEN_URL=https://provider.com/oauth/token
-OAUTH_MCP_SCOPE=user
-OAUTH_PROVIDER_SCOPE=openid
-```
-
-### OAuth Environment File
-
-Location: `src/mcp_composer/.env.oauth`
-
-```env
-# OAuth Provider Configuration
-OAUTH_PROVIDER=github
-OAUTH_CLIENT_ID=your-github-client-id
-OAUTH_CLIENT_SECRET=your-github-client-secret
-OAUTH_AUTH_URL=https://github.com/login/oauth/authorize
-OAUTH_TOKEN_URL=https://github.com/login/oauth/access_token
-OAUTH_SCOPE=repo user
-
-# Server Configuration
-OAUTH_HOST=localhost
-OAUTH_PORT=8080
-OAUTH_CALLBACK_PATH=/oauth/callback
-```
-
-## Database Configuration
-
-### Local File Database
+#### Local File Database
 
 ```env
 DATABASE_TYPE=local_file
@@ -386,45 +897,6 @@ Location: `config/logging.json`
     "handlers": ["console", "file"]
   }
 }
-```
-
-## Client Configuration
-
-### MCP Composer Client
-
-Location: `config/mcp_composer_client.yaml`
-
-```yaml
-servers:
-  - name: "mcp-composer"
-    type: "remote"
-    enabled: true
-    config:
-      url: "http://localhost:9000/mcp"
-      auth_type: "none"
-  
-  - name: "sse-server"
-    type: "sse"
-    enabled: false
-    config:
-      url: "https://example.com/sse"
-      auth_type: "bearer"
-      token: "your-token"
-  
-  - name: "stdio-server"
-    type: "stdio"
-    enabled: false
-    config:
-      command: "python"
-      args: ["server.py"]
-
-chat_model:
-  name: "watsonx"
-  config:
-    watsonx_url: "https://your-watsonx-instance.com"
-    watsonx_api_key: "your-api-key"
-    watsonx_project_id: "your-project-id"
-    model: "meta-llama/llama-4-maverick-17b-128e-instruct-fp8"
 ```
 
 ## Configuration Validation
@@ -512,6 +984,7 @@ METRICS_ENABLED=false
 ### Common Issues
 
 1. **Configuration not found**
+
    ```bash
    # Check file paths
    ls -la config/
@@ -519,12 +992,14 @@ METRICS_ENABLED=false
    ```
 
 2. **Invalid JSON**
+
    ```bash
    # Validate JSON files
    python -m json.tool config/member_servers.json
    ```
 
 3. **Environment variables not loaded**
+
    ```bash
    # Check environment file
    cat src/.env
@@ -550,4 +1025,4 @@ mcp-composer --validate-config
 - [Quick Start Guide](/guide/quick-start) - Get up and running
 - [CLI Usage](/guide/cli) - Learn command-line options
 - [API Reference](/api/) - Complete API documentation
-- [Examples](/examples/) - See configuration examples 
+- [Examples](/examples/) - See configuration examples

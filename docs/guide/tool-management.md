@@ -73,8 +73,9 @@ await composer.enable_tools(tools= ["tool_customer_info"], server_id: "customer-
 await composer.update_tool_description(tool='tool_customer_info', description="Get customer details", server_id="customer-api")
 ```
 
-- **[`add_tools`](#_1-🧩-using-a-curl-command)**: Add tools using a cURL command or Python script.
-- **[`add_tools_from_openapi`](#_3-📘-using-openapi-specification)**: Add tools using OpenAPI specifications.
+- **`add_tools_from_curl`**: Add tools using a cURL command.
+- **`add_tools_from_python`**: Add tools using Python script.
+- **`add_tools_from_openapi`**: Add tools using OpenAPI specifications.
 
 ## 🚀 Adding Dynamic Tools into MCP Composer
 
@@ -89,7 +90,7 @@ MCP Composer currently supports **three flexible methods** for integrating tools
 #### 1. 🧩 Using a cURL Command
 
 You can create a tool by simply providing a cURL command in a structured format.  
-Use <code style="background-color: #f0f0f0; color: #c7254e;">add_tools()</code>.
+Use `add_tools_from_curl()`.
 
 ```python
 curl_config = {
@@ -105,7 +106,7 @@ curl_config = {
 }
 
 # Add custom tools from curl command
-await composer.add_tools(curl_config)
+await composer.add_tools_from_curl(curl_config)
 ```
 
 - **Fields required**: `name`, `tool_type`, and `curl_config`
@@ -115,8 +116,10 @@ await composer.add_tools(curl_config)
 
 #### 2. 🐍 Using a Python Script
 
-You can the Use <code style="background-color: #f0f0f0; color: #c7254e;">add_tools()</code> to add tools using Python functions as strings.  
-*Example Function*: A search tool fetching the top 5 articles about a stock market company.  
+You can use `add_tools_from_python()` to add tools using Python functions as strings.  
+*Example Function*: A search tool fetching the top 5 articles about a stock market company.
+
+NOTE: To enable this feature add `ENABLE_ADD_TOOLS_USING_PYTHON=True` in .env
 
 ```python
 py_script = {
@@ -131,7 +134,7 @@ py_script = {
     }
 }
 # Add custom tools from Python scripts
-await composer.add_tools(py_script)
+await composer.add_tools_from_python(py_script)
 ```
 
 - **Fields required**: `name`, `tool_type`, and `script_config`
@@ -140,7 +143,7 @@ await composer.add_tools(py_script)
 
 #### 3. 📘 Using OpenAPI Specification
 
-Auto-generate tools from OpenAPI spec using <code style="background-color: #f0f0f0; color: #c7254e;">add_tools_from_openapi()</code>
+Auto-generate tools from OpenAPI spec using `add_tools_from_openapi()`
 
 ```python
 openapi_spec = {
