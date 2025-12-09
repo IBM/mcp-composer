@@ -34,6 +34,10 @@ COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 RUN ln -sf /usr/bin/python3.12 /usr/bin/python3 && \
     ln -sf /usr/bin/pip3.12    /usr/bin/pip
 
+RUN dnf install -y sqlite sqlite-devel && \
+    dnf clean all
+
+
 WORKDIR /app
 
 COPY pyproject.toml uv.lock ./
@@ -48,19 +52,21 @@ COPY . /app
 #########################################
 FROM ${RUNTIME_IMAGE}:${DREADNOUGHT_PYTHON312_TAG} AS final
 
-# OpenShift hardened images → no RUN allowed and no fixed user.
 USER 1001
-
 WORKDIR /app
 
 COPY --from=builder /app /app
 COPY --from=builder /bin/uv /bin/uv
 COPY --from=builder /bin/uvx /bin/uvx
-COPY --from=builder /usr/lib64/libgcc_s.so.1 /usr/lib64/
 
+COPY --from=builder /usr/lib64/libgcc_s.so.* /usr/lib64/
+COPY --from=builder /usr/lib64/libstdc++.so.* /usr/lib64/
+COPY --from=builder /usr/lib64/librt.so.* /usr/lib64/
+COPY --from=builder /usr/lib64/libsqlite3.so.* /usr/lib64/
+COPY --from=builder /usr/bin/sqlite3 /usr/bin/sqlite3
 
 ENV PATH="/app/.venv/bin:$PATH"
 ENV PYTHONPATH=/app/src
-ENV UV_CACHE_DIR="/.cache/uv"
+ENV UV_CACHE_DIR="/tmp/.cache/uv"
 
 CMD ["uv", "run", "--no-project", "composers/solis_composer.py"]
