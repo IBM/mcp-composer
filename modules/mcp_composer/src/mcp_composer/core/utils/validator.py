@@ -80,8 +80,7 @@ class AuthStrategy(str, Enum):
     APITOKEN = "apiToken"
     JSESSIONID = "jessionid"
     ASPERA_OAUTH_HANDLER = "aspera_oauth_handler"
-    SOLIS_OAUTH_HANDLER = "solis_oauth_handler"
-    SOLIS_DAL_JWT_HANDLER = "solis_dal_jwt_handler"
+    SOLIS_JWT_HANDLER = "solis_jwt_handler"
 
 
 
@@ -158,7 +157,7 @@ class ServerConfigValidator:
             AuthStrategy.DYNAMIC_BEARER: ["apikey", "token_url", "id", "secret"],
             AuthStrategy.OAUTH: ["client_id", "client_secret", "token_url"],
             AuthStrategy.ASPERA_OAUTH_HANDLER: ["client_id", "secret", ConfigKey.CERT_VALUE, "token_url"],
-            AuthStrategy.SOLIS_OAUTH_HANDLER: ["login_url", "return_url"]
+            AuthStrategy.SOLIS_JWT_HANDLER: ["login_url", "return_url", "user_email", "password"],
         }
 
         # Check if strategy is supported
@@ -197,27 +196,30 @@ class ServerConfigValidator:
                 missing.append(ConfigKey.CERT_VALUE)
             if not has_token_url:
                 missing.append("token_url")
-        # Special logic for solis_dal_jwt_handler - check for login_url, return_url, and email/password
-        elif strategy == AuthStrategy.SOLIS_OAUTH_HANDLER:
+        elif strategy == AuthStrategy.SOLIS_JWT_HANDLER:
             missing = []
 
             # Check login_url (supports multiple case variations)
             if not self._has_any_key(auth, ConfigKey.LOGIN_URL):
-                missing.append("login_url or LOGIN_URL")
+                missing.append("login_url")
 
             # Check return_url (supports multiple case variations)
             if not self._has_any_key(auth, ConfigKey.RETURN_URL):
-                missing.append("return_url or returnUrl or RETURN_URL")
+                missing.append("return_url")
 
             # Email can be provided directly or via email_var (for environment variable)
-            has_email = self._has_any_key(auth, )
+            # Support both USER_EMAIL and email for backward compatibility
+            has_email = self._has_any_key(auth, ConfigKey.USER_EMAIL, "email")
             if not (has_email):
-                missing.append("email or email_var (or EMAIL/EMAIL_VAR)")
+                missing.append("user_email (or email)")
 
             # Password can be provided directly or via password_var (for environment variable)
-            has_password = self._has_any_key(auth, ConfigKey.PASSWORD, "password", "PASSWORD")
-            if not (has_password ):
-                missing.append("password or password_var (or PASSWORD/PASSWORD_VAR)")
+            # Support both USER_PASSWORD, PASSWORD, and password for backward compatibility
+            has_password = self._has_any_key(
+                auth, ConfigKey.USER_PASSWORD, ConfigKey.PASSWORD, "password"
+            )
+            if not (has_password):
+                missing.append("user_password (or password)")
         else:
             missing = [
                 key

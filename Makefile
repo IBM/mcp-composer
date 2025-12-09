@@ -48,7 +48,7 @@ deploy:
 	@echo "export GIT_COMMITTER=\"CI/CD Functional ID <saas-ci1@ibm.com>\""
 	@echo "export GIT_BRANCH=dev"
 	@echo "export GIT_ORG=automation-paas-cd-pipeline"
-	@echo "export PULL_REQUEST_ASSIGNEE=autopaas"
+	@echo "export PULL_REQUEST_ASSIGNEE=MANSURAH"
 	@echo "export PROMOTION_ENV=development"
 	@echo "export ENABLE_DEV_HEAD_USE=true"
 	@echo "export GIT_TOKEN=$(GIT_TOKEN)"

@@ -13,6 +13,7 @@ logger = LoggerFactory.get_logger()
 DEFAULT_TOKEN_EXPIRY = 3600
 TOKEN_REFRESH_BUFFER = 60
 MIN_VALIDITY_SECONDS = 600  # 10 minutes
+DEFAULT_TIMEOUT = 30.0
 
 
 class SolisJWTTokenGenerator:
@@ -133,14 +134,30 @@ class SolisJWTTokenGenerator:
                 return cached_jwt
 
         # Get authentication parameters
-        email = resolve_env_value(self.auth_data.get(ConfigKey.USER_EMAIL))
-        password = resolve_env_value(self.auth_data.get(ConfigKey.USER_PASSWORD))
+        # Support both USER_EMAIL and email for backward compatibility
+        email = resolve_env_value(
+            self.auth_data.get(ConfigKey.USER_EMAIL) or self.auth_data.get("email")
+        )
+        # Support both USER_PASSWORD and PASSWORD for backward compatibility
+        password = resolve_env_value(
+            self.auth_data.get(ConfigKey.USER_PASSWORD)
+            or self.auth_data.get(ConfigKey.PASSWORD)
+            or self.auth_data.get("password")
+        )
 
         if not email or not password:
-            raise ValueError(
-                "Email and password must be provided. "
-                "Set email and password environment variables or provide in auth_data."
+            missing = []
+            if not email:
+                missing.append("user_email (or email)")
+            if not password:
+                missing.append("user_password (or password)")
+            
+            error_msg = (
+                f"Missing required authentication credentials: {', '.join(missing)}. "
+                "Please provide these in the 'auth' section of your server configuration, "
+                "or set them as environment variables (e.g., ENV_USER_EMAIL, ENV_USER_PASSWORD)."
             )
+            raise ValueError(error_msg)
 
         login_url = self.auth_data.get(ConfigKey.LOGIN_URL)
         return_url = self.auth_data.get(ConfigKey.RETURN_URL)
@@ -163,7 +180,7 @@ class SolisJWTTokenGenerator:
         }
 
         # Create a temporary client for the login request
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(timeout=DEFAULT_TIMEOUT) as client:
             # Make login request (don't follow redirects to capture Set-Cookie)
             # CRITICAL: follow_redirects=False is required to get Set-Cookie from 302 response
             try:
@@ -234,7 +251,7 @@ class SolisJWTClient(httpx.AsyncClient):
         self,
         base_url: str,
         auth_data: dict[str, Any] | None = None,
-        timeout: float = 10.0,
+        timeout: float = DEFAULT_TIMEOUT,
         headers: dict[str, str] | None = None,
         **kwargs: Any,
     ) -> None:
