@@ -50,8 +50,7 @@ For example, here is a simple MCP server registration input for MCP Composer
   "endpoint": "http://0.0.0.0:8080/mcp",
   "auth_strategy": "apikey",
   "auth": {
-    "name": "Authorization",
-    "value": "apikey abc123"
+    "apikey": "your_api_key"
   }
 }
 ```
@@ -150,7 +149,7 @@ await composer.register_mcp_server({
     "type": "openapi",
     "open_api": {
         "endpoint": "https://api.example.com/v1",
-        "spec_filepath": "/path/to/openapi-spec.json",
+        "spec_filepath": "/path/to/openapi-spec.json", // this could be also spec_url
         "custom_routes": [
             {
                 "methods": ["GET"],
