@@ -2,11 +2,6 @@
 
 MCP Composer provides a comprehensive prompt management system that allows you to dynamically add, list, manage, enable, and disable prompts across your MCP infrastructure. The system supports both runtime prompt addition and static prompt loading from configuration files. As part of prompt management in MCP Composer, you will add prompts dynamically, list all registered prompts, get prompts from specific servers, filter prompts based on criteria, enable/disable prompts, and apply safety and validation rules. Among them, add prompts dynamically, list all registered prompts, list prompts per server, filter prompts, and enable/disable prompts are currently supported.
 
-Here is the roadmap for prompt management in MCP Composer:
-
-![prompt_roadmap](/images/prompt_roadmap.png)
-
-P.S - features those are in purple are supported today. 
 
 ## Key Functionality
 
@@ -142,23 +137,6 @@ Each prompt follows a standardized structure defined in `test/data/prompts.json`
 
 You can add prompts dynamically using the `add_prompts` function:
 
-```python
-async def add_prompts(self, prompt_config: Union[dict, list[dict]]) -> list[str]:
-    """
-    Add one or more prompts based on the provided configuration.
-    Returns a list of registered prompt names.
-    """
-    if not isinstance(prompt_config, list):
-        raise TypeError("Prompt config must be a dict or a list of dicts")
-
-    added = []
-    for entry in prompt_config:
-        prompt = await build_prompt_from_dict(entry)
-        super().add_prompt(prompt)
-        added.append(prompt.name)
-    return added
-```
-
 #### Example Usage:
 
 ```python
@@ -281,39 +259,6 @@ for prompt in prompts:
     print(f"Prompt: {prompt['name']} from server: {prompt['server_id']}")
     print(f"  Description: {prompt['description']}")
     print(f"  Template: {prompt['template']}")
-```
-
-#### Implementation Details:
-
-The method checks if the server exists and retrieves prompts from the specific server, automatically filtering out disabled prompts:
-
-```python
-async def list_prompts_per_server(self, server_id: str) -> List[Dict]:
-    """List all prompts from a specific server."""
-    try:
-        if not self._server_manager or not self._server_manager.has_member_server(server_id):
-            return []
-
-        # Use our filtered get_prompts method which automatically excludes disabled prompts
-        all_prompts = await self.get_prompts()
-        server_prompts = {}
-        for key, prompt in all_prompts.items():
-            if key.startswith(f"{server_id}_"):
-                server_prompts[key] = prompt
-        result = []
-        for key, prompt in server_prompts.items():
-            name = getattr(prompt, 'name', key)
-            description = getattr(prompt, 'description', '')
-            result.append({
-                "name": name,
-                "description": description,
-                "template": str(prompt),
-                "server_id": server_id
-            })
-        return result
-    except Exception as e:
-        logger.error("Error listing prompts for server '%s': %s", server_id, e)
-        return []
 ```
 
 ## Enabling and Disabling Prompts
@@ -585,149 +530,6 @@ The system comes with a comprehensive set of pre-defined prompts for common oper
         }
     ]
 }
-```
-
-## Testing Prompt Management
-
-### Unit Tests
-
-The system includes comprehensive unit tests for prompt management:
-
-```python
-@pytest.mark.asyncio
-async def test_add_prompts():
-    composer = MCPComposer("composer")
-    config = [{
-        "name": "promo_http_avg_response",
-        "description": "Average response time of promo HTTP calls handled by a cluster",
-        "template": "What is the average response time of promo HTTP calls handled by Kubernetes cluster {{ cluster }}?",
-        "arguments": [
-            {
-                "name": "cluster",
-                "type": "string",
-                "required": "true",
-                "description": "The name of the Kubernetes cluster"
-            }
-        ]
-    }]
-    res = await composer.add_prompts(config)     
-    assert len(res) == 1, "Composer should return a dictionary of prompts"
-```
-
-### Integration Tests
-
-```python
-@pytest.mark.asyncio
-async def test_builder_local():    
-    config = [{
-        "id": "mcp-prompt",
-        "type": "local",
-        "prompt_path": "./test/data/prompts.json"
-    }]
-    composer = MCPComposer("composer")
-    await composer.setup_member_servers()
-    prompts = await composer.get_all_prompts()
-    assert len(prompts) == 16, "Composer should return 16 prompts from local file"
-    assert isinstance(prompts, list), "Should return a list of prompts"
-```
-
-
-### Enable/Disable Tests
-
-```python
-@pytest.mark.asyncio
-async def test_disable_and_enable_prompts():
-    """Test the full disable/enable prompt flow."""
-    composer = MCPComposer("composer")
-    
-    # Test disabling prompts
-    result = await composer.disable_prompts(["app_top_errors_yesterday"], "mcp-prompt")
-    assert "Disabled" in result or "No prompts found to disable" in result
-    
-    # Test enabling prompts
-    result = await composer.enable_prompts(["app_top_errors_yesterday"], "mcp-prompt")
-    assert "Enabled" in result or "No prompts disabled" in result
-```
-
-### Filter Tests
-
-```python
-@pytest.mark.asyncio
-async def test_filter_prompts():
-    """Test filtering prompts by criteria."""
-    composer = MCPComposer("test-composer")
-
-    # Add test prompts
-    prompt_config = [
-        {
-            "name": "test_prompt_1",
-            "description": "First test prompt",
-            "template": "Template 1"
-        },
-        {
-            "name": "test_prompt_2",
-            "description": "Second test prompt",
-            "template": "Template 2"
-        },
-        {
-            "name": "another_prompt",
-            "description": "Another prompt",
-            "template": "Template 3"
-        }
-    ]
-
-    composer.add_prompts(prompt_config)
-
-    # Test filtering by name
-    result = await composer.filter_prompts({"name": "test"})
-    assert len(result) == 2
-    assert any(r["name"] == "test_prompt_1" for r in result)
-    assert any(r["name"] == "test_prompt_2" for r in result)
-
-    # Test filtering by description
-    result = await composer.filter_prompts({"description": "First"})
-    assert len(result) == 1
-    assert result[0]["name"] == "test_prompt_1"
-
-    # Test filtering with no matches
-    result = await composer.filter_prompts({"name": "nonexistent"})
-    assert len(result) == 0
-```
-
-### List Per Server Tests
-
-```python
-@pytest.mark.asyncio
-async def test_list_prompts_per_server():
-    """Test listing prompts from a specific server."""
-    composer = MCPComposer("test-composer")
-
-    # Mock server manager to return a mock server
-    mock_server = MagicMock()
-    mock_server.server = MagicMock()
-
-    # Create proper mock prompts
-    mock_prompt1 = MagicMock()
-    mock_prompt1.name = "prompt1"
-    mock_prompt1.description = "Test prompt 1"
-
-    mock_prompt2 = MagicMock()
-    mock_prompt2.name = "prompt2"
-    mock_prompt2.description = "Test prompt 2"
-
-    mock_server.server.get_prompts = AsyncMock(return_value={
-        "prompt1": mock_prompt1,
-        "prompt2": mock_prompt2
-    })
-
-    composer._server_manager.has_member_server = MagicMock(return_value=True)
-    composer._server_manager.get_member = MagicMock(return_value=mock_server)
-
-    result = await composer.list_prompts_per_server("test-server")
-    assert len(result) == 2
-    assert result[0]["name"] == "prompt1"
-    assert result[1]["name"] == "prompt2"
-    assert result[0]["server_id"] == "test-server"
 ```
 
 ## API Endpoints
