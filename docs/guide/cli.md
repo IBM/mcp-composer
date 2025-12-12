@@ -906,6 +906,18 @@ mcp-composer --mode http \
 | `OAUTH_MCP_SCOPE` | MCP-specific OAuth scope | `user` |
 | `OAUTH_PROVIDER_SCOPE` | OAuth provider scope | `openid` |
 
+### GitHub OAuth Configuration
+
+```bash
+mcp-composer --mode http --host localhost \
+  --auth_provider github --auth_type oauth \
+  --env ENABLE_OAUTH=True \
+  --env OAUTH_BASE_URL=http://localhost:9000 \
+  --env OAUTH_CLIENT_ID=<client_id> \
+  --env OAUTH_CLIENT_SECRET=<secret>
+```
+
+
 ### OAuth with Composer Commands
 
 ```bash
@@ -1071,17 +1083,27 @@ mcp-composer status --servers --tools
 ### OAuth Setup
 
 ```bash
-# Start OAuth-enabled server
+# Start OAuth(GitHub) - enabled server
+mcp-composer --mode http --host localhost \
+  --auth_provider github --auth_type oauth \
+  --env ENABLE_OAUTH=True \
+  --env OAUTH_BASE_URL=http://localhost:9000 \
+  --env OAUTH_CLIENT_ID=<client_id> \
+  --env OAUTH_CLIENT_SECRET=<secret>
+
+# Start OAuth(IBM W3) - enabled server
 mcp-composer --mode http \
   --host localhost \
   --port 9000 \
   --disable-composer-tools \
   --auth_type oauth \
   --env ENABLE_OAUTH=True \
-  --env OAUTH_CLIENT_ID=<your_client_id> \
-  --env OAUTH_CLIENT_SECRET=secret \
+  --env OAUTH_CLIENT_ID=<client_id> \
+  --env OAUTH_CLIENT_SECRET=<secret> \
   --env OAUTH_AUTH_URL=https://preprod.login.w3.ibm.com/v1.0/endpoint/default/authorize \
   --env OAUTH_TOKEN_URL=https://preprod.login.w3.ibm.com/v1.0/endpoint/default/token
+  --env OAUTH_MCP_SCOPE user \
+  --env OAUTH_PROVIDER_SCOPE openid
 
 # Start OAuth server as daemon
 mcp-composer composer start --mode http \
@@ -1090,8 +1112,8 @@ mcp-composer composer start --mode http \
   --auth-type oauth \
   --daemon \
   --env ENABLE_OAUTH=True \
-  --env OAUTH_CLIENT_ID=<your_client_id> \
-  --env OAUTH_CLIENT_SECRET=secret
+  --env OAUTH_CLIENT_ID=<client_id> \
+  --env OAUTH_CLIENT_SECRET=<secret>
 ```
 
 ## Troubleshooting
