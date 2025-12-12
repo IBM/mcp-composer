@@ -1,0 +1,29 @@
+[
+  {
+    "name": "member_health",
+    "description": "Health check for member servers",
+    "arguments": {}
+  },
+  {
+    "name": "list_servers",
+    "description": "List all registered servers",
+    "arguments": {}
+  },
+  {
+    "name": "get_all_tools",
+    "description": "Get all available tools",
+    "arguments": {}
+  },
+  {
+    "name": "register_mcp_server",
+    "description": "Register a new MCP server",
+    "arguments": {
+      "server_config": {
+        "id": "benchmark-test-server",
+        "name": "Benchmark Test Server",
+        "type": "http",
+        "endpoint": "http://localhost:8001"
+      }
+    }
+  }
+]

@@ -12,6 +12,7 @@ Based on the mind map shown, MCP Composer currently supports the following resou
 - **List per Server**: Get resources from specific servers (both resources and templates)*
 - **Filter**: Filter resources based on criteria*
 - **Enable/Disable**: Enable or disable resources and templates across servers*
+- **Delete**: Permanently delete resources and templates from the system (composer + mounted servers)*
 
 The following feature is planned to be implemented:
 
@@ -47,6 +48,9 @@ self.add_tool(Tool.from_function(self.enable_resources))
 
 # Disable resources
 self.add_tool(Tool.from_function(self.disable_resources))
+
+# Delete resources or resource templates
+self.add_tool(Tool.from_function(self.delete_resources))
 ```
 
 ### 2. Resource Management Flow
@@ -212,15 +216,6 @@ result = await composer.create_resource(resource_config)
 
 You can create resource templates dynamically using the `create_resource_template` function:
 
-```python
-async def create_resource_template(self, resource_config: dict) -> str:
-    """
-    Add a resource template to the composer using FastMCP's built-in add_template.
-    Returns a success message.
-    """
-    return await self._resource_manager.create_resource_template(resource_config)
-```
-
 #### Example Usage:
 
 ```python
@@ -261,22 +256,6 @@ result = await composer.create_resource_template(template_config)
 
 The `list_resources` function retrieves all registered resources (excluding disabled ones):
 
-```python
-async def list_resources(self) -> list[dict]:
-    """List all available resources from composer and mounted servers."""
-    resources = await self._resource_manager.list_resources()
-    return [
-        {
-            "name": resource.name,
-            "description": resource.description,
-            "uri": str(resource.uri),
-            "mime_type": resource.mime_type,
-            "tags": list(resource.tags) if resource.tags else []
-        }
-        for resource in resources
-    ]
-```
-
 #### Example Usage:
 
 ```python
@@ -292,22 +271,6 @@ for resource in all_resources:
 ### List All Resource Templates
 
 The `list_resource_templates` function retrieves all registered resource templates (excluding disabled ones):
-
-```python
-async def list_resource_templates(self) -> list[dict]:
-    """List all available resource templates from composer and mounted servers."""
-    templates = await self._resource_manager.list_resource_templates()
-    return [
-        {
-            "name": template.name,
-            "description": template.description,
-            "uri_template": str(template.uri_template),
-            "mime_type": template.mime_type,
-            "tags": list(template.tags) if template.tags else []
-        }
-        for template in templates
-    ]
-```
 
 #### Example Usage:
 
@@ -348,58 +311,6 @@ for resource in resources:
         print(f"  URI Template: {resource['uri_template']}")
 ```
 
-#### Implementation Details:
-
-The method checks if the server exists and retrieves both resources and templates from the specific server:
-
-```python
-async def list_resources_per_server(self, server_id: str) -> List[Dict]:
-    """List all resources and templates from a specific server."""
-    try:
-        if not self._server_manager or not self._server_manager.has_member_server(server_id):
-            return []
-
-        server = self._server_manager.get_member(server_id)
-        if server and hasattr(server, 'server') and server.server:
-            result = []
-            
-            # Get resources
-            try:
-                resources = await server.server.get_resources()
-                for key, resource in resources.items():
-                    if hasattr(resource, 'name'):
-                        result.append({
-                            "name": resource.name,
-                            "description": getattr(resource, 'description', ''),
-                            "uri": str(getattr(resource, 'uri', '')),
-                            "type": "resource",
-                            "server_id": server_id
-                        })
-            except Exception as e:
-                logger.warning("Error getting resources from server %s: %s", server_id, e)
-            
-            # Get resource templates
-            try:
-                templates = await server.server.get_resource_templates()
-                for key, template in templates.items():
-                    if hasattr(template, 'name'):
-                        result.append({
-                            "name": template.name,
-                            "description": getattr(template, 'description', ''),
-                            "uri_template": str(getattr(template, 'uri_template', '')),
-                            "type": "template",
-                            "server_id": server_id
-                        })
-            except Exception as e:
-                logger.warning("Error getting resource templates from server %s: %s", server_id, e)
-            
-            return result
-        return []
-    except Exception as e:
-        logger.error("Error listing resources for server %s: %s", server_id, e)
-        return []
-```
-
 ## Filtering Resources
 
 ### Filter Resources by Criteria
@@ -433,114 +344,6 @@ result = await composer.filter_resources({
     "type": "template",
     "description": "test"
 })
-```
-
-#### Implementation Details:
-
-The filtering method collects resources and templates from both the composer and all mounted servers, then applies the filter criteria:
-
-```python
-async def filter_resources(self, filter_criteria: dict) -> List[Dict]:
-    """
-    Filter both resources and templates based on criteria like name, description, tags, etc.
-    """
-    try:
-        result = []
-
-        # Get all resources and templates using FastMCP's built-in methods
-        resources = await self.list_resources()
-        templates = await self.list_resource_templates()
-
-        # Combine resources and templates for filtering
-        all_items = []
-
-        # Add resources with type indicator
-        for resource in resources:
-            all_items.append({
-                "item": resource,
-                "type": "resource",
-                "name": getattr(resource, 'name', ''),
-                "description": getattr(resource, 'description', ''),
-                "uri": str(getattr(resource, 'uri', '')),
-                "tags": getattr(resource, 'tags', set())
-            })
-
-        # Add templates with type indicator
-        for template in templates:
-            all_items.append({
-                "item": template,
-                "type": "template",
-                "name": getattr(template, 'name', ''),
-                "description": getattr(template, 'description', ''),
-                "uri_template": str(getattr(template, 'uri_template', '')),
-                "tags": getattr(template, 'tags', set())
-            })
-
-        # Apply filters
-        for item_data in all_items:
-            match = True
-
-            # Filter by name
-            if 'name' in filter_criteria and filter_criteria['name']:
-                search_name = filter_criteria['name'].lower()
-                item_name = item_data['name'].lower()
-                if search_name not in item_name:
-                    match = False
-
-            # Filter by description
-            if match and 'description' in filter_criteria and filter_criteria['description']:
-                search_desc = filter_criteria['description'].lower()
-                item_desc = item_data['description'].lower()
-                if search_desc not in item_desc:
-                    match = False
-
-            # Filter by tags
-            if match and 'tags' in filter_criteria and filter_criteria['tags']:
-                search_tags = set(tag.lower() for tag in filter_criteria['tags'])
-                item_tags = set(tag.lower() for tag in item_data['tags'])
-                if not search_tags.intersection(item_tags):
-                    match = False
-
-            # Filter by type (resource or template)
-            if match and 'type' in filter_criteria and filter_criteria['type']:
-                if filter_criteria['type'].lower() != item_data['type']:
-                    match = False
-
-            # Filter by URI pattern
-            if match and 'uri_pattern' in filter_criteria and filter_criteria['uri_pattern']:
-                if item_data['type'] == 'resource':
-                    uri = item_data['uri']
-                else:
-                    uri = item_data['uri_template']
-
-                if filter_criteria['uri_pattern'].lower() not in uri.lower():
-                    match = False
-
-            if match:
-                # Create result entry
-                result_entry = {
-                    "name": item_data['name'],
-                    "description": item_data['description'],
-                    "type": item_data['type'],
-                    "source": "composer"  # Could be enhanced to track actual source
-                }
-
-                # Add type-specific fields
-                if item_data['type'] == 'resource':
-                    result_entry["uri"] = item_data['uri']
-                else:
-                    result_entry["uri_template"] = item_data['uri_template']
-
-                # Add tags if present
-                if item_data['tags']:
-                    result_entry["tags"] = list(item_data['tags'])
-
-                result.append(result_entry)
-
-        return result
-    except Exception as e:
-        logger.error("Error filtering resources: %s", e)
-        return []
 ```
 
 ## Enabling and Disabling Resources
@@ -599,100 +402,30 @@ The enable/disable functionality works by:
 4. **Persistent storage**: Changes are persisted to the database
 5. **Filtering**: Disabled resources are automatically filtered out from `list_resources()` and `list_resource_templates()`
 
+## Deleting Resources
+
+MCP Composer now supports deleting both resources and resource templates, either from the Composer itself or from specific mounted MCP servers.
+
+### Delete Resources
+
+The `delete_resources` function removes resources/templates by name and server:
+
 ```python
-async def disable_resources(self, resources: list[str], server_id: str) -> str:
-    """
-    Disable a resource or multiple resources from the member server.
-    This method handles both Resources and Resource Templates.
-    """
-    if not self._server_manager:
-        return "Server manager not available"
-
-    try:
-        self._server_manager.check_server_exist(server_id)
-        
-        # Get all resources and templates using the list methods
-        all_resources = await self.list_resources()
-        all_templates = await self.list_resource_templates()
-        
-        # Find resources to disable by matching names
-        resources_to_disable = []
-        
-        for resource_name in resources:
-            # Check in resources
-            for resource in all_resources:
-                actual_name = getattr(resource, 'name', None)
-                if actual_name and resource_name.lower() == actual_name.lower():
-                    full_key = f"{server_id}_{resource_name}"
-                    resources_to_disable.append(full_key)
-                    break
-            
-            # Check in templates
-            for template in all_templates:
-                actual_name = getattr(template, 'name', None)
-                if actual_name and resource_name.lower() == actual_name.lower():
-                    full_key = f"{server_id}_{resource_name}"
-                    resources_to_disable.append(full_key)
-                    break
-
-        if not resources_to_disable:
-            return f"No resources or resource templates found to disable: {resources}"
-
-        self._server_manager.disable_resources(resources_to_disable, server_id)
-        return f"Disabled {resources_to_disable} resources/templates from server {server_id}"
-    except Exception as e:
-        return f"Failed to disable resources: {str(e)}"
+async def delete_resources(self, resources: list[str], server_id: str) -> str:
+    """Delete resources or templates from a specific server."""
+    return await self._resource_manager.delete_resources(resources, server_id)
 ```
 
-### Filtering Disabled Resources
-
-Disabled resources are automatically filtered out from all listing operations:
+### Example Usage
 
 ```python
-def _filter_disabled_resources(self, resources: dict[str, Resource]) -> dict[str, Resource]:
-    """Filter resources by removing disabled ones."""
-    try:
-        if not self._server_manager:
-            return resources
+# Delete a single resource
+result = await composer.delete_resources(["finance_reference"])
+print(result)  # "Deleted ['mcp-stock-info_finance_reference'] resources/templates"
 
-        server_config = self._server_manager.list()
-        if not server_config:
-            return resources
-
-        remove_set = set()
-        for member in server_config:
-            if member.health_status == HealthStatus.unhealthy:
-                continue
-            if member.disabled_resources:
-                remove_set.update(member.disabled_resources)
-
-        filtered_resources = {}
-        for name, resource in resources.items():
-            # Check if this resource should be filtered out
-            should_remove = False
-            
-            # Check exact key match first
-            if name in remove_set:
-                should_remove = True
-            else:
-                # Check if any disabled resource matches this resource by name
-                resource_name = getattr(resource, 'name', None)
-                if resource_name:
-                    for disabled_resource in remove_set:
-                        if '_' in disabled_resource:
-                            disabled_resource_name = disabled_resource.split('_', 1)[1]
-                            if resource_name.lower() == disabled_resource_name.lower():
-                                should_remove = True
-                                break
-            
-            if should_remove:
-                continue
-            
-            filtered_resources[name] = resource
-        return filtered_resources
-    except Exception as e:
-        logger.exception("Resources filtering failed: %s", e)
-        raise
+# Delete multiple resources
+result = await composer.delete_resources(["resource1", "resource2"])
+print(result)  # "Deleted ['my-server_resource1', 'my-server_resource2'] resources/templates"
 ```
 
 ## Example Resources
@@ -745,123 +478,6 @@ The system supports various types of resources for different use cases:
     "tags": ["template", "user"],
     "enabled": true
 }
-```
-
-## Testing Resource Management
-
-### Unit Tests
-
-The system includes comprehensive unit tests for resource management:
-
-```python
-@pytest.mark.asyncio
-async def test_create_resource():
-    """Test creating an actual resource."""
-    composer = MCPComposer("test-composer")
-
-    resource_config = {
-        "name": "test_resource",
-        "description": "A test resource",
-        "content": "Test content",
-        "uri": "resource://test/resource"
-    }
-
-    result = await composer.create_resource(resource_config)
-    assert "created successfully" in result
-```
-
-### Integration Tests
-
-```python
-@pytest.mark.asyncio
-async def test_list_resources_via_composer():
-    """Test listing resources through the composer interface."""
-    composer = MCPComposer("test-composer")
-
-    # Add a test resource first
-    resource_config = {
-        "name": "test_resource",
-        "description": "A test resource",
-        "content": "Test content"
-    }
-    await composer.create_resource(resource_config)
-
-    result = await composer.list_resources()
-    assert len(result) >= 1
-    assert isinstance(result, list)
-    assert isinstance(result[0], dict)
-    assert any(r["name"] == "test_resource" for r in result)
-```
-
-### Enable/Disable Tests
-
-```python
-@pytest.mark.asyncio
-async def test_disable_and_enable_resources():
-    """Test the full disable/enable resource flow."""
-    composer = MCPComposer("test-composer")
-
-    # Test disabling resources
-    result = await composer.disable_resources(["test_resource"], "test-server")
-    assert "Disabled" in result or "No resources found to disable" in result
-
-    # Test enabling resources
-    result = await composer.enable_resources(["test_resource"], "test-server")
-    assert "Enabled" in result or "No resources disabled" in result
-```
-
-### Filter Tests
-
-```python
-@pytest.mark.asyncio
-async def test_filter_resources():
-    """Test filtering resources by criteria."""
-    composer = MCPComposer("test-composer")
-
-    # Add test resources
-    resource_configs = [
-        {
-            "name": "test_resource_1",
-            "description": "First test resource",
-            "content": "Content 1",
-            "tags": ["test", "resource"]
-        },
-        {
-            "name": "test_resource_2", 
-            "description": "Second test resource",
-            "content": "Content 2",
-            "tags": ["test", "example"]
-        },
-        {
-            "name": "another_resource",
-            "description": "Another resource",
-            "content": "Content 3",
-            "tags": ["other"]
-        }
-    ]
-
-    for config in resource_configs:
-        await composer.create_resource(config)
-
-    # Test filtering by name
-    result = await composer.filter_resources({"name": "test"})
-    assert len(result) == 2
-    assert any(r["name"] == "test_resource_1" for r in result)
-    assert any(r["name"] == "test_resource_2" for r in result)
-
-    # Test filtering by description
-    result = await composer.filter_resources({"description": "First"})
-    assert len(result) == 1
-    assert result[0]["name"] == "test_resource_1"
-
-    # Test filtering by tags
-    result = await composer.filter_resources({"tags": ["example"]})
-    assert len(result) == 1
-    assert result[0]["name"] == "test_resource_2"
-
-    # Test filtering with no matches
-    result = await composer.filter_resources({"name": "nonexistent"})
-    assert len(result) == 0
 ```
 
 ## API Endpoints
@@ -998,6 +614,20 @@ Content-Type: application/json
 }
 ```
 
+### Delete Resources
+
+```http
+POST /mcp/tools/delete_resources
+Content-Type: application/json
+
+{
+  "arguments": {
+    "resources": ["resource1", "resource2"],
+    "server_id": "my-server"
+  }
+}
+```
+
 ## Best Practices
 
 ### 1. Resource Naming
@@ -1048,6 +678,13 @@ Content-Type: application/json
 - Validate resource access permissions
 - Sanitize dynamic content
 - Use secure URI patterns
+
+### 9. Deletion Best Practices
+
+- Prefer disable over delete when unsure
+- Delete only when the resource/template must be removed permanently
+- Clean up related content or dependent resources manually or programmatically
+- Don't delete core system resources or templates unless necessary
 
 ## Configuration Files
 
