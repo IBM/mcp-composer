@@ -1,14 +1,5 @@
-import asyncio
-import time
-from dataclasses import dataclass, field
-from typing import Dict, Optional, Tuple, Any, Callable
-
-from fastmcp.exceptions import ToolError
-from fastmcp.server.middleware import Middleware, MiddlewareContext, CallNext
-import mcp.types as mt
-
-
-"""app.add_middleware(
+"""
+app.add_middleware(
     ConcurrencyLimiterMiddleware(
         per_tool_limits={
             "ask_llm": 8,            # max 8 concurrent across tenants
@@ -23,6 +14,12 @@ import mcp.types as mt
     )
 )
 """
+import asyncio
+from dataclasses import dataclass
+from typing import Dict, Optional, Any, Callable
+
+from fastmcp.exceptions import ToolError
+from fastmcp.server.middleware import Middleware
 
 
 class ConcurrencyError(ToolError):
@@ -92,13 +89,12 @@ class ConcurrencyLimiterMiddleware(Middleware):
             if acquired:
                 gate.in_flight += 1
             return acquired
-        else:
-            try:
-                await asyncio.wait_for(gate.sem.acquire(), timeout=timeout)
-                gate.in_flight += 1
-                return True
-            except asyncio.TimeoutError:
-                return False
+        try:
+            await asyncio.wait_for(gate.sem.acquire(), timeout=timeout)
+            gate.in_flight += 1
+            return True
+        except asyncio.TimeoutError:
+            return False
 
     def _release(self, gate: Gate):
         gate.sem.release()

@@ -4,10 +4,10 @@ Inspired by permit-fastmcp's comprehensive identity extraction approach.
 """
 
 import re
-import jwt
 from typing import Dict, Any, Optional, Tuple
-from .config import SETTINGS, IdentityMode, Settings
-from .schemas import AuthContext
+import jwt # type: ignore
+from mcp_composer.middleware.acl.policy.config import SETTINGS, IdentityMode, Settings
+from mcp_composer.middleware.acl.policy.schemas import AuthContext
 from mcp_composer.core.utils.logger import LoggerFactory
 
 logger = LoggerFactory.get_logger()
@@ -25,7 +25,7 @@ class IdentityManager:
         """
         self.settings = settings or SETTINGS
         logger.info(
-            f"Identity manager initialized with mode: {self.settings.identity_mode}"
+            "Identity manager initialized with mode: %s", self.settings.identity_mode
         )
 
     def extract_identity(self, context: Any) -> Tuple[str, Dict[str, Any]]:
@@ -50,10 +50,10 @@ class IdentityManager:
             elif self.settings.identity_mode == IdentityMode.api_key:
                 return self._extract_api_key_identity(context)
             else:
-                logger.warning(f"Unknown identity mode: {self.settings.identity_mode}")
+                logger.warning("Unknown identity mode: %s", self.settings.identity_mode)
                 return "unknown", {"type": "unknown_mode"}
         except Exception as e:
-            logger.error(f"Error extracting identity: {e}")
+            logger.error("Error extracting identity: %s", e)
             return "unknown", {"type": "extraction_error", "error": str(e)}
 
     def _extract_jwt_identity(self, context: Any) -> Tuple[str, Dict[str, Any]]:
@@ -104,17 +104,17 @@ class IdentityManager:
                 "issued_at": payload.get("iat"),
             }
 
-            logger.debug(f"Extracted JWT identity: {user_id}")
+            logger.debug("Extracted JWT identity: %s", user_id)
             return user_id, attributes
 
         except jwt.ExpiredSignatureError:
             logger.warning("JWT token has expired")
             return "unknown", {"type": "jwt_expired"}
         except jwt.InvalidTokenError as e:
-            logger.warning(f"Invalid JWT token: {e}")
+            logger.warning("Invalid JWT token: %s", e)
             return "unknown", {"type": "jwt_invalid", "error": str(e)}
         except Exception as e:
-            logger.error(f"Error decoding JWT: {e}")
+            logger.error("Error decoding JWT: %s", e)
             return "unknown", {"type": "jwt_decode_error", "error": str(e)}
 
     def _extract_fixed_identity(self, context: Any) -> Tuple[str, Dict[str, Any]]:
@@ -125,7 +125,7 @@ class IdentityManager:
             "mode": "fixed",
         }
 
-        logger.debug(f"Using fixed identity: {user_id}")
+        logger.debug("Using fixed identity: %s", user_id)
         return user_id, attributes
 
     def _extract_header_identity(self, context: Any) -> Tuple[str, Dict[str, Any]]:
@@ -144,7 +144,7 @@ class IdentityManager:
             "header": self.settings.identity_header,
         }
 
-        logger.debug(f"Extracted header identity: {user_id}")
+        logger.debug("Extracted header identity: %s", user_id)
         return user_id, attributes
 
     def _extract_source_identity(self, context: Any) -> Tuple[str, Dict[str, Any]]:
@@ -160,7 +160,7 @@ class IdentityManager:
             "source": source,
         }
 
-        logger.debug(f"Extracted source identity: {user_id}")
+        logger.debug("Extracted source identity: %s", user_id)
         return user_id, attributes
 
     def _extract_api_key_identity(self, context: Any) -> Tuple[str, Dict[str, Any]]:
@@ -183,7 +183,7 @@ class IdentityManager:
             "header": self.settings.api_key_header,
         }
 
-        logger.debug(f"Extracted API key identity: {user_id}")
+        logger.debug("Extracted API key identity: %s", user_id)
         return user_id, attributes
 
     def _get_headers(self, context: Any) -> Dict[str, str]:

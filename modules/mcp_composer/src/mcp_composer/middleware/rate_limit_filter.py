@@ -4,7 +4,7 @@ from __future__ import annotations
 import time
 import asyncio
 from dataclasses import dataclass, field
-from typing import Any, Dict, Tuple, Optional
+from typing import Any, Dict, Tuple
 
 from fastmcp.server.middleware import Middleware, MiddlewareContext, CallNext
 from fastmcp.exceptions import ToolError
@@ -97,7 +97,7 @@ class RateLimitingMiddleware(Middleware):
                 msg = f"rate limited: scope={self.scope} key={self._key(context)}"
                 if self.enforce:
                     raise ToolError(msg)
-                _LOGGER.warning("⚠️ " + msg)
+                _LOGGER.warning("⚠️ %s", msg)
                 # soft-mode: continue without consuming
                 return await call_next(context)
             key.tokens -= 1.0

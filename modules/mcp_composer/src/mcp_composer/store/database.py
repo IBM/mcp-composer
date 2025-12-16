@@ -52,12 +52,10 @@ class DatabaseInterface(ABC):
 
     @abstractmethod
     def mark_deactivated(self, server_id: str) -> None:
-        """Marks the given server as deactivated (sets status='deactivated')"""
         pass
 
     @abstractmethod
     def get_server_status(self, server_id: str) -> str:
-        """Returns the status of the given server (e.g., 'active' or 'deactivated')"""
         pass
 
     @abstractmethod
@@ -66,15 +64,12 @@ class DatabaseInterface(ABC):
 
     @abstractmethod
     def load_all_resources(self) -> List[Dict]:
-        """Return all stored resource/template definitions."""
         pass
 
     @abstractmethod
     def upsert_resource(self, resource: Dict) -> None:
-        """Insert or update a stored resource/template definition."""
         pass
 
     @abstractmethod
     def delete_resource(self, resource_id: str) -> None:
-        """Remove a stored resource/template definition."""
         pass

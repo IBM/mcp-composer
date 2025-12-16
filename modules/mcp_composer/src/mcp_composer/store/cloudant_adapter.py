@@ -64,7 +64,8 @@ class CloudantAdapter(DatabaseInterface):
 
                 if existing_tools:
                     logger.info(
-                        "Remove tool list is already %s present in cloudant for server_id %s. Updating list. Response: %s",
+                        "Remove tool list is already %s present in cloudant for server_id %s. "
+                        "Updating list. Response: %s",
                         existing_tools,
                         server_id,
                         existing_doc,
@@ -535,7 +536,7 @@ class CloudantAdapter(DatabaseInterface):
                 db=self._resources_db_name, include_docs=True
             ).get_result()
             return [row["doc"] for row in result.get("rows", []) if "doc" in row]
-        except Exception as exc:
+        except Exception as exc: # pylint: disable=broad-exception-caught
             logger.error("Cloudant resource read failed: %s", exc)
             return []
 

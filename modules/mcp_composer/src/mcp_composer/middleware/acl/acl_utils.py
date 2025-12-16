@@ -3,7 +3,7 @@ ACL utilities for policy enforcement and role resolution.
 """
 
 import os
-from typing import Dict, Any, Optional
+from typing import Dict, Any
 from mcp_composer.core.utils.logger import LoggerFactory
 
 logger = LoggerFactory.get_logger()
@@ -59,7 +59,7 @@ def resolve_role_from_context(context: Dict[str, Any]) -> str:
 
     # Default to environment variable or fallback
     default_role = os.getenv("DEFAULT_USER_ROLE", "user")
-    logger.debug(f"No role found in context, using default: {default_role}")
+    logger.debug("No role found in context, using default: %s", default_role)
     return default_role
 
 
@@ -124,14 +124,12 @@ def validate_policy_config(config: Dict[str, Any]) -> bool:
 
     required_fields = ["mode"]
     if not all(field in config for field in required_fields):
-        logger.error(f"Missing required fields in policy config: {required_fields}")
+        logger.error("Missing required fields in policy config: %s", required_fields)
         return False
 
     valid_modes = ["file", "vault", "opa", "jwt", "permit"]
     if config["mode"] not in valid_modes:
-        logger.error(
-            f"Invalid policy mode: {config['mode']}. Valid modes: {valid_modes}"
-        )
+        logger.error("Invalid policy mode: %s. Valid modes: %s", config["mode"], valid_modes)
         return False
 
     return True

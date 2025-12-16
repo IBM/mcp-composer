@@ -1,8 +1,7 @@
-import httpx
-import json
 from typing import Dict, Any, Optional
-from .base_policy_enforcer import BasePolicyEnforcer
-from ..acl_utils import resolve_role_from_context, extract_context_info
+import httpx # type: ignore
+from mcp_composer.middleware.acl.policy.base_policy_enforcer import BasePolicyEnforcer
+from mcp_composer.middleware.acl.acl_utils import extract_context_info
 from mcp_composer.core.utils.logger import LoggerFactory
 
 logger = LoggerFactory.get_logger()
@@ -52,7 +51,7 @@ class OPARegoPolicyEnforcer(BasePolicyEnforcer):
         # Build the full query URL
         self.query_url = f"{self.opa_url}/v1/data/{self.policy_path}"
 
-        logger.info(f"Initialized OPA policy enforcer - URL: {self.query_url}")
+        logger.info("Initialized OPA policy enforcer - URL: %s", self.query_url)
 
     async def _query_opa(self, input_data: Dict[str, Any]) -> Optional[bool]:
         """
@@ -78,20 +77,19 @@ class OPARegoPolicyEnforcer(BasePolicyEnforcer):
                     result = response.json()
                     # OPA returns {"result": true/false}
                     return result.get("result", False)
-                else:
-                    logger.error(
-                        f"OPA query failed with status {response.status_code}: {response.text}"
-                    )
-                    return None
+                logger.error(
+                    "OPA query failed with status %d: %s", response.status_code, response.text
+                )
+                return None
 
         except httpx.TimeoutException:
-            logger.error(f"OPA query timed out after {self.timeout} seconds")
+            logger.error("OPA query timed out after %d seconds", self.timeout)
             return None
         except httpx.RequestError as e:
-            logger.error(f"OPA request error: {e}")
+            logger.error("OPA request error: %s", e)
             return None
         except Exception as e:
-            logger.error(f"Unexpected error querying OPA: {e}")
+            logger.error("Unexpected error querying OPA: %s", e)
             return None
 
     def is_allowed(self, tool_name: str, context: Dict[str, Any]) -> bool:
@@ -137,8 +135,7 @@ class OPARegoPolicyEnforcer(BasePolicyEnforcer):
                     "OPA query called from async context, falling back to role-based check"
                 )
                 return self._fallback_check(tool_name, context_info)
-            else:
-                result = asyncio.run(self._query_opa(input_data))
+            result = asyncio.run(self._query_opa(input_data))
         except RuntimeError:
             # No event loop available, fall back to simple check
             logger.warning(
@@ -151,8 +148,8 @@ class OPARegoPolicyEnforcer(BasePolicyEnforcer):
             return self._fallback_check(tool_name, context_info)
 
         logger.debug(
-            f"OPA policy check - Tool: {tool_name}, "
-            f"Allowed: {result}, Context: {context_info}"
+            "OPA policy check - Tool: %s, Allowed: %s, Context: %s",
+            tool_name, result, context_info
         )
 
         return result
@@ -174,7 +171,7 @@ class OPARegoPolicyEnforcer(BasePolicyEnforcer):
 
         # For other roles, deny by default (fail secure)
         logger.warning(
-            f"Fallback policy check - denying access to {tool_name} for role {context_info['role']}"
+            "Fallback policy check - denying access to %s for role %s", tool_name, context_info['role']
         )
         return False
 
@@ -210,8 +207,8 @@ class OPARegoPolicyEnforcer(BasePolicyEnforcer):
             return self._fallback_check(tool_name, context_info)
 
         logger.debug(
-            f"OPA policy check (async) - Tool: {tool_name}, "
-            f"Allowed: {result}, Context: {context_info}"
+            "OPA policy check (async) - Tool: %s, Allowed: %s, Context: %s",
+            tool_name, result, context_info
         )
 
         return result

@@ -1,8 +1,8 @@
 import json
 import os
 from typing import Dict, Any
-from .base_policy_enforcer import BasePolicyEnforcer
-from ..acl_utils import resolve_role_from_context, extract_context_info
+from mcp_composer.middleware.acl.policy.base_policy_enforcer import BasePolicyEnforcer
+from mcp_composer.middleware.acl.acl_utils import resolve_role_from_context, extract_context_info
 from mcp_composer.core.utils.logger import LoggerFactory
 
 logger = LoggerFactory.get_logger()
@@ -37,23 +37,23 @@ class FilePolicyEnforcer(BasePolicyEnforcer):
         try:
             if not os.path.exists(self.policy_file):
                 logger.warning(
-                    f"Policy file {self.policy_file} not found, using empty policy"
+                    "Policy file %s not found, using empty policy", self.policy_file
                 )
                 self.policy_data = {}
                 return
 
-            with open(self.policy_file, "r") as f:
+            with open(self.policy_file, "r", encoding="utf-8") as f:
                 self.policy_data = json.load(f)
 
             logger.info(
-                f"Loaded policy from {self.policy_file} with {len(self.policy_data)} roles"
+                "Loaded policy from %s with %d roles", self.policy_file, len(self.policy_data)
             )
 
         except json.JSONDecodeError as e:
-            logger.error(f"Invalid JSON in policy file {self.policy_file}: {e}")
+            logger.error("Invalid JSON in policy file %s: %s", self.policy_file, e)
             self.policy_data = {}
         except Exception as e:
-            logger.error(f"Error loading policy file {self.policy_file}: {e}")
+            logger.error("Error loading policy file %s: %s", self.policy_file, e)
             self.policy_data = {}
 
     def is_allowed(self, tool_name: str, context: Dict[str, Any]) -> bool:
@@ -77,8 +77,8 @@ class FilePolicyEnforcer(BasePolicyEnforcer):
         is_allowed = tool_name in allowed_tools
 
         logger.debug(
-            f"File policy check - Tool: {tool_name}, Role: {role}, "
-            f"Allowed: {is_allowed}, Context: {context_info}"
+            "File policy check - Tool: %s, Role: %s, Allowed: %s, Context: %s",
+            tool_name, role, is_allowed, context_info
         )
 
         return is_allowed

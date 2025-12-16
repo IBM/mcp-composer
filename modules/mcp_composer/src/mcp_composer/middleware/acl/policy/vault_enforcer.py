@@ -1,7 +1,7 @@
 import os
-import hvac
 import json
 from typing import Dict, Any, Optional, List
+import hvac
 from mcp_composer.middleware.acl.policy.base_policy_enforcer import BasePolicyEnforcer
 from mcp_composer.middleware.acl.acl_utils import (
     resolve_role_from_context,
@@ -58,7 +58,7 @@ class HashiCorpVaultPolicyEnforcer(BasePolicyEnforcer):
         self._initialize_client()
 
         logger.info(
-            f"Initialized Vault policy enforcer - URL: {vault_url}, Path: {mount_point}/{policy_path}"
+            "Initialized Vault policy enforcer - URL: %s, Path: %s/%s", vault_url, mount_point, policy_path
         )
 
     def _initialize_client(self) -> None:
@@ -70,17 +70,19 @@ class HashiCorpVaultPolicyEnforcer(BasePolicyEnforcer):
             # Test the connection
             if self.client and not self.client.is_authenticated():
                 logger.warning(
-                    f"Vault client is not authenticated. URL: {self.vault_url}, Token: {'***' if self.token else 'None'}"
+                    "Vault client is not authenticated. URL: %s, Token: %s",
+                    self.vault_url,
+                    '***' if self.token else 'None'
                 )
                 return
 
-            logger.info(f"Successfully connected to Vault at {self.vault_url}")
+            logger.info("Successfully connected to Vault at %s", self.vault_url)
 
         except ImportError:
             logger.error("hvac library not installed. Install with: pip install hvac")
             self.client = None
         except Exception as e:
-            logger.error(f"Failed to initialize Vault client: {e}")
+            logger.error("Failed to initialize Vault client: %s", e)
             self.client = None
 
     def _get_policy_from_vault(self, role: str) -> Optional[Dict[str, Any]]:
@@ -101,30 +103,29 @@ class HashiCorpVaultPolicyEnforcer(BasePolicyEnforcer):
             # Read policy from KV v2
             secret_path = f"{self.policy_path}/{role}"
             logger.debug(
-                f"Retrieving policy for role {role} from Vault from path {secret_path}"
+                "Retrieving policy for role %s from Vault from path %s", role, secret_path
             )
             response = self.client.secrets.kv.v2.read_secret_version(
                 path=secret_path, mount_point=self.mount_point
             )
 
             logger.debug(
-                f"Response from Vault: {json.dumps(response, indent=4)} - {response}"
+                "Response from Vault: %s - %s", json.dumps(response, indent=4), response
             )
             if response and "data" in response and "data" in response["data"]:
                 policy_data = response["data"]["data"]
                 logger.debug(
-                    f"Retrieved policy for role {role} from Vault as {policy_data}"
+                    "Retrieved policy for role %s from Vault as %s", role, policy_data
                 )
                 return policy_data
-            else:
-                logger.warning(f"No policy data found for role {role} in Vault")
-                return None
+            logger.warning("No policy data found for role %s in Vault", role)
+            return None
 
         except Exception as e:
             if "InvalidPath" in str(e):
-                logger.debug(f"No policy found for role {role} in Vault")
+                logger.debug("No policy found for role %s in Vault", role)
             else:
-                logger.error(f"Error retrieving policy for role {role} from Vault: {e}")
+                logger.error("Error retrieving policy for role %s from Vault: %s", role, e)
             return None
 
     def _evaluate_conditions(
@@ -163,11 +164,11 @@ class HashiCorpVaultPolicyEnforcer(BasePolicyEnforcer):
                             break
                     except (ValueError, IndexError):
                         logger.warning(
-                            f"Invalid time restriction format: {restriction}"
+                            "Invalid time restriction format: %s", restriction
                         )
 
             if not time_allowed:
-                logger.debug(f"Time restriction not met: {time_restrictions}")
+                logger.debug("Time restriction not met: %s", time_restrictions)
                 return False
 
         # Check project restrictions
@@ -175,7 +176,7 @@ class HashiCorpVaultPolicyEnforcer(BasePolicyEnforcer):
         if project_restrictions and context_info.get("project"):
             if context_info["project"] not in project_restrictions:
                 logger.debug(
-                    f"Project restriction not met: {context_info['project']} not in {project_restrictions}"
+                    "Project restriction not met: %s not in %s", context_info['project'], project_restrictions
                 )
                 return False
 
@@ -184,7 +185,7 @@ class HashiCorpVaultPolicyEnforcer(BasePolicyEnforcer):
         if agent_restrictions and context_info.get("agent_type"):
             if context_info["agent_type"] not in agent_restrictions:
                 logger.debug(
-                    f"Agent type restriction not met: {context_info['agent_type']} not in {agent_restrictions}"
+                    "Agent type restriction not met: %s not in %s", context_info['agent_type'], agent_restrictions
                 )
                 return False
 
@@ -203,7 +204,7 @@ class HashiCorpVaultPolicyEnforcer(BasePolicyEnforcer):
         """
         # Check if client is available and authenticated
 
-        logger.debug(f"Checking Vault policy for tool: {tool_name}, Context: {context}")
+        logger.debug("Checking Vault policy for tool: %s, Context: %s", tool_name, context)
         if not self.client or not self.client.is_authenticated():
             logger.warning(
                 "Vault client not available or not authenticated, denying access"
@@ -215,26 +216,28 @@ class HashiCorpVaultPolicyEnforcer(BasePolicyEnforcer):
 
         # Get policy from Vault
         policy = self._get_policy_from_vault(role)
-        logger.debug(f"Retrieved policy for role {role} from Vault: {policy}")
+        logger.debug("Retrieved policy for role %s from Vault: %s", role, policy)
         if not policy:
-            logger.warning(f"No policy found for role {role} in Vault")
+            logger.warning("No policy found for role %s in Vault", role)
             return False
 
         # Check if tool is in allowed list
         allowed_tools = policy.get("tools", [])
-        logger.debug(f"Allowed tools for role {role}: {allowed_tools}")
+        logger.debug("Allowed tools for role %s: %s", role, allowed_tools)
         if tool_name not in allowed_tools:
-            logger.debug(f"Tool {tool_name} not in allowed tools for role {role}")
+            logger.debug("Tool %s not in allowed tools for role %s", tool_name, role)
             return False
 
         # Evaluate conditions
         if not self._evaluate_conditions(policy, context_info):
-            logger.debug(f"Policy conditions not met for role {role}")
+            logger.debug("Policy conditions not met for role %s", role)
             return False
 
         logger.debug(
-            f"Vault policy check - Tool: {tool_name}, Role: {role}, "
-            f"Allowed: True, Context: {context_info}"
+            "Vault policy check - Tool: %s, Role: %s, Allowed: True, Context: %s",
+            tool_name,
+            role,
+            context_info,
         )
 
         return True
@@ -260,11 +263,11 @@ class HashiCorpVaultPolicyEnforcer(BasePolicyEnforcer):
                 path=secret_path, secret=policy_data, mount_point=self.mount_point
             )
 
-            logger.info(f"Successfully updated policy for role {role} in Vault")
+            logger.info("Successfully updated policy for role %s in Vault", role)
             return True
 
         except Exception as e:
-            logger.error(f"Error updating policy for role {role} in Vault: {e}")
+            logger.error("Error updating policy for role %s in Vault: %s", role, e)
             return False
 
     def list_policies(self) -> List[str]:
@@ -285,11 +288,10 @@ class HashiCorpVaultPolicyEnforcer(BasePolicyEnforcer):
 
             if response and "data" in response and "keys" in response["data"]:
                 return response["data"]["keys"]
-            else:
-                return []
+            return []
 
         except Exception as e:
-            logger.error(f"Error listing policies in Vault: {e}")
+            logger.error("Error listing policies in Vault: %s", e)
             return []
 
     def get_connection_status(self) -> Dict[str, Any]:

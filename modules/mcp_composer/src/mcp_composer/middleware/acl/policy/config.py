@@ -6,8 +6,8 @@ Inspired by permit-fastmcp's comprehensive configuration approach.
 """
 
 from typing import List
-from pydantic_settings import BaseSettings, SettingsConfigDict
 from enum import Enum
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class IdentityMode(str, Enum):

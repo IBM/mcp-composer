@@ -5,6 +5,7 @@ import json
 import asyncio
 from typing import TYPE_CHECKING, Dict, List, Any, Union, Optional
 from urllib.parse import urlparse
+import concurrent.futures
 import asyncpg
 
 from mcp_composer.core.utils.exceptions import ToolDuplicateError
@@ -186,12 +187,9 @@ class PostgresAdapter(DatabaseInterface):
         """Run async coroutine, handling existing event loop properly."""
         try:
             # Try to get the current event loop
-            loop = asyncio.get_running_loop()
+            asyncio.get_running_loop()
             # If we're in an async context, we need to create a task
             # But since we're in a sync method, we'll use asyncio.run_coroutine_threadsafe
-            import concurrent.futures
-            import threading
-
             # Create a new event loop in a separate thread
             def run_in_thread():
                 new_loop = asyncio.new_event_loop()
@@ -261,7 +259,8 @@ class PostgresAdapter(DatabaseInterface):
 
                     if existing_tools:
                         logger.info(
-                            "Remove tool list is already %s present in postgres for server_id %s. Updating list. Response: %s",
+                            "Remove tool list is already %s present in postgres for server_id %s."
+                            "Updating list. Response: %s",
                             existing_tools,
                             server_id,
                             config,
@@ -786,9 +785,8 @@ class PostgresAdapter(DatabaseInterface):
                     status = config.get("status", "active")  # default to 'active' if not set
                     logger.info("Server '%s' has status: %s", server_id, status)
                     return status
-                else:
-                    logger.warning("Server '%s' not found when fetching status.", server_id)
-                    return "unknown"
+                logger.warning("Server '%s' not found when fetching status.", server_id)
+                return "unknown"
             finally:
                 await conn.close()
 
@@ -801,8 +799,7 @@ class PostgresAdapter(DatabaseInterface):
         self._run_async(self._async_update_server_config(config))
 
     async def _async_update_server_config(self, config: Dict[str, Any]) -> None:
-        """Async implementation of updating server config."""
-        """
+        """Async implementation of updating server config.
         Update the configuration of an existing server.
         If the document does not exist, raise an error.
         """
@@ -916,4 +913,4 @@ class PostgresAdapter(DatabaseInterface):
         """Destructor for compatibility (no-op with direct connections)."""
         # With direct connections, there's no persistent pool to close
         # This method is kept for compatibility
-        pass
+
