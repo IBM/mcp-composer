@@ -1,7 +1,7 @@
 from typing import Dict, Any, Optional
-from .base_policy_enforcer import BasePolicyEnforcer
-from ..acl_utils import resolve_role_from_context, extract_context_info
 from mcp_composer.core.utils.logger import LoggerFactory
+from mcp_composer.middleware.acl.policy.base_policy_enforcer import BasePolicyEnforcer
+from mcp_composer.middleware.acl.acl_utils import extract_context_info
 
 logger = LoggerFactory.get_logger()
 
@@ -32,12 +32,12 @@ class PermitPolicyEnforcer(BasePolicyEnforcer):
         self.permit_middleware = None
         self._initialize_permit()
 
-        logger.info(f"Initialized Permit policy enforcer - URL: {permit_url}")
+        logger.info("Initialized Permit policy enforcer - URL: %s", permit_url)
 
     def _initialize_permit(self) -> None:
         """Initialize the Permit middleware."""
         try:
-            from permit_fastmcp import PermitMcpMiddleware
+            from permit_fastmcp import PermitMcpMiddleware # type: ignore
 
             if not self.api_key:
                 logger.error("Permit API key is required")
@@ -56,7 +56,7 @@ class PermitPolicyEnforcer(BasePolicyEnforcer):
             )
             self.permit_middleware = None
         except Exception as e:
-            logger.error(f"Failed to initialize Permit middleware: {e}")
+            logger.error("Failed to initialize Permit middleware: %s", e)
             self.permit_middleware = None
 
     def is_allowed(self, tool_name: str, context: Dict[str, Any]) -> bool:
@@ -97,14 +97,14 @@ class PermitPolicyEnforcer(BasePolicyEnforcer):
             is_allowed = self.permit_middleware.check_access(input_data)
 
             logger.debug(
-                f"Permit policy check - Tool: {tool_name}, "
-                f"Allowed: {is_allowed}, Context: {context_info}"
+                "Permit policy check - Tool: %s, Allowed: %s, Context: %s",
+                tool_name, is_allowed, context_info
             )
 
             return is_allowed
 
         except Exception as e:
-            logger.error(f"Error checking Permit policy: {e}")
+            logger.error("Error checking Permit policy: %s", e)
             return False
 
     def get_user_permissions(self, user_id: str) -> Dict[str, Any]:
@@ -128,5 +128,5 @@ class PermitPolicyEnforcer(BasePolicyEnforcer):
             return permissions
 
         except Exception as e:
-            logger.error(f"Error getting user permissions from Permit: {e}")
+            logger.error("Error getting user permissions from Permit: %s", e)
             return {}

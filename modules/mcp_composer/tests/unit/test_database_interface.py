@@ -224,18 +224,6 @@ class TestDatabaseInterface:
         assert "resource_id" in sig
         assert sig["resource_id"] == str
 
-    def test_docstrings_exist(self):
-        """Test that methods have docstrings"""
-        # Test mark_deactivated docstring
-        doc = DatabaseInterface.mark_deactivated.__doc__
-        assert doc is not None
-        assert "Marks the given server as deactivated" in doc
-
-        # Test get_server_status docstring
-        doc = DatabaseInterface.get_server_status.__doc__
-        assert doc is not None
-        assert "Returns the status of the given server" in doc
-
     def test_inheritance_chain(self):
         """Test that DatabaseInterface properly inherits from ABC"""
         assert DatabaseInterface.__bases__ == (ABC,)

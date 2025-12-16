@@ -6,7 +6,6 @@ from typing import Any, Dict, Union, List
 from typing_extensions import override
 from fastmcp.server.middleware import Middleware, MiddlewareContext, CallNext
 import mcp.types as mt
-from fastmcp.tools import Tool
 
 from mcp_composer.core.utils.exceptions import ToolFilterError
 from mcp_composer.core.utils.logger import LoggerFactory
@@ -66,11 +65,11 @@ class FormatXml2Json(Middleware):
 
             return result
         except ET.ParseError as e:
-            logger.error(f"Failed to parse XML: {e}")
-            raise ToolFilterError(f"Invalid XML format: {e}")
+            logger.error("Failed to parse XML: %s", e)
+            raise ToolFilterError("Invalid XML format: %s", e)
         except Exception as e:
-            logger.error(f"Error converting XML to JSON: {e}")
-            raise ToolFilterError(f"XML to JSON conversion failed: {e}")
+            logger.error("Error converting XML to JSON: %s", e)
+            raise ToolFilterError("XML to JSON conversion failed: %s", e)
 
     def _is_xml_content(self, content: Any) -> bool:
         """Check if content appears to be XML"""
@@ -107,7 +106,7 @@ class FormatXml2Json(Middleware):
 
                     logger.info("Converted XML content to JSON")
                 except Exception as e:
-                    logger.warning(f"Failed to convert XML content: {e}")
+                    logger.warning("Failed to convert XML content: %s", e)
                     # Keep original content if conversion fails
 
             converted_blocks.append(block)
@@ -126,7 +125,7 @@ class FormatXml2Json(Middleware):
                 try:
                     return self._parse_xml_string(value)
                 except Exception as e:
-                    logger.warning(f"Failed to convert XML in structured content: {e}")
+                    logger.warning("Failed to convert XML in structured content: %s", e)
                     return value
             elif isinstance(value, dict):
                 return {k: _convert_value(v) for k, v in value.items()}

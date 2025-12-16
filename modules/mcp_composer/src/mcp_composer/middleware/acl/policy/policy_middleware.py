@@ -13,6 +13,7 @@ from fastmcp.server.middleware import (
     CallNext,
 )
 from fastmcp.exceptions import McpError  # type: ignore
+from mcp_composer.core.utils.logger import LoggerFactory
 
 from .identity_manager import IdentityManager
 from .config import SETTINGS, PolicyMode
@@ -22,7 +23,6 @@ from .jwt_enforcer import JWEJWTPolicyEnforcer
 from .vault_enforcer import HashiCorpVaultPolicyEnforcer
 from .opa_enforcer import OPARegoPolicyEnforcer
 from .permit_enforcer import PermitPolicyEnforcer
-from mcp_composer.core.utils.logger import LoggerFactory
 
 logger = LoggerFactory.get_logger()
 
@@ -79,8 +79,9 @@ class PolicyMiddleware(Middleware):
         self.denied_requests = 0
 
         logger.info(
-            f"Policy middleware initialized with mode: {self._get_mode_name()}, "
-            f"enforcer: {type(self.policy_enforcer).__name__}"
+            "Policy middleware initialized with mode: %s, enforcer: %s",
+            self._get_mode_name(),
+            type(self.policy_enforcer).__name__
         )
 
     def _get_mode_name(self) -> str:
@@ -146,7 +147,7 @@ class PolicyMiddleware(Middleware):
                 raise ValueError(f"Unsupported policy mode: {self.mode}")
 
         except Exception as e:
-            logger.error(f"Failed to initialize {self._get_mode_name()} enforcer: {e}")
+            logger.error("Failed to initialize %s enforcer: %s", self._get_mode_name(), e)
             # Fallback to file enforcer
             logger.info("Falling back to file enforcer")
             return FilePolicyEnforcer(SETTINGS.policy_file_path)
@@ -194,7 +195,9 @@ class PolicyMiddleware(Middleware):
         try:
             is_allowed = self.policy_enforcer.is_allowed(tool_name, context_data)
             logger.debug(
-                f"Tool '{tool_name}' is {'allowed' if is_allowed else 'denied'} by {self._get_mode_name()} enforcer"
+                "Tool '%s' is '%s' by %s enforcer",
+                tool_name,
+                'allowed' if is_allowed else 'denied', self._get_mode_name()
             )
             # Update metrics
             if is_allowed:
@@ -215,7 +218,7 @@ class PolicyMiddleware(Middleware):
             # Check if access is denied
             if not is_allowed:
                 logger.warning(
-                    f"Access denied for tool '{tool_name}' by {self._get_mode_name()} enforcer"
+                    "Access denied for tool '%s' by %s enforcer", tool_name, self._get_mode_name()
                 )
                 raise McpError(
                     mt.ErrorData(
@@ -233,7 +236,7 @@ class PolicyMiddleware(Middleware):
             if isinstance(e, McpError):
                 raise
 
-            logger.error(f"Policy evaluation error: {e}")
+            logger.error("Policy evaluation error: %s", e)
             self.denied_requests += 1
 
             if self.enable_audit_logging:
@@ -301,7 +304,7 @@ class PolicyMiddleware(Middleware):
             # Check if access is denied
             if not is_allowed:
                 logger.warning(
-                    f"Access denied for resource '{resource_uri}' by {self._get_mode_name()} enforcer"
+                    "Access denied for resource '%s' by %s enforcer", resource_uri, self._get_mode_name()
                 )
                 raise McpError(
                     mt.ErrorData(
@@ -319,7 +322,7 @@ class PolicyMiddleware(Middleware):
             if isinstance(e, McpError):
                 raise
 
-            logger.error(f"Policy evaluation error: {e}")
+            logger.error("Policy evaluation error: %s", e)
             self.denied_requests += 1
 
             if self.enable_audit_logging:
@@ -387,7 +390,7 @@ class PolicyMiddleware(Middleware):
             # Check if access is denied
             if not is_allowed:
                 logger.warning(
-                    f"Access denied for prompt '{prompt_name}' by {self._get_mode_name()} enforcer"
+                    "Access denied for prompt '%s' by %s enforcer", prompt_name, self._get_mode_name()
                 )
                 raise McpError(
                     mt.ErrorData(
@@ -405,7 +408,7 @@ class PolicyMiddleware(Middleware):
             if isinstance(e, McpError):
                 raise
 
-            logger.error(f"Policy evaluation error: {e}")
+            logger.error("Policy evaluation error: %s", e)
             self.denied_requests += 1
 
             if self.enable_audit_logging:
@@ -430,7 +433,7 @@ class PolicyMiddleware(Middleware):
     ) -> List:
         """Filter tools based on authorization."""
         tools = await call_next(context)
-        logger.debug(f"Received tools: {tools} and len  {len(tools)}")
+        logger.debug("Received tools: %s and len %d", tools, len(tools))
         if not tools:
             return tools
 
@@ -459,22 +462,22 @@ class PolicyMiddleware(Middleware):
                 # Check authorization
 
                 is_allowed = self.policy_enforcer.is_allowed(tool_name, context_data)
-                logger.info(f"Tool {tool_name} is allowed: {is_allowed}")
+                logger.info("Tool %s is allowed: %s", tool_name, is_allowed)
                 if is_allowed:
                     filtered_tools.append(tool)
                     logger.debug(
-                        f"Allowed tool: {tool_name} and length: {len(filtered_tools)}"
+                        "Allowed tool: %s and length: %d", tool_name, len(filtered_tools)
                     )
                 else:
                     if self.enable_audit_logging:
-                        logger.debug(f"Filtered out tool: {tool_name}")
+                        logger.debug("Filtered out tool: %s", tool_name)
 
             except Exception as e:
-                logger.error(f"Error evaluating tool {tool_name}: {e}")
+                logger.error("Error evaluating tool %s: %s", tool_name, e)
                 # Exclude tool on error (fail secure)
                 continue
         logger.info(
-            f"Filtered tools: {filtered_tools} and length: {len(filtered_tools)}"
+            "Filtered tools: %s and length: %d", filtered_tools, len(filtered_tools)
         )
 
         return filtered_tools
@@ -523,10 +526,10 @@ class PolicyMiddleware(Middleware):
                     filtered_resources.append(resource)
                 else:
                     if self.enable_audit_logging:
-                        logger.debug(f"Filtered out resource: {resource_uri}")
+                        logger.debug("Filtered out resource: %s", resource_uri)
 
             except Exception as e:
-                logger.error(f"Error evaluating resource {resource_uri}: {e}")
+                logger.error("Error evaluating resource %s: %s", resource_uri, e)
                 # Exclude resource on error (fail secure)
                 continue
 
@@ -573,10 +576,10 @@ class PolicyMiddleware(Middleware):
 
                 else:
                     if self.enable_audit_logging:
-                        logger.debug(f"Filtered out prompt: {prompt_name}")
+                        logger.debug("Filtered out prompt: %s", prompt_name)
 
             except Exception as e:
-                logger.error(f"Error evaluating prompt {prompt_name}: {e}")
+                logger.error("Error evaluating prompt %s: %s", prompt_name, e)
                 # Exclude prompt on error (fail secure)
                 continue
 
@@ -610,9 +613,9 @@ class PolicyMiddleware(Middleware):
         }
 
         if permitted:
-            logger.info(f"Access granted: {log_data}")
+            logger.info("Access granted: %s", log_data)
         else:
-            logger.warning(f"Access denied: {log_data}")
+            logger.warning("Access denied: %s", log_data)
 
     def get_metrics(self) -> Dict[str, Any]:
         """Get middleware metrics."""
@@ -636,13 +639,13 @@ class PolicyMiddleware(Middleware):
         try:
             if hasattr(self.policy_enforcer, "reload_policy"):
                 self.policy_enforcer.reload_policy()
-                logger.info(f"Reloaded policy for {self._get_mode_name()} enforcer")
+                logger.info("Reloaded policy for %s enforcer", self._get_mode_name())
             else:
                 logger.warning(
-                    f"Policy enforcer {type(self.policy_enforcer).__name__} does not support reloading"
+                    "Policy enforcer %s does not support reloading", type(self.policy_enforcer).__name__
                 )
         except Exception as e:
-            logger.error(f"Failed to reload policy: {e}")
+            logger.error("Failed to reload policy: %s", e)
 
     def get_enforcer_info(self) -> Dict[str, Any]:
         """Get information about the current policy enforcer."""

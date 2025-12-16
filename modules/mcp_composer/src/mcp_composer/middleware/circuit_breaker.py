@@ -4,7 +4,7 @@ from collections import deque
 from dataclasses import dataclass, field
 from typing import Deque, Dict, Optional
 
-from fastmcp.server.middleware import Middleware, MiddlewareContext
+from fastmcp.server.middleware import Middleware
 from fastmcp.exceptions import ToolError
 from mcp_composer.core.utils.logger import LoggerFactory
 
@@ -101,10 +101,9 @@ class CircuitBreakerMiddleware(Middleware):
                 if cs.opened_at is None or (now - cs.opened_at) < self.open_timeout:
                     # Still cooling off
                     raise ToolError(f"Circuit OPEN for '{tool_name}'. Try again later.")
-                else:
-                    # Move to HALF_OPEN; allow one probe
-                    cs.state = "HALF_OPEN"
-                    cs.half_open_probe_in_flight = False  # reset probe flag
+                # Move to HALF_OPEN; allow one probe
+                cs.state = "HALF_OPEN"
+                cs.half_open_probe_in_flight = False  # reset probe flag
 
             if cs.state == "HALF_OPEN":
                 if cs.half_open_probe_in_flight:

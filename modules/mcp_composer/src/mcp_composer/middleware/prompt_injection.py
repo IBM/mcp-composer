@@ -1,11 +1,8 @@
 import re
-import asyncio
-import time
 from typing import Optional, Callable, Dict, Any, List, Iterable
-import mcp.types as mt
 from fastmcp.server.middleware import Middleware, MiddlewareContext, CallNext
-from mcp_composer.core.utils.logger import LoggerFactory
 from fastmcp.exceptions import ToolError
+from mcp_composer.core.utils.logger import LoggerFactory
 
 logger = LoggerFactory.get_logger()
 
@@ -246,8 +243,7 @@ class PromptInjectionMiddleware(Middleware):
                     }
             except Exception as e:
                 # Fail open on the LLM check, still keep heuristics
-                logger.warning(f"LLM checker failed: {e}")
-                pass
+                logger.warning("LLM checker failed: %s", e)
 
         return {"score": score, "reason": reason}
 
@@ -340,7 +336,7 @@ class PromptInjectionMiddleware(Middleware):
             and risky_texts
             and 0.15 <= overall_score < self.threshold
         ):
-            logger.warning(f"Sanitizing medium-risk prompt content in {operation_name}")
+            logger.warning("Sanitizing medium-risk prompt content in %s", operation_name)
             for prompt in prompt_list:
                 await self._maybe_sanitize_prompt(prompt, risky_texts)
 
@@ -403,7 +399,7 @@ class PromptInjectionMiddleware(Middleware):
             raise
         except Exception as e:
             # Log error but don't fail the operation
-            logger.error(f"Error in prompt injection assessment for list_prompts: {e}")
+            logger.error("Error in prompt injection assessment for list_prompts: %s", e)
             return result
 
     async def on_get_prompts(self, context: MiddlewareContext, call_next: CallNext):
@@ -418,7 +414,7 @@ class PromptInjectionMiddleware(Middleware):
             raise
         except Exception as e:
             # Log error but don't fail the operation
-            logger.error(f"Error in prompt injection assessment for get_prompts: {e}")
+            logger.error("Error in prompt injection assessment for get_prompts: %s", e)
             return result
 
     async def on_request(self, context: MiddlewareContext, call_next: CallNext):
@@ -433,5 +429,5 @@ class PromptInjectionMiddleware(Middleware):
             raise
         except Exception as e:
             # Log error but don't fail the operation
-            logger.error(f"Error in prompt injection assessment for get_prompts: {e}")
+            logger.error("Error in prompt injection assessment for get_prompts: %s", e)
             return result

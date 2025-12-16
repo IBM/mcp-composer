@@ -294,10 +294,10 @@ class SecretsAndPIIMiddleware(Middleware):
         """
         if self.debug_mode:
             self._logger.debug(
-                f"[{tool}] Attempting PII redaction on result type: {type(result)}"
+                "[%s] Attempting PII redaction on result type: %s", tool, type(result)
             )
             self._logger.debug(
-                f"[{tool}] Result preview: {self._safe_repr(result, 200)}"
+                "[%s] Result preview: %s", tool, self._safe_repr(result, 200)
             )
 
         try:
@@ -310,7 +310,7 @@ class SecretsAndPIIMiddleware(Middleware):
                 if isinstance(result, str):
                     redacted = self.redactor._redact_string(result)
                     if self.debug_mode and redacted != result:
-                        self._logger.info(f"[{tool}] String redaction applied")
+                        self._logger.info("[%s] String redaction applied", tool)
                     return redacted
                 return result
 
@@ -318,7 +318,7 @@ class SecretsAndPIIMiddleware(Middleware):
             if isinstance(result, (dict, list)):
                 redacted = self.redactor.redact_obj(result)
                 if self.debug_mode:
-                    self._logger.info(f"[{tool}] Collection redaction completed")
+                    self._logger.info("[%s] Collection redaction completed", tool)
                 return redacted
 
             # Handle objects with __dict__ (most custom objects)
@@ -343,32 +343,32 @@ class SecretsAndPIIMiddleware(Middleware):
                     result_type = type(result)
                     redacted = result_type(redacted_items)
                     if self.debug_mode:
-                        self._logger.info(f"[{tool}] Iterable redaction completed")
+                        self._logger.info("[%s] Iterable redaction completed", tool)
                     return redacted
                 except Exception as e:
                     if self.debug_mode:
                         self._logger.warning(
-                            f"[{tool}] Failed to reconstruct iterable: {e}"
+                            "[%s] Failed to reconstruct iterable: %s", tool, e
                         )
                     return redacted_items
 
             # Last resort: convert to string and redact
             if self.debug_mode:
-                self._logger.debug(f"[{tool}] Using string conversion fallback")
+                self._logger.debug("[%s] Using string conversion fallback", tool)
 
             result_str = str(result)
             redacted_str = self.redactor._redact_string(result_str)
 
             if redacted_str != result_str and self.debug_mode:
-                self._logger.info(f"[{tool}] String fallback redaction applied")
+                self._logger.info("[%s] String fallback redaction applied", tool)
 
             return redacted_str
 
         except Exception as e:
-            self._logger.error(f"[{tool}] PII redaction failed: {str(e)}")
+            self._logger.error("[%s] PII redaction failed: %s", tool, str(e))
             if self.debug_mode:
                 self._logger.error(
-                    f"[{tool}] Result structure that failed: {self._safe_repr(result)}"
+                    "[%s] Result structure that failed: %s", tool, self._safe_repr(result)
                 )
             return result
 
@@ -387,7 +387,7 @@ class SecretsAndPIIMiddleware(Middleware):
                 if hasattr(result, "__class__"):
                     reconstructed = result.__class__(**redacted_dict)
                     if self.debug_mode:
-                        self._logger.info(f"[{tool}] Object reconstruction successful")
+                        self._logger.info("[%s] Object reconstruction successful", tool)
                     return reconstructed
             except Exception:
                 # If reconstruction fails, try updating the original object
@@ -395,7 +395,7 @@ class SecretsAndPIIMiddleware(Middleware):
                     for key, value in redacted_dict.items():
                         setattr(result, key, value)
                     if self.debug_mode:
-                        self._logger.info(f"[{tool}] Object update successful")
+                        self._logger.info("[%s] Object update successful", tool)
                     return result
                 except Exception:
                     pass
@@ -403,13 +403,13 @@ class SecretsAndPIIMiddleware(Middleware):
             # If all else fails, return the redacted dictionary
             if self.debug_mode:
                 self._logger.warning(
-                    f"[{tool}] Returning redacted dict instead of object"
+                    "[%s] Returning redacted dict instead of object", tool
                 )
             return redacted_dict
 
         except Exception as e:
             if self.debug_mode:
-                self._logger.error(f"[{tool}] Object dict redaction failed: {e}")
+                self._logger.error("[%s] Object dict redaction failed: %s", tool, e)
             return result
 
     def _redact_content_attribute(self, result: Any, tool: str) -> Any:
@@ -425,17 +425,16 @@ class SecretsAndPIIMiddleware(Middleware):
                 result_copy.content = redacted_content
                 if self.debug_mode:
                     self._logger.info(
-                        f"[{tool}] Content attribute redaction successful"
+                        "[%s] Content attribute redaction successful", tool
                     )
                 return result_copy
-            else:
-                # Modify in place if we can't copy
-                setattr(result, "content", redacted_content)
-                return result
+            # Modify in place if we can't copy
+            setattr(result, "content", redacted_content)
+            return result
 
         except Exception as e:
             if self.debug_mode:
-                self._logger.error(f"[{tool}] Content attribute redaction failed: {e}")
+                self._logger.error("[%s] Content attribute redaction failed: %s", tool, e)
             return result
 
     def _redact_data_attribute(self, result: Any, tool: str) -> Any:
@@ -450,16 +449,15 @@ class SecretsAndPIIMiddleware(Middleware):
                 result_copy.__dict__.update(result.__dict__)
                 result_copy.data = redacted_data
                 if self.debug_mode:
-                    self._logger.info(f"[{tool}] Data attribute redaction successful")
+                    self._logger.info("[%s] Data attribute redaction successful", tool)
                 return result_copy
-            else:
-                # Modify in place if we can't copy
-                setattr(result, "data", redacted_data)
-                return result
+            # Modify in place if we can't copy
+            setattr(result, "data", redacted_data)
+            return result
 
         except Exception as e:
             if self.debug_mode:
-                self._logger.error(f"[{tool}] Data attribute redaction failed: {e}")
+                self._logger.error("[%s] Data attribute redaction failed: %s", tool, e)
             return result
 
     def _redact_text_attribute(self, result: Any, tool: str) -> Any:
@@ -476,28 +474,25 @@ class SecretsAndPIIMiddleware(Middleware):
                     result_copy.text = redacted_text
                     if self.debug_mode:
                         self._logger.info(
-                            f"[{tool}] Text attribute redaction successful"
+                            "[%s] Text attribute redaction successful", tool
                         )
                     return result_copy
-                else:
-                    # Modify in place if we can't copy
-                    setattr(result, "text", redacted_text)
-                    return result
-            else:
-                # If text is not a string, use general redaction
-                redacted_text = self.redactor.redact_obj(text)
-                if hasattr(result, "__dict__"):
-                    result_copy = type(result).__new__(type(result))
-                    result_copy.__dict__.update(result.__dict__)
-                    result_copy.text = redacted_text
-                    return result_copy
-                else:
-                    setattr(result, "text", redacted_text)
-                    return result
+                # Modify in place if we can't copy
+                setattr(result, "text", redacted_text)
+                return result
+            # If text is not a string, use general redaction
+            redacted_text = self.redactor.redact_obj(text)
+            if hasattr(result, "__dict__"):
+                result_copy = type(result).__new__(type(result))
+                result_copy.__dict__.update(result.__dict__)
+                result_copy.text = redacted_text
+                return result_copy
+            setattr(result, "text", redacted_text)
+            return result
 
         except Exception as e:
             if self.debug_mode:
-                self._logger.error(f"[{tool}] Text attribute redaction failed: {e}")
+                self._logger.error("[%s] Text attribute redaction failed: %s", tool, e)
             return result
 
     # ---- Hooks ----
@@ -521,10 +516,10 @@ class SecretsAndPIIMiddleware(Middleware):
                     context.message.arguments = red  # pass redacted to downstream
 
                 if self.debug_mode:
-                    self._logger.debug(f"[{tool}] Input redaction completed")
+                    self._logger.debug("[%s] Input redaction completed", tool)
 
             except Exception as e:
-                self._logger.error(f"[{tool}] Input redaction failed: {e}")
+                self._logger.error("[%s] Input redaction failed: %s", tool, e)
 
         try:
             result = await call_next(context)

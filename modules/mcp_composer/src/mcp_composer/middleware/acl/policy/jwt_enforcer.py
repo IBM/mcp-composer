@@ -1,8 +1,7 @@
-import jwt
-import json
 from typing import Dict, Any, Optional, List
-from .base_policy_enforcer import BasePolicyEnforcer
-from ..acl_utils import resolve_role_from_context, extract_context_info
+import jwt # type: ignore
+from mcp_composer.middleware.acl.policy.base_policy_enforcer import BasePolicyEnforcer
+from mcp_composer.middleware.acl.acl_utils import extract_context_info
 from mcp_composer.core.utils.logger import LoggerFactory
 
 logger = LoggerFactory.get_logger()
@@ -40,7 +39,7 @@ class JWEJWTPolicyEnforcer(BasePolicyEnforcer):
         self.verify_signature = kwargs.get("verify_signature", True)
 
         logger.info(
-            f"Initialized JWT policy enforcer with algorithms: {self.algorithms}"
+            "Initialized JWT policy enforcer with algorithms: %s", self.algorithms
         )
 
     def _extract_jwt_from_context(self, context: Dict[str, Any]) -> Optional[str]:
@@ -96,17 +95,17 @@ class JWEJWTPolicyEnforcer(BasePolicyEnforcer):
                 # Decode without verification (for development/testing)
                 claims = jwt.decode(token, options={"verify_signature": False})
 
-            logger.debug(f"Successfully decoded JWT with claims: {list(claims.keys())}")
+            logger.debug("Successfully decoded JWT with claims: %s", list(claims.keys()))
             return claims
 
         except jwt.ExpiredSignatureError:
             logger.warning("JWT token has expired")
             return None
         except jwt.InvalidTokenError as e:
-            logger.warning(f"Invalid JWT token: {e}")
+            logger.warning("Invalid JWT token: %s", e)
             return None
         except Exception as e:
-            logger.error(f"Error decoding JWT: {e}")
+            logger.error("Error decoding JWT: %s", e)
             return None
 
     def is_allowed(self, tool_name: str, context: Dict[str, Any]) -> bool:
@@ -152,8 +151,8 @@ class JWEJWTPolicyEnforcer(BasePolicyEnforcer):
         )
 
         logger.debug(
-            f"JWT policy check - Tool: {tool_name}, "
-            f"Allowed: {is_allowed}, Context: {context_info}"
+            "JWT policy check - Tool: %s, Allowed: %s, Context: %s",
+            tool_name, is_allowed, context_info
         )
 
         return is_allowed
