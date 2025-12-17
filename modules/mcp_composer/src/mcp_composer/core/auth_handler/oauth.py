@@ -192,7 +192,7 @@ class SimpleOAuthProvider(OAuthProvider):
             raise HTTPException(400, "Invalid state parameter")
 
         redirect_uri = state_data["redirect_uri"]
-        logger.info(f"Handling callback with redirect_uri: {redirect_uri}")
+        logger.info("Handling callback with redirect_uri: %s", redirect_uri)
         code_challenge = state_data["code_challenge"]
         redirect_uri_provided_explicitly = (
             state_data["redirect_uri_provided_explicitly"] == "True"

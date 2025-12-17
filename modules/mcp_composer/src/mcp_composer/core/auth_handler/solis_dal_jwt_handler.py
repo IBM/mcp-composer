@@ -4,7 +4,6 @@ import base64
 import json
 from typing import Any, Optional
 import httpx
-import urllib.parse
 from mcp_composer.core.utils import ConfigKey, LoggerFactory
 from mcp_composer.core.auth_handler.oauth_handler import resolve_env_value
 
@@ -19,7 +18,7 @@ DEFAULT_TIMEOUT = 30.0
 class SolisJWTTokenGenerator:
     """
     Utility class for generating JWT tokens from IBM Solis using form-based authentication.
-    
+
     Flow:
       1) POST email/password to LOGIN_URL with returnUrl
       2) Extract JWT from Set-Cookie header (ibm-solis-session)
@@ -49,7 +48,9 @@ class SolisJWTTokenGenerator:
         try:
             with open(cache_path, "r") as f:
                 data = json.load(f)
-            jwt_token = data.get("jwt")  # Keep "jwt" for compatibility with working version
+            jwt_token = data.get(
+                "jwt"
+            )  # Keep "jwt" for compatibility with working version
             if not jwt_token:
                 return None
 
@@ -59,7 +60,7 @@ class SolisJWTTokenGenerator:
                 # Pad base64 if needed
                 missing_padding = len(payload) % 4
                 if missing_padding:
-                    payload += '=' * (4 - missing_padding)
+                    payload += "=" * (4 - missing_padding)
                 payload_bytes = base64.urlsafe_b64decode(payload)
                 payload_json = json.loads(payload_bytes)
                 exp = payload_json.get("exp")
@@ -72,10 +73,10 @@ class SolisJWTTokenGenerator:
 
                 return jwt_token
             except Exception as e:
-                logger.debug(f"Error parsing cached JWT: {e}")
+                logger.debug("Error parsing cached JWT: %s", e)
                 return None
         except Exception as e:
-            logger.debug(f"Error loading cached JWT: {e}")
+            logger.debug("Error loading cached JWT: %s", e)
             return None
 
     def _save_jwt(self, jwt_token: str) -> None:
@@ -83,9 +84,11 @@ class SolisJWTTokenGenerator:
         cache_path = self._get_cache_path()
         try:
             with open(cache_path, "w") as f:
-                json.dump({"jwt": jwt_token}, f)  # Keep "jwt" for compatibility with working version
+                json.dump(
+                    {"jwt": jwt_token}, f
+                )  # Keep "jwt" for compatibility with working version
         except Exception as e:
-            logger.warning(f"Failed to save JWT to cache: {e}")
+            logger.warning("Failed to save JWT to cache: %s", e)
 
     def _parse_jwt_expiration(self, jwt_token: str) -> Optional[float]:
         """Parse expiration time from JWT token."""
@@ -94,14 +97,14 @@ class SolisJWTTokenGenerator:
             # Pad base64 if needed
             missing_padding = len(payload) % 4
             if missing_padding:
-                payload += '=' * (4 - missing_padding)
+                payload += "=" * (4 - missing_padding)
             payload_bytes = base64.urlsafe_b64decode(payload)
             payload_json = json.loads(payload_bytes)
             exp = payload_json.get("exp")
             if exp:
                 return float(exp)
         except Exception as e:
-            logger.debug(f"Error parsing JWT expiration: {e}")
+            logger.debug("Error parsing JWT expiration: %s", e)
         return None
 
     def get_token_expiry(self) -> float:
@@ -115,10 +118,10 @@ class SolisJWTTokenGenerator:
     async def get_jwt_token(self, force: bool = False) -> str:
         """
         Get JWT token, using cache if available and valid.
-        
+
         Args:
             force: If True, force a new token fetch even if cached token is valid
-            
+
         Returns:
             JWT token string
         """
@@ -151,7 +154,7 @@ class SolisJWTTokenGenerator:
                 missing.append("user_email (or email)")
             if not password:
                 missing.append("user_password (or password)")
-            
+
             error_msg = (
                 f"Missing required authentication credentials: {', '.join(missing)}. "
                 "Please provide these in the 'auth' section of your server configuration, "
@@ -166,7 +169,9 @@ class SolisJWTTokenGenerator:
             raise ValueError("LOGIN_URL and return_url must be provided in auth_data")
 
         # Prepare form data
-        post_data = f"returnUrl={return_url}&email={email}&password={password}".encode("utf-8")
+        post_data = f"returnUrl={return_url}&email={email}&password={password}".encode(
+            "utf-8"
+        )
 
         # Prepare headers (matching working version)
         headers = {
@@ -188,7 +193,7 @@ class SolisJWTTokenGenerator:
                     login_url,
                     content=post_data,
                     headers=headers,
-                    follow_redirects=False  # CRITICAL: Must not follow redirects
+                    follow_redirects=False,  # CRITICAL: Must not follow redirects
                 )
             except httpx.HTTPStatusError as e:
                 # 302 redirect is expected for successful login
@@ -197,8 +202,7 @@ class SolisJWTTokenGenerator:
                 else:
                     raise
 
-            logger.debug(f"Login response status: {resp.status_code}")
-
+            logger.debug("Login response status: %s", resp.status_code)
 
             # Extract JWT from Set-Cookie header
             jwt_token = None
@@ -209,7 +213,7 @@ class SolisJWTTokenGenerator:
                     if cookie.startswith("ibm-solis-session="):
                         # Extract token value (before first semicolon)
                         jwt_token = cookie.split("=", 1)[1].split(";", 1)[0]
-                        logger.debug(f"Found JWT token (length: {len(jwt_token)})")
+                        logger.debug("Found JWT token (length: %s)", len(jwt_token))
                         break
 
             if not jwt_token:
@@ -226,11 +230,17 @@ class SolisJWTTokenGenerator:
         exp = self._parse_jwt_expiration(jwt_token)
         if exp:
             self._expires_at = exp - TOKEN_REFRESH_BUFFER
-            logger.debug(f"Token acquired; expires at {exp} (buffered by {TOKEN_REFRESH_BUFFER}s)")
+            logger.debug(
+                "Token acquired; expires at %s (buffered by %ss)",
+                exp,
+                TOKEN_REFRESH_BUFFER,
+            )
         else:
             # Fallback: assume default expiry if can't parse
             self._expires_at = time.time() + DEFAULT_TOKEN_EXPIRY - TOKEN_REFRESH_BUFFER
-            logger.debug("Token acquired; using default expiry (could not parse JWT exp)")
+            logger.debug(
+                "Token acquired; using default expiry (could not parse JWT exp)"
+            )
 
         return jwt_token
 
@@ -238,7 +248,7 @@ class SolisJWTTokenGenerator:
 class SolisJWTClient(httpx.AsyncClient):
     """
     Async HTTP client for IBM Solis using form-based authentication with JWT Bearer tokens.
-    
+
     Flow:
       1) POST email/password to LOGIN_URL with returnUrl
       2) Extract JWT from Set-Cookie header (ibm-solis-session)
@@ -264,7 +274,9 @@ class SolisJWTClient(httpx.AsyncClient):
         self._token_generator = SolisJWTTokenGenerator(auth_data=auth_data)
         self._resolved_login_url: Optional[str] = None
 
-        super().__init__(base_url=base_url, timeout=timeout, headers=headers or {}, **kwargs)
+        super().__init__(
+            base_url=base_url, timeout=timeout, headers=headers or {}, **kwargs
+        )
 
     async def _refresh_token(self, force: bool = False) -> None:
         """Refresh internal JWT token if missing/expired."""
@@ -273,17 +285,23 @@ class SolisJWTClient(httpx.AsyncClient):
 
     # ----------------- public override -----------------
 
-    async def request(self, method: str, url: httpx.URL | str, **kwargs: Any) -> httpx.Response:
+    async def request(
+        self, method: str, url: httpx.URL | str, **kwargs: Any
+    ) -> httpx.Response:
         """
         Make an authenticated request, auto-refreshing the JWT token unless we're calling the login URL.
         """
         # Cache login URL once to avoid repeated env lookups
         if self._resolved_login_url is None and self.auth_data:
-            self._resolved_login_url = resolve_env_value(self.auth_data.get(ConfigKey.LOGIN_URL))
+            self._resolved_login_url = resolve_env_value(
+                self.auth_data.get(ConfigKey.LOGIN_URL)
+            )
 
         url_str = str(url)
         # Check if this is a login request (shouldn't recurse into refresh)
-        is_login_url = self._resolved_login_url and url_str.startswith(self._resolved_login_url)
+        is_login_url = self._resolved_login_url and url_str.startswith(
+            self._resolved_login_url
+        )
 
         if is_login_url:
             # Direct calls to the login URL shouldn't recurse into refresh
@@ -303,7 +321,9 @@ class SolisJWTClient(httpx.AsyncClient):
         headers.setdefault("Accept", "application/json")
 
         # Only set JSON Content-Type if caller didn't specify and is sending a body
-        if "Content-Type" not in headers and any(k in kwargs for k in ("data", "json", "files")):
+        if "Content-Type" not in headers and any(
+            k in kwargs for k in ("data", "json", "files")
+        ):
             headers["Content-Type"] = "application/json"
 
         # Make the request
