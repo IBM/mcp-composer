@@ -210,11 +210,10 @@ class PostgresAdapter(DatabaseInterface):
         """Parse config data from database, handling both string and dict formats."""
         if isinstance(config_data, str):
             return json.loads(config_data)
-        elif isinstance(config_data, dict):
+        if isinstance(config_data, dict):
             return config_data
-        else:
-            logger.warning("Unexpected config data type: %s", type(config_data))
-            return {}
+        logger.warning("Unexpected config data type: %s", type(config_data))
+        return {}
 
     def _save_disabled_tools_to_db(
         self, server_id: str, tools: list[str], enable: bool
@@ -913,4 +912,3 @@ class PostgresAdapter(DatabaseInterface):
         """Destructor for compatibility (no-op with direct connections)."""
         # With direct connections, there's no persistent pool to close
         # This method is kept for compatibility
-

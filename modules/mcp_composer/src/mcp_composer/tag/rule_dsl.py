@@ -4,7 +4,7 @@ import re
 import yaml
 
 try:
-    from jsonpath_ng import parse as jsonpath_parse  # optional
+    from jsonpath_ng import parse as jsonpath_parse  # pylint: disable=import-error
 except Exception:  # pragma: no cover
     jsonpath_parse = None
 
@@ -52,7 +52,7 @@ class Rule:
 
     @staticmethod
     def load_all(path: str) -> List["Rule"]:
-        data = yaml.safe_load(open(path)) or {}
+        data = yaml.safe_load(open(path, encoding="utf-8")) or {}
         rules: List[Rule] = []
         for obj in data.get("rules", []):
             rules.append(Rule(obj.get("name"), obj.get("when", {}), obj.get("then", {})))
