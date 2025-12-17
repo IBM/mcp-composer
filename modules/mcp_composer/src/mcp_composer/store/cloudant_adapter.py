@@ -526,9 +526,8 @@ class CloudantAdapter(DatabaseInterface):
             if e.code == 404:
                 logger.error("Server '%s' not found in Cloudant.", server_id)
                 raise ValueError(f"Server '{server_id}' not found in Cloudant.") from e
-            else:
-                logger.error("Failed to update server '%s': %s", server_id, e)
-                raise
+            logger.error("Failed to update server '%s': %s", server_id, e)
+            raise
 
     def load_all_resources(self) -> List[Dict]:
         try:

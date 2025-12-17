@@ -9,7 +9,7 @@ class JsonFileScanner(Scanner):
         self.path = path
 
     def collect(self) -> List[ToolDescriptor]:
-        data = json.load(open(self.path))
+        data = json.load(open(self.path, encoding="utf-8"))
         tools = []
         for obj in data:
             tools.append(ToolDescriptor(**obj))
