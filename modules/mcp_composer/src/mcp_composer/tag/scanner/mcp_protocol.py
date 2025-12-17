@@ -167,15 +167,13 @@ class McpProtocolScanner(Scanner):
             logger.error(
                 "Failed to collect tools from MCP server %s: %s", self.endpoint, str(e)
             )
-            raise RuntimeError(
-                f"Failed to collect tools from MCP server {self.endpoint}: {e}"
-            )
+            raise RuntimeError(f"Failed to collect tools from MCP server {self.endpoint}: {e}")
 
     def _create_mcp_client(self) -> Client:
         """Create a fastmcp client for the given URL and transport."""
         try:
             logger.info(
-                f"Creating MCP client for {self.endpoint} using transport {self.transport}"
+                "Creating MCP client for %s using transport %s", self.endpoint, self.transport
             )
             if self.transport == "http":
                 transport_obj = StreamableHttpTransport(
@@ -187,11 +185,11 @@ class McpProtocolScanner(Scanner):
 
                 parts = self.command.split() if self.command else []
                 if not parts:
-                    print("Error: No command provided for stdio transport.")
+                    logger.error("Error: No command provided for stdio transport.")
                     raise ValueError("Error: No command provided for stdio transport.")
                 cmd = parts[0]
                 args = shlex.split(self.args) if self.args else []
-                print(f"Executing command: {cmd} {' '.join(args)}")
+                logger.info("Executing command: %s %s", cmd, ' '.join(args))
                 transport_obj = StdioTransport(command=cmd, args=args)
             else:
                 raise ValueError(f"Unsupported transport: {self.transport}")
@@ -276,14 +274,14 @@ class McpProtocolScanner(Scanner):
         """Extract tools from various response formats"""
         if isinstance(data, list):
             return data
-        elif isinstance(data, dict):
+        if isinstance(data, dict):
             if "tools" in data:
                 return data["tools"]
-            elif "data" in data and isinstance(data["data"], list):
+            if "data" in data and isinstance(data["data"], list):
                 return data["data"]
-            elif "result" in data and isinstance(data["result"], list):
+            if "result" in data and isinstance(data["result"], list):
                 return data["result"]
-            elif (
+            if (
                 "result" in data
                 and isinstance(data["result"], dict)
                 and "tools" in data["result"]
@@ -421,15 +419,15 @@ class McpProtocolScanner(Scanner):
         try:
             async with self.client:
                 logger.info(
-                    f"Connected to MCP server at {self.endpoint} using {self.transport}"
+                    "Connected to MCP server at %s using %s", self.endpoint, self.transport
                 )
                 self.server_info = await self._get_server_info()
                 tools = await self._get_tools_list()
 
-                logger.info(f"Server Info: {self.server_info}")
-                logger.info(f"Collecting tools via {self.transport} transport...")
+                logger.info("Server Info: %s", self.server_info)
+                logger.info("Collecting tools via %s transport...", self.transport)
                 logger.info(
-                    f"Discovered {len(tools)} tools from MCP server {self.endpoint}"
+                    "Discovered %s tools from MCP server %s", len(tools), self.endpoint
                 )
                 return [
                     self._convert_to_tool_descriptor(tool, self.server_info)
@@ -441,6 +439,4 @@ class McpProtocolScanner(Scanner):
                 self.endpoint,
                 str(e),
             )
-            raise RuntimeError(
-                f"Error during MCP protocol collection from {self.endpoint}: {e}"
-            )
+            raise RuntimeError(f"Error during MCP protocol collection from {self.endpoint}: {e}")

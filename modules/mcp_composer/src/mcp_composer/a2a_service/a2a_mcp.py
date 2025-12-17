@@ -14,9 +14,6 @@ import httpx
 from google import genai
 import numpy as np
 import pandas as pd
-from mcp_composer.core.utils.logger import LoggerFactory
-from mcp_composer.core.utils.utils import load_from_json, save_to_json
-
 from a2a.types import (
     AgentCard,
     AgentCapabilities,
@@ -28,6 +25,8 @@ from a2a.types import (
     TextPart,
 )
 from a2a.client import ClientFactory, ClientConfig
+from mcp_composer.core.utils.logger import LoggerFactory
+from mcp_composer.core.utils.utils import load_from_json, save_to_json
 
 logger = LoggerFactory.get_logger()
 
@@ -481,10 +480,9 @@ def generate_embeddings(text):
         )
         if response.embeddings is not None and len(response.embeddings) > 0:
             return response.embeddings[0].values
-        else:
-            return []
+        return []
     except Exception as e:
-        logger.error(f"Failed to generate embeddings for text: {e}")
+        logger.error("Failed to generate embeddings for text: %s", e)
         return []
 
 
@@ -503,7 +501,7 @@ def load_agent_cards():
         agent_name = agent_data["name"].replace(" ", "_").lower()
         card_uris.append(f"resource://agent_cards/{agent_name}")
         agent_cards.append(agent_data)
-    logger.info(f"Finished loading agent cards. Found {len(agent_cards)} cards.")
+    logger.info("Finished loading agent cards. Found %s cards.", len(agent_cards))
     return card_uris, agent_cards
 
 
@@ -529,7 +527,7 @@ def build_agent_card_embeddings() -> pd.DataFrame:
         logger.info("Done generating embeddings for agent cards")
         return pd.DataFrame()
     except Exception as e:
-        logger.error(f"An unexpected error occurred : {e}.", exc_info=True)
+        logger.error("An unexpected error occurred : %s.", e, exc_info=True)
         return pd.DataFrame()
 
 
@@ -568,12 +566,12 @@ def find_agent(query: str) -> str:
         else:
             return "{}"
     except Exception as e:
-        logger.error(f"Failed to generate query embeddings: {e}")
+        logger.error("Failed to generate query embeddings: %s", e)
         return "{}"
     dot_products = np.dot(np.stack(df["card_embeddings"].tolist()), query_emb)
     best_match_index = np.argmax(dot_products)
     logger.debug(
-        f"Found best match at index {best_match_index} with score {dot_products[best_match_index]}"
+        "Found best match at index %s with score %s", best_match_index, dot_products[best_match_index]
     )
     return df.iloc[best_match_index]["agent_card"]
 
@@ -610,7 +608,7 @@ def get_agent_card(card_name: str) -> dict:
     """
     df = build_agent_card_embeddings()
     resources = {}
-    logger.info(f"Starting read resource resource://agent_cards/{card_name}")
+    logger.info("Starting read resource resource://agent_cards/%s", card_name)
     if df.empty:
         resources["agent_card"] = []
         return resources

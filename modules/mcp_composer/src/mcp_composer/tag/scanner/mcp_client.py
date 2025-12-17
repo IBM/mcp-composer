@@ -41,9 +41,9 @@ class McpClientScanner(Scanner):
                     data = response.json()
                     if isinstance(data, list):
                         return data
-                    elif isinstance(data, dict) and "tools" in data:
+                    if isinstance(data, dict) and "tools" in data:
                         return data["tools"]
-                    elif isinstance(data, dict) and "data" in data:
+                    if isinstance(data, dict) and "data" in data:
                         return data["data"]
             except Exception:
                 continue
@@ -93,7 +93,7 @@ class McpClientScanner(Scanner):
                         # Try to extract tool information from server info
                         if "tools" in data:
                             return data["tools"]
-                        elif "capabilities" in data:
+                        if "capabilities" in data:
                             # Convert capabilities to tool-like structure
                             return self._capabilities_to_tools(data["capabilities"])
                 except Exception:
