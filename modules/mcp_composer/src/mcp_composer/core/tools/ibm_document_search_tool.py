@@ -20,54 +20,64 @@ class IBMDocumentSearchInput(BaseModel):
 
     question: Optional[str] = Field(
         None,
-        description="Main research question to investigate. Optional - if not provided, will be derived from search_query, sub_questions, or use a default.",
-        min_length=1
+        description=(
+            "Main research question to investigate. Optional - if not provided, will be derived from "
+            "search_query, sub_questions, or use a default."
+        ),
+        min_length=1,
     )
 
     stage: Literal["planning", "citation", "summarization", "complete"] = Field(
-        default="complete",
-        description="Current research stage you're working on."
+        default="complete", description="Current research stage you're working on."
     )
 
     sub_questions: Optional[List[str]] = Field(
         None,
-        description="List of sub-questions you've identified (for planning stage). Used to provide context for guidance."
+        description=(
+            "List of sub-questions you've identified (for planning stage). Used to provide context for guidance."
+        ),
     )
 
     sources_count: Optional[int] = Field(
         None,
         ge=0,
-        description="Optional count of sources found so far. Used to provide context-aware guidance."
+        description="Optional count of sources found so far. Used to provide context-aware guidance.",
     )
 
     gaps: Optional[List[str]] = Field(
         None,
-        description="Optional list of information gaps identified. Used to provide context-aware guidance."
+        description="Optional list of information gaps identified. Used to provide context-aware guidance.",
     )
 
     additional_context: Optional[str] = Field(
-        None,
-        description="Extra guidance or constraints for the research."
+        None, description="Extra guidance or constraints for the research."
     )
 
     search_query: Optional[str] = Field(
         None,
-        description="Optional suggested search query. This is a hint for the agent to use when searching available resources or using the url tool. The tool does not perform automatic searches - the agent should use the url tool to fetch documentation pages.",
-        min_length=1
+        description=(
+            "Optional suggested search query. This is a hint for the agent to use when searching available "
+            "resources or using the url tool. The tool does not perform automatic searches - the agent should "
+            "use the url tool to fetch documentation pages."
+        ),
+        min_length=1,
     )
 
     max_results: int = Field(
         default=5,
         ge=1,
         le=10,
-        description="Optional hint for maximum number of results to consider (default: 5, max: 10). This is guidance only - actual search behavior depends on the tools the agent uses."
+        description=(
+            "Optional hint for maximum number of results to consider (default: 5, max: 10). This is guidance "
+            "only - actual search behavior depends on the tools the agent uses."
+        ),
     )
 
 
 class IBMDocumentSearchTool(Tool):
     """
     IBM Document Search Tool for finding accurate and well-supported answers.
-    
+
     This tool guides you through a structured document search workflow to perform
     documentation-focused searches by systematically breaking down questions,
     finding relevant sources from IBM documentation resources, and synthesizing
@@ -170,7 +180,8 @@ This returns the current list of available IBM documentation. Example response:
 
 **Use resource tags to match documentation to your question.**
 
-When you call `list_resources`, each resource includes tags that describe its content. Match these tags to keywords in the user's question to find the most relevant documentation.
+When you call `list_resources`, each resource includes tags that describe its content. Match these tags to
+keywords in the user's question to find the most relevant documentation.
 
 **Example:**
 ```json
@@ -200,7 +211,8 @@ Use available tools to retrieve the starting documentation page:
 - **If `url` tool is available:** Use it to fetch the resource URL directly
 - **Otherwise:** Use `web_search` with site-restricted queries, then `web_fetch` to retrieve content
   - **IMPORTANT:** Only search within the specific documentation site from the matched resource
-  - Extract the domain from the resource URL (e.g., if resource is `https://cloud.ibm.com/docs/watsonxdata`, search within `cloud.ibm.com`)
+  - Extract the domain from the resource URL (e.g., if resource is
+    `https://cloud.ibm.com/docs/watsonxdata`, search within `cloud.ibm.com`)
   - Use site-restricted search: `"site:domain.com relevant keywords"`
   - **Do NOT search the general web** - stay within the resource's documentation domain
 
@@ -252,7 +264,9 @@ Format: `([Page Title](URL))`
 
 **Example:**
 ```
-IBM Instana provides real-time monitoring with 1-second granularity ([Instana Overview](https://www.ibm.com/docs/...)) and supports over 250 technologies ([Supported Technologies](https://www.ibm.com/docs/...)).
+IBM Instana provides real-time monitoring with 1-second granularity
+([Instana Overview](https://www.ibm.com/docs/...)) and supports over 250 technologies
+([Supported Technologies](https://www.ibm.com/docs/...)).
 ```
 
 ### Response Structure
@@ -366,9 +380,13 @@ Before responding:
 ```
 To upload files to Aspera on Cloud, you can use several methods:
 
-**Web Browser Upload:** Navigate to your workspace and use the drag-and-drop interface ([Aspera Upload Guide](https://...)). This supports files up to 100GB per file ([File Size Limits](https://...)).
+**Web Browser Upload:** Navigate to your workspace and use the drag-and-drop interface
+([Aspera Upload Guide](https://...)). This supports files up to 100GB per file
+([File Size Limits](https://...)).
 
-**Aspera Desktop Client:** For larger files or batch uploads, install the Aspera Connect plugin ([Installation Guide](https://...)). This provides faster transfer speeds using Aspera's FASP protocol ([Transfer Technology](https://...)).
+**Aspera Desktop Client:** For larger files or batch uploads, install the Aspera Connect plugin
+([Installation Guide](https://...)). This provides faster transfer speeds using Aspera's FASP protocol
+([Transfer Technology](https://...)).
 
 **Sources:**
 - Aspera Upload Guide - https://...
@@ -378,7 +396,8 @@ To upload files to Aspera on Cloud, you can use several methods:
 
 ---
 
-**Remember:** Your goal is comprehensive, accurate answers through deep documentation exploration, not surface-level responses. Always discover current documentation dynamically via `list_resources`.
+**Remember:** Your goal is comprehensive, accurate answers through deep documentation exploration, not
+surface-level responses. Always discover current documentation dynamically via `list_resources`.
 """
 
         # Get tool name from config or use default
@@ -406,29 +425,31 @@ To upload files to Aspera on Cloud, you can use several methods:
 
             if potential_resource_manager is not None:
                 self._resource_manager = potential_resource_manager
-                logger.info("IBM Document Search Tool configured with resource manager integration")
+                logger.info(
+                    "IBM Document Search Tool configured with resource manager integration"
+                )
 
-        logger.info(f"IBM Document Search Tool '{tool_name}' initialized")
+        logger.info("IBM Document Search Tool '%s' initialized", tool_name)
 
     def _is_valid_http_url(self, uri: str) -> bool:
         """
         Check if a URI is a valid HTTP/HTTPS URL.
-        
+
         Args:
             uri: The URI to check
-            
+
         Returns:
             True if URI starts with http:// or https://, False otherwise
         """
         if not uri or not isinstance(uri, str):
             return False
         uri_lower = uri.lower().strip()
-        return uri_lower.startswith('http://') or uri_lower.startswith('https://')
+        return uri_lower.startswith("http://") or uri_lower.startswith("https://")
 
     async def _get_available_resources(self) -> List[Dict[str, Any]]:
         """
         Get available resources from the resource manager, filtering for valid HTTP/HTTPS URLs only.
-        
+
         Returns:
             List of available resources with name, description, uri, and mime_type (HTTP/HTTPS only)
         """
@@ -441,37 +462,57 @@ To upload files to Aspera on Cloud, you can use several methods:
 
                     # Filter: only include resources with valid HTTP/HTTPS URLs
                     if self._is_valid_http_url(uri):
-                        resources.append({
-                            "name": getattr(resource, "name", ""),
-                            "description": getattr(resource, "description", ""),
-                            "uri": uri,
-                            "mime_type": getattr(resource, "mime_type", ""),
-                            "tags": list(getattr(resource, "tags", [])) if hasattr(resource, "tags") else [],
-                            "text": getattr(resource, "text", "")
-                        })
+                        resources.append(
+                            {
+                                "name": getattr(resource, "name", ""),
+                                "description": getattr(resource, "description", ""),
+                                "uri": uri,
+                                "mime_type": getattr(resource, "mime_type", ""),
+                                "tags": (
+                                    list(getattr(resource, "tags", []))
+                                    if hasattr(resource, "tags")
+                                    else []
+                                ),
+                                "text": getattr(resource, "text", ""),
+                            }
+                        )
                     else:
-                        logger.debug(f"Filtered out non-HTTP resource: {getattr(resource, 'name', 'unknown')} with URI: {uri}")
+                        logger.debug(
+                            "Filtered out non-HTTP resource: %s with URI: %s",
+                            getattr(resource, "name", "unknown"),
+                            uri,
+                        )
 
-                logger.info(f"Retrieved {len(resources)} valid HTTP/HTTPS resources from resource manager (filtered from {len(resource_list)} total)")
+                logger.info(
+                    "Retrieved %s valid HTTP/HTTPS resources from resource manager (filtered from %s total)",
+                    len(resources),
+                    len(resource_list),
+                )
             except Exception as e:
-                logger.warning(f"Failed to retrieve resources from resource manager: {e}")
+                logger.warning(
+                    "Failed to retrieve resources from resource manager: %s", e
+                )
         return resources
 
-    async def _search_resources(self, query: str, max_results: int = 5) -> List[Dict[str, Any]]:
+    async def _search_resources(
+        self, query: str, max_results: int = 5
+    ) -> List[Dict[str, Any]]:
         """
         Search within available resources to suggest which ones to fetch.
         Uses tag-based matching for intelligent resource selection.
-        
+
         Args:
             query: Search query string
             max_results: Maximum number of results to return (default: 5, max: 10)
-            
+
         Returns:
             List of suggested resources to fetch with name, uri, description, and relevance score
         """
         try:
             max_results = min(max(1, max_results), 10)  # Clamp between 1 and 10
-            logger.info(f"Searching resources for: {query} (max_results: {max_results})")
+            logger.info(
+                f"Searching resources for: {query} (max_results: {max_results})"
+            )
 
             # Get available resources (already filtered for HTTP/HTTPS)
             available_resources = await self._get_available_resources()
@@ -503,7 +544,7 @@ To upload files to Aspera on Cloud, you can use several methods:
                         if term == tag:
                             score += 15  # Exact tag match - highest priority
                         elif term in tag or tag in term:
-                            score += 8   # Partial tag match - high priority
+                            score += 8  # Partial tag match - high priority
 
                 # Exact match in name
                 if query_lower in name:
@@ -534,34 +575,38 @@ To upload files to Aspera on Cloud, you can use several methods:
             results = []
 
             for score, resource in scored_resources[:max_results]:
-                results.append({
-                    "title": resource.get("name", "Unknown Resource"),
-                    "url": resource.get("uri", ""),
-                    "snippet": resource.get("description", "") or resource.get("text", "")[:200],
-                    "mime_type": resource.get("mime_type", ""),
-                    "tags": resource.get("tags", []),
-                    "relevance_score": score
-                })
+                results.append(
+                    {
+                        "title": resource.get("name", "Unknown Resource"),
+                        "url": resource.get("uri", ""),
+                        "snippet": resource.get("description", "")
+                        or resource.get("text", "")[:200],
+                        "mime_type": resource.get("mime_type", ""),
+                        "tags": resource.get("tags", []),
+                        "relevance_score": score,
+                    }
+                )
 
-            logger.info(f"Found {len(results)} matching HTTP/HTTPS resources (tag-based matching)")
+            logger.info(
+                "Found %s matching HTTP/HTTPS resources (tag-based matching)",
+                len(results),
+            )
             return results
 
         except Exception as e:
-            logger.error(f"Error searching resources: {e}")
+            logger.error("Error searching resources: %s", e)
             return []
 
     def _match_resources_by_tags(
-        self,
-        question: str,
-        available_resources: List[Dict[str, Any]]
+        self, question: str, available_resources: List[Dict[str, Any]]
     ) -> List[Dict[str, Any]]:
         """
         Match resources to a question using tag-based matching.
-        
+
         Args:
             question: The user's question
             available_resources: List of available resources with tags
-            
+
         Returns:
             List of resources sorted by relevance (tag matches)
         """
@@ -588,7 +633,7 @@ To upload files to Aspera on Cloud, you can use several methods:
                     if term == tag:
                         score += 10  # Exact match
                     elif term in tag or tag in term:
-                        score += 5   # Partial match
+                        score += 5  # Partial match
 
             # Name matching
             for term in question_terms:
@@ -619,22 +664,22 @@ To upload files to Aspera on Cloud, you can use several methods:
     def _derive_question_from_params(self, params: IBMDocumentSearchInput) -> str:
         """
         Derive a question from the input parameters if not provided directly.
-        
+
         Args:
             params: Validated input parameters
-            
+
         Returns:
             Derived or default question string
         """
         # Try search_query first
         if params.search_query:
-            logger.info(f"Using search_query as question: {params.search_query}")
+            logger.info("Using search_query as question: %s", params.search_query)
             return params.search_query
 
         # Try first sub-question
         if params.sub_questions and len(params.sub_questions) > 0:
             derived = f"Research question related to: {params.sub_questions[0]}"
-            logger.info(f"Derived question from sub_questions: {derived}")
+            logger.info("Derived question from sub_questions: %s", derived)
             return derived
 
         # Default fallback
@@ -642,17 +687,15 @@ To upload files to Aspera on Cloud, you can use several methods:
         return "General IBM documentation search"
 
     async def _generate_stage_guidance(
-        self,
-        params: IBMDocumentSearchInput,
-        available_resources: List[Dict[str, Any]]
+        self, params: IBMDocumentSearchInput, available_resources: List[Dict[str, Any]]
     ) -> str:
         """
         Generate concise guidance for the current document search stage.
-        
+
         Args:
             params: Validated input parameters
             available_resources: List of available HTTP/HTTPS resources
-            
+
         Returns:
             Guidance text for the current stage
         """
@@ -665,14 +708,21 @@ To upload files to Aspera on Cloud, you can use several methods:
             for resource in available_resources:
                 all_tags.update(resource.get("tags", []))
 
-            tags_summary = f"Available tags: {', '.join(sorted(all_tags))}" if all_tags else ""
+            tags_summary = (
+                f"Available tags: {', '.join(sorted(all_tags))}" if all_tags else ""
+            )
 
-            resources_info = f"\n\n**Available Resources from MCP Server:**\n\n{resources_list_text}"
+            resources_info = (
+                f"\n\n**Available Resources from MCP Server:**\n\n{resources_list_text}"
+            )
             if tags_summary:
                 resources_info += f"\n\n**💡 Tag-Based Matching:** {tags_summary}"
                 resources_info += "\n   Match these tags to keywords in your question for best results."
         else:
-            resources_info = "\n\n**Note:** No HTTP/HTTPS resources currently available. Use other available tools to find documentation."
+            resources_info = (
+                "\n\n**Note:** No HTTP/HTTPS resources currently available. Use other available tools to "
+                "find documentation."
+            )
 
         # Get the actual question (derived if necessary)
         question = params.question or self._derive_question_from_params(params)
@@ -706,7 +756,9 @@ To upload files to Aspera on Cloud, you can use several methods:
 
         # Add context if provided
         if params.sub_questions:
-            sub_q_list = "\n".join(f"  {i+1}. {q}" for i, q in enumerate(params.sub_questions))
+            sub_q_list = "\n".join(
+                f"  {i+1}. {q}" for i, q in enumerate(params.sub_questions)
+            )
             base_guidance += f"\n**Your Sub-questions:**\n{sub_q_list}\n"
 
         if params.sources_count is not None:
@@ -739,7 +791,9 @@ To upload files to Aspera on Cloud, you can use several methods:
             # Show tags prominently for matching
             if tags:
                 resource_str += f"\n   Tags: {', '.join(tags)}"
-                resource_str += "\n   💡 Match these tags to your question for best results"
+                resource_str += (
+                    "\n   💡 Match these tags to your question for best results"
+                )
 
             if description:
                 resource_str += f"\n   Description: {description}"
@@ -756,31 +810,29 @@ To upload files to Aspera on Cloud, you can use several methods:
         return "\n\n".join(formatted)
 
     def _handle_validation_error(
-        self,
-        error: ValidationError,
-        raw_arguments: Dict[str, Any]
+        self, error: ValidationError, raw_arguments: Dict[str, Any]
     ) -> ToolResult:
         """
         Handle Pydantic validation errors gracefully.
-        
+
         Args:
             error: Pydantic validation error
             raw_arguments: Original arguments that failed validation
-            
+
         Returns:
             ToolResult with error information
         """
-        logger.error(f"Validation error in IBM document search: {error}")
+        logger.error("Validation error in IBM document search: %s", error)
 
         # Try to extract question from raw arguments
         question = (
-            raw_arguments.get("question") or
-            raw_arguments.get("Question") or
-            raw_arguments.get("mainQuestion") or
-            raw_arguments.get("main_question") or
-            raw_arguments.get("search_query") or
-            raw_arguments.get("searchQuery") or
-            "Unknown question"
+            raw_arguments.get("question")
+            or raw_arguments.get("Question")
+            or raw_arguments.get("mainQuestion")
+            or raw_arguments.get("main_question")
+            or raw_arguments.get("search_query")
+            or raw_arguments.get("searchQuery")
+            or "Unknown question"
         )
 
         if isinstance(question, str):
@@ -793,22 +845,26 @@ To upload files to Aspera on Cloud, you can use several methods:
             "nextStage": None,
             "status": "validation_error",
             "error": str(error),
-            "validation_errors": error.errors()
+            "validation_errors": error.errors(),
         }
 
-        return ToolResult(content=[TextContent(type="text", text=json.dumps(error_response, indent=2))])
+        return ToolResult(
+            content=[
+                TextContent(type="text", text=json.dumps(error_response, indent=2))
+            ]
+        )
 
     async def run(self, arguments: Dict[str, Any]) -> ToolResult:
         """
         Execute the IBM document search tool.
-        
+
         Args:
             arguments: Tool arguments containing document search parameters
-            
+
         Returns:
             ToolResult: Document search guidance for the current stage
         """
-        logger.info(f"IBM document search tool run called with arguments: {arguments}")
+        logger.info("IBM document search tool run called with arguments: %s", arguments)
 
         try:
             # Validate and parse arguments with Pydantic
@@ -836,7 +892,7 @@ To upload files to Aspera on Cloud, you can use several methods:
 
             # Get available resources (filtered for HTTP/HTTPS only)
             available_resources = await self._get_available_resources()
-            logger.info(f"Available HTTP/HTTPS resources: {len(available_resources)}")
+            logger.info("Available HTTP/HTTPS resources: %s", len(available_resources))
 
             # Derive question if not provided
             question = params.question or self._derive_question_from_params(params)
@@ -853,7 +909,7 @@ To upload files to Aspera on Cloud, you can use several methods:
                 "planning": "citation",
                 "citation": "summarization",
                 "summarization": "complete",
-                "complete": None
+                "complete": None,
             }
             next_stage = stage_flow.get(params.stage, "citation")
 
@@ -864,7 +920,7 @@ To upload files to Aspera on Cloud, you can use several methods:
                 "guidance": guidance,
                 "nextStage": next_stage,
                 "availableResources": len(available_resources),
-                "status": "success"
+                "status": "success",
             }
 
             # Add search query hint if provided
@@ -872,26 +928,32 @@ To upload files to Aspera on Cloud, you can use several methods:
                 response["suggestedSearchQuery"] = params.search_query
 
             question_display = question[:50] + "..." if len(question) > 50 else question
-            logger.info(f"IBM document search guidance provided - Stage: {params.stage}, Question: {question_display}")
+            logger.info(
+                "IBM document search guidance provided - Stage: %s, Question: %s",
+                params.stage,
+                question_display,
+            )
 
-            response = ToolResult(content=[TextContent(type="text", text=json.dumps(response, indent=2))])
-            logger.debug(f"IBM document search tool response: {response}")
+            response = ToolResult(
+                content=[TextContent(type="text", text=json.dumps(response, indent=2))]
+            )
+            logger.debug("IBM document search tool response: %s", response)
             return response
         except ValidationError as e:
             return self._handle_validation_error(e, arguments)
 
         except Exception as e:
-            logger.error(f"Unexpected error in IBM document search: {e}")
+            logger.error("Unexpected error in IBM document search: %s", e)
 
             # Try to extract question from raw arguments
             question = (
-                arguments.get("question") or
-                arguments.get("Question") or
-                arguments.get("mainQuestion") or
-                arguments.get("main_question") or
-                arguments.get("search_query") or
-                arguments.get("searchQuery") or
-                "Unknown question"
+                arguments.get("question")
+                or arguments.get("Question")
+                or arguments.get("mainQuestion")
+                or arguments.get("main_question")
+                or arguments.get("search_query")
+                or arguments.get("searchQuery")
+                or "Unknown question"
             )
 
             if isinstance(question, str):
@@ -903,7 +965,11 @@ To upload files to Aspera on Cloud, you can use several methods:
                 "guidance": f"An unexpected error occurred: {str(e)}",
                 "nextStage": None,
                 "status": "failed",
-                "error": str(e)
+                "error": str(e),
             }
 
-            return ToolResult(content=[TextContent(type="text", text=json.dumps(error_response, indent=2))])
+            return ToolResult(
+                content=[
+                    TextContent(type="text", text=json.dumps(error_response, indent=2))
+                ]
+            )

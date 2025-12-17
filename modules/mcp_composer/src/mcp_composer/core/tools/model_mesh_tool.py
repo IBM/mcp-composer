@@ -35,9 +35,9 @@ logger = LoggerFactory.get_logger()
 
 class ModelMeshInput(BaseModel):
     """Input parameters for Model Mesh Tool"""
-    
+
     model_config = ConfigDict(extra="forbid")
-    
+
     task: str = Field(
         ...,
         description=(
@@ -56,59 +56,57 @@ class ModelMeshInput(BaseModel):
             "\n"
             "IMPORTANT: For content safety, toxicity checks, moderation, or policy compliance, "
             "ALWAYS use task='guardian', NOT task='text'."
-        )
+        ),
     )
-    
+
     prompt: Optional[str] = Field(
         None,
         description="The prompt to send to the model. If not provided, "
-                   "will use the prompt template from the JSON config file."
+        "will use the prompt template from the JSON config file.",
     )
-    
+
     prompt_key: Optional[str] = Field(
         None,
         description="Key to look up prompt template in the JSON config file. "
-                   "Required if prompt is not provided directly."
+        "Required if prompt is not provided directly.",
     )
-    
+
     prompt_variables: Optional[Dict[str, Any]] = Field(
         None,
-        description="Variables to substitute in the prompt template (if using prompt_key)."
+        description="Variables to substitute in the prompt template (if using prompt_key).",
     )
-    
+
     model_override: Optional[str] = Field(
         None,
-        description="Optional override to use a specific model instead of the task-based routing."
+        description="Optional override to use a specific model instead of the task-based routing.",
     )
-    
+
     temperature: float = Field(
         default=0.7,
         ge=0.0,
         le=2.0,
-        description="Temperature for model generation (0.0-2.0)."
+        description="Temperature for model generation (0.0-2.0).",
     )
-    
+
     max_tokens: int = Field(
-        default=1000,
-        ge=1,
-        description="Maximum number of tokens to generate."
+        default=1000, ge=1, description="Maximum number of tokens to generate."
     )
 
 
 class ModelMeshTool(BaseSpecializedTool):
     """
     Model Mesh Tool for routing prompts to specialized models based on task type.
-    
+
     This tool implements a small-model mesh architecture where different models
     are configured for specific tasks (e.g., vision, speech recognition).
     Models are accessed via configurable providers (LiteLLM by default, Ollama as alternative).
-    
+
     Configuration:
         - prompt_config_path: Path to JSON file containing prompt configurations
         - model_config: Dictionary mapping task types to model configurations
         - base_url: Base URL for model API (default: http://localhost:11434)
         - default_provider: Default provider to use (default: "litellm")
-    
+
     Example usage:
         tool = ModelMeshTool({
             "name": "model_mesh",
@@ -128,20 +126,22 @@ class ModelMeshTool(BaseSpecializedTool):
             "default_provider": "litellm"
         })
     """
-    
+
     model_config = ConfigDict(extra="allow")
-    
+
     # Private attributes
     _prompt_config: Dict[str, Any] = PrivateAttr(default_factory=dict)
-    _model_config: Dict[str, Any] = PrivateAttr(default_factory=dict)  # Can be string or dict
+    _model_config: Dict[str, Any] = PrivateAttr(
+        default_factory=dict
+    )  # Can be string or dict
     _base_url: str = PrivateAttr(default="http://localhost:11434")
     _default_provider: str = PrivateAttr(default=DEFAULT_PROVIDER)
     _provider_cache: Dict[str, ModelProviderAdapter] = PrivateAttr(default_factory=dict)
-    
+
     def __init__(self, config: Optional[dict] = None):
         """
         Initialize the Model Mesh Tool.
-        
+
         Args:
             config: Configuration dictionary containing:
                 - name: Tool name (optional)
@@ -153,7 +153,7 @@ class ModelMeshTool(BaseSpecializedTool):
         # Check for available providers (warn but don't fail)
         litellm_available = ModelProviderFactory.is_provider_available("litellm")
         ollama_available = ModelProviderFactory.is_provider_available("ollama")
-        
+
         if not litellm_available and not ollama_available:
             logger.warning(
                 "No model providers are available. ModelMeshTool will initialize but may not work. "
@@ -165,11 +165,11 @@ class ModelMeshTool(BaseSpecializedTool):
                 available_providers.append("litellm")
             if ollama_available:
                 available_providers.append("ollama")
-            logger.info(f"Available providers: {', '.join(available_providers)}")
-        
+            logger.info("Available providers: %s", ", ".join(available_providers))
+
         # Generate parameters from Pydantic model
         parameters = ModelMeshInput.model_json_schema()
-        
+
         description = """
         Model Mesh Tool - Routes prompts to specialized models based on task type.
         
@@ -207,49 +207,53 @@ class ModelMeshTool(BaseSpecializedTool):
         The tool automatically routes requests to the appropriate specialized model based on
         the task type you specify.
         """
-        
+
         # Get tool name from config
         tool_name = self._get_tool_name(config, default="model_mesh")
-        
+
         # Initialize parent
         super().__init__(
             name=tool_name,
             description=description,
             parameters=parameters,
-            config=config
+            config=config,
         )
-        
+
         # Load configuration
         if config:
             # Load prompt configuration from JSON file
             prompt_config_path = config.get("prompt_config_path")
             if prompt_config_path:
                 self._load_prompt_config(prompt_config_path)
-            
+
             # Load model configuration
             self._model_config = config.get("model_config", {})
-            
+
             # Set base URL (support both old "ollama_base_url" and new "base_url")
-            self._base_url = config.get("base_url") or config.get("ollama_base_url", "http://localhost:11434")
-            
+            self._base_url = config.get("base_url") or config.get(
+                "ollama_base_url", "http://localhost:11434"
+            )
+
             # Set default provider
             self._default_provider = config.get("default_provider", DEFAULT_PROVIDER)
-            
+
             # Validate model configurations (warn but don't fail)
             self._validate_model_configs()
-        
+
         logger.info(
-            f"ModelMeshTool '{tool_name}' initialized with {len(self._model_config)} model configurations, "
-            f"default provider: {self._default_provider}"
+            "ModelMeshTool '%s' initialized with %d model configurations, default provider: %s",
+            tool_name,
+            len(self._model_config),
+            self._default_provider,
         )
-    
+
     def _load_prompt_config(self, config_path: str) -> None:
         """
         Load prompt configuration from JSON file.
-        
+
         Args:
             config_path: Path to JSON file containing prompt configurations
-            
+
         Raises:
             FileNotFoundError: If the config file doesn't exist
             json.JSONDecodeError: If the config file is invalid JSON
@@ -261,26 +265,28 @@ class ModelMeshTool(BaseSpecializedTool):
                 resolved_path = Path(config_path)
                 if not resolved_path.exists():
                     # Try relative to the project root
-                    project_root = Path(__file__).parent.parent.parent.parent.parent.parent
+                    project_root = Path(
+                        __file__
+                    ).parent.parent.parent.parent.parent.parent
                     resolved_path = project_root / config_path
             else:
                 resolved_path = Path(config_path)
-            
+
             if not resolved_path.exists():
                 raise FileNotFoundError(f"Prompt config file not found: {config_path}")
-            
+
             with open(resolved_path, "r", encoding="utf-8") as f:
                 self._prompt_config = json.load(f)
-            
-            logger.info(f"Loaded prompt configuration from {resolved_path}")
-            
+
+            logger.info("Loaded prompt configuration from %s", resolved_path)
+
         except json.JSONDecodeError as e:
-            logger.error(f"Invalid JSON in prompt config file: {e}")
+            logger.error("Invalid JSON in prompt config file: %s", e)
             raise
         except Exception as e:
-            logger.error(f"Failed to load prompt config: {e}")
+            logger.error("Failed to load prompt config: %s", e)
             raise
-    
+
     def _validate_model_configs(self) -> None:
         """
         Validate model configurations and warn about unavailable models.
@@ -288,7 +294,7 @@ class ModelMeshTool(BaseSpecializedTool):
         """
         if not self._model_config:
             return
-        
+
         for task_name, model_config in self._model_config.items():
             try:
                 # Get model name
@@ -296,75 +302,88 @@ class ModelMeshTool(BaseSpecializedTool):
                     model_name = model_config
                     provider = self._default_provider
                 elif isinstance(model_config, dict):
-                    model_name = model_config.get("model") or model_config.get("name", "")
+                    model_name = model_config.get("model") or model_config.get(
+                        "name", ""
+                    )
                     provider = model_config.get("provider", self._default_provider)
                 else:
                     logger.warning(
-                        f"Invalid model configuration for task '{task_name}': "
-                        f"expected string or dict, got {type(model_config).__name__}"
+                        "Invalid model configuration for task '%s': expected string or dict, got %s",
+                        task_name,
+                        type(model_config).__name__,
                     )
                     continue
-                
+
                 if not model_name:
-                    logger.warning(
-                        f"Task '{task_name}' has no model name configured"
-                    )
+                    logger.warning("Task '%s' has no model name configured", task_name)
                     continue
-                
+
                 # Check if provider is available
                 if not ModelProviderFactory.is_provider_available(provider):
+                    install_cmd = "litellm" if provider == "litellm" else "ollama"
                     logger.warning(
-                        f"Task '{task_name}' uses provider '{provider}' which is not available. "
-                        f"Model '{model_name}' may not work. Install with: "
-                        f"pip install {'litellm' if provider == 'litellm' else 'ollama'}"
+                        "Task '%s' uses provider '%s' which is not available. "
+                        "Model '%s' may not work. Install with: pip install %s",
+                        task_name,
+                        provider,
+                        model_name,
+                        install_cmd,
                     )
                 else:
                     logger.debug(
-                        f"Task '{task_name}': model '{model_name}' via provider '{provider}' - validated"
+                        "Task '%s': model '%s' via provider '%s' - validated",
+                        task_name,
+                        model_name,
+                        provider,
                     )
-                    
+
             except Exception as e:
                 logger.warning(
-                    f"Error validating model config for task '{task_name}': {e}. "
-                    f"Tool will still initialize but this task may not work."
+                    "Error validating model config for task '%s': %s. "
+                    "Tool will still initialize but this task may not work.",
+                    task_name,
+                    e,
                 )
-    
-    def _get_provider_adapter(self, provider_name: str, base_url: Optional[str] = None) -> ModelProviderAdapter:
+
+    def _get_provider_adapter(
+        self, provider_name: str, base_url: Optional[str] = None
+    ) -> ModelProviderAdapter:
         """
         Get or create a provider adapter.
-        
+
         Args:
             provider_name: Name of the provider ("litellm" or "ollama")
             base_url: Base URL for the provider (optional, uses default if not provided)
-        
+
         Returns:
             ModelProviderAdapter instance
-        
+
         Raises:
             ValueError: If the provider is not supported
             ImportError: If the provider library is not available
         """
         # Use cache key to reuse adapters with same config
         cache_key = f"{provider_name}:{base_url or self._base_url}"
-        
+
         if cache_key not in self._provider_cache:
             adapter = ModelProviderFactory.create_provider(
-                provider_name=provider_name,
-                base_url=base_url or self._base_url
+                provider_name=provider_name, base_url=base_url or self._base_url
             )
             self._provider_cache[cache_key] = adapter
-            logger.debug(f"Created {provider_name} adapter (cached)")
-        
+            logger.debug("Created %s adapter (cached)", provider_name)
+
         return self._provider_cache[cache_key]
-    
-    def _get_model_config_for_task(self, task: str, model_override: Optional[str] = None) -> Dict[str, Any]:
+
+    def _get_model_config_for_task(
+        self, task: str, model_override: Optional[str] = None
+    ) -> Dict[str, Any]:
         """
         Get the model configuration for a given task type.
-        
+
         Args:
             task: Task type (e.g., 'vision', 'speech')
             model_override: Optional model override (can be string or dict)
-            
+
         Returns:
             Dictionary with model configuration:
             {
@@ -373,7 +392,7 @@ class ModelMeshTool(BaseSpecializedTool):
                 "base_url": "http://localhost:11434",
                 "options": {...}
             }
-            
+
         Raises:
             ValueError: If no model is configured for the task and no override is provided
         """
@@ -381,10 +400,12 @@ class ModelMeshTool(BaseSpecializedTool):
         if model_override:
             if isinstance(model_override, dict):
                 return {
-                    "model": model_override.get("model", model_override.get("name", "")),
+                    "model": model_override.get(
+                        "model", model_override.get("name", "")
+                    ),
                     "provider": model_override.get("provider", self._default_provider),
                     "base_url": model_override.get("base_url", self._base_url),
-                    "options": model_override.get("options", {})
+                    "options": model_override.get("options", {}),
                 }
             else:
                 # Simple string override - use default provider
@@ -392,9 +413,9 @@ class ModelMeshTool(BaseSpecializedTool):
                     "model": model_override,
                     "provider": self._default_provider,
                     "base_url": self._base_url,
-                    "options": {}
+                    "options": {},
                 }
-        
+
         # Get model config for task
         model_config = self._model_config.get(task.lower())
         if not model_config:
@@ -404,57 +425,61 @@ class ModelMeshTool(BaseSpecializedTool):
                 f"Available tasks: {available_tasks}. "
                 f"Please configure a model for this task or provide a model_override."
             )
-        
+
         # Handle simple string config (backward compatible)
         if isinstance(model_config, str):
             return {
                 "model": model_config,
                 "provider": self._default_provider,
                 "base_url": self._base_url,
-                "options": {}
+                "options": {},
             }
-        
+
         # Handle dict config (enhanced with provider support)
         if isinstance(model_config, dict):
             return {
                 "model": model_config.get("model", model_config.get("name", "")),
                 "provider": model_config.get("provider", self._default_provider),
                 "base_url": model_config.get("base_url", self._base_url),
-                "options": model_config.get("options", {})
+                "options": model_config.get("options", {}),
             }
-        
+
         raise ValueError(f"Invalid model configuration format for task '{task}'")
-    
-    def _get_prompt(self, prompt: Optional[str], prompt_key: Optional[str], 
-                   prompt_variables: Optional[Dict[str, Any]]) -> str:
+
+    def _get_prompt(
+        self,
+        prompt: Optional[str],
+        prompt_key: Optional[str],
+        prompt_variables: Optional[Dict[str, Any]],
+    ) -> str:
         """
         Get the prompt text, either directly or from the config file.
-        
+
         Args:
             prompt: Direct prompt text (if provided)
             prompt_key: Key to look up in prompt config
             prompt_variables: Variables to substitute in template
-            
+
         Returns:
             Final prompt text
-            
+
         Raises:
             ValueError: If neither prompt nor prompt_key is provided
         """
         if prompt:
             return prompt
-        
+
         if not prompt_key:
             raise ValueError(
                 "Either 'prompt' or 'prompt_key' must be provided. "
                 "If using prompt_key, ensure prompt_config_path is set in tool configuration."
             )
-        
+
         if not self._prompt_config:
             raise ValueError(
                 "prompt_config_path must be set in tool configuration to use prompt_key."
             )
-        
+
         # Look up prompt template
         prompt_template = self._prompt_config.get(prompt_key)
         if not prompt_template:
@@ -463,28 +488,30 @@ class ModelMeshTool(BaseSpecializedTool):
                 f"Prompt key '{prompt_key}' not found in config. "
                 f"Available keys: {available_keys}"
             )
-        
+
         # Handle both string templates and dict with 'template' field
         if isinstance(prompt_template, dict):
             template = prompt_template.get("template") or prompt_template.get("prompt")
             if not template:
-                raise ValueError(f"Prompt config for '{prompt_key}' must contain 'template' or 'prompt' field")
+                raise ValueError(
+                    f"Prompt config for '{prompt_key}' must contain 'template' or 'prompt' field"
+                )
         else:
             template = prompt_template
-        
+
         # Substitute variables if provided
         if prompt_variables and isinstance(template, str):
             try:
                 return template.format(**prompt_variables)
             except KeyError as e:
-                raise ValueError(f"Missing variable in prompt template: {e}")
-        
+                raise ValueError(f"Missing variable in prompt template: {e}") from e
+
         return template
-    
+
     async def run(self, arguments: Dict[str, Any]) -> ToolResult:
         """
         Execute the model mesh tool.
-        
+
         Args:
             arguments: Tool arguments containing:
                 - task: Task type (required)
@@ -494,70 +521,81 @@ class ModelMeshTool(BaseSpecializedTool):
                 - model_override: Override model selection (optional)
                 - temperature: Generation temperature (optional)
                 - max_tokens: Max tokens to generate (optional)
-        
+
         Returns:
             ToolResult with model response
         """
         try:
             # Normalize arguments
             normalized_args = self._normalize_arguments(arguments)
-            
+
             # Extract parameters
             task = normalized_args.get("task")
             if not task:
                 raise ValueError("'task' parameter is required")
-            
+
             prompt = normalized_args.get("prompt")
             prompt_key = normalized_args.get("prompt_key")
             prompt_variables = normalized_args.get("prompt_variables", {})
             model_override = normalized_args.get("model_override")
             temperature = normalized_args.get("temperature", 0.7)
             max_tokens = normalized_args.get("max_tokens", 1000)
-            
+
             # Get the prompt text
             final_prompt = self._get_prompt(prompt, prompt_key, prompt_variables)
-            
+
             # Get the model configuration for this task
             model_config = self._get_model_config_for_task(task, model_override)
             model_name = model_config["model"]
             provider = model_config["provider"]
             base_url = model_config["base_url"]
             config_options = model_config.get("options", {})
-            
+
             # Determine capability description based on task type
             capability_descriptions = {
                 "guardian": "Content Safety & Moderation - Analyzes content for safety, toxicity, policy compliance, and risk assessment",
                 "vision": "Image Analysis - Analyzes images for objects, scenes, and visual content",
                 "text": "Text Processing - Handles text summarization, question answering, and text analysis",
-                "speech": "Audio Processing - Transcribes audio and analyzes speech sentiment"
+                "speech": "Audio Processing - Transcribes audio and analyzes speech sentiment",
             }
-            capability_description = capability_descriptions.get(task.lower(), f"{task.capitalize()} - Specialized task processing")
-            
-            logger.info(
-                f"Routing task '{task}' to model '{model_name}' via provider '{provider}' "
-                f"(base_url: {base_url})"
+            capability_description = capability_descriptions.get(
+                task.lower(), f"{task.capitalize()} - Specialized task processing"
             )
-            logger.debug(f"Prompt: {final_prompt[:100]}...")
-            logger.debug(f"Model config: {model_config}")
-            
+
+            logger.info(
+                "Routing task '%s' to model '%s' via provider '%s' (base_url: %s)",
+                task,
+                model_name,
+                provider,
+                base_url,
+            )
+            logger.debug("Prompt: %s...", final_prompt[:100])
+            logger.debug("Model config: %s", model_config)
+
             # Get the provider adapter
             try:
                 adapter = self._get_provider_adapter(provider, base_url)
             except (ValueError, ImportError) as e:
                 # Fallback to default provider if configured provider is not available
                 logger.warning(
-                    f"Provider '{provider}' not available: {e}. "
-                    f"Falling back to default provider '{self._default_provider}'"
+                    "Provider '%s' not available: %s. Falling back to default provider '%s'",
+                    provider,
+                    e,
+                    self._default_provider,
                 )
                 try:
-                    adapter = self._get_provider_adapter(self._default_provider, base_url)
-                    provider = self._default_provider  # Update provider name for response
+                    adapter = self._get_provider_adapter(
+                        self._default_provider, base_url
+                    )
+                    provider = (
+                        self._default_provider
+                    )  # Update provider name for response
                 except (ValueError, ImportError) as fallback_error:
                     raise ValueError(
                         f"Provider '{provider}' not available and fallback to "
                         f"'{self._default_provider}' also failed: {fallback_error}"
                     )
-            
+
             # Call the model via the adapter
             try:
                 # Optional: Check if model is available (for Ollama provider)
@@ -566,41 +604,49 @@ class ModelMeshTool(BaseSpecializedTool):
                         is_available = await adapter.check_model_available(model_name)
                         if not is_available:
                             logger.warning(
-                                f"Model '{model_name}' may not be available in Ollama. "
-                                f"Available models can be checked with: 'ollama list'. "
-                                f"To install: 'ollama pull {model_name}'"
+                                "Model '%s' may not be available in Ollama. "
+                                "Available models can be checked with: 'ollama list'. "
+                                "To install: 'ollama pull %s'",
+                                model_name,
+                                model_name,
                             )
                     except Exception as check_error:
-                        logger.debug(f"Could not verify model availability: {check_error}")
-                
+                        logger.debug(
+                            "Could not verify model availability: %s", check_error
+                        )
+
                 # Prepare adapter-specific kwargs
                 adapter_kwargs = {}
-                
+
                 # For Ollama adapter, pass think parameter if specified
                 if provider == "ollama" and config_options.get("think", False):
                     adapter_kwargs["think"] = True
-                
+
                 response_data = await adapter.chat(
                     model_name=model_name,
                     prompt=final_prompt,
                     temperature=temperature,
                     max_tokens=max_tokens,
                     options=config_options,
-                    **adapter_kwargs
+                    **adapter_kwargs,
                 )
-                logger.info(f"Response data: {response_data}")
-                
+                logger.info("Response data: %s", response_data)
+
                 # Verify model response (if verification info is available)
                 if "model_verified" in response_data:
                     if not response_data["model_verified"]:
                         logger.warning(
-                            f"Model verification failed: requested '{model_name}' but got response from "
-                            f"'{response_data.get('response_model', 'unknown')}'. Response may not be from "
-                            f"the designated model."
+                            "Model verification failed: requested '%s' but got response from '%s'. "
+                            "Response may not be from the designated model.",
+                            model_name,
+                            response_data.get("response_model", "unknown"),
                         )
                     else:
-                        logger.debug(f"Model verification passed: response confirmed from '{model_name}'")
-                
+                        logger.debug(
+                            "Model verification passed: response confirmed from '%s'",
+                            model_name,
+                        )
+
                 # Add common fields
                 response_data["status"] = "success"
                 response_data["task"] = task
@@ -612,19 +658,21 @@ class ModelMeshTool(BaseSpecializedTool):
                     "description": capability_description,
                     "prompt_template": prompt_key if prompt_key else "direct_prompt",
                     "model_used": model_name,
-                    "provider_used": provider
+                    "provider_used": provider,
                 }
-                
+
                 response = await self._create_success_response(response_data)
-                logger.info(f"Response for the model mesh tool: {response}")
+                logger.info("Response for the model mesh tool: %s", response)
                 return response
-                
+
             except Exception as e:
                 error_msg = str(e)
                 error_lower = error_msg.lower()
-                
+
                 # Provide more specific error messages based on error type
-                if "model" in error_lower and ("not found" in error_lower or "does not exist" in error_lower):
+                if "model" in error_lower and (
+                    "not found" in error_lower or "does not exist" in error_lower
+                ):
                     detailed_error = (
                         f"Model '{model_name}' is not available in Ollama. "
                         f"This usually means:\n"
@@ -643,17 +691,20 @@ class ModelMeshTool(BaseSpecializedTool):
                 else:
                     detailed_error = (
                         f"Error calling model '{model_name}' via provider '{provider}': {error_msg}\n"
-                        f"Please check:\n"
+                        "Please check:\n"
                         f"1. The model is installed/pulled (e.g., 'ollama pull {model_name}')\n"
                         f"2. The provider '{provider}' is available\n"
-                        f"3. Ollama is running (if using Ollama models)\n"
+                        "3. Ollama is running (if using Ollama models)\n"
                         f"4. Check available models: 'ollama list'"
                     )
-                
+
                 logger.warning(
-                    f"Error calling model '{model_name}' via provider '{provider}': {error_msg}"
+                    "Error calling model '%s' via provider '%s': %s",
+                    model_name,
+                    provider,
+                    error_msg,
                 )
-                
+
                 # Return a graceful error response instead of raising
                 error_response = {
                     "status": "error",
@@ -665,26 +716,30 @@ class ModelMeshTool(BaseSpecializedTool):
                     "capability": {
                         "task_type": task,
                         "description": capability_description,
-                        "prompt_template": prompt_key if prompt_key else "direct_prompt",
+                        "prompt_template": (
+                            prompt_key if prompt_key else "direct_prompt"
+                        ),
                         "model_attempted": model_name,
-                        "provider_attempted": provider
+                        "provider_attempted": provider,
                     },
-                    "suggestion": detailed_error
+                    "suggestion": detailed_error,
                 }
-                
+
                 error_response = await self._create_success_response(error_response)
-                logger.info(f"Error response for the model mesh tool: {error_response}")
+                logger.info(
+                    "Error response for the model mesh tool: %s", error_response
+                )
                 return error_response
-            
+
         except ValidationError as e:
             return self._handle_validation_error(e, arguments)
         except Exception as e:
             return self._handle_unexpected_error(e, arguments)
-    
+
     def _get_guardrails(self) -> List[str]:
         """
         Get guardrails for the model mesh tool.
-        
+
         Returns:
             List of guardrail strings
         """
@@ -694,7 +749,5 @@ class ModelMeshTool(BaseSpecializedTool):
             "Handle model errors gracefully and provide meaningful error messages",
             "Respect rate limits and resource constraints for model calls",
             "Validate prompt variables match template placeholders",
-            "Verify Ollama models are available before routing requests"
+            "Verify Ollama models are available before routing requests",
         ]
-
-
