@@ -2,12 +2,7 @@
 
 REGISTRY_URL ?= icr.io
 REGISTRY_NAMESPACE ?= automation-saas-platform
-REGISTRY_IMAGE_TAG_SHORT = $(shell \
-  BRANCH=$$(git rev-parse --abbrev-ref HEAD | sed 's/[^a-zA-Z0-9]/-/g'); \
-  DATE=$$(date +%m-%d-%y-%H%M%S); \
-  COMMIT=$$(git rev-parse --short=7 HEAD); \
-  echo "$${BRANCH}-$${DATE}-$${COMMIT}" \
-)
+REGISTRY_IMAGE_TAG_SHORT ?= $(shell git rev-parse --abbrev-ref HEAD | sed 's/[^a-zA-Z0-9]/-/g')-$(shell git rev-parse --short HEAD)
 
 ROOT_IMAGE_NAME = mcp-composer-root
 # SRC_APP_IMAGE_NAME = mcp-composer-app
