@@ -1,6 +1,6 @@
 ARG BUILDER_IMAGE=icr.io/ibm-dreadnought-prod-images/ubi9/python312-builder
 ARG RUNTIME_IMAGE=icr.io/ibm-dreadnought-prod-images/ubi9/python312-builder
-ARG DREADNOUGHT_PYTHON312_TAG=v9.7.18
+ARG DREADNOUGHT_PYTHON312_TAG=SET_VALID_TAG
 
 #########################################
 # -------- Stage 1: Builder --------
@@ -37,14 +37,13 @@ RUN ln -sf /usr/bin/python3.12 /usr/bin/python3 && \
 RUN dnf install -y sqlite sqlite-devel && \
     dnf clean all
 
-
 WORKDIR /app
 
-COPY pyproject.toml uv.lock ./
+COPY . .
+
+ENV UV_PYTHON=/usr/bin/python3.12
 
 RUN uv sync --locked --no-install-project --no-dev
-
-COPY . /app
 
 
 #########################################
@@ -52,7 +51,13 @@ COPY . /app
 #########################################
 FROM ${RUNTIME_IMAGE}:${DREADNOUGHT_PYTHON312_TAG} AS final
 
-USER 1001
+ENV UV_NO_SYNC=1
+
+USER root
+
+RUN ln -sf /usr/bin/python3.12 /usr/bin/python && \
+    ln -sf /usr/bin/pip3.12 /usr/bin/pip
+
 WORKDIR /app
 
 COPY --from=builder /app /app
@@ -65,8 +70,8 @@ COPY --from=builder /usr/lib64/librt.so.* /usr/lib64/
 COPY --from=builder /usr/lib64/libsqlite3.so.* /usr/lib64/
 COPY --from=builder /usr/bin/sqlite3 /usr/bin/sqlite3
 
-ENV PATH="/app/.venv/bin:$PATH"
 ENV PYTHONPATH=/app/src
 ENV UV_CACHE_DIR="/tmp/.cache/uv"
-
+USER 1001
 CMD ["uv", "run", "--no-project", "composers/solis_composer.py"]
+

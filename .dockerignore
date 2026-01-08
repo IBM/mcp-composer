@@ -2,6 +2,7 @@
 /*
 
 # (re)include core files:
+
 !/uv.lock
 !/pyproject.toml
 !/src/
@@ -14,6 +15,7 @@
 __pycache__
 *.egg-info
 /src/mcp_composer/.*.example
+.venv
 
 ### metafiles ###
 .DS_Store
