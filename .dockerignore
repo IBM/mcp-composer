@@ -15,7 +15,7 @@
 __pycache__
 *.egg-info
 /src/mcp_composer/.*.example
-.venv
+
 
 ### metafiles ###
 .DS_Store
