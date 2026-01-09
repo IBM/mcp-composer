@@ -1,5 +1,5 @@
 ARG BUILDER_IMAGE=icr.io/ibm-dreadnought-prod-images/ubi9/python312-builder
-ARG RUNTIME_IMAGE=icr.io/ibm-dreadnought-prod-images/ubi9/python312-builder
+ARG RUNTIME_IMAGE=icr.io/ibm-dreadnought-prod-images/ubi9/python312-runtime
 ARG DREADNOUGHT_PYTHON312_TAG=SET_VALID_TAG
 
 #########################################
