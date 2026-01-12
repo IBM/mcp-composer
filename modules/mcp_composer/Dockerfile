@@ -31,8 +31,8 @@ RUN dnf --refresh update -y \
 
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
-RUN ln -sf /usr/bin/python3.12 /usr/bin/python3 && \
-    ln -sf /usr/bin/pip3.12    /usr/bin/pip
+# RUN ln -sf /usr/bin/python3.12 /usr/bin/python3 && \
+#     ln -sf /usr/bin/pip3.12    /usr/bin/pip
 
 RUN dnf install -y sqlite sqlite-devel && \
     dnf clean all
@@ -55,8 +55,8 @@ ENV UV_NO_SYNC=1
 
 USER root
 
-RUN ln -sf /usr/bin/python3.12 /usr/bin/python && \
-    ln -sf /usr/bin/pip3.12 /usr/bin/pip
+# RUN ln -sf /usr/bin/python3.12 /usr/bin/python && \
+#     ln -sf /usr/bin/pip3.12 /usr/bin/pip
 
 WORKDIR /app
 
