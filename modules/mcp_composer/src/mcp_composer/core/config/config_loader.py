@@ -508,7 +508,7 @@ class ConfigLoader:
 
     async def _apply_resources(self, resources: List[Any]) -> Dict[str, Any]:
         """Apply resource configurations."""
-        results = {"registered": [], "failed": [], "total": len(resources)}
+        results = {"registered": [], "failed": [], "skipped": [], "total": len(resources)}
 
         for resource_config in resources:
             try:
@@ -516,6 +516,21 @@ class ConfigLoader:
                 resource_dict = (
                     resource_config.model_dump() if hasattr(resource_config, "model_dump") else resource_config
                 )
+
+                # Check if resource is enabled (default to True if not specified)
+                if not resource_dict.get("enabled", True):
+                    results["skipped"].append(
+                        {
+                            "name": resource_config.name if hasattr(resource_config, "name") else resource_dict.get("name"),
+                            "reason": "disabled",
+                        }
+                    )
+                    self.logger.info(f"Skipped disabled resource: {resource_dict.get('name')}")
+                    continue
+
+                # Validate that resource has either uri or uri_template
+                if not resource_dict.get("uri") and not resource_dict.get("uri_template"):
+                    raise ValueError("Resource must have either uri or uri_template")
 
                 # Determine if it's a resource or resource template
                 is_template = bool(resource_dict.get("uri_template"))

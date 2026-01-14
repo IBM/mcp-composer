@@ -12,6 +12,7 @@ import yaml
 from mcp_composer.core.config.config_loader import ConfigLoader, ConfigManager
 from mcp_composer.core.config.unified_config import (
     ConfigValidationError,
+    ResourceConfig,
     ServerConfig,
     ToolConfig,
     UnifiedConfig,
@@ -469,6 +470,208 @@ class TestConfigLoader:
             self.loader._load_single_section(config_data, "servers", "test.json")
         assert "must be a list or dictionary" in str(exc_info.value)
 
+    def test_detect_config_type_from_data_resources(self):
+        """Test detecting resources configuration type."""
+        config_data = [
+            {
+                "name": "resource1",
+                "uri": "resource://test1",
+                "text": "Test content 1",
+                "mime_type": "text/plain",
+            },
+            {
+                "name": "resource2",
+                "uri_template": "resource://test/{id}",
+                "mime_type": "application/json",
+            },
+        ]
+
+        result = self.loader._detect_config_type_from_data(config_data, "test.json")
+        assert result == "resources"
+
+    def test_load_single_section_resources(self):
+        """Test loading single section resources configuration."""
+        config_data = [
+            {
+                "name": "resource1",
+                "uri": "resource://test1",
+                "text": "Test content 1",
+                "mime_type": "text/plain",
+                "tags": ["test"],
+            },
+            {
+                "name": "resource2",
+                "uri_template": "resource://test/{id}",
+                "mime_type": "application/json",
+                "enabled": True,
+            },
+        ]
+
+        result = self.loader._load_single_section(config_data, "resources", "test.json")
+
+        assert isinstance(result, UnifiedConfig)
+        assert len(result.servers) == 0
+        assert len(result.middleware) == 0
+        assert len(result.prompts) == 0
+        assert len(result.tools) == 0
+        assert len(result.resources) == 2
+        assert result.resources[0].name == "resource1"
+        assert result.resources[0].uri == "resource://test1"
+        assert result.resources[1].name == "resource2"
+        assert result.resources[1].uri_template == "resource://test/{id}"
+
+    @pytest.mark.asyncio
+    async def test_apply_resources_success(self):
+        """Test successful resources application."""
+        # Create proper mock resources with model_dump
+        resource1 = Mock()
+        resource1.name = "resource1"
+        resource1.enabled = True
+        resource1.model_dump.return_value = {
+            "name": "resource1",
+            "uri": "resource://test1",
+            "text": "Test content",
+            "mime_type": "text/plain",
+            "tags": ["test"],
+            "enabled": True,
+        }
+
+        resource2 = Mock()
+        resource2.name = "resource2"
+        resource2.enabled = True
+        resource2.model_dump.return_value = {
+            "name": "resource2",
+            "uri_template": "resource://test/{id}",
+            "mime_type": "application/json",
+            "enabled": True,
+        }
+
+        resources = [resource1, resource2]
+
+        # Mock the resource manager
+        self.composer._resource_manager = Mock()
+        self.composer._resource_manager.create_resource = AsyncMock(return_value="resource1")
+        self.composer._resource_manager.create_resource_template = AsyncMock(return_value="resource2")
+
+        result = await self.loader._apply_resources(resources)
+
+        assert result["total"] == 2
+        assert len(result["registered"]) == 2
+        assert len(result["failed"]) == 0
+        assert self.composer._resource_manager.create_resource.call_count == 1
+        assert self.composer._resource_manager.create_resource_template.call_count == 1
+
+    @pytest.mark.asyncio
+    async def test_apply_resources_failure(self):
+        """Test resources application with failures."""
+        # Create proper mock resources with model_dump
+        resource1 = Mock()
+        resource1.name = "resource1"
+        resource1.enabled = True
+        resource1.model_dump.return_value = {
+            "name": "resource1",
+            "uri": "resource://test1",
+            "text": "Test content",
+            "mime_type": "text/plain",
+            "tags": ["test"],
+            "enabled": True,
+        }
+
+        resource2 = Mock()
+        resource2.name = "resource2"
+        resource2.enabled = True
+        resource2.model_dump.return_value = {
+            "name": "resource2",
+            "uri_template": "resource://test/{id}",
+            "mime_type": "application/json",
+            "enabled": True,
+        }
+
+        resources = [resource1, resource2]
+
+        # Mock the resource manager with one failure
+        self.composer._resource_manager = Mock()
+        self.composer._resource_manager.create_resource = AsyncMock(side_effect=Exception("Resource creation failed"))
+        self.composer._resource_manager.create_resource_template = AsyncMock(return_value="resource2")
+
+        result = await self.loader._apply_resources(resources)
+
+        assert result["total"] == 2
+        assert len(result["registered"]) == 1
+        assert len(result["failed"]) == 1
+        assert result["failed"][0]["error"] == "Resource creation failed"
+
+    @pytest.mark.asyncio
+    async def test_apply_resources_disabled(self):
+        """Test resources application skips disabled resources."""
+        # Create proper mock resources with model_dump
+        resource1 = Mock()
+        resource1.name = "resource1"
+        resource1.enabled = False  # Disabled
+        resource1.model_dump.return_value = {
+            "name": "resource1",
+            "uri": "resource://test1",
+            "text": "Test content",
+            "mime_type": "text/plain",
+            "tags": ["test"],
+            "enabled": False,
+        }
+
+        resource2 = Mock()
+        resource2.name = "resource2"
+        resource2.enabled = True
+        resource2.model_dump.return_value = {
+            "name": "resource2",
+            "uri_template": "resource://test/{id}",
+            "mime_type": "application/json",
+            "enabled": True,
+        }
+
+        resources = [resource1, resource2]
+
+        # Mock the resource manager
+        self.composer._resource_manager = Mock()
+        self.composer._resource_manager.create_resource = AsyncMock()
+        self.composer._resource_manager.create_resource_template = AsyncMock(return_value="resource2")
+
+        result = await self.loader._apply_resources(resources)
+
+        assert result["total"] == 2
+        assert len(result["registered"]) == 1
+        assert len(result["skipped"]) == 1
+        assert result["skipped"][0]["name"] == "resource1"
+        assert result["skipped"][0]["reason"] == "disabled"
+        # Only resource2 should be created
+        self.composer._resource_manager.create_resource.assert_not_called()
+        self.composer._resource_manager.create_resource_template.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_apply_resources_validation_error(self):
+        """Test resources application with validation errors."""
+        # Create proper mock resource with model_dump that returns invalid data
+        resource1 = Mock()
+        resource1.name = "resource1"
+        resource1.enabled = True
+        resource1.model_dump.return_value = {
+            "name": "resource1",
+            # Both uri and uri_template are missing - invalid
+            "text": "Test content",
+            "mime_type": "text/plain",
+            "tags": ["test"],
+            "enabled": True,
+        }
+
+        resources = [resource1]
+
+        # Mock the resource manager
+        self.composer._resource_manager = Mock()
+
+        result = await self.loader._apply_resources(resources)
+
+        assert result["total"] == 1
+        assert len(result["failed"]) == 1
+        assert "must have either uri or uri_template" in result["failed"][0]["error"]
+
 
 class TestConfigManager:
     """Test cases for ConfigManager class."""
@@ -686,6 +889,144 @@ class TestUnifiedConfigIntegration:
                 mock_open.assert_not_called()  # Should not open file again
 
             assert result1.servers[0].id == result2.servers[0].id
+        finally:
+            Path(temp_path).unlink()
+
+    def test_full_unified_config_with_resources_json(self):
+        """Test loading full unified configuration with resources from JSON."""
+        config_data = {
+            "servers": [
+                {"id": "server1", "type": "http", "endpoint": "http://test1"},
+            ],
+            "middleware": [
+                {
+                    "name": "mw1",
+                    "kind": "mcp_composer.middleware.test.TestMiddleware",
+                    "mode": "enabled",
+                    "priority": 10,
+                    "applied_hooks": ["on_call_tool"],
+                }
+            ],
+            "prompts": [{"name": "prompt1", "description": "test1", "template": "template1"}],
+            "tools": {
+                "tool1": {
+                    "openapi": "3.0.3",
+                    "info": {"title": "Test"},
+                    "paths": {"/test": {"get": {"summary": "Test endpoint", "operationId": "test_operation"}}},
+                }
+            },
+            "resources": [
+                {
+                    "name": "resource1",
+                    "uri": "resource://test1",
+                    "text": "Test content",
+                    "mime_type": "text/plain",
+                    "tags": ["test"],
+                },
+                {
+                    "name": "resource2",
+                    "uri_template": "resource://test/{id}",
+                    "mime_type": "application/json",
+                },
+            ],
+        }
+
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
+            json.dump(config_data, f)
+            temp_path = f.name
+
+        try:
+            result = self.loader.load_from_file(temp_path, "all")
+
+            assert isinstance(result, UnifiedConfig)
+            assert len(result.servers) == 1
+            assert len(result.middleware) == 1
+            assert len(result.prompts) == 1
+            assert len(result.tools) == 1
+            assert len(result.resources) == 2
+            assert result.resources[0].name == "resource1"
+            assert result.resources[0].uri == "resource://test1"
+            assert result.resources[1].name == "resource2"
+            assert result.resources[1].uri_template == "resource://test/{id}"
+        finally:
+            Path(temp_path).unlink()
+
+    def test_full_unified_config_with_resources_yaml(self):
+        """Test loading full unified configuration with resources from YAML."""
+        config_data = {
+            "servers": [
+                {"id": "server1", "type": "http", "endpoint": "http://test1"},
+            ],
+            "middleware": [
+                {
+                    "name": "mw1",
+                    "kind": "mcp_composer.middleware.test.TestMiddleware",
+                    "mode": "enabled",
+                    "priority": 10,
+                    "applied_hooks": ["on_call_tool"],
+                }
+            ],
+            "prompts": [{"name": "prompt1", "description": "test1", "template": "template1"}],
+            "tools": {
+                "tool1": {
+                    "openapi": "3.0.3",
+                    "info": {"title": "Test"},
+                    "paths": {"/test": {"get": {"summary": "Test endpoint", "operationId": "test_operation"}}},
+                }
+            },
+            "resources": [
+                {
+                    "name": "resource1",
+                    "uri": "resource://test1",
+                    "text": "Test content",
+                    "mime_type": "text/plain",
+                    "tags": ["test"],
+                },
+                {
+                    "name": "resource2",
+                    "uri_template": "resource://test/{id}",
+                    "mime_type": "application/json",
+                },
+            ],
+        }
+
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
+            yaml.dump(config_data, f)
+            temp_path = f.name
+
+        try:
+            result = self.loader.load_from_file(temp_path, "all")
+
+            assert isinstance(result, UnifiedConfig)
+            assert len(result.servers) == 1
+            assert len(result.middleware) == 1
+            assert len(result.prompts) == 1
+            assert len(result.tools) == 1
+            assert len(result.resources) == 2
+            assert result.resources[0].name == "resource1"
+            assert result.resources[0].uri == "resource://test1"
+            assert result.resources[1].name == "resource2"
+            assert result.resources[1].uri_template == "resource://test/{id}"
+        finally:
+            Path(temp_path).unlink()
+
+    def test_auto_detect_resources_config_type(self):
+        """Test auto-detection of resources configuration type."""
+        resources_data = [
+            {
+                "name": "resource1",
+                "uri": "resource://test1",
+                "text": "Test content",
+                "mime_type": "text/plain",
+            }
+        ]
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
+            json.dump(resources_data, f)
+            temp_path = f.name
+
+        try:
+            result = self.loader.detect_config_type(temp_path)
+            assert result == "resources"
         finally:
             Path(temp_path).unlink()
 
