@@ -23,6 +23,9 @@ from mcp_composer.core.utils.logger import LoggerFactory
 
 logger = LoggerFactory.get_logger()
 
+# Constants for skip reasons
+SKIP_REASON_DISABLED = 'disabled'
+
 
 class ConfigLoader:
     """Loads and applies unified configuration to MCP Composer."""
@@ -377,12 +380,24 @@ class ConfigLoader:
 
     async def _apply_middleware(self, middleware_configs: List[Any]) -> Dict[str, Any]:
         """Apply middleware configurations."""
-        results = {"registered": [], "failed": [], "total": len(middleware_configs)}
+        results = {"registered": [], "failed": [], "skipped": [], "total": len(middleware_configs)}
 
         # Convert middleware configs to the format expected by MiddlewareManager
         middleware_entries = []
         for mw_config in middleware_configs:
             try:
+                # Check if middleware is enabled (default to True if not specified)
+                mw_dict = mw_config.model_dump() if hasattr(mw_config, "model_dump") else mw_config
+                if not mw_dict.get("enabled", True):
+                    results["skipped"].append(
+                        {
+                            "name": mw_config.name if hasattr(mw_config, "name") else mw_dict.get("name"),
+                            "reason": SKIP_REASON_DISABLED,
+                        }
+                    )
+                    self.logger.info(f"Skipped disabled middleware: {mw_dict.get('name')}")
+                    continue
+
                 middleware_entry = {
                     "name": mw_config.name,
                     "kind": mw_config.kind,
@@ -415,12 +430,24 @@ class ConfigLoader:
 
     async def _apply_prompts(self, prompts: List[Any]) -> Dict[str, Any]:
         """Apply prompt configurations."""
-        results = {"registered": [], "failed": [], "total": len(prompts)}
+        results = {"registered": [], "failed": [], "skipped": [], "total": len(prompts)}
 
         # Convert prompts to the format expected by the prompt manager
         prompt_configs = []
         for prompt in prompts:
             try:
+                # Check if prompt is enabled (default to True if not specified)
+                prompt_dict_check = prompt.model_dump() if hasattr(prompt, "model_dump") else prompt
+                if not prompt_dict_check.get("enabled", True):
+                    results["skipped"].append(
+                        {
+                            "name": prompt.name if hasattr(prompt, "name") else prompt_dict_check.get("name"),
+                            "reason": SKIP_REASON_DISABLED,
+                        }
+                    )
+                    self.logger.info(f"Skipped disabled prompt: {prompt_dict_check.get('name')}")
+                    continue
+
                 prompt_dict = {
                     "name": prompt.name,
                     "description": prompt.description,
@@ -455,6 +482,17 @@ class ConfigLoader:
             try:
                 # Convert tool config to dict
                 tool_dict = tool_config.model_dump() if hasattr(tool_config, "model_dump") else tool_config
+
+                # Check if tool is enabled (default to True if not specified)
+                if not tool_dict.get("enabled", True):
+                    results["skipped"].append(
+                        {
+                            "name": tool_name,
+                            "reason": SKIP_REASON_DISABLED,
+                        }
+                    )
+                    self.logger.info(f"Skipped disabled tool: {tool_name}")
+                    continue
 
                 # Skip non-tool entries (server configs, lists, etc.)
                 if not self._is_tool_config(tool_dict):
@@ -506,31 +544,79 @@ class ConfigLoader:
 
         return results
 
+    def _get_resource_name(self, resource_config: Any, resource_dict: Optional[Dict[str, Any]] = None) -> str:
+        """
+        Helper method to consistently extract resource name from config.
+        
+        Args:
+            resource_config: The resource configuration object
+            resource_dict: Optional dict representation of the resource
+            
+        Returns:
+            The resource name or 'unknown' if not found
+        """
+        # Try to get name from the object attribute first
+        name = getattr(resource_config, "name", None)
+        
+        # If not found and we have a dict, try to get from dict
+        if not name and resource_dict:
+            name = resource_dict.get("name", "unknown")
+        
+        # If still not found and resource_config is a dict, try that
+        if not name and isinstance(resource_config, dict):
+            name = resource_config.get("name", "unknown")
+        
+        # Final fallback
+        return name if name else "unknown"
+
     async def _apply_resources(self, resources: List[Any]) -> Dict[str, Any]:
-        """Apply resource configurations."""
+        """
+        Apply resource configurations.
+        
+        Args:
+            resources: List of resource configurations to apply
+            
+        Returns:
+            Dictionary containing:
+                - registered: List of successfully registered resources with name, type, and result
+                - failed: List of failed resources with name and error details
+                - skipped: List of skipped resources with name and reason (e.g., disabled resources)
+                - total: Total number of resources processed
+        """
         results = {"registered": [], "failed": [], "skipped": [], "total": len(resources)}
 
         for resource_config in resources:
             try:
-                # Convert resource config to dict
+                # Convert resource config to dict for validation
                 resource_dict = (
                     resource_config.model_dump() if hasattr(resource_config, "model_dump") else resource_config
                 )
 
-                # Check if resource is enabled (default to True if not specified)
-                if not resource_dict.get("enabled", True):
-                    results["skipped"].append(
-                        {
-                            "name": resource_config.name if hasattr(resource_config, "name") else resource_dict.get("name"),
-                            "reason": "disabled",
-                        }
-                    )
-                    self.logger.info(f"Skipped disabled resource: {resource_dict.get('name')}")
-                    continue
-
-                # Validate that resource has either uri or uri_template
+                # Validate that resource has either uri or uri_template (before enabled check)
                 if not resource_dict.get("uri") and not resource_dict.get("uri_template"):
                     raise ValueError("Resource must have either uri or uri_template")
+
+                # Check if resource is enabled (default to True if not specified)
+                enabled = (
+                    resource_config.enabled if hasattr(resource_config, "enabled")
+                    else resource_config.get("enabled", True) if isinstance(resource_config, dict)
+                    else True
+                )
+                
+                if not enabled:
+                    results["skipped"].append(
+                        {
+                            "name": resource_config.name if hasattr(resource_config, "name") else resource_config.get("name"),
+                            "reason": SKIP_REASON_DISABLED,
+                        }
+                    )
+                    resource_name = (
+                        resource_config.name if hasattr(resource_config, "name")
+                        else resource_config.get("name") if isinstance(resource_config, dict)
+                        else "unknown"
+                    )
+                    self.logger.info(f"Skipped disabled resource: {resource_name}")
+                    continue
 
                 # Determine if it's a resource or resource template
                 is_template = bool(resource_dict.get("uri_template"))
@@ -543,7 +629,7 @@ class ConfigLoader:
 
                 results["registered"].append(
                     {
-                        "name": resource_config.name if hasattr(resource_config, "name") else resource_dict.get("name"),
+                        "name": resource_config.name if hasattr(resource_config, "name") else resource_dict.get("name", "unknown"),
                         "type": "template" if is_template else "resource",
                         "result": result,
                     }
@@ -551,8 +637,11 @@ class ConfigLoader:
                 self.logger.info(f"Successfully registered resource: {resource_dict.get('name')}")
 
             except Exception as e:
+                # Use helper method for consistent name resolution
+                name = self._get_resource_name(resource_config)
+                
                 error_info = {
-                    "name": getattr(resource_config, "name", resource_dict.get("name", "unknown")),
+                    "name": name,
                     "error": str(e),
                 }
                 results["failed"].append(error_info)

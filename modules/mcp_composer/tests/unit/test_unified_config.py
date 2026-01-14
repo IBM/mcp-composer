@@ -519,32 +519,53 @@ class TestConfigLoader:
         assert result.resources[0].uri == "resource://test1"
         assert result.resources[1].name == "resource2"
         assert result.resources[1].uri_template == "resource://test/{id}"
+    def test_load_single_section_resources_default_enabled(self):
+        """Test that resources without 'enabled' field default to enabled=True."""
+        config_data = [
+            {
+                "name": "resource_no_enabled",
+                "uri": "resource://test_default",
+                "text": "Test content without enabled field",
+                "mime_type": "text/plain",
+            },
+        ]
+
+        result = self.loader._load_single_section(config_data, "resources", "test.json")
+
+        assert isinstance(result, UnifiedConfig)
+        assert len(result.resources) == 1
+        assert result.resources[0].name == "resource_no_enabled"
+        assert result.resources[0].enabled is True  # Verify default is True
+
+
+    def _create_mock_resource(self, name, enabled, uri=None, uri_template=None):
+        """Helper method to create mock resources with model_dump."""
+        resource = Mock()
+        resource.name = name
+        resource.enabled = enabled
+        
+        model_data = {
+            "name": name,
+            "enabled": enabled,
+        }
+        
+        if uri:
+            model_data["uri"] = uri
+            model_data["text"] = "Test content"
+            model_data["mime_type"] = "text/plain"
+            model_data["tags"] = ["test"]
+        elif uri_template:
+            model_data["uri_template"] = uri_template
+            model_data["mime_type"] = "application/json"
+        
+        resource.model_dump.return_value = model_data
+        return resource
 
     @pytest.mark.asyncio
     async def test_apply_resources_success(self):
         """Test successful resources application."""
-        # Create proper mock resources with model_dump
-        resource1 = Mock()
-        resource1.name = "resource1"
-        resource1.enabled = True
-        resource1.model_dump.return_value = {
-            "name": "resource1",
-            "uri": "resource://test1",
-            "text": "Test content",
-            "mime_type": "text/plain",
-            "tags": ["test"],
-            "enabled": True,
-        }
-
-        resource2 = Mock()
-        resource2.name = "resource2"
-        resource2.enabled = True
-        resource2.model_dump.return_value = {
-            "name": "resource2",
-            "uri_template": "resource://test/{id}",
-            "mime_type": "application/json",
-            "enabled": True,
-        }
+        resource1 = self._create_mock_resource("resource1", True, uri="resource://test1")
+        resource2 = self._create_mock_resource("resource2", True, uri_template="resource://test/{id}")
 
         resources = [resource1, resource2]
 
@@ -564,28 +585,8 @@ class TestConfigLoader:
     @pytest.mark.asyncio
     async def test_apply_resources_failure(self):
         """Test resources application with failures."""
-        # Create proper mock resources with model_dump
-        resource1 = Mock()
-        resource1.name = "resource1"
-        resource1.enabled = True
-        resource1.model_dump.return_value = {
-            "name": "resource1",
-            "uri": "resource://test1",
-            "text": "Test content",
-            "mime_type": "text/plain",
-            "tags": ["test"],
-            "enabled": True,
-        }
-
-        resource2 = Mock()
-        resource2.name = "resource2"
-        resource2.enabled = True
-        resource2.model_dump.return_value = {
-            "name": "resource2",
-            "uri_template": "resource://test/{id}",
-            "mime_type": "application/json",
-            "enabled": True,
-        }
+        resource1 = self._create_mock_resource("resource1", True, uri="resource://test1")
+        resource2 = self._create_mock_resource("resource2", True, uri_template="resource://test/{id}")
 
         resources = [resource1, resource2]
 
@@ -604,28 +605,8 @@ class TestConfigLoader:
     @pytest.mark.asyncio
     async def test_apply_resources_disabled(self):
         """Test resources application skips disabled resources."""
-        # Create proper mock resources with model_dump
-        resource1 = Mock()
-        resource1.name = "resource1"
-        resource1.enabled = False  # Disabled
-        resource1.model_dump.return_value = {
-            "name": "resource1",
-            "uri": "resource://test1",
-            "text": "Test content",
-            "mime_type": "text/plain",
-            "tags": ["test"],
-            "enabled": False,
-        }
-
-        resource2 = Mock()
-        resource2.name = "resource2"
-        resource2.enabled = True
-        resource2.model_dump.return_value = {
-            "name": "resource2",
-            "uri_template": "resource://test/{id}",
-            "mime_type": "application/json",
-            "enabled": True,
-        }
+        resource1 = self._create_mock_resource("resource1", False, uri="resource://test1")
+        resource2 = self._create_mock_resource("resource2", True, uri_template="resource://test/{id}")
 
         resources = [resource1, resource2]
 
@@ -646,8 +627,8 @@ class TestConfigLoader:
         self.composer._resource_manager.create_resource_template.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_apply_resources_validation_error(self):
-        """Test resources application with validation errors."""
+    async def test_apply_resources_missing_uri_validation_error(self):
+        """Test resources application with missing uri/uri_template validation error."""
         # Create proper mock resource with model_dump that returns invalid data
         resource1 = Mock()
         resource1.name = "resource1"
