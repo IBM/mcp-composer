@@ -114,15 +114,15 @@ class MCPToolManager(ToolManager):
 
                 # Accumulate description updates from healthy members
                 if member.tools_description:
-                    description_updates.update(member.tools_description)
+                    for name, desc in member.tools_description.items():
+                        description_updates[f"{member.id}_{name}"] = desc
 
             # 3. Filter and update the tools dictionary
             filtered_tools = {
-                tool.name: tool
-                for _, tool in tools.items()
-                if tool.name not in remove_set
+                tool_name: tool
+                for tool_name, tool in tools.items()
+                if tool_name not in remove_set
             }
-
             # Update descriptions for the remaining tools
             for name, description in description_updates.items():
 
