@@ -45,9 +45,9 @@ def test_filter_tools_removes_and_updates(
     tool1 = MagicMock()
     tool1.name = "a"
     tool2 = MagicMock()
-    tool2.name = "b"
+    tool2.name = "test_server_b"
     tool2.description = "original description"
-    tools = {"a": tool1, "b": tool2}
+    tools = {"a": tool1, "test_server_b": tool2}
 
     member = MagicMock()
     member.health_status = HealthStatus.healthy
@@ -61,8 +61,8 @@ def test_filter_tools_removes_and_updates(
     filtered = tool_manager.filter_tools(tools)
 
     assert "a" not in filtered
-    assert "b" in filtered
-    assert filtered["b"].description == "desc"
+    assert "test_server_b" in filtered
+    assert filtered["test_server_b"].description == "desc"
 
 
 def test_filter_tools_handles_no_config(
