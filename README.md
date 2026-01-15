@@ -486,7 +486,7 @@ uvx mcp-composer -sseurl --sse-url <url to remote sse mcp server> --auth_type oa
 - Handles multiple authentication strategies.
 - Automatically forwards each request to the correct upstream server or tool.
 - List tools and metadata by name or server.
-- **Unified Configuration System**: Single configuration files to manage servers, middleware, prompts, and tools with auto-detection and validation.
+- **Unified Configuration System**: Single configuration files to manage servers, middleware, prompts, tools, and resources with auto-detection and validation.
 - **CLI Integration**: Direct support for unified configuration via `--config` and `--configfilepath` options.
 - **Programmatic Integration**: Direct support in `MCPComposer` constructor for file-based configurations.
 - **Database Support**: Configurable database backends including IBM Cloudant and local file storage for persistent server configurations, tools, prompts, and resources.
@@ -731,7 +731,7 @@ MCP Composer now supports a powerful unified configuration system that allows yo
 #### Overview
 
 The unified configuration system supports:
-- **Single-section files**: `servers.json`, `middleware.json`, `prompts.json`, `tools.json`
+- **Single-section files**: `servers.json`, `middleware.json`, `prompts.json`, `tools.json`, `resources.json`
 - **Full unified files**: Complete configuration with all sections
 - **Auto-detection**: Automatically detects configuration type based on content
 - **CLI integration**: Direct support via `--config` and `--configfilepath` options
@@ -843,6 +843,37 @@ The unified configuration system supports:
 }
 ```
 
+**Resources Configuration (`resources.json`)**:
+```json
+{
+  "resources": [
+    {
+      "name": "welcome_message",
+      "description": "A welcome message for users",
+      "uri": "resource://welcome",
+      "text": "Welcome to MCP Composer!",
+      "mime_type": "text/plain",
+      "tags": ["welcome", "static"]
+    },
+    {
+      "name": "user_profile",
+      "description": "User profile template",
+      "uri_template": "resource://users/{user_id}/profile",
+      "template": "User profile for {user_id}",
+      "mime_type": "text/plain",
+      "tags": ["user", "template"],
+      "parameters": {
+        "user_id": {
+          "type": "string",
+          "required": true,
+          "description": "User identifier"
+        }
+      }
+    }
+  ]
+}
+```
+
 ##### Full Unified Configuration (`unified_config.json`)
 
 ```json
@@ -878,9 +909,29 @@ The unified configuration system supports:
         "version": "1.0.0"
       }
     }
-  }
+  },
+  "resources": [
+    {
+      "name": "system_info",
+      "description": "System information and status",
+      "uri": "resource://system/info",
+      "text": "System: MCP Composer\nVersion: 1.0.0\nStatus: Active",
+      "mime_type": "text/plain",
+      "tags": ["system", "info"]
+    },
+    {
+      "name": "project_template",
+      "description": "Project information template",
+      "uri_template": "resource://projects/{project_id}",
+      "template": "Project ID: {project_id}\nStatus: Active",
+      "mime_type": "text/plain",
+      "tags": ["project", "template"]
+    }
+  ]
 }
 ```
+
+> **Note**: Resources support both static resources (with `uri`) and dynamic resource templates (with `uri_template`). See the [Resource Bootstrapping Guide](docs/resource_bootstrapping.md) for more details.
 
 #### CLI Usage
 
@@ -1269,6 +1320,41 @@ result = await composer.filter_prompts({
 ```
 
 ### MCP Composer Resources
+
+MCP Composer supports both runtime resource management and **resource bootstrapping** from configuration files. Resources can be static (fixed content) or dynamic (templates with parameters).
+
+#### Resource Bootstrapping
+
+You can bootstrap the composer with resources using configuration files (YAML or JSON):
+
+**Standalone Resources Configuration (`resources.yaml`)**:
+```yaml
+resources:
+  - name: "welcome_message"
+    description: "A welcome message for users"
+    uri: "resource://welcome"
+    text: "Welcome to MCP Composer!"
+    mime_type: "text/plain"
+    tags: ["welcome"]
+  
+  - name: "user_profile"
+    description: "User profile template"
+    uri_template: "resource://users/{user_id}/profile"
+    template: "User profile for {user_id}"
+    mime_type: "text/plain"
+    tags: ["user", "template"]
+```
+
+**Usage**:
+```python
+from mcp_composer import MCPComposer
+
+# Bootstrap with resources
+mcp = MCPComposer(name="composer", config="resources.yaml")
+await mcp.setup_member_servers()  # Resources loaded automatically
+```
+
+Resources can also be included in unified configuration files alongside servers, prompts, tools, and middleware. See the [Unified Configuration System](#unified-configuration-system) section and [Resource Bootstrapping Guide](docs/resource_bootstrapping.md) for complete details.
 
 #### Adding resource templates
 

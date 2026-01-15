@@ -16,11 +16,15 @@ from mcp_composer.core.config.unified_config import (
     ServerConfig,
     MiddlewareConfig,
     PromptConfig,
-    ToolConfig
+    ToolConfig,
+    ResourceConfig,
 )
 from mcp_composer.core.utils.logger import LoggerFactory
 
 logger = LoggerFactory.get_logger()
+
+# Constants for skip reasons
+SKIP_REASON_DISABLED = 'disabled'
 
 
 class ConfigLoader:
@@ -35,22 +39,22 @@ class ConfigLoader:
         """Detect file type based on extension."""
         path = Path(file_path)
         ext = path.suffix.lower()
-        if ext in ['.yaml', '.yml']:
-            return 'yaml'
-        if ext == '.json':
-            return 'json'
+        if ext in [".yaml", ".yml"]:
+            return "yaml"
+        if ext == ".json":
+            return "json"
 
         # Default to JSON if extension is not recognized
         self.logger.warning("Unknown file extension '%s', defaulting to JSON parsing", ext)
-        return 'json'
+        return "json"
 
     def _load_file_data(self, file_path: str) -> dict:
         """Load data from JSON or YAML file."""
         file_type = self._detect_file_type(file_path)
 
         try:
-            with open(file_path, 'r', encoding='utf-8') as f:
-                if file_type == 'yaml':
+            with open(file_path, "r", encoding="utf-8") as f:
+                if file_type == "yaml":
                     return yaml.safe_load(f)
                 return json.load(f)
         except yaml.YAMLError as e:
@@ -112,14 +116,14 @@ class ConfigLoader:
         """Detect configuration type from already loaded data."""
         # Check if it's a unified config (has multiple sections)
         if isinstance(config_data, dict):
-            if any(key in config_data for key in ['servers', 'middleware', 'prompts', 'tools']):
+            if any(key in config_data for key in ["servers", "middleware", "prompts", "tools", "resources"]):
                 return "all"
             if self._looks_like_tools_config(config_data):
                 return "tools"
 
             raise ConfigValidationError(
                 "Unable to detect configuration type. "
-                "Expected one of: servers (list), middleware (list), prompts (list), tools (dict), or unified (dict with sections). "
+                "Expected one of: servers (list), middleware (list), prompts (list), tools (dict), resources (list), or unified (dict with sections). "
                 f"Got dictionary with keys: {list(config_data.keys())}"
             )
 
@@ -134,19 +138,23 @@ class ConfigLoader:
                 raise ConfigValidationError("Configuration items must be dictionaries")
 
             # Check for server mandatory fields
-            if all(field in first_item for field in ['id', 'type', 'endpoint']):
+            if all(field in first_item for field in ["id", "type", "endpoint"]):
                 return "servers"
 
             # Check for middleware mandatory fields
-            if all(field in first_item for field in ['name', 'kind', 'mode']):
+            if all(field in first_item for field in ["name", "kind", "mode"]):
                 return "middleware"
 
             # Check for prompt mandatory fields
-            if all(field in first_item for field in ['name', 'description', 'template']):
+            if all(field in first_item for field in ["name", "description", "template"]):
                 return "prompts"
 
+            # Check for resource mandatory fields
+            if "name" in first_item and ("uri" in first_item or "uri_template" in first_item):
+                return "resources"
+
             raise ConfigValidationError(
-                "Unable to detect configuration type. Missing mandatory fields for servers, middleware, or prompts"
+                "Unable to detect configuration type. Missing mandatory fields for servers, middleware, prompts, or resources"
             )
 
         # This should never be reached due to the isinstance checks above
@@ -166,20 +174,20 @@ class ConfigLoader:
                 continue
 
             # Check if it looks like a server config (has id, type, endpoint) - check this first
-            if all(field in value for field in ['id', 'type', 'endpoint']):
+            if all(field in value for field in ["id", "type", "endpoint"]):
                 # This is a server config, not a tool config
                 continue
             # Check for common tool definition patterns
             # OpenAPI tools have 'openapi' field
-            elif 'openapi' in value:
+            elif "openapi" in value:
                 tool_like_count += 1
                 continue
             # Custom tools might have 'tool_type' field
-            elif 'tool_type' in value:
+            elif "tool_type" in value:
                 tool_like_count += 1
                 continue
             # Other tool patterns (but exclude server configs)
-            elif any(field in value for field in ['name', 'description', 'spec']):
+            elif any(field in value for field in ["name", "description", "spec"]):
                 tool_like_count += 1
                 continue
             # Check if it's a list (like mock_update_tool_description)
@@ -197,7 +205,8 @@ class ConfigLoader:
         config_mappings = {
             "servers": (ServerConfig, "servers"),
             "middleware": (MiddlewareConfig, "middleware"),
-            "prompts": (PromptConfig, "prompts")
+            "prompts": (PromptConfig, "prompts"),
+            "resources": (ResourceConfig, "resources"),
         }
 
         # Handle list format (for servers, middleware, prompts)
@@ -207,7 +216,7 @@ class ConfigLoader:
                 items = self._validate_and_convert_list(config_data, config_class, config_type)
 
                 # Create UnifiedConfig with the appropriate section populated
-                unified_config = UnifiedConfig(servers=[], middleware=[], prompts=[], tools={})
+                unified_config = UnifiedConfig(servers=[], middleware=[], prompts=[], tools={}, resources=[])
                 setattr(unified_config, section_name, items)
                 return unified_config
             else:
@@ -217,7 +226,7 @@ class ConfigLoader:
         elif isinstance(config_data, dict):
             if config_type == "tools":
                 tools = self._validate_and_convert_dict(config_data, ToolConfig, "tools")
-                return UnifiedConfig(servers=[], middleware=[], prompts=[], tools=tools)
+                return UnifiedConfig(servers=[], middleware=[], prompts=[], tools=tools, resources=[])
             else:
                 raise ConfigValidationError(f"Unsupported config type for dict format: {config_type}")
 
@@ -229,7 +238,9 @@ class ConfigLoader:
         items = []
         for i, item_data in enumerate(data_list):
             if not isinstance(item_data, dict):
-                raise ConfigValidationError(f"{config_type.title()} configuration at index {i} must be a dictionary, got {type(item_data)}")
+                raise ConfigValidationError(
+                    f"{config_type.title()} configuration at index {i} must be a dictionary, got {type(item_data)}"
+                )
             try:
                 items.append(config_class(**item_data))
             except Exception as e:
@@ -255,7 +266,9 @@ class ConfigLoader:
             else:
                 # For other config types, enforce dictionary requirement
                 if not isinstance(item_data, dict):
-                    raise ConfigValidationError(f"{config_type.title()} configuration for '{key}' must be a dictionary, got {type(item_data)}")
+                    raise ConfigValidationError(
+                        f"{config_type.title()} configuration for '{key}' must be a dictionary, got {type(item_data)}"
+                    )
 
             try:
                 items[key] = config_class(**item_data)
@@ -271,9 +284,7 @@ class ConfigLoader:
         return items
 
     async def apply_config(
-        self,
-        config: UnifiedConfig,
-        sections: Optional[List[ConfigSection]] = None
+        self, config: UnifiedConfig, sections: Optional[List[ConfigSection]] = None
     ) -> Dict[str, Any]:
         """
         Apply configuration to MCP Composer.
@@ -289,35 +300,41 @@ class ConfigLoader:
             raise ValueError("Composer instance is required to apply configuration")
 
         if sections is None:
-            sections = [ConfigSection.SERVERS, ConfigSection.MIDDLEWARE, ConfigSection.PROMPTS, ConfigSection.TOOLS]
+            sections = [
+                ConfigSection.SERVERS,
+                ConfigSection.MIDDLEWARE,
+                ConfigSection.PROMPTS,
+                ConfigSection.TOOLS,
+                ConfigSection.RESOURCES,
+            ]
 
         results = {}
 
         # Apply servers
         if ConfigSection.SERVERS in sections and config.servers:
-            results['servers'] = await self._apply_servers(config.servers)
+            results["servers"] = await self._apply_servers(config.servers)
 
         # Apply middleware
         if ConfigSection.MIDDLEWARE in sections and config.middleware:
-            results['middleware'] = await self._apply_middleware(config.middleware)
+            results["middleware"] = await self._apply_middleware(config.middleware)
 
         # Apply prompts
         if ConfigSection.PROMPTS in sections and config.prompts:
-            results['prompts'] = await self._apply_prompts(config.prompts)
+            results["prompts"] = await self._apply_prompts(config.prompts)
 
         # Apply tools
         if ConfigSection.TOOLS in sections and config.tools:
-            results['tools'] = await self._apply_tools(config.tools)
+            results["tools"] = await self._apply_tools(config.tools)
+
+        # Apply resources
+        if ConfigSection.RESOURCES in sections and config.resources:
+            results["resources"] = await self._apply_resources(config.resources)
 
         return results
 
     async def _apply_servers(self, servers: List[Any]) -> Dict[str, Any]:
         """Apply server configurations with optimized error handling."""
-        results = {
-            'registered': [],
-            'failed': [],
-            'total': len(servers)
-        }
+        results = {"registered": [], "failed": [], "total": len(servers)}
 
         for server_config in servers:
             try:
@@ -326,20 +343,16 @@ class ConfigLoader:
 
                 # Register the server
                 result = await self.composer._mount_member_server(server_dict)
-                results['registered'].append({
-                    'id': server_config.id,
-                    'type': server_config.type,
-                    'result': result
-                })
+                results["registered"].append({"id": server_config.id, "type": server_config.type, "result": result})
                 self.logger.info(f"Successfully registered server: {server_config.id}")
 
             except Exception as e:
                 error_info = {
-                    'id': getattr(server_config, 'id', 'unknown'),
-                    'type': getattr(server_config, 'type', 'unknown'),
-                    'error': str(e)
+                    "id": getattr(server_config, "id", "unknown"),
+                    "type": getattr(server_config, "type", "unknown"),
+                    "error": str(e),
                 }
-                results['failed'].append(error_info)
+                results["failed"].append(error_info)
                 self.logger.error(f"Failed to register server {error_info['id']}: {e}")
 
         return results
@@ -357,7 +370,7 @@ class ConfigLoader:
                 field_mappings = {
                     "clientId": "client_id",
                     "clientSecret": "client_secret",
-                    "refreshToken": "refresh_token"
+                    "refreshToken": "refresh_token",
                 }
                 for old_key, new_key in field_mappings.items():
                     if old_key in auth:
@@ -367,33 +380,38 @@ class ConfigLoader:
 
     async def _apply_middleware(self, middleware_configs: List[Any]) -> Dict[str, Any]:
         """Apply middleware configurations."""
-        results = {
-            'registered': [],
-            'failed': [],
-            'total': len(middleware_configs)
-        }
+        results = {"registered": [], "failed": [], "skipped": [], "total": len(middleware_configs)}
 
         # Convert middleware configs to the format expected by MiddlewareManager
         middleware_entries = []
         for mw_config in middleware_configs:
             try:
+                # Check if middleware is enabled (default to True if not specified)
+                mw_dict = mw_config.model_dump() if hasattr(mw_config, "model_dump") else mw_config
+                if not mw_dict.get("enabled", True):
+                    results["skipped"].append(
+                        {
+                            "name": mw_config.name if hasattr(mw_config, "name") else mw_dict.get("name"),
+                            "reason": SKIP_REASON_DISABLED,
+                        }
+                    )
+                    self.logger.info(f"Skipped disabled middleware: {mw_dict.get('name')}")
+                    continue
+
                 middleware_entry = {
-                    'name': mw_config.name,
-                    'kind': mw_config.kind,
-                    'mode': mw_config.mode,
-                    'priority': mw_config.priority,
-                    'applied_hooks': mw_config.applied_hooks,
-                    'config': mw_config.config or {},
-                    'description': mw_config.description or '',
-                    'version': mw_config.version or '0.0.0'
+                    "name": mw_config.name,
+                    "kind": mw_config.kind,
+                    "mode": mw_config.mode,
+                    "priority": mw_config.priority,
+                    "applied_hooks": mw_config.applied_hooks,
+                    "config": mw_config.config or {},
+                    "description": mw_config.description or "",
+                    "version": mw_config.version or "0.0.0",
                 }
                 middleware_entries.append(middleware_entry)
 
             except Exception as e:
-                results['failed'].append({
-                    'name': getattr(mw_config, 'name', 'unknown'),
-                    'error': str(e)
-                })
+                results["failed"].append({"name": getattr(mw_config, "name", "unknown"), "error": str(e)})
                 self.logger.error(f"Failed to process middleware config: {e}")
 
         # Apply middleware using the existing middleware system
@@ -401,44 +419,45 @@ class ConfigLoader:
             # This would need to be integrated with the existing middleware manager
             # For now, we'll just log the middleware configurations
             for entry in middleware_entries:
-                results['registered'].append({
-                    'name': entry['name'],
-                    'kind': entry['kind'],
-                    'mode': entry['mode']
-                })
+                results["registered"].append({"name": entry["name"], "kind": entry["kind"], "mode": entry["mode"]})
                 self.logger.info(f"Processed middleware: {entry['name']}")
 
         except Exception as e:
             self.logger.error(f"Failed to apply middleware: {e}")
-            results['failed'].append({'error': str(e)})
+            results["failed"].append({"error": str(e)})
 
         return results
 
     async def _apply_prompts(self, prompts: List[Any]) -> Dict[str, Any]:
         """Apply prompt configurations."""
-        results = {
-            'registered': [],
-            'failed': [],
-            'total': len(prompts)
-        }
+        results = {"registered": [], "failed": [], "skipped": [], "total": len(prompts)}
 
         # Convert prompts to the format expected by the prompt manager
         prompt_configs = []
         for prompt in prompts:
             try:
+                # Check if prompt is enabled (default to True if not specified)
+                prompt_dict_check = prompt.model_dump() if hasattr(prompt, "model_dump") else prompt
+                if not prompt_dict_check.get("enabled", True):
+                    results["skipped"].append(
+                        {
+                            "name": prompt.name if hasattr(prompt, "name") else prompt_dict_check.get("name"),
+                            "reason": SKIP_REASON_DISABLED,
+                        }
+                    )
+                    self.logger.info(f"Skipped disabled prompt: {prompt_dict_check.get('name')}")
+                    continue
+
                 prompt_dict = {
-                    'name': prompt.name,
-                    'description': prompt.description,
-                    'template': prompt.template,
-                    'arguments': [arg.model_dump() for arg in prompt.arguments] if prompt.arguments else []
+                    "name": prompt.name,
+                    "description": prompt.description,
+                    "template": prompt.template,
+                    "arguments": [arg.model_dump() for arg in prompt.arguments] if prompt.arguments else [],
                 }
                 prompt_configs.append(prompt_dict)
 
             except Exception as e:
-                results['failed'].append({
-                    'name': getattr(prompt, 'name', 'unknown'),
-                    'error': str(e)
-                })
+                results["failed"].append({"name": getattr(prompt, "name", "unknown"), "error": str(e)})
                 self.logger.error(f"Failed to process prompt config: {e}")
 
         # Apply prompts using the existing prompt manager
@@ -446,84 +465,187 @@ class ConfigLoader:
             if prompt_configs:
                 # Use the correct method name (add_prompts, not add_prompt)
                 added_prompts = self.composer._prompt_manager.add_prompts(prompt_configs)
-                results['registered'] = [{'name': name} for name in added_prompts]
+                results["registered"] = [{"name": name} for name in added_prompts]
                 self.logger.info(f"Successfully added {len(added_prompts)} prompts")
 
         except Exception as e:
             self.logger.error(f"Failed to apply prompts: {e}")
-            results['failed'].append({'error': str(e)})
+            results["failed"].append({"error": str(e)})
 
         return results
 
     async def _apply_tools(self, tools: Dict[str, Any]) -> Dict[str, Any]:
         """Apply tool configurations."""
-        results = {
-            'registered': [],
-            'failed': [],
-            'skipped': [],
-            'total': len(tools)
-        }
+        results = {"registered": [], "failed": [], "skipped": [], "total": len(tools)}
 
         for tool_name, tool_config in tools.items():
             try:
                 # Convert tool config to dict
-                tool_dict = tool_config.model_dump() if hasattr(tool_config, 'model_dump') else tool_config
+                tool_dict = tool_config.model_dump() if hasattr(tool_config, "model_dump") else tool_config
+
+                # Check if tool is enabled (default to True if not specified)
+                if not tool_dict.get("enabled", True):
+                    results["skipped"].append(
+                        {
+                            "name": tool_name,
+                            "reason": SKIP_REASON_DISABLED,
+                        }
+                    )
+                    self.logger.info(f"Skipped disabled tool: {tool_name}")
+                    continue
 
                 # Skip non-tool entries (server configs, lists, etc.)
                 if not self._is_tool_config(tool_dict):
-                    results['skipped'].append({
-                        'name': tool_name,
-                        'reason': 'Not a tool configuration (appears to be server config or other)'
-                    })
+                    results["skipped"].append(
+                        {"name": tool_name, "reason": "Not a tool configuration (appears to be server config or other)"}
+                    )
                     self.logger.debug(f"Skipping non-tool entry: {tool_name}")
                     continue
 
                 # Check if it's an OpenAPI tool
-                if tool_dict.get('openapi'):
+                if tool_dict.get("openapi"):
                     # Register OpenAPI tool using the composer's method
                     await self.composer.add_tools_from_openapi(tool_dict)
-                    results['registered'].append({
-                        'name': tool_name,
-                        'type': 'openapi',
-                        'status': 'successfully registered'
-                    })
+                    results["registered"].append(
+                        {"name": tool_name, "type": "openapi", "status": "successfully registered"}
+                    )
                     self.logger.info(f"Successfully registered OpenAPI tool: {tool_name}")
 
                 # Check if it's a custom tool with tool_type
-                elif tool_dict.get('tool_type') == 'curl':
+                elif tool_dict.get("tool_type") == "curl":
                     # Register curl tool
                     await self.composer.add_tools_from_curl(tool_dict)
-                    results['registered'].append({
-                        'name': tool_name,
-                        'type': 'curl',
-                        'status': 'successfully registered'
-                    })
+                    results["registered"].append(
+                        {"name": tool_name, "type": "curl", "status": "successfully registered"}
+                    )
                     self.logger.info(f"Successfully registered curl tool: {tool_name}")
 
-                elif tool_dict.get('tool_type') == 'script':
+                elif tool_dict.get("tool_type") == "script":
                     # Register script tool
                     await self.composer.add_tools_from_python(tool_dict)
-                    results['registered'].append({
-                        'name': tool_name,
-                        'type': 'script',
-                        'status': 'successfully registered'
-                    })
+                    results["registered"].append(
+                        {"name": tool_name, "type": "script", "status": "successfully registered"}
+                    )
                     self.logger.info(f"Successfully registered script tool: {tool_name}")
 
                 else:
                     # Unknown tool type
-                    results['failed'].append({
-                        'name': tool_name,
-                        'error': "Unknown tool type. Expected 'openapi', 'curl', or 'script' tool_type"
-                    })
+                    results["failed"].append(
+                        {
+                            "name": tool_name,
+                            "error": "Unknown tool type. Expected 'openapi', 'curl', or 'script' tool_type",
+                        }
+                    )
                     self.logger.error(f"Unknown tool type for {tool_name}: {tool_dict.get('tool_type', 'none')}")
 
             except Exception as e:
-                results['failed'].append({
-                    'name': tool_name,
-                    'error': str(e)
-                })
+                results["failed"].append({"name": tool_name, "error": str(e)})
                 self.logger.error(f"Failed to register tool {tool_name}: {e}")
+
+        return results
+
+    def _get_resource_name(self, resource_config: Any, resource_dict: Optional[Dict[str, Any]] = None) -> str:
+        """
+        Helper method to consistently extract resource name from config.
+        
+        Args:
+            resource_config: The resource configuration object
+            resource_dict: Optional dict representation of the resource
+            
+        Returns:
+            The resource name or 'unknown' if not found
+        """
+        # Try to get name from the object attribute first
+        name = getattr(resource_config, "name", None)
+        
+        # If not found and we have a dict, try to get from dict
+        if not name and resource_dict:
+            name = resource_dict.get("name", "unknown")
+        
+        # If still not found and resource_config is a dict, try that
+        if not name and isinstance(resource_config, dict):
+            name = resource_config.get("name", "unknown")
+        
+        # Final fallback
+        return name if name else "unknown"
+
+    async def _apply_resources(self, resources: List[Any]) -> Dict[str, Any]:
+        """
+        Apply resource configurations.
+        
+        Args:
+            resources: List of resource configurations to apply
+            
+        Returns:
+            Dictionary containing:
+                - registered: List of successfully registered resources with name, type, and result
+                - failed: List of failed resources with name and error details
+                - skipped: List of skipped resources with name and reason (e.g., disabled resources)
+                - total: Total number of resources processed
+        """
+        results = {"registered": [], "failed": [], "skipped": [], "total": len(resources)}
+
+        for resource_config in resources:
+            try:
+                # Convert resource config to dict for validation
+                resource_dict = (
+                    resource_config.model_dump() if hasattr(resource_config, "model_dump") else resource_config
+                )
+
+                # Validate that resource has either uri or uri_template (before enabled check)
+                if not resource_dict.get("uri") and not resource_dict.get("uri_template"):
+                    raise ValueError("Resource must have either uri or uri_template")
+
+                # Check if resource is enabled (default to True if not specified)
+                enabled = (
+                    resource_config.enabled if hasattr(resource_config, "enabled")
+                    else resource_config.get("enabled", True) if isinstance(resource_config, dict)
+                    else True
+                )
+                
+                if not enabled:
+                    results["skipped"].append(
+                        {
+                            "name": resource_config.name if hasattr(resource_config, "name") else resource_config.get("name"),
+                            "reason": SKIP_REASON_DISABLED,
+                        }
+                    )
+                    resource_name = (
+                        resource_config.name if hasattr(resource_config, "name")
+                        else resource_config.get("name") if isinstance(resource_config, dict)
+                        else "unknown"
+                    )
+                    self.logger.info(f"Skipped disabled resource: {resource_name}")
+                    continue
+
+                # Determine if it's a resource or resource template
+                is_template = bool(resource_dict.get("uri_template"))
+
+                # Use the appropriate composer method
+                if is_template:
+                    result = await self.composer._resource_manager.create_resource_template(resource_dict)
+                else:
+                    result = await self.composer._resource_manager.create_resource(resource_dict)
+
+                results["registered"].append(
+                    {
+                        "name": resource_config.name if hasattr(resource_config, "name") else resource_dict.get("name", "unknown"),
+                        "type": "template" if is_template else "resource",
+                        "result": result,
+                    }
+                )
+                self.logger.info(f"Successfully registered resource: {resource_dict.get('name')}")
+
+            except Exception as e:
+                # Use helper method for consistent name resolution
+                name = self._get_resource_name(resource_config)
+                
+                error_info = {
+                    "name": name,
+                    "error": str(e),
+                }
+                results["failed"].append(error_info)
+                self.logger.error(f"Failed to register resource {error_info['name']}: {e}")
 
         return results
 
@@ -533,17 +655,17 @@ class ConfigLoader:
             return False
 
         # Check for OpenAPI tool
-        if 'openapi' in config_dict:
+        if "openapi" in config_dict:
             return True
 
         # Check for custom tool types
-        if config_dict.get('tool_type') in ['curl', 'script']:
+        if config_dict.get("tool_type") in ["curl", "script"]:
             return True
 
         # Check for other tool patterns
-        if any(field in config_dict for field in ['name', 'description', 'endpoint', 'spec']):
+        if any(field in config_dict for field in ["name", "description", "endpoint", "spec"]):
             # But exclude server configs that might have these fields
-            if all(field in config_dict for field in ['id', 'type', 'endpoint']):
+            if all(field in config_dict for field in ["id", "type", "endpoint"]):
                 return False  # This is a server config
             return True
 
@@ -558,10 +680,7 @@ class ConfigManager:
         self.logger = logger
 
     async def load_and_apply(
-        self,
-        file_path: str,
-        sections: Optional[List[ConfigSection]] = None,
-        config_type: str = "all"
+        self, file_path: str, sections: Optional[List[ConfigSection]] = None, config_type: str = "all"
     ) -> Dict[str, Any]:
         """
         Load configuration from file and apply it to the composer.

@@ -81,6 +81,49 @@
             "template": "Show performance overview of all hup calls in the past 2 hours group by call name"
         }
     ],
+    "resources": [
+        {
+            "name": "welcome_message",
+            "description": "A welcome message for users",
+            "uri": "resource://welcome",
+            "text": "Welcome to MCP Composer! This is a static resource.",
+            "mime_type": "text/plain",
+            "tags": [
+                "welcome",
+                "static"
+            ],
+            "enabled": true
+        },
+        {
+            "name": "api_config",
+            "description": "API configuration settings",
+            "uri": "resource://config/api",
+            "text": "{\n  \"version\": \"1.0.0\",\n  \"endpoints\": {\n    \"base\": \"https://api.example.com\",\n    \"timeout\": 30\n  }\n}",
+            "mime_type": "application/json",
+            "tags": [
+                "config",
+                "api"
+            ]
+        },
+        {
+            "name": "user_profile",
+            "description": "User profile template",
+            "uri_template": "resource://users/{user_id}/profile",
+            "template": "User profile for {user_id}",
+            "mime_type": "text/plain",
+            "tags": [
+                "user",
+                "template"
+            ],
+            "parameters": {
+                "user_id": {
+                    "type": "string",
+                    "required": true,
+                    "description": "User identifier"
+                }
+            }
+        }
+    ],
     "tools": {
         "openapi_input": {
             "openapi": "3.0.3",
