@@ -52,6 +52,63 @@ prompts:
     description: "Show performance overview of all hup calls in the past 2 hours grouped by call name"
     template: "Show performance overview of all hup calls in the past 2 hours group by call name"
 
+resources:
+  # Static resources
+  - name: "system_info"
+    description: "System information and status"
+    uri: "resource://system/info"
+    text: |
+      System: MCP Composer
+      Version: 1.0.0
+      Status: Active
+    mime_type: "text/plain"
+    tags: ["system", "info"]
+
+  - name: "guidelines"
+    description: "Development guidelines"
+    uri: "resource://docs/guidelines"
+    text: |
+      # Development Guidelines
+      
+      ## Code Style
+      - Follow PEP 8 for Python code
+      - Use type hints
+      - Write docstrings
+      
+      ## Testing
+      - Write unit tests
+      - Maintain >80% coverage
+    mime_type: "text/markdown"
+    tags: ["docs", "guidelines"]
+
+  # Resource templates
+  - name: "project_template"
+    description: "Project information template"
+    uri_template: "resource://projects/{project_id}"
+    template: |
+      Project ID: {project_id}
+      Status: Active
+      Last Updated: 2024-01-01
+    mime_type: "text/plain"
+    tags: ["project", "template"]
+    parameters:
+      project_id:
+        type: "string"
+        required: true
+        description: "Project identifier"
+
+  - name: "user_data"
+    description: "User data template"
+    uri_template: "resource://users/{user_id}/data"
+    template: "User data for {user_id}"
+    mime_type: "application/json"
+    tags: ["user", "data"]
+    parameters:
+      user_id:
+        type: "string"
+        required: true
+        description: "User ID"
+
 tools:
   openapi_input:
     openapi: "3.0.3"
@@ -84,3 +141,4 @@ tools:
     description: "Fetch posts from JSONPlaceholder API using curl"
     curl_config:
       value: "curl -X GET 'https://jsonplaceholder.typicode.com/posts/1' -H 'Accept: application/json'"
+

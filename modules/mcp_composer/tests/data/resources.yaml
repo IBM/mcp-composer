@@ -1,0 +1,57 @@
+# Example resource configuration file for MCP Composer
+# This file demonstrates how to bootstrap the composer with resources
+
+resources:
+  # Static resource example
+  - name: "welcome_message"
+    description: "A welcome message for users"
+    uri: "resource://welcome"
+    text: "Welcome to MCP Composer! This is a static resource."
+    mime_type: "text/plain"
+    tags: ["welcome", "static"]
+    enabled: true
+
+  # JSON resource example
+  - name: "api_config"
+    description: "API configuration settings"
+    uri: "resource://config/api"
+    text: |
+      {
+        "version": "1.0.0",
+        "endpoints": {
+          "base": "https://api.example.com",
+          "timeout": 30
+        }
+      }
+    mime_type: "application/json"
+    tags: ["config", "api"]
+
+  # Resource template example
+  - name: "user_profile"
+    description: "User profile template"
+    uri_template: "resource://users/{user_id}/profile"
+    template: "User profile for {user_id}"
+    mime_type: "text/plain"
+    tags: ["user", "template"]
+    parameters:
+      user_id:
+        type: "string"
+        required: true
+        description: "User identifier"
+
+  # Markdown resource example
+  - name: "documentation"
+    description: "System documentation"
+    uri: "resource://docs/main"
+    text: |
+      # MCP Composer Documentation
+      
+      ## Overview
+      This is the main documentation resource.
+      
+      ## Features
+      - Resource management
+      - Tool composition
+      - Server orchestration
+    mime_type: "text/markdown"
+    tags: ["docs", "markdown"]

@@ -44,6 +44,7 @@ def _patched_create_openapi_tool(
     tool = OpenAPITool(
         client=self._client,  # pylint: disable=W0212
         route=route,
+        director=self._director,  # pylint: disable=W0212
         name=tool_name,
         description=enhanced_description,
         parameters=combined_schema,
