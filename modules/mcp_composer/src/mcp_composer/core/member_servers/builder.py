@@ -31,7 +31,7 @@ from mcp_composer.core.auth_handler import (
     resolve_env_value,
     AsperaJWTClient,
     SolisJWTClient,
-    SolisJWTTokenGenerator
+    SolisJWTTokenGenerator,
 )
 from mcp_composer.core.tools.graphql_tool import GraphQLTool
 from mcp_composer.core.member_servers.layered_factory_oa import LayeredOpenAPIFactory
@@ -121,9 +121,7 @@ class MCPServerBuilder:
                 auth_data = config.get(ConfigKey.AUTH, {})
                 token_generator = SolisJWTTokenGenerator(auth_data=auth_data)
                 jwt_token = await token_generator.get_jwt_token()
-                headers[ConfigKey.AUTH_HEADER.value] = (
-                    f"Bearer {jwt_token}"
-                )
+                headers[ConfigKey.AUTH_HEADER.value] = f"Bearer {jwt_token}"
 
             transport = TransportClass(url=endpoint, headers=headers, auth=auth)
             logger.debug("the headers are >>> %s", headers)
@@ -266,7 +264,7 @@ class MCPServerBuilder:
             case AuthStrategy.APITOKEN:
                 logger.info("Setting up header and client for apiToken")
                 headers[ConfigKey.AUTH_HEADER.value] = (
-                    f"{auth_config.get(ConfigKey.AUTH_PREFIX)} {auth_config.get(ConfigKey.TOKEN)}"
+                    f"{auth_config.get(ConfigKey.AUTH_PREFIX)} {resolve_env_value(auth_config.get(ConfigKey.TOKEN))}"
                 )
                 logger.info(
                     "the headers are updated '%s' and the url is '%s'",
@@ -319,18 +317,18 @@ class MCPServerBuilder:
             case AuthStrategy.ASPERA_OAUTH_HANDLER:
                 logger.info("Setting up JWT Bearer authentication client")
                 http_client = AsperaJWTClient(
-                    base_url=base_url,
-                    auth_data=auth_config,
-                    headers=headers
+                    base_url=base_url, auth_data=auth_config, headers=headers
                 )
 
             case AuthStrategy.SOLIS_JWT_HANDLER:
-                logger.info("Setting up Solis JWT authentication client with auto-refresh")
+                logger.info(
+                    "Setting up Solis JWT authentication client with auto-refresh"
+                )
                 http_client = SolisJWTClient(
                     base_url=base_url,
                     auth_data=auth_config,
                     headers=headers,
-                    timeout=30.0
+                    timeout=30.0,
                 )
             case _:
                 # Default/fallback client
