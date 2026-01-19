@@ -11,6 +11,14 @@
 !/spec
 !/composers
 
+
+# REQUIRED for docker build from repo root
+!Dockerfile
+!Dockerfile.*
+!src/**
+!composers/**
+
+
 ### ignore final ###
 __pycache__
 *.egg-info
