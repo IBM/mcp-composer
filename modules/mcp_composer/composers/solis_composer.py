@@ -37,11 +37,6 @@ def load_jwt_provider(prefix: str = "SOLIS_JWT_") -> JWTAuthProvider | None:
         # Use custom prefix for different app
         jwt_provider = load_jwt_provider(prefix="MYAPP_JWT_")
     """
-
-    # Normalize prefix to ensure it ends with underscore
-    if prefix and not prefix.endswith("_"):
-        prefix = f"{prefix}_"
-
     secret_var = f"{prefix}SECRET"
 
     # Priority 1: Direct secret/key content from {PREFIX}SECRET
@@ -58,12 +53,18 @@ def load_jwt_provider(prefix: str = "SOLIS_JWT_") -> JWTAuthProvider | None:
                 try:
                     key_data = json_module.loads(jwt_secret)
                     if isinstance(key_data, dict):
-                        public_key = (
-                            key_data.get("public_key")
-                            or key_data.get("publicKey")
-                            or key_data.get("key")
-                            or key_data.get("jwk", {}).get("n")
-                        )
+                        # Safely extract public key from various possible structures
+                        public_key = key_data.get("public_key")
+                        if not public_key:
+                            public_key = key_data.get("publicKey")
+                        if not public_key:
+                            public_key = key_data.get("key")
+                        if not public_key:
+                            # Safely handle nested jwk structure
+                            jwk = key_data.get("jwk")
+                            if isinstance(jwk, dict):
+                                public_key = jwk.get("n")
+                        
                         if not public_key:
                             logger.warning("JSON doesn't contain 'public_key' field. Using raw content.")
                             public_key = jwt_secret
@@ -100,6 +101,14 @@ def load_jwt_provider(prefix: str = "SOLIS_JWT_") -> JWTAuthProvider | None:
         logger.info("JWT authentication configured from environment with prefix: %s", prefix)
         return provider
     except Exception as e:
+        # Check if JWT is required - fail fast if misconfigured
+        jwt_required = os.getenv("SOLIS_JWT_REQUIRED", "false").lower() == "true"
+        if jwt_required:
+            logger.error("JWT authentication is required but configuration failed: %s", e)
+            raise RuntimeError(
+                f"JWT authentication is required (SOLIS_JWT_REQUIRED=true) but configuration failed: {e}"
+            ) from e
+        
         logger.warning("Failed to load JWT config from environment: %s", e)
         logger.info("JWT authentication disabled - running without auth")
         return None
@@ -122,6 +131,72 @@ jwt_provider = load_jwt_provider()
 
 # Initialize composer with JWT authentication
 gw = MCPComposer(name="solis-composer", auth=jwt_provider.get_verifier() if jwt_provider else None)
+
+
+def log_jwt_configuration(jwt_provider: JWTAuthProvider | None) -> None:
+    """Log JWT authentication configuration status."""
+    if jwt_provider:
+        logger.info("JWT authentication: ENABLED")
+        logger.info("JWT algorithm: %s", jwt_provider.config.algorithm)
+        logger.info("JWT verify expiration: %s", jwt_provider.config.verify_exp)
+    else:
+        logger.warning("JWT authentication: DISABLED")
+
+
+def setup_middleware(composer: MCPComposer) -> None:
+    """Configure and register middleware components."""
+    composer.add_middleware(middleware=ListFilteredTool(composer))
+    logger.info("Added ListFilteredTool middleware")
+
+
+def setup_tools(composer: MCPComposer) -> None:
+    """Configure and register tools."""
+    deep_research_tool = IBMDocumentSearchTool(
+        {
+            "name": "ibm_document_search",
+            "resource_manager": composer.resource_manager,
+        }
+    )
+    composer.add_tool(deep_research_tool)
+    logger.info("Added IBM Document Search tool")
+
+
+async def run_http_mode(composer: MCPComposer) -> None:
+    """Run composer in HTTP mode."""
+    await composer.run_http_async(
+        host="0.0.0.0", port=9000, log_level="debug", path="/mcp"
+    )
+
+
+async def run_stdio_mode(composer: MCPComposer) -> None:
+    """Run composer in STDIO mode."""
+    logger.info("Starting STDIO server")
+    await composer.run_stdio_async()
+
+
+async def run_sse_mode(composer: MCPComposer) -> None:
+    """Run composer in SSE mode."""
+    await composer.run_async(
+        transport="sse", host="0.0.0.0", port=9000, log_level="debug"
+    )
+
+
+# Mode dispatch table
+MODE_HANDLERS = {
+    "http": run_http_mode,
+    "stdio": run_stdio_mode,
+    "sse": run_sse_mode,
+}
+
+
+async def run_composer_mode(composer: MCPComposer, mode: str) -> None:
+    """Execute composer in specified mode."""
+    handler = MODE_HANDLERS.get(mode)
+    if not handler:
+        raise ValueError(
+            f"Unsupported MCP_MODE: {mode}. Use 'http', 'sse', or 'stdio'"
+        )
+    await handler(composer)
 
 
 async def main():
@@ -155,44 +230,17 @@ async def main():
     mode = os.getenv("MCP_MODE", "sse").lower()
 
     logger.info("Starting Solis Composer in %s mode", mode)
-    if jwt_provider:
-        logger.info("JWT authentication: ENABLED")
-        logger.info("JWT algorithm: %s", jwt_provider.config.algorithm)
-        logger.info("JWT verify expiration: %s", jwt_provider.config.verify_exp)
-    else:
-        logger.warning("JWT authentication: DISABLED")
+    log_jwt_configuration(jwt_provider)
 
-    gw.add_middleware(middleware=ListFilteredTool(gw))
-    logger.info("Added ListFilteredTool middleware")
-
-    # Add IBM Document Search tool
-    deep_research_tool = IBMDocumentSearchTool(
-        {
-            "name": "ibm_document_search",
-            "resource_manager": gw.resource_manager,
-        }
-    )
-    gw.add_tool(deep_research_tool)
-    logger.info("Added IBM Document Search tool")
+    setup_middleware(gw)
+    setup_tools(gw)
 
     # Setup member servers (if configured)
     await gw.setup_member_servers()
     logger.info("Member servers setup complete")
 
     # Run composer based on mode
-    if mode == "http":
-        await gw.run_http_async(
-            host="0.0.0.0", port=9000, log_level="debug", path="/mcp"
-        )
-    elif mode == "stdio":
-        logger.info("Starting STDIO server")
-        await gw.run_stdio_async()
-    elif mode == "sse":
-        await gw.run_async(
-            transport="sse", host="0.0.0.0", port=9000, log_level="debug"
-        )
-    else:
-        raise ValueError(f"Unsupported MCP_MODE: {mode}. Use 'http', 'sse', or 'stdio'")
+    await run_composer_mode(gw, mode)
 
 
 if __name__ == "__main__":

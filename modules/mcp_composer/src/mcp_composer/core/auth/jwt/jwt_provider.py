@@ -1,6 +1,6 @@
 """JWT authentication provider wrapper for FastMCP."""
 
-from typing import Optional, Any
+from typing import Optional, Any, Dict
 from fastmcp.server.auth.providers.jwt import JWTVerifier
 from .jwt_config import JWTConfig
 from mcp_composer.core.utils import LoggerFactory
@@ -92,6 +92,23 @@ class JWTAuthProvider:
             self._verifier = self._create_verifier()
         return self._verifier
 
+    def _sanitize_kwargs_for_logging(self, kwargs: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Sanitize kwargs by masking sensitive fields before logging.
+        
+        Args:
+            kwargs: Dictionary that may contain sensitive data
+            
+        Returns:
+            Sanitized copy of kwargs with sensitive fields masked
+        """
+        sensitive_fields = {'secret', 'public_key', 'private_key', 'key'}
+        sanitized = kwargs.copy()
+        for field in sensitive_fields:
+            if field in sanitized:
+                sanitized[field] = '***REDACTED***'
+        return sanitized
+
     def _create_verifier(self) -> JWTVerifier:
         """
         Create a new JWTVerifier instance from config.
@@ -100,7 +117,8 @@ class JWTAuthProvider:
             Configured JWTVerifier instance
         """
         verifier_kwargs = self.config.to_verifier_kwargs()
-        logger.debug("Creating JWTVerifier with kwargs: %s", verifier_kwargs)
+        safe_kwargs = self._sanitize_kwargs_for_logging(verifier_kwargs)
+        logger.debug("Creating JWTVerifier with kwargs: %s", safe_kwargs)
 
         try:
             verifier = JWTVerifier(**verifier_kwargs)
@@ -117,6 +135,11 @@ class JWTAuthProvider:
 
         This is a convenience method for creating a provider with HMAC-based
         algorithms (HS256, HS384, HS512).
+
+        Warning:
+            HMAC algorithms are only supported for utility functions, not for FastMCP
+            integration which requires asymmetric keys. Use from_public_key() with
+            RS256, ES256, or PS256 for production FastMCP deployments.
 
         Args:
             secret: Secret key for HMAC algorithms

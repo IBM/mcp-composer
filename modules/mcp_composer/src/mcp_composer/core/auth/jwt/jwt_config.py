@@ -1,7 +1,7 @@
 """JWT configuration models for MCP Composer."""
 
 from typing import Optional, List
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 import os
 
 
@@ -11,6 +11,11 @@ class JWTConfig(BaseModel):
 
     This class defines all configuration options for JWT token verification
     including algorithm selection, validation options, and token extraction settings.
+
+    Note:
+        HMAC algorithms (HS256, HS384, HS512) are supported for utility functions
+        but NOT for FastMCP integration, which requires asymmetric keys (RS256, ES256, PS256).
+        Use asymmetric algorithms for production FastMCP deployments.
 
     Attributes:
         secret: Secret key for HMAC algorithms (HS256, HS384, HS512)
@@ -62,16 +67,36 @@ class JWTConfig(BaseModel):
     required_claims: List[str] = Field(default_factory=list, description="List of required claims in JWT")
     leeway: int = Field(default=0, description="Leeway in seconds for exp/nbf/iat validation")
 
-    @field_validator("secret", "public_key")
+    @field_validator("public_key")
     @classmethod
-    def validate_key(cls, v, info):
-        """Ensure at least one key is provided."""
-        # This validator runs for each field, so we need to check if we have either
-        if info.field_name == "public_key":
-            # Check if secret was already set
-            if not v and not info.data.get("secret"):
-                raise ValueError("Either secret or public_key must be provided")
+    def validate_public_key_format(cls, v):
+        """Validate PEM format for public key."""
+        if v:
+            v_stripped = v.strip()
+            if not (v_stripped.startswith("-----BEGIN") and "-----END" in v_stripped):
+                raise ValueError(
+                    "Invalid PEM key format. Key must contain BEGIN and END markers "
+                    "(e.g., '-----BEGIN PUBLIC KEY-----' and '-----END PUBLIC KEY-----')"
+                )
         return v
+
+    @field_validator("secret")
+    @classmethod
+    def validate_secret_length(cls, v):
+        """Validate minimum length for secrets."""
+        if v and len(v) < 32:
+            raise ValueError(
+                "Secret key must be at least 32 characters long for security. "
+                f"Current length: {len(v)}"
+            )
+        return v
+
+    @model_validator(mode='after')
+    def validate_key_presence(self):
+        """Ensure at least one of secret or public_key is provided."""
+        if not self.secret and not self.public_key:
+            raise ValueError("Either secret or public_key must be provided")
+        return self
 
     @field_validator("algorithm")
     @classmethod
@@ -102,6 +127,9 @@ class JWTConfig(BaseModel):
 
         Args:
             prefix: Prefix for environment variables (default: JWT_)
+        
+        Note:
+            The prefix will be automatically normalized to end with underscore.
 
         Returns:
             JWTConfig instance loaded from environment
@@ -129,6 +157,9 @@ class JWTConfig(BaseModel):
             >>> # Load config
             >>> config = JWTConfig.from_env()
         """
+        # Normalize prefix to ensure it ends with underscore
+        if prefix and not prefix.endswith("_"):
+            prefix = f"{prefix}_"
 
         def get_bool(key: str, default: bool) -> bool:
             """Get boolean from environment."""

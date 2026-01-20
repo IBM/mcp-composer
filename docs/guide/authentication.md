@@ -58,11 +58,6 @@ MYAPP_JWT_ALGORITHM=RS256
 MYAPP_JWT_ISSUER=https://myapp.example.com
 MYAPP_JWT_AUDIENCE=myapp-api
 
-# Example 3: Using JWKS endpoint (any prefix)
-SOLIS_JWT_JWKS_URI=https://auth.example.com/.well-known/jwks.json
-SOLIS_JWT_ISSUER=https://auth.example.com
-SOLIS_JWT_AUDIENCE=solis-api
-SOLIS_JWT_REQUIRED_SCOPES=read,write
 ```
 
 **Loading with Custom Prefix:**

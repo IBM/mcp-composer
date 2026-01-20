@@ -2,10 +2,13 @@
 
 from typing import Dict, Any, Optional, List
 import jwt
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from mcp_composer.core.utils import LoggerFactory
 
 logger = LoggerFactory.get_logger()
+
+# Token expiration constants
+DEFAULT_TOKEN_EXPIRATION_SECONDS = 3600  # 1 hour
 
 
 def extract_jwt_from_header(header_value: str, prefix: str = "Bearer") -> Optional[str]:
@@ -121,16 +124,13 @@ def decode_jwt_token(
     except jwt.InvalidTokenError as e:
         logger.warning("Invalid JWT token: %s", e)
         raise
-    except Exception as e:
-        logger.error("Unexpected error decoding JWT: %s", e)
-        raise
 
 
 def generate_jwt_token(
     payload: Dict[str, Any],
     secret: str,
     algorithm: str = "HS256",
-    expires_in: int = 3600,
+    expires_in: int = DEFAULT_TOKEN_EXPIRATION_SECONDS,
     issuer: Optional[str] = None,
     audience: Optional[str] = None,
 ) -> str:
@@ -162,7 +162,7 @@ def generate_jwt_token(
         ... )
     """
     payload = payload.copy()
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
 
     # Add standard claims
     payload.setdefault("iat", int(now.timestamp()))
@@ -199,6 +199,10 @@ def validate_jwt_claims(claims: Dict[str, Any], required_claims: List[str]) -> b
         >>> is_valid = validate_jwt_claims(claims, required)
         >>> print(is_valid)  # False (missing 'tenant')
     """
+    if not required_claims:
+        logger.warning("No required claims specified for JWT validation - validation skipped")
+        return True
+    
     missing_claims = [claim for claim in required_claims if claim not in claims]
 
     if missing_claims:
@@ -207,6 +211,34 @@ def validate_jwt_claims(claims: Dict[str, Any], required_claims: List[str]) -> b
 
     logger.debug("All required JWT claims are present")
     return True
+
+
+def decode_jwt_without_verification(token: str) -> Optional[Dict[str, Any]]:
+    """
+    Decode a JWT token without signature verification.
+    
+    This helper function can be reused to avoid redundant decoding operations
+    when multiple functions need to inspect the same token.
+    
+    Args:
+        token: JWT token string
+        
+    Returns:
+        Dictionary of claims or None if decoding fails
+        
+    Example:
+        >>> token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+        >>> claims = decode_jwt_without_verification(token)
+        >>> if claims:
+        ...     print(claims.get("sub"))
+    """
+    try:
+        claims = jwt.decode(token, options={"verify_signature": False})
+        logger.debug("Successfully decoded JWT without verification")
+        return claims
+    except Exception as e:
+        logger.error("Failed to decode JWT: %s", e)
+        return None
 
 
 def get_jwt_expiration(token: str) -> Optional[datetime]:
@@ -225,9 +257,11 @@ def get_jwt_expiration(token: str) -> Optional[datetime]:
         >>> if exp_time:
         ...     print(f"Token expires at: {exp_time}")
     """
+    claims = decode_jwt_without_verification(token)
+    if not claims:
+        return None
+        
     try:
-        # Decode without verification to get claims
-        claims = jwt.decode(token, options={"verify_signature": False})
         exp = claims.get("exp")
 
         if exp:
@@ -263,7 +297,7 @@ def is_jwt_expired(token: str, leeway: int = 0) -> bool:
         # No expiration claim, consider it not expired
         return False
 
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     is_expired = (exp_time + timedelta(seconds=leeway)) < now
 
     if is_expired:
@@ -290,9 +324,11 @@ def extract_jwt_claims(token: str, claim_names: Optional[List[str]] = None) -> D
         >>> claims = extract_jwt_claims(token, ["sub", "role", "tenant"])
         >>> print(claims)  # {"sub": "user@example.com", "role": "admin", ...}
     """
+    all_claims = decode_jwt_without_verification(token)
+    if not all_claims:
+        return {}
+        
     try:
-        # Decode without verification
-        all_claims = jwt.decode(token, options={"verify_signature": False})
 
         if claim_names is None:
             return all_claims
