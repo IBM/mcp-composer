@@ -140,7 +140,9 @@ class TestOAuthProviderFactory:
             base_url="http://example.com",
             provider="aws",
         )
-        with pytest.raises(ValueError, match="AWS provider requires user_pool_id and aws_region"):
+        with pytest.raises(
+            ValueError, match="AWS provider requires user_pool_id and aws_region"
+        ):
             factory.get_provider_instance()
 
     @patch("mcp_composer.core.auth_handler.providers.AzureProvider")
@@ -176,7 +178,9 @@ class TestOAuthProviderFactory:
 
     @patch("mcp_composer.core.auth_handler.providers.IntrospectionTokenVerifier")
     @patch("mcp_composer.core.auth_handler.providers.OIDCProxy")
-    def test_get_provider_instance_oidc(self, MockOIDCProxy, MockIntrospectionTokenVerifier):
+    def test_get_provider_instance_oidc(
+        self, MockOIDCProxy, MockIntrospectionTokenVerifier
+    ):
         """Test get_provider_instance for OIDC"""
         factory = OAuthProviderFactory(
             client_id="test_id",
@@ -198,12 +202,12 @@ class TestOAuthProviderFactory:
             introspection_url="http://introspect.com",
             client_id="test_id",
             client_secret="test_secret",
+            required_scopes=["scope1"],
         )
         MockOIDCProxy.assert_called_once_with(
             config_url="http://config.com",
             audience="aud",
             algorithm="RS256",
-            required_scopes=["scope1"],
             timeout_seconds=30,
             allowed_client_redirect_uris=["http://redirect.com"],
             client_storage=factory.client_storage,
@@ -239,5 +243,7 @@ class TestOAuthProviderFactory:
             base_url="http://example.com",
             provider="github",
         )
-        with pytest.raises(ValueError, match="Error creating provider instance: Init error"):
+        with pytest.raises(
+            ValueError, match="Error creating provider instance: Init error"
+        ):
             factory.get_provider_instance()

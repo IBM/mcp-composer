@@ -363,12 +363,12 @@ def run_composer(
     ] = None,
     # Feature flags
     disable_composer_tools: Annotated[
-        bool,
+        Optional[str],
         Option(
-            "--disable-composer-tools/--enable-composer-tools",
-            help="Disable composer tools (disabled by default)",
+            "--disable-composer-tools",
+            help="Comma-separated list of composer tool names to disable (e.g., --disable-composer-tools='t1,t2' or --disable-composer-tools='[t1,t2]')",
         ),
-    ] = False,
+    ] = None,
     # Environment variables
     env: Annotated[
         List[str],
@@ -677,10 +677,10 @@ def main_callback(
         ),
     ] = None,
     disable_composer_tools: Annotated[
-        Optional[bool],
+        Optional[str],
         Option(
-            "--disable-composer-tools/--enable-composer-tools",
-            help="Disable composer tools (disabled by default)",
+            "--disable-composer-tools",
+            help="Comma-separated list of composer tool names to disable (e.g., --disable-composer-tools='t1,t2' or --disable-composer-tools='[t1,t2]')",
         ),
     ] = None,
     pass_environment: Annotated[
@@ -762,6 +762,7 @@ def main_callback(
     if version:
         try:
             from mcp_composer import __version__
+
             typer.echo(f"MCP Composer version: {__version__}")
         except ImportError:
             typer.echo("MCP Composer version: unknown")
@@ -818,8 +819,6 @@ def main_callback(
         remote_auth_type = "none"
     if client_auth_type is None:
         client_auth_type = "none"
-    if disable_composer_tools is None:
-        disable_composer_tools = False
     if pass_environment is None:
         pass_environment = False
 
@@ -939,7 +938,7 @@ async def run_dynamic_composer(
     sse_url: Optional[str] = None,
     remote_auth_type: str = "none",
     client_auth_type: str = "none",
-    disable_composer_tools: bool = False,
+    disable_composer_tools: Optional[str] = None,
     host: str = "localhost",
     port: int = 9000,
     timeout: Optional[int] = None,
@@ -972,12 +971,22 @@ async def run_dynamic_composer(
         logger.info("Running MCP Composer without OAuth")
         mcp = MCPComposer("composer", config=config)  # type: ignore
 
-    # Remove composer tools if disable-composer-tools is set to True
+    # Remove composer tools if disable-composer-tools is specified
     if disable_composer_tools:
+        # Parse the input: handle formats like "t1,t2" or "[t1,t2]"
+        tools_str = disable_composer_tools.strip()
+        if tools_str.startswith("[") and tools_str.endswith("]"):
+            tools_str = tools_str[1:-1]  # Remove brackets
+        tools_to_disable = [t.strip() for t in tools_str.split(",") if t.strip()]
+
         tools = await mcp.get_tools()
-        logger.info("Remove composer tools")
-        for name, _ in tools.items():
-            mcp.remove_tool(name)
+        logger.info("Removing specified composer tools: %s", tools_to_disable)
+        for tool_name in tools_to_disable:
+            if tool_name in tools:
+                mcp.remove_tool(tool_name)
+                logger.info("Removed tool: %s", tool_name)
+            else:
+                logger.warning("Tool '%s' not found in available tools", tool_name)
 
     if sse_url:
         logger.info("mounting Remote server into MCP composer")
@@ -1159,7 +1168,7 @@ def _apply_config_and_start_server(
     auth_type: Optional[str],
     auth_provider: str,
     sse_url: Optional[str],  # pylint: disable=unused-argument
-    disable_composer_tools: Optional[bool],
+    disable_composer_tools: Optional[str],
     pass_environment: Optional[bool],  # pylint: disable=unused-argument
     remote_auth_type: Optional[str],  # pylint: disable=unused-argument
     client_auth_type: Optional[str],  # pylint: disable=unused-argument
@@ -1251,7 +1260,7 @@ def _create_composer_instance(
     auth_type: Optional[str],
     auth_provider: str,
     sse_url: Optional[str],
-    disable_composer_tools: Optional[bool],
+    disable_composer_tools: Optional[str],
     pass_environment: Optional[bool],
     remote_auth_type: Optional[str],
     client_auth_type: Optional[str],
@@ -1293,9 +1302,20 @@ def _create_composer_instance(
 
     # Disable composer tools if requested
     if disable_composer_tools:
+        # Parse the input: handle formats like "t1,t2" or "[t1,t2]"
+        tools_str = disable_composer_tools.strip()
+        if tools_str.startswith("[") and tools_str.endswith("]"):
+            tools_str = tools_str[1:-1]  # Remove brackets
+        tools_to_disable = [t.strip() for t in tools_str.split(",") if t.strip()]
+
         tools = asyncio.run(composer.get_tools())
-        for name, _ in tools.items():
-            composer.remove_tool(name)
+        logger.info("Removing specified composer tools: %s", tools_to_disable)
+        for tool_name in tools_to_disable:
+            if tool_name in tools:
+                composer.remove_tool(tool_name)
+                logger.info("Removed tool: %s", tool_name)
+            else:
+                logger.warning("Tool '%s' not found in available tools", tool_name)
 
     return composer
 
@@ -1664,7 +1684,9 @@ def main() -> None:
                 value = sys.argv[i + 2]
                 processed_args.append("--env")
                 processed_args.append(f"{key}={value}")
-                logger.info("Converted --env %s %s to --env %s=%s", key, value, key, value)
+                logger.info(
+                    "Converted --env %s %s to --env %s=%s", key, value, key, value
+                )
                 i += 3
             else:
                 # Invalid format, keep as is

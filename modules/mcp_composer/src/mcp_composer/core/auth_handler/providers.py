@@ -134,13 +134,13 @@ class OAuthProviderFactory:
                     introspection_url=self.introspection_url,
                     client_id=common_config["client_id"],
                     client_secret=common_config["client_secret"],
+                    required_scopes=self.required_scopes,
                 )
                 return OIDCProxy(
                     # Provider's configuration URL
                     config_url=self.config_url,  # type: ignore
                     audience=self.audience,
                     algorithm=self.algorithm,
-                    required_scopes=self.required_scopes,
                     timeout_seconds=self.timeout_seconds,
                     allowed_client_redirect_uris=self.allowed_client_redirect_uris,
                     client_storage=self.client_storage,
