@@ -22,7 +22,7 @@ class TestW3Provider:
 
         provider = W3Provider(
             client_id="test_client_id",
-            client_secret="test_client_credential",
+            client_secret="test_client_credential", # pragma: allowlist secret
             config_url="https://preprod.login.w3.ibm.com/oidc/endpoint/default/.well-known/openid-configuration",
             introspection_url="https://preprod.login.w3.ibm.com/v1.0/endpoint/default/introspect",
             base_url="http://localhost:9000",
@@ -32,7 +32,7 @@ class TestW3Provider:
         mock_introspection_verifier.assert_called_once_with(
             introspection_url="https://preprod.login.w3.ibm.com/v1.0/endpoint/default/introspect",
             client_id="test_client_id",
-            client_secret="test_client_credential",
+            client_secret="test_client_credential", # pragma: allowlist secret
             timeout_seconds=10,
             required_scopes=["openid"],
         )
@@ -42,7 +42,7 @@ class TestW3Provider:
         call_kwargs = mock_oidc_proxy_init.call_args[1]
         assert call_kwargs["config_url"] == "https://preprod.login.w3.ibm.com/oidc/endpoint/default/.well-known/openid-configuration"
         assert call_kwargs["client_id"] == "test_client_id"
-        assert call_kwargs["client_secret"] == "test_client_credential"
+        assert call_kwargs["client_secret"] == "test_client_credential" # pragma: allowlist secret
         assert call_kwargs["token_verifier"] == mock_verifier_instance
         assert call_kwargs["base_url"] == "http://localhost:9000"
         assert call_kwargs["redirect_path"] is None  # Defaults to None, OIDCProxy will use "/auth/callback"
@@ -94,7 +94,7 @@ class TestW3Provider:
         call_kwargs = mock_oidc_proxy_init.call_args[1]
         assert call_kwargs["config_url"] == "https://custom.w3.ibm.com/.well-known/openid-configuration"
         assert call_kwargs["client_id"] == "custom_client_id"
-        assert call_kwargs["client_secret"] == "custom_client_credential"
+        assert call_kwargs["client_secret"] == "custom_client_credential" # pragma: allowlist secret
         assert call_kwargs["token_verifier"] == mock_verifier_instance
         assert call_kwargs["base_url"] == "https://my-server.com"
         assert call_kwargs["issuer_url"] == "https://my-issuer.com"
@@ -118,11 +118,11 @@ class TestW3Provider:
 
         provider = W3Provider(
             client_id="test_client_id",
-            client_secret="test_client_credential",
+            client_secret="test_client_credential", # pragma: allowlist secret
             config_url="https://preprod.login.w3.ibm.com/oidc/endpoint/default/.well-known/openid-configuration",
             introspection_url="https://preprod.login.w3.ibm.com/v1.0/endpoint/default/introspect",
             base_url="http://localhost:9000",
-            required_scopes="openid profile email",  # String instead of list
+            required_scopes="openid profile email"  # String instead of list
         )
 
         # Verify scopes were parsed correctly and passed to IntrospectionTokenVerifier
@@ -144,7 +144,7 @@ class TestW3Provider:
 
         provider = W3Provider(
             client_id="test_client_id",
-            client_secret="test_client_credential",
+            client_secret="test_client_credential", # pragma: allowlist secret
             config_url=config_url,
             introspection_url="https://preprod.login.w3.ibm.com/v1.0/endpoint/default/introspect",
             base_url=base_url,
@@ -166,7 +166,7 @@ class TestW3Provider:
 
         provider = W3Provider(
             client_id="test_client_id",
-            client_secret="test_client_credential",
+            client_secret="test_client_credential", # pragma: allowlist secret
             config_url="https://preprod.login.w3.ibm.com/oidc/endpoint/default/.well-known/openid-configuration",
             introspection_url="https://preprod.login.w3.ibm.com/v1.0/endpoint/default/introspect",
             base_url="http://localhost:9000",

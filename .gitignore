@@ -43,3 +43,4 @@ docs/release/pypirelease.md
 .solis_jwt_cache.json
 composer_resources.json
 member_server_masked.json
+chroes_output/ruff_output.txt
