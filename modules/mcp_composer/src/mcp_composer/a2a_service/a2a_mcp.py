@@ -571,7 +571,9 @@ def find_agent(query: str) -> str:
     dot_products = np.dot(np.stack(df["card_embeddings"].tolist()), query_emb)
     best_match_index = np.argmax(dot_products)
     logger.debug(
-        "Found best match at index %s with score %s", best_match_index, dot_products[best_match_index]
+        "Found best match at index %s with score %s",
+        best_match_index,
+        dot_products[best_match_index],
     )
     return df.iloc[best_match_index]["agent_card"]
 

@@ -81,19 +81,21 @@ def _save_json_file(path: str, obj: dict) -> None:
 @app.command("validate")
 def validate_middleware(
     path: Annotated[str, Argument(help="Path to middleware configuration file")],
-    ensure_imports: Annotated[bool, Option(
-        "--ensure-imports",
-        help="Ensure all middleware classes can be imported"
-    )] = False,
-    output_format: Annotated[str, Option(
-        "--format", "-f",
-        help="Output format",
-        case_sensitive=False
-    )] = "text",
-    show_middlewares: Annotated[bool, Option(
-        "--show-middlewares",
-        help="Show enabled middlewares in execution order"
-    )] = False,
+    ensure_imports: Annotated[
+        bool,
+        Option(
+            "--ensure-imports", help="Ensure all middleware classes can be imported"
+        ),
+    ] = False,
+    output_format: Annotated[
+        str, Option("--format", "-f", help="Output format", case_sensitive=False)
+    ] = "text",
+    show_middlewares: Annotated[
+        bool,
+        Option(
+            "--show-middlewares", help="Show enabled middlewares in execution order"
+        ),
+    ] = False,
 ) -> None:
     """
     Validate middleware configuration file.
@@ -148,7 +150,9 @@ def validate_middleware(
             typer.echo("\nEnabled middlewares (in execution order):")
             for info in mgr.describe():
                 hooks = ", ".join(info.get("applied_hooks", []))
-                typer.echo(f" - {info['name']}  (priority={info['priority']}, hooks=[{hooks}])")
+                typer.echo(
+                    f" - {info['name']}  (priority={info['priority']}, hooks=[{hooks}])"
+                )
         else:
             typer.echo("\n(Manager not available; cannot compute execution order)")
 
@@ -156,19 +160,18 @@ def validate_middleware(
 @app.command("list")
 def list_middlewares(
     config: Annotated[str, Argument(help="Path to middleware configuration file")],
-    ensure_imports: Annotated[bool, Option(
-        "--ensure-imports",
-        help="Ensure all middleware classes can be imported"
-    )] = False,
-    output_format: Annotated[str, Option(
-        "--format", "-f",
-        help="Output format",
-        case_sensitive=False
-    )] = "text",
-    show_all: Annotated[bool, Option(
-        "--all",
-        help="Show all middlewares including disabled ones"
-    )] = False,
+    ensure_imports: Annotated[
+        bool,
+        Option(
+            "--ensure-imports", help="Ensure all middleware classes can be imported"
+        ),
+    ] = False,
+    output_format: Annotated[
+        str, Option("--format", "-f", help="Output format", case_sensitive=False)
+    ] = "text",
+    show_all: Annotated[
+        bool, Option("--all", help="Show all middlewares including disabled ones")
+    ] = False,
 ) -> None:
     """
     List middlewares from configuration file.
@@ -235,24 +238,28 @@ def list_middlewares(
             for d in mgr.describe():  # already ordered
                 # find original entry to enrich with mode/kind
                 mm = next((m for m in cfg.middleware if m.name == d["name"]), None)
-                items_out.append({
-                    **d,
-                    "mode": getattr(mm, "mode", "enabled"),
-                    "kind": getattr(mm, "kind", "<unknown>"),
-                })
+                items_out.append(
+                    {
+                        **d,
+                        "mode": getattr(mm, "mode", "enabled"),
+                        "kind": getattr(mm, "kind", "<unknown>"),
+                    }
+                )
     else:
         # Fallback: list by priority from config (no runtime wrapping)
         for m in sorted(cfg.middleware, key=lambda x: x.priority):
             if not include_disabled and m.mode != "enabled":
                 continue
-            items_out.append({
-                "name": m.name,
-                "mode": m.mode,
-                "priority": m.priority,
-                "applied_hooks": [getattr(h, "value", h) for h in m.applied_hooks],
-                "kind": m.kind,
-                "attached": None,
-            })
+            items_out.append(
+                {
+                    "name": m.name,
+                    "mode": m.mode,
+                    "priority": m.priority,
+                    "applied_hooks": [getattr(h, "value", h) for h in m.applied_hooks],
+                    "kind": m.kind,
+                    "attached": None,
+                }
+            )
 
     if output_format == "json":
         typer.echo(json.dumps({"middlewares": items_out}, indent=2))
@@ -260,12 +267,16 @@ def list_middlewares(
         if not items_out:
             typer.echo("(no middlewares)")
             return
-        typer.echo("Middlewares" + (" (all)" if include_disabled else " (enabled)") + ":")
+        typer.echo(
+            "Middlewares" + (" (all)" if include_disabled else " (enabled)") + ":"
+        )
         for it in items_out:
             hooks = ", ".join(it.get("applied_hooks", []))
             mode = it.get("mode", "enabled")
             attached = it.get("attached")
-            flag = "✓" if (attached or (attached is None and mode == "enabled")) else " "
+            flag = (
+                "✓" if (attached or (attached is None and mode == "enabled")) else " "
+            )
             typer.echo(f"[{flag}] {it['name']}  prio={it['priority']}  mode={mode}")
             typer.echo(f"     kind={it.get('kind','')}")
             typer.echo(f"     hooks=[{hooks}]")
@@ -273,83 +284,104 @@ def list_middlewares(
 
 @app.command("add")
 def add_middleware(
-    config: Annotated[str, Option(
-        "--config", "-c",
-        help="Path to middleware configuration file"
-    )],
-    name: Annotated[str, Option(
-        "--name", "-n",
-        help="Name of the middleware"
-    )],
-    kind: Annotated[str, Option(
-        "--kind", "-k",
-        help="Python import path to middleware class (e.g., module.ClassName)"
-    )],
-    description: Annotated[Optional[str], Option(
-        "--description", "-d",
-        help="Description of the middleware"
-    )] = None,
-    version: Annotated[Optional[str], Option(
-        "--version", "-v",
-        help="Version of the middleware (default: 0.0.0)"
-    )] = None,
-    mode: Annotated[str, Option(
-        "--mode", "-m",
-        help="Middleware mode",
-        case_sensitive=False
-    )] = "enabled",
-    priority: Annotated[int, Option(
-        "--priority", "-p",
-        help="Execution priority (lower numbers run first, default: 100)"
-    )] = 100,
-    applied_hooks: Annotated[Optional[str], Option(
-        "--applied-hooks",
-        help="Comma-separated list of hooks (e.g., on_call_tool,on_list_tools)"
-    )] = None,
-    include_tools: Annotated[Optional[str], Option(
-        "--include-tools",
-        help="Comma-separated list of tools to include (default: *)"
-    )] = None,
-    exclude_tools: Annotated[Optional[str], Option(
-        "--exclude-tools",
-        help="Comma-separated list of tools to exclude"
-    )] = None,
-    include_prompts: Annotated[Optional[str], Option(
-        "--include-prompts",
-        help="Comma-separated list of prompts to include"
-    )] = None,
-    exclude_prompts: Annotated[Optional[str], Option(
-        "--exclude-prompts",
-        help="Comma-separated list of prompts to exclude"
-    )] = None,
-    include_server_ids: Annotated[Optional[str], Option(
-        "--include-server-ids",
-        help="Comma-separated list of server IDs to include"
-    )] = None,
-    exclude_server_ids: Annotated[Optional[str], Option(
-        "--exclude-server-ids",
-        help="Comma-separated list of server IDs to exclude"
-    )] = None,
-    config_file: Annotated[Optional[str], Option(
-        "--config-file",
-        help="Path to JSON file containing middleware configuration"
-    )] = None,
-    update: Annotated[bool, Option(
-        "--update",
-        help="Update existing middleware if name already exists"
-    )] = False,
-    ensure_imports: Annotated[bool, Option(
-        "--ensure-imports",
-        help="Ensure all middleware classes can be imported after update"
-    )] = False,
-    dry_run: Annotated[bool, Option(
-        "--dry-run",
-        help="Show what would be written without actually writing"
-    )] = False,
-    show_middlewares: Annotated[bool, Option(
-        "--show-middlewares",
-        help="Show enabled middlewares in execution order after update"
-    )] = False,
+    config: Annotated[
+        str, Option("--config", "-c", help="Path to middleware configuration file")
+    ],
+    name: Annotated[str, Option("--name", "-n", help="Name of the middleware")],
+    kind: Annotated[
+        str,
+        Option(
+            "--kind",
+            "-k",
+            help="Python import path to middleware class (e.g., module.ClassName)",
+        ),
+    ],
+    description: Annotated[
+        Optional[str],
+        Option("--description", "-d", help="Description of the middleware"),
+    ] = None,
+    version: Annotated[
+        Optional[str],
+        Option("--version", "-v", help="Version of the middleware (default: 0.0.0)"),
+    ] = None,
+    mode: Annotated[
+        str, Option("--mode", "-m", help="Middleware mode", case_sensitive=False)
+    ] = "enabled",
+    priority: Annotated[
+        int,
+        Option(
+            "--priority",
+            "-p",
+            help="Execution priority (lower numbers run first, default: 100)",
+        ),
+    ] = 100,
+    applied_hooks: Annotated[
+        Optional[str],
+        Option(
+            "--applied-hooks",
+            help="Comma-separated list of hooks (e.g., on_call_tool,on_list_tools)",
+        ),
+    ] = None,
+    include_tools: Annotated[
+        Optional[str],
+        Option(
+            "--include-tools",
+            help="Comma-separated list of tools to include (default: *)",
+        ),
+    ] = None,
+    exclude_tools: Annotated[
+        Optional[str],
+        Option("--exclude-tools", help="Comma-separated list of tools to exclude"),
+    ] = None,
+    include_prompts: Annotated[
+        Optional[str],
+        Option("--include-prompts", help="Comma-separated list of prompts to include"),
+    ] = None,
+    exclude_prompts: Annotated[
+        Optional[str],
+        Option("--exclude-prompts", help="Comma-separated list of prompts to exclude"),
+    ] = None,
+    include_server_ids: Annotated[
+        Optional[str],
+        Option(
+            "--include-server-ids", help="Comma-separated list of server IDs to include"
+        ),
+    ] = None,
+    exclude_server_ids: Annotated[
+        Optional[str],
+        Option(
+            "--exclude-server-ids", help="Comma-separated list of server IDs to exclude"
+        ),
+    ] = None,
+    config_file: Annotated[
+        Optional[str],
+        Option(
+            "--config-file",
+            help="Path to JSON file containing middleware configuration",
+        ),
+    ] = None,
+    update: Annotated[
+        bool,
+        Option("--update", help="Update existing middleware if name already exists"),
+    ] = False,
+    ensure_imports: Annotated[
+        bool,
+        Option(
+            "--ensure-imports",
+            help="Ensure all middleware classes can be imported after update",
+        ),
+    ] = False,
+    dry_run: Annotated[
+        bool,
+        Option("--dry-run", help="Show what would be written without actually writing"),
+    ] = False,
+    show_middlewares: Annotated[
+        bool,
+        Option(
+            "--show-middlewares",
+            help="Show enabled middlewares in execution order after update",
+        ),
+    ] = False,
 ) -> None:
     """
     Add or update middleware in configuration file.
@@ -394,7 +426,9 @@ def add_middleware(
 
     # Validate mode
     if mode not in ["enabled", "disabled"]:
-        raise typer.BadParameter(f"Invalid mode '{mode}'. Must be 'enabled' or 'disabled'")
+        raise typer.BadParameter(
+            f"Invalid mode '{mode}'. Must be 'enabled' or 'disabled'"
+        )
 
     # Load existing or init new
     try:
@@ -470,7 +504,9 @@ def add_middleware(
         items.append(entry)
 
     # Revalidate whole config & ensure imports (optional)
-    new_cfg = MiddlewareConfig(middleware=items, middleware_settings=cfg.middleware_settings)
+    new_cfg = MiddlewareConfig(
+        middleware=items, middleware_settings=cfg.middleware_settings
+    )
 
     if ensure_imports:
         try:
@@ -490,30 +526,34 @@ def add_middleware(
         return
 
     _save_json_file(config, new_cfg.model_dump(mode="json"))
-    typer.echo(f"✔ Middleware '{entry.name}' {'updated' if entry.name in names and update else 'added'} in {config}")
+    typer.echo(
+        f"✔ Middleware '{entry.name}' {'updated' if entry.name in names and update else 'added'} in {config}"
+    )
 
     if show_middlewares and MiddlewareManager is not None:
         mgr = MiddlewareManager(config, ensure_imports=False)
         typer.echo("\nEnabled middlewares (in execution order):")
         for info in mgr.describe():
             hooks = ", ".join(info.get("applied_hooks", []))
-            typer.echo(f" - {info['name']}  (priority={info['priority']}, hooks=[{hooks}])")
+            typer.echo(
+                f" - {info['name']}  (priority={info['priority']}, hooks=[{hooks}])"
+            )
 
 
 @app.command("remove")
 def remove_middleware(
-    config: Annotated[str, Option(
-        "--config", "-c",
-        help="Path to middleware configuration file"
-    )],
-    name: Annotated[str, Option(
-        "--name", "-n",
-        help="Name of the middleware to remove"
-    )],
-    dry_run: Annotated[bool, Option(
-        "--dry-run",
-        help="Show what would be removed without actually removing"
-    )] = False,
+    config: Annotated[
+        str, Option("--config", "-c", help="Path to middleware configuration file")
+    ],
+    name: Annotated[
+        str, Option("--name", "-n", help="Name of the middleware to remove")
+    ],
+    dry_run: Annotated[
+        bool,
+        Option(
+            "--dry-run", help="Show what would be removed without actually removing"
+        ),
+    ] = False,
 ) -> None:
     """
     Remove middleware from configuration file.
@@ -564,21 +604,24 @@ def remove_middleware(
         return
 
     # Save updated config
-    new_cfg = MiddlewareConfig(middleware=items, middleware_settings=cfg.middleware_settings)
+    new_cfg = MiddlewareConfig(
+        middleware=items, middleware_settings=cfg.middleware_settings
+    )
     _save_json_file(config, new_cfg.model_dump(mode="json"))
     typer.echo(f"✔ Middleware '{name}' removed from {config}")
 
 
 @app.command("init")
 def init_middleware_config(
-    config: Annotated[str, Option(
-        "--config", "-c",
-        help="Path to middleware configuration file to create"
-    )],
-    force: Annotated[bool, Option(
-        "--force", "-f",
-        help="Overwrite existing file if it exists"
-    )] = False,
+    config: Annotated[
+        str,
+        Option(
+            "--config", "-c", help="Path to middleware configuration file to create"
+        ),
+    ],
+    force: Annotated[
+        bool, Option("--force", "-f", help="Overwrite existing file if it exists")
+    ] = False,
 ) -> None:
     """
     Initialize a new middleware configuration file.
@@ -603,8 +646,7 @@ def init_middleware_config(
 
     # Create default configuration
     default_config = MiddlewareConfig(
-        middleware=[],
-        middleware_settings=MiddlewareSettings()
+        middleware=[], middleware_settings=MiddlewareSettings()
     )
 
     # Save the file

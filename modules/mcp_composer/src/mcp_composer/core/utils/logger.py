@@ -7,6 +7,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+
 class LoggerFactory:
     """
     Produces consistent structured loggers across the system.

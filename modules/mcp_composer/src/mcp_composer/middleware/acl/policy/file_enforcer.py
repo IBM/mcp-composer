@@ -2,7 +2,10 @@ import json
 import os
 from typing import Dict, Any
 from mcp_composer.middleware.acl.policy.base_policy_enforcer import BasePolicyEnforcer
-from mcp_composer.middleware.acl.acl_utils import resolve_role_from_context, extract_context_info
+from mcp_composer.middleware.acl.acl_utils import (
+    resolve_role_from_context,
+    extract_context_info,
+)
 from mcp_composer.core.utils.logger import LoggerFactory
 
 logger = LoggerFactory.get_logger()
@@ -46,7 +49,9 @@ class FilePolicyEnforcer(BasePolicyEnforcer):
                 self.policy_data = json.load(f)
 
             logger.info(
-                "Loaded policy from %s with %d roles", self.policy_file, len(self.policy_data)
+                "Loaded policy from %s with %d roles",
+                self.policy_file,
+                len(self.policy_data),
             )
 
         except json.JSONDecodeError as e:
@@ -78,7 +83,10 @@ class FilePolicyEnforcer(BasePolicyEnforcer):
 
         logger.debug(
             "File policy check - Tool: %s, Role: %s, Allowed: %s, Context: %s",
-            tool_name, role, is_allowed, context_info
+            tool_name,
+            role,
+            is_allowed,
+            context_info,
         )
 
         return is_allowed

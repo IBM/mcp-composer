@@ -23,9 +23,16 @@ async def run(mode: str, host: str, port: int, log_level: str, path: str):
 def main():
     parser = argparse.ArgumentParser(description="Run MCP Composer")
 
-    parser.add_argument("--mode", choices=["http", "stdio"], default="http", help="MCP mode to run (http or stdio)")
+    parser.add_argument(
+        "--mode",
+        choices=["http", "stdio"],
+        default="http",
+        help="MCP mode to run (http or stdio)",
+    )
     parser.add_argument("--host", default="0.0.0.0", help="Host to bind (http mode)")
-    parser.add_argument("--port", type=int, default=9000, help="Port to bind (http mode)")
+    parser.add_argument(
+        "--port", type=int, default=9000, help="Port to bind (http mode)"
+    )
     parser.add_argument("--log-level", default="debug", help="Log level")
     parser.add_argument("--path", default="/mcp", help="Path to mount (http mode)")
 

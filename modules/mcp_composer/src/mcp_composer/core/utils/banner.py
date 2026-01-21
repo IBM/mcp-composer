@@ -53,7 +53,9 @@ def print_mcp_composer_banner(
 ) -> None:
     """Render a Rich panel that mirrors the FastMCP banner with MCP branding."""
 
-    docs_display = _resolve_value(docs_value, _DOCS_ENV, "https://ibm.github.io/mcp-composer/")
+    docs_display = _resolve_value(
+        docs_value, _DOCS_ENV, "https://ibm.github.io/mcp-composer/"
+    )
     hosting_display = _resolve_value(
         hosting_value, _HOST_ENV, "https://pypi.org/project/mcp-composer/"
     )
@@ -73,7 +75,9 @@ def print_mcp_composer_banner(
     info_table.add_column(style="cyan", justify="left")
     info_table.add_column(style="dim", justify="left")
 
-    info_table.add_row("🖥", "Server name:", Text(server_name or "mcp-composer", style="bold cyan"))
+    info_table.add_row(
+        "🖥", "Server name:", Text(server_name or "mcp-composer", style="bold cyan")
+    )
     info_table.add_row("📦", "Transport:", transport_display)
 
     if transport in ("http", "streamable-http", "sse") and host and port:
@@ -109,4 +113,3 @@ def print_mcp_composer_banner(
     )
 
     Console(stderr=True).print(Group("\n", Align.center(panel), "\n"))
-

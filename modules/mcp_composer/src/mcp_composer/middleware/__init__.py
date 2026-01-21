@@ -20,7 +20,7 @@ from .xml2json import FormatXml2Json
 __all__ = [
     "PromptInjectionMiddleware",
     "CircuitBreakerMiddleware",
-    "ConcurrencyLimiterMiddleware", 
+    "ConcurrencyLimiterMiddleware",
     "RateLimitingMiddleware",
     "SecretsAndPIIMiddleware",
     "RedactionStrategy",

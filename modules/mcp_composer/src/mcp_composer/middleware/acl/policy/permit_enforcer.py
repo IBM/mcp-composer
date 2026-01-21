@@ -37,7 +37,7 @@ class PermitPolicyEnforcer(BasePolicyEnforcer):
     def _initialize_permit(self) -> None:
         """Initialize the Permit middleware."""
         try:
-            from permit_fastmcp import PermitMcpMiddleware # type: ignore
+            from permit_fastmcp import PermitMcpMiddleware  # type: ignore
 
             if not self.api_key:
                 logger.error("Permit API key is required")
@@ -98,7 +98,9 @@ class PermitPolicyEnforcer(BasePolicyEnforcer):
 
             logger.debug(
                 "Permit policy check - Tool: %s, Allowed: %s, Context: %s",
-                tool_name, is_allowed, context_info
+                tool_name,
+                is_allowed,
+                context_info,
             )
 
             return is_allowed

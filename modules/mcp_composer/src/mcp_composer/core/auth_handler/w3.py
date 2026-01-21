@@ -114,7 +114,7 @@ class W3Provider(OIDCProxy):
                 - "profile" for profile information
                 - "email" for email access
                 - "offline_access" for refresh tokens (recommended for long-lived sessions)
-                
+
                 Note: Unlike SimpleOAuthProvider, W3Provider supports refresh tokens through
                 OIDCProxy's automatic refresh token handling. Include "offline_access" in
                 required_scopes to receive refresh tokens during authorization.
@@ -146,7 +146,7 @@ class W3Provider(OIDCProxy):
         required_scopes_final = (
             parse_scopes(required_scopes) if required_scopes is not None else ["openid"]
         )
-        
+
         # Ensure offline_access is included if user wants refresh tokens
         # OIDCProxy will automatically request refresh tokens if the provider supports them
         # and the offline_access scope is requested
@@ -193,4 +193,3 @@ class W3Provider(OIDCProxy):
             introspection_url,
             base_url,
         )
-

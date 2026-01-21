@@ -19,7 +19,9 @@ class TestMcpProtocolScanner:
         assert scanner.transport == "http"
         assert scanner.auth_token is None
 
-        scanner = McpProtocolScanner("http://localhost:8000", auth_token="test-token", transport="sse")
+        scanner = McpProtocolScanner(
+            "http://localhost:8000", auth_token="test-token", transport="sse"
+        )
         assert scanner.auth_token == "test-token"
         assert scanner.transport == "sse"
         assert "Authorization" in scanner.headers

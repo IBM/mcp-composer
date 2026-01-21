@@ -51,14 +51,18 @@ class TestGraphQL:
     async def test_fetch_graphql_schema_success(self):
         """Test successful schema fetching"""
         mock_response = Mock()
-        mock_response.json.return_value = {"data": {"__schema": {"queryType": {"name": "Query"}}}}
+        mock_response.json.return_value = {
+            "data": {"__schema": {"queryType": {"name": "Query"}}}
+        }
         mock_response.raise_for_status.return_value = None
 
         with patch.object(http_client, "post", return_value=mock_response):
             result = await fetch_graphql_schema()
 
             assert result == {"queryType": {"name": "Query"}}
-            http_client.post.assert_called_once_with("", json={"query": GRAPHQL_INTROSPECTION_QUERY})
+            http_client.post.assert_called_once_with(
+                "", json={"query": GRAPHQL_INTROSPECTION_QUERY}
+            )
 
     @pytest.mark.asyncio
     async def test_fetch_graphql_schema_http_error(self):
@@ -76,7 +80,9 @@ class TestGraphQL:
     async def test_create_tools_with_args(self, mock_schema):
         """Test creating tools with arguments"""
         mock_response = Mock()
-        mock_response.json.return_value = {"data": {"country": {"__typename": "Country"}}}
+        mock_response.json.return_value = {
+            "data": {"country": {"__typename": "Country"}}
+        }
         mock_response.raise_for_status.return_value = None
 
         with patch.object(http_client, "post", return_value=mock_response):
@@ -93,7 +99,9 @@ class TestGraphQL:
     async def test_create_tools_without_args(self, mock_schema):
         """Test creating tools without arguments"""
         mock_response = Mock()
-        mock_response.json.return_value = {"data": {"countries": {"__typename": "Country"}}}
+        mock_response.json.return_value = {
+            "data": {"countries": {"__typename": "Country"}}
+        }
         mock_response.raise_for_status.return_value = None
 
         with patch.object(http_client, "post", return_value=mock_response):

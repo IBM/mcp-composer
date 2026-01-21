@@ -24,12 +24,18 @@ from mcp_composer.core.tools.sequential_thinking_tool import (
 
 # pylint: disable=protected-access,too-many-lines
 
+
 class TestThoughtData:
     """Test ThoughtData dataclass"""
 
     def test_thought_data_creation(self):
         """Test basic ThoughtData creation"""
-        thought = ThoughtData(thought="Test thought", next_thought_needed=True, thought_number=1, total_thoughts=5)
+        thought = ThoughtData(
+            thought="Test thought",
+            next_thought_needed=True,
+            thought_number=1,
+            total_thoughts=5,
+        )
 
         assert thought.thought == "Test thought"
         assert thought.next_thought_needed is True
@@ -110,7 +116,12 @@ class TestSequentialThinkingTool:
 
     def test_validate_thought_data_valid_input(self, tool):
         """Test validation with valid input data"""
-        data = {"thought": "This is a test thought", "nextThoughtNeeded": True, "thoughtNumber": 1, "totalThoughts": 5}
+        data = {
+            "thought": "This is a test thought",
+            "nextThoughtNeeded": True,
+            "thoughtNumber": 1,
+            "totalThoughts": 5,
+        }
 
         thought = tool.validate_thought_data(data)
 
@@ -144,21 +155,38 @@ class TestSequentialThinkingTool:
 
     def test_validate_thought_data_empty_thought(self, tool):
         """Test validation fails with empty thought"""
-        data = {"thought": "", "nextThoughtNeeded": True, "thoughtNumber": 1, "totalThoughts": 5}
+        data = {
+            "thought": "",
+            "nextThoughtNeeded": True,
+            "thoughtNumber": 1,
+            "totalThoughts": 5,
+        }
 
         with pytest.raises(ValueError, match="'thought' must be a non-empty string"):
             tool.validate_thought_data(data)
 
     def test_validate_thought_data_invalid_thought_number(self, tool):
         """Test validation fails with invalid thought number"""
-        data = {"thought": "Valid thought", "nextThoughtNeeded": True, "thoughtNumber": 0, "totalThoughts": 5}
+        data = {
+            "thought": "Valid thought",
+            "nextThoughtNeeded": True,
+            "thoughtNumber": 0,
+            "totalThoughts": 5,
+        }
 
-        with pytest.raises(ValueError, match="'thoughtNumber' must be a positive integer >= 1"):
+        with pytest.raises(
+            ValueError, match="'thoughtNumber' must be a positive integer >= 1"
+        ):
             tool.validate_thought_data(data)
 
     def test_validate_thought_data_auto_correct_total_thoughts(self, tool):
         """Test auto-correction of totalThoughts when too low"""
-        data = {"thought": "Valid thought", "nextThoughtNeeded": True, "thoughtNumber": 5, "totalThoughts": 3}
+        data = {
+            "thought": "Valid thought",
+            "nextThoughtNeeded": True,
+            "thoughtNumber": 5,
+            "totalThoughts": 3,
+        }
 
         thought = tool.validate_thought_data(data)
         assert thought.total_thoughts == 5  # Auto-corrected to match thought_number
@@ -173,7 +201,9 @@ class TestSequentialThinkingTool:
             "revisesThought": 0,
         }
 
-        with pytest.raises(ValueError, match="'revisesThought' must be a positive integer >= 1"):
+        with pytest.raises(
+            ValueError, match="'revisesThought' must be a positive integer >= 1"
+        ):
             tool.validate_thought_data(data)
 
     def test_validate_thought_data_invalid_branch_id(self, tool):
@@ -238,7 +268,12 @@ class TestSequentialThinkingTool:
 
     def test_process_thought_data_basic(self, tool):
         """Test basic thought processing"""
-        thought = ThoughtData(thought="Test thought", next_thought_needed=True, thought_number=1, total_thoughts=5)
+        thought = ThoughtData(
+            thought="Test thought",
+            next_thought_needed=True,
+            thought_number=1,
+            total_thoughts=5,
+        )
 
         session = ThoughtHistory()
 
@@ -254,7 +289,12 @@ class TestSequentialThinkingTool:
 
     def test_process_thought_data_auto_adjust_total(self, tool):
         """Test auto-adjustment of totalThoughts"""
-        thought = ThoughtData(thought="Test thought", next_thought_needed=True, thought_number=10, total_thoughts=5)
+        thought = ThoughtData(
+            thought="Test thought",
+            next_thought_needed=True,
+            thought_number=10,
+            total_thoughts=5,
+        )
 
         session = ThoughtHistory()
 
@@ -268,7 +308,10 @@ class TestSequentialThinkingTool:
         # Add initial thoughts
         session = ThoughtHistory()
         original_thought = ThoughtData(
-            thought="Original thought", next_thought_needed=True, thought_number=1, total_thoughts=5
+            thought="Original thought",
+            next_thought_needed=True,
+            thought_number=1,
+            total_thoughts=5,
         )
         session.thoughts.append(original_thought)
 
@@ -295,7 +338,10 @@ class TestSequentialThinkingTool:
         session = ThoughtHistory()
         for i in range(3):
             thought = ThoughtData(
-                thought=f"Thought {i + 1}", next_thought_needed=True, thought_number=i + 1, total_thoughts=5
+                thought=f"Thought {i + 1}",
+                next_thought_needed=True,
+                thought_number=i + 1,
+                total_thoughts=5,
             )
             session.thoughts.append(thought)
 
@@ -313,7 +359,9 @@ class TestSequentialThinkingTool:
 
         assert processed.is_branch is True
         assert "alternative" in session.branches
-        assert len(session.branches["alternative"]) == 3  # Copied thoughts 1-2 + new branch thought
+        assert (
+            len(session.branches["alternative"]) == 3
+        )  # Copied thoughts 1-2 + new branch thought
 
     def test_generate_coordinator_response_problem_identification(self, tool):
         """Test coordinator response for problem identification"""
@@ -524,8 +572,15 @@ class TestSequentialThinkingTool:
     async def test_run_exception_handling(self, tool):
         """Test tool execution with unexpected exception"""
         # Mock the validate_thought_data to raise an unexpected exception
-        with patch.object(tool, "validate_thought_data", side_effect=RuntimeError("Unexpected error")):
-            arguments = {"thought": "Test thought", "nextThoughtNeeded": True, "thoughtNumber": 1, "totalThoughts": 3}
+        with patch.object(
+            tool, "validate_thought_data", side_effect=RuntimeError("Unexpected error")
+        ):
+            arguments = {
+                "thought": "Test thought",
+                "nextThoughtNeeded": True,
+                "thoughtNumber": 1,
+                "totalThoughts": 3,
+            }
 
             result = await tool.run(arguments)
             content = result.content[0]

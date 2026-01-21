@@ -11,7 +11,7 @@ logger = LoggerFactory.get_logger()
 
 # Constants
 DEFAULT_TOKEN_EXPIRY = 3600  # 1 hour
-TOKEN_REFRESH_BUFFER = 60    # Refresh 1 minute early
+TOKEN_REFRESH_BUFFER = 60  # Refresh 1 minute early
 
 
 class DynamicTokenClient(httpx.AsyncClient):
@@ -50,18 +50,25 @@ class DynamicTokenClient(httpx.AsyncClient):
             apikey = resolve_env_value(self.auth_data.get(ConfigKey.APIKEY, None))
             # Expect apikey to be in headers: self.headers["apikey"]
             token_url = self.auth_data.get(ConfigKey.Token_URL)
-            auth_generation_method = self.auth_data.get(ConfigKey.TOKEN_GEN_AUTH_METHOD,"")
+            auth_generation_method = self.auth_data.get(
+                ConfigKey.TOKEN_GEN_AUTH_METHOD, ""
+            )
 
             if not token_url:
                 raise ValueError("token_url must be provided in auth_data.")
 
             if not apikey and not (_id and _secret):
-                raise ValueError("Either apikey or (id and secret) must be provided in auth_data.")
+                raise ValueError(
+                    "Either apikey or (id and secret) must be provided in auth_data."
+                )
 
             logger.debug("Refreshing token using method: %s", auth_generation_method)
 
             if auth_generation_method == "jwt" and apikey:
-                headers = {"Content-Type": "application/json", "Accept": "application/json"}
+                headers = {
+                    "Content-Type": "application/json",
+                    "Accept": "application/json",
+                }
                 data = {ConfigKey.APIKEY: apikey}
                 response = await super().post(token_url, headers=headers, json=data)
             elif auth_generation_method == AuthStrategy.BASIC:
@@ -71,21 +78,26 @@ class DynamicTokenClient(httpx.AsyncClient):
 
                 headers = {
                     "Accept": "application/json",
-                    "Authorization": f"Basic {encoded_credentials}"
+                    "Authorization": f"Basic {encoded_credentials}",
                 }
 
                 try:
                     auth = httpx.BasicAuth(str(_id), str(_secret))
-                    if self.auth_data.get(ConfigKey.TOKEN_GEN_METHOD,"get").lower()=="post":
-                        response = await super().post(token_url, headers=headers, auth=auth)
+                    if (
+                        self.auth_data.get(ConfigKey.TOKEN_GEN_METHOD, "get").lower()
+                        == "post"
+                    ):
+                        response = await super().post(
+                            token_url, headers=headers, auth=auth
+                        )
                     else:
-                        response = await super().get(token_url, headers=headers, auth=auth)
+                        response = await super().get(
+                            token_url, headers=headers, auth=auth
+                        )
                 except httpx.HTTPError as exc:
                     logger.error("Basic auth request failed: %s", exc)
                     logger.error("Token URL: %s", token_url)
-                    masked_secret = (
-                        "*" * len(str(_secret)) if _secret else None
-                    )
+                    masked_secret = "*" * len(str(_secret)) if _secret else None
                     logger.error("ID: %s, Secret: %s", _id, masked_secret)
                     raise
             else:
@@ -100,7 +112,9 @@ class DynamicTokenClient(httpx.AsyncClient):
             # Check if we got a valid token even with a 401 status (some APIs do this)
             token_data = response.json()
 
-            self._access_token = token_data.get("access_token") or token_data.get("token")
+            self._access_token = token_data.get("access_token") or token_data.get(
+                "token"
+            )
 
             if self._access_token:
                 logger.debug(
@@ -163,9 +177,7 @@ class DynamicTokenClient(httpx.AsyncClient):
         # Prevent recursion if the token_url is being called
         token_url = self.auth_data.get("token_url") if self.auth_data else None
         if token_url and str(url).startswith(str(token_url)):
-            logger.debug(
-                "Requesting token, skipping token refresh. kwargs=%s", kwargs
-            )
+            logger.debug("Requesting token, skipping token refresh. kwargs=%s", kwargs)
             try:
                 return await super().request(method, url, **kwargs)
             except httpx.HTTPError as e:
@@ -185,5 +197,7 @@ class DynamicTokenClient(httpx.AsyncClient):
         headers.update(kwargs.pop("headers", {}))
         headers["Authorization"] = f"Bearer {self._access_token}"
         headers.setdefault("Content-Type", "application/json")
-        logger.debug("Making request to %s with headers: %s and kwargs: %s", url, headers, kwargs)
+        logger.debug(
+            "Making request to %s with headers: %s and kwargs: %s", url, headers, kwargs
+        )
         return await super().request(method, url, headers=headers, **kwargs)

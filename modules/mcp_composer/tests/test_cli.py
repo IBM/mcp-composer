@@ -28,9 +28,21 @@ class TestCLI:
         # The main parser doesn't have subparsers - middleware commands are in a separate parser
         # Check that the parser has the expected arguments instead
         self.expected_args = [
-            'mode', 'id', 'endpoint', 'config_path', 'directory', 'script_path',
-            'host', 'port', 'auth_type', 'sse_url', 'disable_composer_tools',
-            'env', 'pass_environment', 'remote_auth_type', 'client_auth_type'
+            "mode",
+            "id",
+            "endpoint",
+            "config_path",
+            "directory",
+            "script_path",
+            "host",
+            "port",
+            "auth_type",
+            "sse_url",
+            "disable_composer_tools",
+            "env",
+            "pass_environment",
+            "remote_auth_type",
+            "client_auth_type",
         ]
 
     def _get_middleware_subparser(self):
@@ -52,7 +64,9 @@ class TestCLI:
         assert parser.description is not None
         # Check that all expected arguments are present
         for arg_name in self.expected_args:
-            assert any(action.dest == arg_name for action in parser._actions), f"Missing argument: {arg_name}"
+            assert any(
+                action.dest == arg_name for action in parser._actions
+            ), f"Missing argument: {arg_name}"
 
     def test_add_arguments_to_parser(self):
         """Test adding arguments to the parser."""

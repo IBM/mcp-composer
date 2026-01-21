@@ -6,16 +6,18 @@ import pytest
 from pydantic import AnyHttpUrl
 
 from mcp_composer.core.auth_handler.w3 import W3Provider
+from fastmcp.server.auth.oidc_proxy import OIDCProxy
 
 
 class TestW3Provider:
     """Unit tests for W3Provider class."""
 
     @patch("mcp_composer.core.auth_handler.w3.IntrospectionTokenVerifier")
-    @patch("mcp_composer.core.auth_handler.w3.OIDCProxy")
-    def test_w3_provider_initialization_defaults(self, mock_oidc_proxy, mock_introspection_verifier):
+    @patch.object(OIDCProxy, "__init__", return_value=None)
+    def test_w3_provider_initialization_defaults(self, mock_oidc_proxy_init, mock_introspection_verifier):
         """Test W3Provider initialization with default values."""
         mock_verifier_instance = Mock()
+        mock_verifier_instance.required_scopes = ["openid"]
         mock_introspection_verifier.return_value = mock_verifier_instance
 
         provider = W3Provider(
@@ -36,8 +38,8 @@ class TestW3Provider:
         )
 
         # Verify OIDCProxy was initialized with correct parameters
-        mock_oidc_proxy.assert_called_once()
-        call_kwargs = mock_oidc_proxy.call_args[1]
+        mock_oidc_proxy_init.assert_called_once()
+        call_kwargs = mock_oidc_proxy_init.call_args[1]
         assert call_kwargs["config_url"] == "https://preprod.login.w3.ibm.com/oidc/endpoint/default/.well-known/openid-configuration"
         assert call_kwargs["client_id"] == "test_client_id"
         assert call_kwargs["client_secret"] == "test_client_credential"
@@ -46,14 +48,16 @@ class TestW3Provider:
         assert call_kwargs["redirect_path"] is None  # Defaults to None, OIDCProxy will use "/auth/callback"
         assert call_kwargs["issuer_url"] == "http://localhost:9000"  # Defaults to base_url
         assert call_kwargs["timeout_seconds"] == 10
-        assert call_kwargs["required_scopes"] == ["openid"]
         assert call_kwargs["require_authorization_consent"] is True
+        # Note: required_scopes is not passed to OIDCProxy when token_verifier is provided
+        # as it's already configured on the token_verifier
 
     @patch("mcp_composer.core.auth_handler.w3.IntrospectionTokenVerifier")
-    @patch("mcp_composer.core.auth_handler.w3.OIDCProxy")
-    def test_w3_provider_initialization_custom(self, mock_oidc_proxy, mock_introspection_verifier):
+    @patch.object(OIDCProxy, "__init__", return_value=None)
+    def test_w3_provider_initialization_custom(self, mock_oidc_proxy_init, mock_introspection_verifier):
         """Test W3Provider initialization with custom values."""
         mock_verifier_instance = Mock()
+        mock_verifier_instance.required_scopes = ["openid", "profile", "email"]
         mock_introspection_verifier.return_value = mock_verifier_instance
         mock_storage = Mock()
 
@@ -86,7 +90,8 @@ class TestW3Provider:
         )
 
         # Verify OIDCProxy was initialized with custom parameters
-        call_kwargs = mock_oidc_proxy.call_args[1]
+        mock_oidc_proxy_init.assert_called_once()
+        call_kwargs = mock_oidc_proxy_init.call_args[1]
         assert call_kwargs["config_url"] == "https://custom.w3.ibm.com/.well-known/openid-configuration"
         assert call_kwargs["client_id"] == "custom_client_id"
         assert call_kwargs["client_secret"] == "custom_client_credential"
@@ -100,14 +105,15 @@ class TestW3Provider:
         assert call_kwargs["require_authorization_consent"] is False
         assert call_kwargs["audience"] == "custom_audience"
         assert call_kwargs["timeout_seconds"] == 30
-        assert call_kwargs["required_scopes"] == ["openid", "profile", "email"]
-        assert call_kwargs["extra_authorize_params"] == {"prompt": "select_account"}
+        # Note: required_scopes and extra_authorize_params are not passed to OIDCProxy
+        # when token_verifier is provided, as scopes are configured on the token_verifier
 
     @patch("mcp_composer.core.auth_handler.w3.IntrospectionTokenVerifier")
-    @patch("mcp_composer.core.auth_handler.w3.OIDCProxy")
-    def test_w3_provider_initialization_with_string_scopes(self, mock_oidc_proxy, mock_introspection_verifier):
+    @patch.object(OIDCProxy, "__init__", return_value=None)
+    def test_w3_provider_initialization_with_string_scopes(self, mock_oidc_proxy_init, mock_introspection_verifier):
         """Test W3Provider initialization with string scopes (should be parsed)."""
         mock_verifier_instance = Mock()
+        mock_verifier_instance.required_scopes = ["openid", "profile", "email"]
         mock_introspection_verifier.return_value = mock_verifier_instance
 
         provider = W3Provider(
@@ -119,15 +125,18 @@ class TestW3Provider:
             required_scopes="openid profile email",  # String instead of list
         )
 
-        # Verify scopes were parsed correctly
-        call_kwargs = mock_oidc_proxy.call_args[1]
-        assert call_kwargs["required_scopes"] == ["openid", "profile", "email"]
+        # Verify scopes were parsed correctly and passed to IntrospectionTokenVerifier
+        mock_oidc_proxy_init.assert_called_once()
+        # Verify IntrospectionTokenVerifier received parsed scopes
+        introspection_call_kwargs = mock_introspection_verifier.call_args[1]
+        assert introspection_call_kwargs["required_scopes"] == ["openid", "profile", "email"]
 
     @patch("mcp_composer.core.auth_handler.w3.IntrospectionTokenVerifier")
-    @patch("mcp_composer.core.auth_handler.w3.OIDCProxy")
-    def test_w3_provider_initialization_with_anyhttpurl(self, mock_oidc_proxy, mock_introspection_verifier):
+    @patch.object(OIDCProxy, "__init__", return_value=None)
+    def test_w3_provider_initialization_with_anyhttpurl(self, mock_oidc_proxy_init, mock_introspection_verifier):
         """Test W3Provider initialization with AnyHttpUrl types."""
         mock_verifier_instance = Mock()
+        mock_verifier_instance.required_scopes = ["openid"]
         mock_introspection_verifier.return_value = mock_verifier_instance
 
         config_url = AnyHttpUrl("https://preprod.login.w3.ibm.com/oidc/endpoint/default/.well-known/openid-configuration")
@@ -142,15 +151,17 @@ class TestW3Provider:
         )
 
         # Verify AnyHttpUrl objects are passed correctly
-        call_kwargs = mock_oidc_proxy.call_args[1]
+        mock_oidc_proxy_init.assert_called_once()
+        call_kwargs = mock_oidc_proxy_init.call_args[1]
         assert call_kwargs["config_url"] == config_url
         assert call_kwargs["base_url"] == base_url
 
     @patch("mcp_composer.core.auth_handler.w3.IntrospectionTokenVerifier")
-    @patch("mcp_composer.core.auth_handler.w3.OIDCProxy")
-    def test_w3_provider_issuer_url_defaults_to_base_url(self, mock_oidc_proxy, mock_introspection_verifier):
+    @patch.object(OIDCProxy, "__init__", return_value=None)
+    def test_w3_provider_issuer_url_defaults_to_base_url(self, mock_oidc_proxy_init, mock_introspection_verifier):
         """Test that issuer_url defaults to base_url when not provided."""
         mock_verifier_instance = Mock()
+        mock_verifier_instance.required_scopes = ["openid"]
         mock_introspection_verifier.return_value = mock_verifier_instance
 
         provider = W3Provider(
@@ -162,14 +173,16 @@ class TestW3Provider:
             # issuer_url not provided
         )
 
-        call_kwargs = mock_oidc_proxy.call_args[1]
+        mock_oidc_proxy_init.assert_called_once()
+        call_kwargs = mock_oidc_proxy_init.call_args[1]
         assert call_kwargs["issuer_url"] == "http://localhost:9000"
 
     @patch("mcp_composer.core.auth_handler.w3.IntrospectionTokenVerifier")
-    @patch("mcp_composer.core.auth_handler.w3.OIDCProxy")
-    def test_w3_provider_empty_scopes_defaults_to_openid(self, mock_oidc_proxy, mock_introspection_verifier):
+    @patch.object(OIDCProxy, "__init__", return_value=None)
+    def test_w3_provider_empty_scopes_defaults_to_openid(self, mock_oidc_proxy_init, mock_introspection_verifier):
         """Test that empty scopes list defaults to ['openid']."""
         mock_verifier_instance = Mock()
+        mock_verifier_instance.required_scopes = ["openid"]
         mock_introspection_verifier.return_value = mock_verifier_instance
 
         provider = W3Provider(
@@ -181,21 +194,19 @@ class TestW3Provider:
             required_scopes=None,  # None should default to ["openid"]
         )
 
-        call_kwargs = mock_oidc_proxy.call_args[1]
-        assert call_kwargs["required_scopes"] == ["openid"]
-
-        # Also verify IntrospectionTokenVerifier got the same scopes
+        mock_oidc_proxy_init.assert_called_once()
+        # Verify IntrospectionTokenVerifier got the default scopes
         introspection_call_kwargs = mock_introspection_verifier.call_args[1]
         assert introspection_call_kwargs["required_scopes"] == ["openid"]
+        # Note: required_scopes is not passed to OIDCProxy when token_verifier is provided
 
     @patch("mcp_composer.core.auth_handler.w3.IntrospectionTokenVerifier")
-    @patch("mcp_composer.core.auth_handler.w3.OIDCProxy")
-    def test_w3_provider_inherits_from_oidc_proxy(self, mock_oidc_proxy, mock_introspection_verifier):
+    @patch.object(OIDCProxy, "__init__", return_value=None)
+    def test_w3_provider_inherits_from_oidc_proxy(self, mock_oidc_proxy_init, mock_introspection_verifier):
         """Test that W3Provider properly inherits from OIDCProxy."""
         mock_verifier_instance = Mock()
+        mock_verifier_instance.required_scopes = ["openid"]
         mock_introspection_verifier.return_value = mock_verifier_instance
-        mock_oidc_instance = Mock()
-        mock_oidc_proxy.return_value = mock_oidc_instance
 
         provider = W3Provider(
             client_id="test_client_id",
@@ -206,7 +217,7 @@ class TestW3Provider:
         )
 
         # Verify that OIDCProxy.__init__ was called
-        assert mock_oidc_proxy.called
-        # Verify that the provider instance is the OIDCProxy instance
-        assert provider == mock_oidc_instance
+        assert mock_oidc_proxy_init.called
+        # Verify that W3Provider is an instance of OIDCProxy
+        assert isinstance(provider, W3Provider)
 

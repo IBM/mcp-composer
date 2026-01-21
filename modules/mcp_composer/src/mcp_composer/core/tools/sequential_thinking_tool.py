@@ -92,7 +92,9 @@ class SequentialThinkingTool(Tool):
 
     # Private attributes for session management
     _thinking_sessions: Dict[str, ThoughtHistory] = PrivateAttr(default_factory=dict)
-    _active_sessions: Dict[str, str] = PrivateAttr(default_factory=dict)  # user_id -> session_id
+    _active_sessions: Dict[str, str] = PrivateAttr(
+        default_factory=dict
+    )  # user_id -> session_id
 
     def __setattr__(self, name: str, value: Any) -> None:
         """
@@ -201,7 +203,12 @@ class SequentialThinkingTool(Tool):
                     "examples": ["default", "user123", "session_abc", "analyst_john"],
                 },
             },
-            "required": ["thought", "nextThoughtNeeded", "thoughtNumber", "totalThoughts"],
+            "required": [
+                "thought",
+                "nextThoughtNeeded",
+                "thoughtNumber",
+                "totalThoughts",
+            ],
             "additionalProperties": False,
             "examples": [
                 {
@@ -338,11 +345,15 @@ You should:
         needs_more_thoughts = bool(data.get("needsMoreThoughts", False))
 
         revises_thought = data.get("revisesThought")
-        if revises_thought is not None and (not isinstance(revises_thought, int) or revises_thought < 1):
+        if revises_thought is not None and (
+            not isinstance(revises_thought, int) or revises_thought < 1
+        ):
             raise ValueError("'revisesThought' must be a positive integer >= 1")
 
         branch_from_thought = data.get("branchFromThought")
-        if branch_from_thought is not None and (not isinstance(branch_from_thought, int) or branch_from_thought < 1):
+        if branch_from_thought is not None and (
+            not isinstance(branch_from_thought, int) or branch_from_thought < 1
+        ):
             raise ValueError("'branchFromThought' must be a positive integer >= 1")
 
         branch_id = data.get("branchId")
@@ -363,7 +374,9 @@ You should:
             needs_more_thoughts=needs_more_thoughts,
         )
 
-    def format_thought_data(self, thought: ThoughtData, session: ThoughtHistory) -> Dict[str, Any]:
+    def format_thought_data(
+        self, thought: ThoughtData, session: ThoughtHistory
+    ) -> Dict[str, Any]:
         """
         Format thought data for response.
 
@@ -388,7 +401,9 @@ You should:
             "timestamp": session.updated_at,
         }
 
-    def process_thought_data(self, thought: ThoughtData, session: ThoughtHistory) -> ProcessedThought:
+    def process_thought_data(
+        self, thought: ThoughtData, session: ThoughtHistory
+    ) -> ProcessedThought:
         """
         Process thought data and generate coordinator response.
 
@@ -404,7 +419,9 @@ You should:
             if thought.thought_number > thought.total_thoughts:
                 thought.total_thoughts = thought.thought_number
                 logger.info(
-                    "Auto-adjusted totalThoughts to %s for thought #%s", thought.total_thoughts, thought.thought_number
+                    "Auto-adjusted totalThoughts to %s for thought #%s",
+                    thought.total_thoughts,
+                    thought.thought_number,
                 )
 
             # Handle thought revision - replace existing thought if it's a revision
@@ -430,10 +447,17 @@ You should:
                         # Create new branch by copying main thoughts up to branch point
                         session.branches[thought.branch_id] = []
                         for existing_thought in session.thoughts:
-                            if existing_thought.thought_number <= thought.branch_from_thought:
-                                session.branches[thought.branch_id].append(existing_thought)
+                            if (
+                                existing_thought.thought_number
+                                <= thought.branch_from_thought
+                            ):
+                                session.branches[thought.branch_id].append(
+                                    existing_thought
+                                )
                         logger.info(
-                            "Created new branch '%s' from thought #%s", thought.branch_id, thought.branch_from_thought
+                            "Created new branch '%s' from thought #%s",
+                            thought.branch_id,
+                            thought.branch_from_thought,
                         )
 
                 # Add thought to appropriate location
@@ -455,14 +479,20 @@ You should:
                 f"Next Thought Needed: {thought.next_thought_needed}",
                 f"Needs More Thoughts: {thought.needs_more_thoughts}",
                 "---",
-                thought.thought[:200] + "..." if len(thought.thought) > 200 else thought.thought,
+                (
+                    thought.thought[:200] + "..."
+                    if len(thought.thought) > 200
+                    else thought.thought
+                ),
                 "==========================\n",
             ]
             logger.debug("\n".join(debug_trace))
 
             # Prepare branch details with summary
             branches_summary = {"main": len(session.thoughts)}
-            branches_summary.update({bid: len(thoughts) for bid, thoughts in session.branches.items()})
+            branches_summary.update(
+                {bid: len(thoughts) for bid, thoughts in session.branches.items()}
+            )
 
             branch_details = {
                 "currentBranchId": thought.branch_id or "main",
@@ -492,8 +522,14 @@ You should:
                 estimated_total_thoughts=thought.total_thoughts,
                 next_thought_needed=thought.next_thought_needed,
                 coordinator_response="Error occurred while processing thought",
-                branches=list(session.branches.keys()) if hasattr(session, "branches") else [],
-                thought_history_length=len(session.thoughts) if hasattr(session, "thoughts") else 0,
+                branches=(
+                    list(session.branches.keys())
+                    if hasattr(session, "branches")
+                    else []
+                ),
+                thought_history_length=(
+                    len(session.thoughts) if hasattr(session, "thoughts") else 0
+                ),
                 branch_details={},
                 is_revision=thought.is_revision,
                 revises_thought=thought.revises_thought,
@@ -502,7 +538,9 @@ You should:
                 error=str(e),
             )
 
-    def _generate_coordinator_response(self, thought: ThoughtData, session: ThoughtHistory) -> str:
+    def _generate_coordinator_response(
+        self, thought: ThoughtData, session: ThoughtHistory
+    ) -> str:
         """
         Generate a coordinator response based on the current thought and session context.
 
@@ -522,12 +560,20 @@ You should:
 
         # Analyze thought type and content
         if thought.is_revision:
-            analysis_parts.append(f"📝 Revision of thought #{thought.revises_thought} detected.")
-            guidance_parts.append("Consider how this revision changes your overall approach.")
+            analysis_parts.append(
+                f"📝 Revision of thought #{thought.revises_thought} detected."
+            )
+            guidance_parts.append(
+                "Consider how this revision changes your overall approach."
+            )
 
         if thought.branch_id:
-            analysis_parts.append(f"🌳 Branching into alternative path: {thought.branch_id}")
-            guidance_parts.append("Explore this alternative thoroughly before comparing with main path.")
+            analysis_parts.append(
+                f"🌳 Branching into alternative path: {thought.branch_id}"
+            )
+            guidance_parts.append(
+                "Explore this alternative thoroughly before comparing with main path."
+            )
 
         # Content-based analysis
         if any(word in thought_content for word in ["problem", "issue", "challenge"]):
@@ -537,17 +583,28 @@ You should:
                     "Good start! Continue by gathering relevant information or breaking down the problem further."
                 )
 
-        if any(word in thought_content for word in ["data", "information", "research", "evidence"]):
+        if any(
+            word in thought_content
+            for word in ["data", "information", "research", "evidence"]
+        ):
             analysis_parts.append("📊 Information gathering phase identified.")
             guidance_parts.append(
                 "Ensure you have sufficient data before moving to analysis. Consider what additional information might be needed."
             )
 
-        if any(word in thought_content for word in ["analyze", "analysis", "pattern", "trend"]):
+        if any(
+            word in thought_content
+            for word in ["analyze", "analysis", "pattern", "trend"]
+        ):
             analysis_parts.append("🔍 Analysis phase detected.")
-            guidance_parts.append("Look for patterns, root causes, and relationships. Consider multiple perspectives.")
+            guidance_parts.append(
+                "Look for patterns, root causes, and relationships. Consider multiple perspectives."
+            )
 
-        if any(word in thought_content for word in ["solution", "approach", "strategy", "plan"]):
+        if any(
+            word in thought_content
+            for word in ["solution", "approach", "strategy", "plan"]
+        ):
             analysis_parts.append("💡 Solution development identified.")
             guidance_parts.append(
                 "Evaluate feasibility, resources needed, and potential risks. Consider alternative solutions."
@@ -555,9 +612,13 @@ You should:
 
         if any(word in thought_content for word in ["hypothesis", "theory", "assume"]):
             analysis_parts.append("🧪 Hypothesis formation detected.")
-            guidance_parts.append("Test your hypothesis against available evidence. What would prove or disprove it?")
+            guidance_parts.append(
+                "Test your hypothesis against available evidence. What would prove or disprove it?"
+            )
 
-        if any(word in thought_content for word in ["verify", "test", "validate", "check"]):
+        if any(
+            word in thought_content for word in ["verify", "test", "validate", "check"]
+        ):
             analysis_parts.append("✅ Verification phase identified.")
             guidance_parts.append(
                 "Systematically check your conclusions. Look for counterevidence or alternative explanations."
@@ -579,7 +640,10 @@ You should:
             )
 
         # Uncertainty detection
-        if any(word in thought_content for word in ["uncertain", "unclear", "confused", "not sure"]):
+        if any(
+            word in thought_content
+            for word in ["uncertain", "unclear", "confused", "not sure"]
+        ):
             guidance_parts.append(
                 "🤔 Uncertainty detected. Consider what additional information or analysis might help clarify your thinking."
             )
@@ -683,7 +747,9 @@ You should:
             )
 
             # Return as JSON string in TextContent
-            return ToolResult(content=[TextContent(type="text", text=json.dumps(response, indent=2))])
+            return ToolResult(
+                content=[TextContent(type="text", text=json.dumps(response, indent=2))]
+            )
 
         except ValueError as e:
             logger.error("Validation error in sequential thinking: %s", e)
@@ -701,7 +767,11 @@ You should:
                 "status": "validation_error",
                 "error": str(e),
             }
-            return ToolResult(content=[TextContent(type="text", text=json.dumps(error_response, indent=2))])
+            return ToolResult(
+                content=[
+                    TextContent(type="text", text=json.dumps(error_response, indent=2))
+                ]
+            )
 
         except Exception as e:
             logger.error("Unexpected error in sequential thinking: %s", e)
@@ -719,4 +789,8 @@ You should:
                 "status": "failed",
                 "error": str(e),
             }
-            return ToolResult(content=[TextContent(type="text", text=json.dumps(error_response, indent=2))])
+            return ToolResult(
+                content=[
+                    TextContent(type="text", text=json.dumps(error_response, indent=2))
+                ]
+            )

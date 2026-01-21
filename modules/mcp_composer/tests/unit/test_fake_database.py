@@ -184,7 +184,9 @@ class TestFakeDatabase:
 
     def test_update_tool_description(self, fake_db):
         """Test updating tool description"""
-        fake_db._tools = [{"name": "tool1", "server_id": "server1", "description": "old description"}]
+        fake_db._tools = [
+            {"name": "tool1", "server_id": "server1", "description": "old description"}
+        ]
 
         fake_db.update_tool_description("tool1", "new description", "server1")
 
@@ -192,9 +194,13 @@ class TestFakeDatabase:
 
     def test_update_tool_description_nonexistent(self, fake_db):
         """Test updating description of non-existent tool"""
-        fake_db._tools = [{"name": "tool1", "server_id": "server1", "description": "old"}]
+        fake_db._tools = [
+            {"name": "tool1", "server_id": "server1", "description": "old"}
+        ]
 
-        fake_db.update_tool_description("nonexistent-tool", "new description", "server1")
+        fake_db.update_tool_description(
+            "nonexistent-tool", "new description", "server1"
+        )
 
         # Should not change existing tool
         assert fake_db._tools[0]["description"] == "old"

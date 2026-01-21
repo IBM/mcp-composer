@@ -17,7 +17,7 @@ from .fake_database import FakeDatabase
 
 __all__ = [
     "DatabaseInterface",
-    "LocalFileAdapter", 
+    "LocalFileAdapter",
     "CloudantAdapter",
     "PostgresAdapter",
     "FakeDatabase",

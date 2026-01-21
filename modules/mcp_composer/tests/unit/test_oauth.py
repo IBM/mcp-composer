@@ -108,7 +108,9 @@ class TestServerSettings:
             assert str(settings.server_url) == "https://testhost.example.com:9090/"
             assert settings.client_id == "test_client_123"
             assert settings.client_secret == "test_secret_456"
-            assert settings.callback_path == "https://testhost.example.com:9090/callback"
+            assert (
+                settings.callback_path == "https://testhost.example.com:9090/callback"
+            )
             assert settings.auth_url == "https://auth.example.com/authorize"
             assert settings.token_url == "https://auth.example.com/token"
             assert settings.mcp_scope == "mcp:read mcp:write"
@@ -428,13 +430,19 @@ class TestSimpleOAuthProvider:
         assert result == auth_code
 
     @pytest.mark.asyncio
-    async def test_load_authorization_code_nonexistent(self, oauth_provider, mock_client):
+    async def test_load_authorization_code_nonexistent(
+        self, oauth_provider, mock_client
+    ):
         """Test loading non-existent authorization code."""
-        result = await oauth_provider.load_authorization_code(mock_client, "nonexistent_code")
+        result = await oauth_provider.load_authorization_code(
+            mock_client, "nonexistent_code"
+        )
         assert result is None
 
     @pytest.mark.asyncio
-    async def test_exchange_authorization_code_invalid(self, oauth_provider, mock_client):
+    async def test_exchange_authorization_code_invalid(
+        self, oauth_provider, mock_client
+    ):
         """Test exchanging invalid authorization code."""
         auth_code = AuthorizationCode(
             code="invalid_code",
@@ -451,7 +459,9 @@ class TestSimpleOAuthProvider:
         assert "Invalid authorization code" in str(exc_info.value)
 
     @pytest.mark.asyncio
-    async def test_exchange_authorization_code_success(self, oauth_provider, mock_client):
+    async def test_exchange_authorization_code_success(
+        self, oauth_provider, mock_client
+    ):
         """Test successful authorization code exchange."""
         # Setup auth code
         auth_code = AuthorizationCode(
@@ -473,7 +483,9 @@ class TestSimpleOAuthProvider:
             expires_at=None,
         )
 
-        result = await oauth_provider.exchange_authorization_code(mock_client, auth_code)
+        result = await oauth_provider.exchange_authorization_code(
+            mock_client, auth_code
+        )
 
         # Verify OAuthToken structure
         assert isinstance(result, OAuthToken)
@@ -561,7 +573,9 @@ class TestSimpleOAuthProvider:
         )
 
         with pytest.raises(NotImplementedError) as exc_info:
-            await oauth_provider.exchange_refresh_token(mock_client, refresh_token, ["mcp:read"])
+            await oauth_provider.exchange_refresh_token(
+                mock_client, refresh_token, ["mcp:read"]
+            )
         assert "Not supported" in str(exc_info.value)
 
     @pytest.mark.asyncio

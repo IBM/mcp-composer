@@ -25,11 +25,13 @@ async def get_client(
     if auth_strategy == AuthStrategy.DYNAMIC_BEARER:  # pylint: disable=R1705
         token_url = auth_values.get(ConfigKey.Token_URL)
         api_key = auth_values.get(ConfigKey.APIKEY)
-        auth_genration_method = auth_values.get("auth_genration_method", ConfigKey.MEDIA_TYPE_JSON)
+        auth_genration_method = auth_values.get(
+            "auth_genration_method", ConfigKey.MEDIA_TYPE_JSON
+        )
         auth_data = {
             ConfigKey.Token_URL: token_url,
             ConfigKey.APIKEY: api_key,
-            "token_gen_method": auth_genration_method
+            "token_gen_method": auth_genration_method,
         }
         logger.info("Setting up header and client for dynamic bearer")
         return DynamicTokenClient(base_url, auth_data)

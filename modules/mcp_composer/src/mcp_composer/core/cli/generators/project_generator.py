@@ -133,7 +133,9 @@ class ProjectGenerator:
 
         # Example middleware
         example_middleware = self._generate_example_middleware()
-        middleware_path = self.target_dir / "examples" / "middleware" / "example_middleware.py"
+        middleware_path = (
+            self.target_dir / "examples" / "middleware" / "example_middleware.py"
+        )
         self._write_text_file(middleware_path, example_middleware)
 
         # Example config
@@ -389,17 +391,17 @@ member_servers.json
         logger.info("Starting in LOCAL mode")
         await composer.run_stdio_async()"""
         elif mode == "sse":
-            mode_startup = f'''    if mode == "sse":
+            mode_startup = f"""    if mode == "sse":
         host = os.getenv("MCP_HOST", "{self.config.get("host", "0.0.0.0")}")
         port = int(os.getenv("MCP_PORT", "{self.config.get("port", 9000)}"))
         logger.info(f"Starting in SSE mode on {{host}}:{{port}}")
-        await composer.run_sse_async(host=host, port=port, path="/sse")'''
+        await composer.run_sse_async(host=host, port=port, path="/sse")"""
         elif mode == "http":
-            mode_startup = f'''    if mode == "http":
+            mode_startup = f"""    if mode == "http":
         host = os.getenv("MCP_HOST", "{self.config.get("host", "0.0.0.0")}")
         port = int(os.getenv("MCP_PORT", "{self.config.get("port", 9000)}"))
         logger.info(f"Starting in HTTP mode on {{host}}:{{port}}")
-        await composer.run_http_async(host=host, port=port, path="/mcp")'''
+        await composer.run_http_async(host=host, port=port, path="/mcp")"""
         elif mode == "openapi":
             mode_startup = """    if mode == "openapi":
         logger.info("Starting in OpenAPI mode")
@@ -407,17 +409,17 @@ member_servers.json
         logger.info("OpenAPI server configured - access via composer tools")
         await composer.run_stdio_async()"""
         elif mode == "graphql":
-            mode_startup = f'''    if mode == "graphql":
+            mode_startup = f"""    if mode == "graphql":
         host = os.getenv("MCP_HOST", "{self.config.get("host", "0.0.0.0")}")
         port = int(os.getenv("MCP_PORT", "{self.config.get("port", 9000)}"))
         logger.info(f"Starting in GraphQL mode on {{host}}:{{port}}")
-        await composer.run_http_async(host=host, port=port, path="/graphql")'''
+        await composer.run_http_async(host=host, port=port, path="/graphql")"""
         elif mode == "client":
-            mode_startup = f'''    if mode == "client":
+            mode_startup = f"""    if mode == "client":
         host = os.getenv("MCP_HOST", "{self.config.get("host", "0.0.0.0")}")
         port = int(os.getenv("MCP_PORT", "{self.config.get("port", 9000)}"))
         logger.info(f"Starting in CLIENT mode on {{host}}:{{port}}")
-        await composer.run_http_async(host=host, port=port, path="/mcp")'''
+        await composer.run_http_async(host=host, port=port, path="/mcp")"""
         else:
             mode_startup = """    if mode == "stdio":
         await composer.run_stdio_async()"""
@@ -482,7 +484,7 @@ if __name__ == "__main__":
 
     def _generate_pyproject_toml(self) -> str:
         """Generate pyproject.toml content."""
-        return f'''[project]
+        return f"""[project]
 name = "{self.config["project_name"]}"
 version = "0.1.0"
 description = "{self.config["description"]}"
@@ -524,7 +526,7 @@ target-version = "py311"
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
-'''
+"""
 
     def _generate_requirements(self) -> str:
         """Generate requirements.txt content."""
@@ -648,7 +650,9 @@ class ExampleMiddleware(BaseMiddleware):
 
         start_command = f"mcp-composer run --mode {mode}"
         if mode in ["http", "sse"]:
-            start_command += f" --host {self.config['host']} --port {self.config['port']}"
+            start_command += (
+                f" --host {self.config['host']} --port {self.config['port']}"
+            )
         start_command += " --config-path config/config.json"
 
         return f"""# {self.config["project_name"]}

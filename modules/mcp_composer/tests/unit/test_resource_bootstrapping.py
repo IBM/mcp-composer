@@ -87,7 +87,11 @@ class TestUnifiedConfigWithResources:
             middleware=[],
             prompts=[],
             tools={},
-            resources=[ResourceConfig(name="test_resource", uri="resource://test", text="Test content")],
+            resources=[
+                ResourceConfig(
+                    name="test_resource", uri="resource://test", text="Test content"
+                )
+            ],
         )
         assert config.resources is not None
         assert len(config.resources) == 1
@@ -109,12 +113,16 @@ class TestUnifiedConfigWithResources:
 
     def test_empty_resources_list(self):
         """Test unified config with empty resources list."""
-        config = UnifiedConfig(servers=[], middleware=[], prompts=[], tools={}, resources=[])
+        config = UnifiedConfig(
+            servers=[], middleware=[], prompts=[], tools={}, resources=[]
+        )
         assert config.resources == []
 
     def test_none_resources(self):
         """Test unified config with None resources."""
-        config = UnifiedConfig(servers=[], middleware=[], prompts=[], tools={}, resources=None)
+        config = UnifiedConfig(
+            servers=[], middleware=[], prompts=[], tools={}, resources=None
+        )
         assert config.resources is None
 
 
@@ -128,7 +136,11 @@ class TestUnifiedConfigValidator:
             middleware=[],
             prompts=[],
             tools={},
-            resources=[ResourceConfig(name="test", uri="resource://test", mime_type="text/plain")],
+            resources=[
+                ResourceConfig(
+                    name="test", uri="resource://test", mime_type="text/plain"
+                )
+            ],
         )
         validator = UnifiedConfigValidator(config)
         validator.validate()  # Should not raise
@@ -141,7 +153,12 @@ class TestUnifiedConfigValidator:
             "prompts": [],
             "tools": {},
             "resources": [
-                {"name": "invalid", "uri": "resource://test", "uri_template": "resource://test/{id}", "text": "content"}
+                {
+                    "name": "invalid",
+                    "uri": "resource://test",
+                    "uri_template": "resource://test/{id}",
+                    "text": "content",
+                }
             ],
         }
         validator = UnifiedConfigValidator(config_dict)
@@ -161,7 +178,9 @@ class TestUnifiedConfigValidator:
             middleware=[],
             prompts=[],
             tools={},
-            resources=[ResourceConfig(name="test", uri="resource://test", mime_type="invalid")],
+            resources=[
+                ResourceConfig(name="test", uri="resource://test", mime_type="invalid")
+            ],
         )
         validator = UnifiedConfigValidator(config)
         with pytest.raises(ConfigValidationError, match="invalid mime_type"):
@@ -174,12 +193,14 @@ class TestConfigLoaderResourceDetection:
     def test_detect_resources_yaml(self, tmp_path):
         """Test detection of resources in YAML file."""
         config_file = tmp_path / "resources.yaml"
-        config_file.write_text("""
+        config_file.write_text(
+            """
 resources:
   - name: "test"
     uri: "resource://test"
     text: "content"
-""")
+"""
+        )
 
         loader = ConfigLoader()
         config_type = loader.detect_config_type(str(config_file))
@@ -188,7 +209,8 @@ resources:
     def test_detect_resources_json(self, tmp_path):
         """Test detection of resources in JSON file."""
         config_file = tmp_path / "resources.json"
-        config_file.write_text("""
+        config_file.write_text(
+            """
 {
   "resources": [
     {
@@ -198,7 +220,8 @@ resources:
     }
   ]
 }
-""")
+"""
+        )
 
         loader = ConfigLoader()
         config_type = loader.detect_config_type(str(config_file))
@@ -207,11 +230,13 @@ resources:
     def test_detect_resource_list_format(self, tmp_path):
         """Test detection of resources in list format."""
         config_file = tmp_path / "resources.yaml"
-        config_file.write_text("""
+        config_file.write_text(
+            """
 - name: "test"
   uri: "resource://test"
   text: "content"
-""")
+"""
+        )
 
         loader = ConfigLoader()
         config_type = loader.detect_config_type(str(config_file))
@@ -224,7 +249,8 @@ class TestConfigLoaderResourceLoading:
     def test_load_resources_yaml(self, tmp_path):
         """Test loading resources from YAML file."""
         config_file = tmp_path / "resources.yaml"
-        config_file.write_text("""
+        config_file.write_text(
+            """
 resources:
   - name: "test_resource"
     description: "Test resource"
@@ -232,7 +258,8 @@ resources:
     text: "Test content"
     mime_type: "text/plain"
     tags: ["test"]
-""")
+"""
+        )
 
         loader = ConfigLoader()
         config = loader.load_from_file(str(config_file))
@@ -246,7 +273,8 @@ resources:
     def test_load_resources_json(self, tmp_path):
         """Test loading resources from JSON file."""
         config_file = tmp_path / "resources.json"
-        config_file.write_text("""
+        config_file.write_text(
+            """
 {
   "resources": [
     {
@@ -256,7 +284,8 @@ resources:
     }
   ]
 }
-""")
+"""
+        )
 
         loader = ConfigLoader()
         config = loader.load_from_file(str(config_file))
@@ -268,14 +297,16 @@ resources:
     def test_load_unified_config_with_resources(self, tmp_path):
         """Test loading unified config with resources."""
         config_file = tmp_path / "unified.yaml"
-        config_file.write_text("""
+        config_file.write_text(
+            """
 servers: []
 prompts: []
 resources:
   - name: "test"
     uri: "resource://test"
     text: "content"
-""")
+"""
+        )
 
         loader = ConfigLoader()
         config = loader.load_from_file(str(config_file))
@@ -288,7 +319,8 @@ resources:
     def test_load_multiple_resources(self, tmp_path):
         """Test loading multiple resources."""
         config_file = tmp_path / "resources.yaml"
-        config_file.write_text("""
+        config_file.write_text(
+            """
 resources:
   - name: "resource1"
     uri: "resource://test1"
@@ -299,7 +331,8 @@ resources:
   - name: "template1"
     uri_template: "resource://test/{id}"
     template: "Template {id}"
-""")
+"""
+        )
 
         loader = ConfigLoader()
         config = loader.load_from_file(str(config_file))
@@ -317,7 +350,9 @@ class TestResourceConfigEdgeCases:
 
     def test_resource_with_multiline_text(self):
         """Test resource with multiline text content."""
-        config = ResourceConfig(name="multiline", uri="resource://multiline", text="Line 1\nLine 2\nLine 3")
+        config = ResourceConfig(
+            name="multiline", uri="resource://multiline", text="Line 1\nLine 2\nLine 3"
+        )
         assert config.text is not None
         assert "Line 1" in config.text
         assert "Line 2" in config.text
@@ -326,7 +361,10 @@ class TestResourceConfigEdgeCases:
         """Test resource with JSON content."""
         json_content = '{"key": "value", "number": 42}'
         config = ResourceConfig(
-            name="json_resource", uri="resource://json", text=json_content, mime_type="application/json"
+            name="json_resource",
+            uri="resource://json",
+            text=json_content,
+            mime_type="application/json",
         )
         assert config.text == json_content
         assert config.mime_type == "application/json"
@@ -334,7 +372,12 @@ class TestResourceConfigEdgeCases:
     def test_resource_with_markdown_content(self):
         """Test resource with Markdown content."""
         markdown = "# Title\n\n## Subtitle\n\n- Item 1\n- Item 2"
-        config = ResourceConfig(name="markdown", uri="resource://docs", text=markdown, mime_type="text/markdown")
+        config = ResourceConfig(
+            name="markdown",
+            uri="resource://docs",
+            text=markdown,
+            mime_type="text/markdown",
+        )
         assert config.mime_type == "text/markdown"
         assert config.text is not None
         assert "# Title" in config.text
@@ -345,21 +388,29 @@ class TestResourceConfigEdgeCases:
             name="parameterized",
             uri_template="resource://items/{id}",
             template="Item {id}",
-            parameters={"id": {"type": "string", "required": True, "description": "Item ID"}},
+            parameters={
+                "id": {"type": "string", "required": True, "description": "Item ID"}
+            },
         )
         assert config.parameters is not None
         assert "id" in config.parameters
 
     def test_resource_with_multiple_tags(self):
         """Test resource with multiple tags."""
-        config = ResourceConfig(name="tagged", uri="resource://tagged", tags=["tag1", "tag2", "tag3", "category:test"])
+        config = ResourceConfig(
+            name="tagged",
+            uri="resource://tagged",
+            tags=["tag1", "tag2", "tag3", "category:test"],
+        )
         assert config.tags is not None
         assert len(config.tags) == 4
         assert "tag1" in config.tags
 
     def test_disabled_resource(self):
         """Test creating a disabled resource."""
-        config = ResourceConfig(name="disabled", uri="resource://disabled", enabled=False)
+        config = ResourceConfig(
+            name="disabled", uri="resource://disabled", enabled=False
+        )
         assert config.enabled is False
 
 

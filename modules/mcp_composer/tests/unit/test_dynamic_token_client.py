@@ -43,7 +43,10 @@ class TestDynamicTokenClient:
 
     def test_dynamic_token_client_initialization(self, mock_client):
         """Test DynamicTokenClient initialization"""
-        assert mock_client.auth_data[ConfigKey.Token_URL] == "https://auth.example.com/token"
+        assert (
+            mock_client.auth_data[ConfigKey.Token_URL]
+            == "https://auth.example.com/token"
+        )
         assert mock_client.auth_data[ConfigKey.APIKEY] == "test-api-key"
         assert mock_client.auth_data[ConfigKey.TOKEN_GEN_AUTH_METHOD] == "jwt"
         assert mock_client._access_token is None
@@ -126,7 +129,9 @@ class TestDynamicTokenClient:
         mock_response = Mock()
         mock_response.raise_for_status.return_value = None
 
-        with patch("httpx.AsyncClient.request", return_value=mock_response) as mock_super_request:
+        with patch(
+            "httpx.AsyncClient.request", return_value=mock_response
+        ) as mock_super_request:
             await mock_client.request("GET", "https://api.example.com/data")
 
             # Verify super().request was called with Authorization header
@@ -155,7 +160,9 @@ class TestDynamicTokenClient:
 
         with (
             patch("httpx.AsyncClient.post", return_value=mock_token_response),
-            patch("httpx.AsyncClient.request", return_value=mock_data_response) as mock_super_request,
+            patch(
+                "httpx.AsyncClient.request", return_value=mock_data_response
+            ) as mock_super_request,
         ):
             await mock_client.request("GET", "https://api.example.com/data")
 
@@ -176,7 +183,9 @@ class TestDynamicTokenClient:
         mock_response = Mock()
         mock_response.raise_for_status.return_value = None
 
-        with patch("httpx.AsyncClient.request", return_value=mock_response) as mock_super_request:
+        with patch(
+            "httpx.AsyncClient.request", return_value=mock_response
+        ) as mock_super_request:
             # Request to token URL should not trigger refresh
             await mock_client.request("POST", "https://auth.example.com/token")
 
@@ -205,7 +214,9 @@ class TestDynamicTokenClient:
 
         with (
             patch("httpx.AsyncClient.post", return_value=mock_token_response),
-            patch("httpx.AsyncClient.request", return_value=mock_data_response) as mock_super_request,
+            patch(
+                "httpx.AsyncClient.request", return_value=mock_data_response
+            ) as mock_super_request,
         ):
             await mock_client.request("GET", "https://api.example.com/data")
 
@@ -226,8 +237,12 @@ class TestDynamicTokenClient:
         mock_response = Mock()
         mock_response.raise_for_status.return_value = None
 
-        with patch("httpx.AsyncClient.request", return_value=mock_response) as mock_super_request:
-            await mock_client.request("GET", "https://api.example.com/data", headers={"X-Custom": "value"})
+        with patch(
+            "httpx.AsyncClient.request", return_value=mock_response
+        ) as mock_super_request:
+            await mock_client.request(
+                "GET", "https://api.example.com/data", headers={"X-Custom": "value"}
+            )
 
             # Verify headers are preserved
             mock_super_request.assert_called_once()

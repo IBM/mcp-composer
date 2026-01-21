@@ -9,9 +9,4 @@ from .json_file import JsonFileScanner
 from .mcp_client import McpClientScanner
 from .mcp_protocol import McpProtocolScanner
 
-__all__ = [
-    "Scanner",
-    "JsonFileScanner", 
-    "McpClientScanner",
-    "McpProtocolScanner"
-]
+__all__ = ["Scanner", "JsonFileScanner", "McpClientScanner", "McpProtocolScanner"]

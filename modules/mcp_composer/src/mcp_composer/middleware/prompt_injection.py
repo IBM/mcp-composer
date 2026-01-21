@@ -336,7 +336,9 @@ class PromptInjectionMiddleware(Middleware):
             and risky_texts
             and 0.15 <= overall_score < self.threshold
         ):
-            logger.warning("Sanitizing medium-risk prompt content in %s", operation_name)
+            logger.warning(
+                "Sanitizing medium-risk prompt content in %s", operation_name
+            )
             for prompt in prompt_list:
                 await self._maybe_sanitize_prompt(prompt, risky_texts)
 

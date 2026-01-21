@@ -35,10 +35,12 @@ auth = W3Provider(
         "https://preprod.login.w3.ibm.com/v1.0/endpoint/default/introspect",
     ),
     base_url=os.getenv("OAUTH_BASE_URL", "http://localhost:9000"),
-    required_scopes=os.getenv("OAUTH_PROVIDER_SCOPE", "openid offline_access").split() 
-    if os.getenv("OAUTH_PROVIDER_SCOPE")
-    else ["openid"],
-    redirect_path=os.getenv("OAUTH_REDIRECT_PATH", "/auth/idaas/callback")
+    required_scopes=(
+        os.getenv("OAUTH_PROVIDER_SCOPE", "openid offline_access").split()
+        if os.getenv("OAUTH_PROVIDER_SCOPE")
+        else ["openid"]
+    ),
+    redirect_path=os.getenv("OAUTH_REDIRECT_PATH", "/auth/idaas/callback"),
 )
 
 gw = MCPComposer("hello-composer", auth=auth)
@@ -59,4 +61,3 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
-

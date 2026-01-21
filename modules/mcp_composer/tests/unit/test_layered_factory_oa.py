@@ -51,13 +51,23 @@ class TestLayeredOpenAPIFactory:
                             },
                         ],
                         "requestBody": {
-                            "content": {"application/json": {"schema": {"$ref": "#/components/schemas/TestRequest"}}}
+                            "content": {
+                                "application/json": {
+                                    "schema": {
+                                        "$ref": "#/components/schemas/TestRequest"
+                                    }
+                                }
+                            }
                         },
                         "responses": {
                             "200": {
                                 "description": "Success",
                                 "content": {
-                                    "application/json": {"schema": {"$ref": "#/components/schemas/TestResponse"}}
+                                    "application/json": {
+                                        "schema": {
+                                            "$ref": "#/components/schemas/TestResponse"
+                                        }
+                                    }
                                 },
                             },
                             "400": {"description": "Bad Request"},
@@ -96,7 +106,9 @@ class TestLayeredOpenAPIFactory:
     def layered_factory(self, mock_openapi_spec, mock_client):
         """Create a LayeredOpenAPIFactory instance for testing."""
         custom_routes = [RouteMap(methods=["GET"], pattern=".*", mcp_type=MCPType.TOOL)]
-        return LayeredOpenAPIFactory(mock_openapi_spec, mock_client, custom_routes=custom_routes)
+        return LayeredOpenAPIFactory(
+            mock_openapi_spec, mock_client, custom_routes=custom_routes
+        )
 
     @pytest.mark.asyncio
     async def test_layered_factory_initialization(self, layered_factory):
@@ -197,18 +209,24 @@ class TestLayeredOpenAPIFactory:
     def test_should_include_operation(self, layered_factory):
         """Test operation inclusion logic."""
         # Test with no custom routes (should include all)
-        assert layered_factory._should_include_operation("GET", "/test/endpoint") is True
+        assert (
+            layered_factory._should_include_operation("GET", "/test/endpoint") is True
+        )
 
     def test_matches_pattern(self, layered_factory):
         """Test pattern matching."""
         # Test exact match
-        assert layered_factory._matches_pattern("/test/endpoint", "/test/endpoint") is True
+        assert (
+            layered_factory._matches_pattern("/test/endpoint", "/test/endpoint") is True
+        )
 
         # Test regex pattern
         assert layered_factory._matches_pattern("/test/endpoint", ".*endpoint") is True
 
         # Test non-match
-        assert layered_factory._matches_pattern("/test/endpoint", "/other/path") is False
+        assert (
+            layered_factory._matches_pattern("/test/endpoint", "/other/path") is False
+        )
 
     def test_get_type_info(self, layered_factory):
         """Test get_type_info method."""
@@ -287,7 +305,9 @@ class TestLayeredOpenAPIFactory:
         """Test LayeredOpenAPIFactory with custom routes."""
         custom_routes = [RouteMap(methods=["GET"], pattern=".*", mcp_type=MCPType.TOOL)]
 
-        factory = LayeredOpenAPIFactory(mock_openapi_spec, mock_client, custom_routes=custom_routes)
+        factory = LayeredOpenAPIFactory(
+            mock_openapi_spec, mock_client, custom_routes=custom_routes
+        )
 
         assert factory.custom_routes == custom_routes
 
@@ -297,7 +317,11 @@ class TestLayeredOpenAPIFactory:
         assert "get_service_info" in instructions
         assert "get_type_info" in instructions
         assert "make_tool_call" in instructions
-        assert "Layered Tool Pattern" in instructions or "three main capabilities" in instructions
+        assert (
+            "Layered Tool Pattern" in instructions
+            or "three main capabilities" in instructions
+        )
+
     # -------------------
     # Additional description tests
     # -------------------
@@ -314,7 +338,9 @@ class TestLayeredOpenAPIFactory:
             desc = getattr(tool, "description")
         # dict-like
         elif isinstance(tool, dict):
-            desc = tool.get("description") or tool.get("metadata", {}).get("description")
+            desc = tool.get("description") or tool.get("metadata", {}).get(
+                "description"
+            )
         else:
             # try common attribute containers
             meta = getattr(tool, "metadata", None) or getattr(tool, "tool", None)
@@ -336,7 +362,9 @@ class TestLayeredOpenAPIFactory:
         for tool in tools:
             desc = self._get_tool_description(tool)
             assert isinstance(desc, str)
-            assert desc.strip() != "", f"Tool {getattr(tool, 'name', str(tool))} missing description"
+            assert (
+                desc.strip() != ""
+            ), f"Tool {getattr(tool, 'name', str(tool))} missing description"
 
     @pytest.mark.asyncio
     async def test_get_service_info_tool_description(self, layered_factory):
@@ -345,7 +373,9 @@ class TestLayeredOpenAPIFactory:
         tools = list(tools_dict.values())
 
         # find the tool object
-        svc_tool = next((t for t in tools if getattr(t, "name", None) == "get_service_info"), None)
+        svc_tool = next(
+            (t for t in tools if getattr(t, "name", None) == "get_service_info"), None
+        )
         assert svc_tool is not None, "get_service_info tool not registered"
 
         desc = self._get_tool_description(svc_tool).lower()
@@ -358,7 +388,9 @@ class TestLayeredOpenAPIFactory:
         tools_dict = await layered_factory._tool_manager.get_tools()
         tools = list(tools_dict.values())
 
-        type_tool = next((t for t in tools if getattr(t, "name", None) == "get_type_info"), None)
+        type_tool = next(
+            (t for t in tools if getattr(t, "name", None) == "get_type_info"), None
+        )
         assert type_tool is not None, "get_type_info tool not registered"
 
         desc = self._get_tool_description(type_tool).lower()
@@ -370,7 +402,9 @@ class TestLayeredOpenAPIFactory:
         tools_dict = await layered_factory._tool_manager.get_tools()
         tools = list(tools_dict.values())
 
-        call_tool = next((t for t in tools if getattr(t, "name", None) == "make_tool_call"), None)
+        call_tool = next(
+            (t for t in tools if getattr(t, "name", None) == "make_tool_call"), None
+        )
         assert call_tool is not None, "make_tool_call tool not registered"
 
         desc = self._get_tool_description(call_tool).lower()
