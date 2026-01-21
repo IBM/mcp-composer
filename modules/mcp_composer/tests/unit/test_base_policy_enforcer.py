@@ -49,11 +49,11 @@ class TestBasePolicyEnforcer:
         """Test that is_allowed method has correct signature"""
         sig = BasePolicyEnforcer.is_allowed.__annotations__
         assert "tool_name" in sig
-        assert sig["tool_name"] == str
+        assert sig["tool_name"] == str  # noqa: E721
         assert "context" in sig
-        assert sig["context"] == dict
+        assert sig["context"] == dict  # noqa: E721
         assert "return" in sig
-        assert sig["return"] == bool
+        assert sig["return"] == bool  # noqa: E721
 
     def test_docstring_exists(self):
         """Test that is_allowed method has docstring"""

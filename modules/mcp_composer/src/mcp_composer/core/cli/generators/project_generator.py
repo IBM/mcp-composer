@@ -448,23 +448,23 @@ logger = LoggerFactory.get_logger()
 async def main():
     """Main entry point for the MCP Composer server."""
     logger.info("Starting {self.config["project_name"]}...")
-    
+
     # Load configuration
     config_path = os.getenv("CONFIG_PATH", "config/config.json")
     logger.info(f"Loading configuration from {{config_path}}")
-    
+
     # Create MCP Composer instance
     composer = MCPComposer(
         name="{self.config["project_name"]}",
         config_path=config_path
     )
-    
+
     # Setup member servers
     await composer.setup_member_servers()
-    
+
     # Start server based on mode
     mode = os.getenv("MCP_MODE", "{mode}")
-    
+
 {mode_startup}
     else:
         logger.error(f"Unknown mode: {{mode}}")
@@ -548,10 +548,10 @@ from typing import Dict, Any
 def example_tool(name: str = "World") -> Dict[str, Any]:
     """
     Example tool that greets a user.
-    
+
     Args:
         name: Name to greet
-        
+
     Returns:
         A greeting message
     """
@@ -564,10 +564,10 @@ def example_tool(name: str = "World") -> Dict[str, Any]:
 async def async_example_tool(name: str = "World") -> Dict[str, Any]:
     """
     Async example tool that greets a user.
-    
+
     Args:
         name: Name to greet
-        
+
     Returns:
         A greeting message
     """
@@ -591,7 +591,7 @@ from mcp_composer.middleware.base_middleware import BaseMiddleware
 
 class ExampleMiddleware(BaseMiddleware):
     """Example middleware that logs requests."""
-    
+
     async def on_call_tool(
         self,
         tool_name: str,
@@ -600,22 +600,22 @@ class ExampleMiddleware(BaseMiddleware):
     ) -> Any:
         """
         Hook that runs before tool execution.
-        
+
         Args:
             tool_name: Name of the tool being called
             arguments: Arguments passed to the tool
             next: Next middleware in the chain
-            
+
         Returns:
             Result from the tool execution
         """
         self.logger.info(f"Calling tool: {tool_name} with args: {arguments}")
-        
+
         # Call the next middleware/tool
         result = await next(tool_name, arguments)
-        
+
         self.logger.info(f"Tool {tool_name} returned: {result}")
-        
+
         return result
 '''
 

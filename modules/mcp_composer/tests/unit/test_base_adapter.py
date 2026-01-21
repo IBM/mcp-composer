@@ -99,46 +99,46 @@ class TestSecretAdapter:
         # Test load_config
         sig = SecretAdapter.load_config.__annotations__
         assert "server_id" in sig
-        assert sig["server_id"] == str
+        assert sig["server_id"] == str  # noqa: E721
         assert "return" in sig
         assert sig["return"] == Dict[str, Any]
 
         # Test save_config
         sig = SecretAdapter.save_config.__annotations__
         assert "server_id" in sig
-        assert sig["server_id"] == str
+        assert sig["server_id"] == str  # noqa: E721
         assert "versions" in sig
         assert sig["versions"] == List[Dict[str, Any]]
 
         # Test get_all_versions
         sig = SecretAdapter.get_all_versions.__annotations__
         assert "server_id" in sig
-        assert sig["server_id"] == str
+        assert sig["server_id"] == str  # noqa: E721
         assert "return" in sig
         assert sig["return"] == List[Dict[str, Any]]
 
         # Test get_latest_version
         sig = SecretAdapter.get_latest_version.__annotations__
         assert "server_id" in sig
-        assert sig["server_id"] == str
+        assert sig["server_id"] == str  # noqa: E721
         assert "return" in sig
         assert sig["return"] == Optional[Dict[str, Any]]
 
         # Test get_version_by_id
         sig = SecretAdapter.get_version_by_id.__annotations__
         assert "server_id" in sig
-        assert sig["server_id"] == str
+        assert sig["server_id"] == str  # noqa: E721
         assert "version_id" in sig
-        assert sig["version_id"] == str
+        assert sig["version_id"] == str  # noqa: E721
         assert "return" in sig
         assert sig["return"] == Optional[Dict[str, Any]]
 
         # Test rollback
         sig = SecretAdapter.rollback.__annotations__
         assert "server_id" in sig
-        assert sig["server_id"] == str
+        assert sig["server_id"] == str  # noqa: E721
         assert "version_id" in sig
-        assert sig["version_id"] == str
+        assert sig["version_id"] == str  # noqa: E721
         assert "return" in sig
         assert sig["return"] == Dict[str, Any]
 

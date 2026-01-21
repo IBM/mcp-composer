@@ -172,38 +172,38 @@ class ModelMeshTool(BaseSpecializedTool):
 
         description = """
         Model Mesh Tool - Routes prompts to specialized models based on task type.
-        
+
         This tool implements a small-model mesh architecture where different models
         are configured for specific tasks:
-        
+
         TASK TYPE SELECTION GUIDE:
-        
+
         1. **'guardian'** - Content Safety & Moderation
-           Use for: content safety checks, toxicity detection, policy compliance, 
+           Use for: content safety checks, toxicity detection, policy compliance,
            risk assessment, content moderation decisions.
-           Examples: "check if content is safe", "is this toxic?", "does this comply?", 
+           Examples: "check if content is safe", "is this toxic?", "does this comply?",
            "assess risk", "should I moderate this?"
-           
+
         2. **'vision'** - Image Analysis
            Use for: image analysis, object detection, visual content understanding.
            Examples: "analyze this image", "what objects are in this scene?"
-           
+
         3. **'text'** - Text Processing
            Use for: text summarization, question answering, general text analysis.
            Examples: "summarize this text", "answer this question"
-           
+
         4. **'speech'** - Audio Processing
            Use for: audio transcription, speech sentiment analysis.
            Examples: "transcribe this audio", "analyze speech sentiment"
-        
+
         CRITICAL: For ANY content safety, toxicity, moderation, or policy-related requests,
         you MUST use task='guardian', NOT task='text'. The guardian model is specifically
         designed for safety and moderation tasks.
-        
+
         Models are accessed via configurable providers (LiteLLM by default, Ollama as alternative).
         The tool can load prompt templates from a JSON configuration file, or accept
         prompts directly.
-        
+
         The tool automatically routes requests to the appropriate specialized model based on
         the task type you specify.
         """

@@ -132,12 +132,12 @@ class TestDatabaseInterface:
         # Test remove_server
         sig = DatabaseInterface.remove_server.__annotations__
         assert "server_id" in sig
-        assert sig["server_id"] == str
+        assert sig["server_id"] == str  # noqa: E721
 
         # Test get_document
         sig = DatabaseInterface.get_document.__annotations__
         assert "server_id" in sig
-        assert sig["server_id"] == str
+        assert sig["server_id"] == str  # noqa: E721
         assert "return" in sig
         assert sig["return"] == Dict
 
@@ -146,68 +146,68 @@ class TestDatabaseInterface:
         assert "tools" in sig
         assert sig["tools"] == list[str]
         assert "server_id" in sig
-        assert sig["server_id"] == str
+        assert sig["server_id"] == str  # noqa: E721
 
         # Test disable_tools
         sig = DatabaseInterface.disable_tools.__annotations__
         assert "tools" in sig
         assert sig["tools"] == list[str]
         assert "server_id" in sig
-        assert sig["server_id"] == str
+        assert sig["server_id"] == str  # noqa: E721
 
         # Test update_tool_description
         sig = DatabaseInterface.update_tool_description.__annotations__
         assert "tool" in sig
-        assert sig["tool"] == str
+        assert sig["tool"] == str  # noqa: E721
         assert "description" in sig
-        assert sig["description"] == str
+        assert sig["description"] == str  # noqa: E721
         assert "server_id" in sig
-        assert sig["server_id"] == str
+        assert sig["server_id"] == str  # noqa: E721
 
         # Test enable_prompts
         sig = DatabaseInterface.enable_prompts.__annotations__
         assert "prompts" in sig
         assert sig["prompts"] == list[str]
         assert "server_id" in sig
-        assert sig["server_id"] == str
+        assert sig["server_id"] == str  # noqa: E721
 
         # Test disable_prompts
         sig = DatabaseInterface.disable_prompts.__annotations__
         assert "prompts" in sig
         assert sig["prompts"] == list[str]
         assert "server_id" in sig
-        assert sig["server_id"] == str
+        assert sig["server_id"] == str  # noqa: E721
 
         # Test enable_resources
         sig = DatabaseInterface.enable_resources.__annotations__
         assert "resources" in sig
         assert sig["resources"] == list[str]
         assert "server_id" in sig
-        assert sig["server_id"] == str
+        assert sig["server_id"] == str  # noqa: E721
 
         # Test disable_resources
         sig = DatabaseInterface.disable_resources.__annotations__
         assert "resources" in sig
         assert sig["resources"] == list[str]
         assert "server_id" in sig
-        assert sig["server_id"] == str
+        assert sig["server_id"] == str  # noqa: E721
 
         # Test mark_deactivated
         sig = DatabaseInterface.mark_deactivated.__annotations__
         assert "server_id" in sig
-        assert sig["server_id"] == str
+        assert sig["server_id"] == str  # noqa: E721
 
         # Test get_server_status
         sig = DatabaseInterface.get_server_status.__annotations__
         assert "server_id" in sig
-        assert sig["server_id"] == str
+        assert sig["server_id"] == str  # noqa: E721
         assert "return" in sig
-        assert sig["return"] == str
+        assert sig["return"] == str  # noqa: E721
 
         # Test update_server_config
         sig = DatabaseInterface.update_server_config.__annotations__
         assert "config" in sig
-        assert sig["config"] == dict
+        assert sig["config"] == dict  # noqa: E721
 
         # Test load_all_resources
         sig = DatabaseInterface.load_all_resources.__annotations__
@@ -222,7 +222,7 @@ class TestDatabaseInterface:
         # Test delete_resource
         sig = DatabaseInterface.delete_resource.__annotations__
         assert "resource_id" in sig
-        assert sig["resource_id"] == str
+        assert sig["resource_id"] == str  # noqa: E721
 
     def test_inheritance_chain(self):
         """Test that DatabaseInterface properly inherits from ABC"""

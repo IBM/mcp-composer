@@ -971,7 +971,7 @@ class TestCLI:
 
     def test_middleware_command_argument_types(self):
         """Test that middleware command arguments have correct types."""
-        parser = _setup_args_parser()
+        _setup_args_parser()
 
         # Test validate command argument types
 
@@ -996,7 +996,7 @@ class TestCLI:
         priority_action = next(
             action for action in add_parser._actions if action.dest == "priority"
         )
-        assert priority_action.type == int
+        assert priority_action.type == int  # noqa: E721
 
     def test_middleware_command_choices(self):
         """Test that middleware command arguments have correct choices."""
@@ -1059,7 +1059,7 @@ class TestCLI:
 
     def test_middleware_command_help_texts(self):
         """Test that middleware command arguments have helpful descriptions."""
-        parser = _setup_args_parser()
+        _setup_args_parser()
 
         # Test validate command help texts
 
@@ -1110,7 +1110,7 @@ class TestCLI:
 
     def test_middleware_command_metavar(self):
         """Test that middleware command arguments have appropriate metavars."""
-        parser = _setup_args_parser()
+        _setup_args_parser()
 
         # Test validate command metavars
 
