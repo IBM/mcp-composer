@@ -65,7 +65,7 @@ class W3Provider(OIDCProxy):
         from mcp_composer.core.auth_handler.w3 import W3Provider
 
         auth = W3Provider(
-            client_id="YmY2MTQwYjgtODFIMi00",
+            client_id="example-client-id-12345",
             client_secret="your-client-secret",
             config_url="https://preprod.login.w3.ibm.com/oidc/endpoint/default/.well-known/openid-configuration",
             introspection_url="https://preprod.login.w3.ibm.com/v1.0/endpoint/default/introspect",
@@ -99,7 +99,7 @@ class W3Provider(OIDCProxy):
         """Initialize IBM W3 OAuth provider.
 
         Args:
-            client_id: IBM W3 OAuth client ID (e.g., "YmY2MTQwYjgtODFIMi00")
+            client_id: IBM W3 OAuth client ID (e.g., "example-client-id-12345")
             client_secret: IBM W3 OAuth client secret
             config_url: OIDC discovery configuration URL
                 (e.g., "https://preprod.login.w3.ibm.com/oidc/endpoint/default/.well-known/openid-configuration")
