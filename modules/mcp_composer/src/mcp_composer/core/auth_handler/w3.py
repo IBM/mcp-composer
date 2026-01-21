@@ -13,7 +13,7 @@ Example:
     # Simple IBM W3 OAuth protection
     auth = W3Provider(
         client_id="your-w3-client-id",
-        client_secret="your-w3-client-credential",
+        client_secret="your-w3-client-credential",  # pragma: allowlist secret
         config_url="https://preprod.login.w3.ibm.com/oidc/endpoint/default/.well-known/openid-configuration",
         introspection_url="https://preprod.login.w3.ibm.com/v1.0/endpoint/default/introspect",
         base_url="http://localhost:9000"
@@ -66,7 +66,7 @@ class W3Provider(OIDCProxy):
 
         auth = W3Provider(
             client_id="example-client-id-12345",
-            client_secret="your-client-credential",
+            client_secret="your-client-credential",  # pragma: allowlist secret
             config_url="https://preprod.login.w3.ibm.com/oidc/endpoint/default/.well-known/openid-configuration",
             introspection_url="https://preprod.login.w3.ibm.com/v1.0/endpoint/default/introspect",
             base_url="http://localhost:9000"

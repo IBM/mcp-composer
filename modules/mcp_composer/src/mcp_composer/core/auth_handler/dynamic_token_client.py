@@ -97,8 +97,6 @@ class DynamicTokenClient(httpx.AsyncClient):
                 except httpx.HTTPError as exc:
                     logger.error("Basic auth request failed: %s", exc)
                     logger.error("Token URL: %s", token_url)
-                    masked_secret = "*" * len(str(_secret)) if _secret else None
-                    logger.error("ID: %s, Secret: %s", _id, masked_secret)
                     raise
             else:
                 # IAM-style
