@@ -31,7 +31,6 @@ class TestW3Provider:
             introspection_url="https://preprod.login.w3.ibm.com/v1.0/endpoint/default/introspect",
             client_id="test_client_id",
             client_secret="test_client_secret",
-            client_auth_method="client_secret_basic",
             timeout_seconds=10,
             required_scopes=["openid"],
         )
@@ -82,7 +81,6 @@ class TestW3Provider:
             introspection_url="https://custom.w3.ibm.com/introspect",
             client_id="custom_client_id",
             client_secret="custom_client_secret",
-            client_auth_method="client_secret_post",
             timeout_seconds=30,
             required_scopes=["openid", "profile", "email"],
         )
