@@ -1,9 +1,12 @@
 """JWT utility functions for token manipulation and validation."""
 
-from typing import Dict, Any, Optional, List
+from typing import Dict, Any, Optional, List, TYPE_CHECKING
 import jwt
 from datetime import datetime, timedelta, timezone
 from mcp_composer.core.utils import LoggerFactory
+
+if TYPE_CHECKING:
+    from mcp_composer.core.auth.jwt.jwt_provider import JWTAuthProvider
 
 logger = LoggerFactory.get_logger()
 
@@ -202,7 +205,7 @@ def validate_jwt_claims(claims: Dict[str, Any], required_claims: List[str]) -> b
     if not required_claims:
         logger.warning("No required claims specified for JWT validation - validation skipped")
         return True
-    
+
     missing_claims = [claim for claim in required_claims if claim not in claims]
 
     if missing_claims:
@@ -216,16 +219,16 @@ def validate_jwt_claims(claims: Dict[str, Any], required_claims: List[str]) -> b
 def decode_jwt_without_verification(token: str) -> Optional[Dict[str, Any]]:
     """
     Decode a JWT token without signature verification.
-    
+
     This helper function can be reused to avoid redundant decoding operations
     when multiple functions need to inspect the same token.
-    
+
     Args:
         token: JWT token string
-        
+
     Returns:
         Dictionary of claims or None if decoding fails
-        
+
     Example:
         >>> token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
         >>> claims = decode_jwt_without_verification(token)
@@ -260,7 +263,7 @@ def get_jwt_expiration(token: str) -> Optional[datetime]:
     claims = decode_jwt_without_verification(token)
     if not claims:
         return None
-        
+
     try:
         exp = claims.get("exp")
 
@@ -327,9 +330,8 @@ def extract_jwt_claims(token: str, claim_names: Optional[List[str]] = None) -> D
     all_claims = decode_jwt_without_verification(token)
     if not all_claims:
         return {}
-        
-    try:
 
+    try:
         if claim_names is None:
             return all_claims
 
@@ -341,3 +343,142 @@ def extract_jwt_claims(token: str, claim_names: Optional[List[str]] = None) -> D
     except Exception as e:
         logger.error("Failed to extract JWT claims: %s", e)
         return {}
+
+
+def load_jwt_provider(prefix: str = "JWT_") -> Optional["JWTAuthProvider"]:
+    """
+    Load JWT provider with configurable environment variable prefix.
+
+    Args:
+        prefix: Environment variable prefix (default: "JWT_")
+                The prefix is used to construct environment variable names:
+                - {PREFIX}SECRET: Direct PEM/key content
+                - {PREFIX}PUBLIC_KEY: Public key for RS256
+                - {PREFIX}ALGORITHM: JWT algorithm (e.g., RS256, HS256)
+                - {PREFIX}ISSUER: Expected token issuer
+                - {PREFIX}AUDIENCE: Expected token audience
+                - {PREFIX}REQUIRED: Whether JWT is required (true/false)
+
+    Priority order:
+    1. {PREFIX}SECRET - Direct PEM/key content in environment variable
+    2. Full environment configuration ({PREFIX}PUBLIC_KEY, {PREFIX}ALGORITHM, etc.)
+
+    Returns:
+        JWTAuthProvider instance or None if configuration fails and not required
+
+    Raises:
+        RuntimeError: If {PREFIX}REQUIRED=true and configuration fails
+
+    Examples:
+        # Use default generic prefix
+        jwt_provider = load_jwt_provider()
+        # Looks for: JWT_SECRET, JWT_REQUIRED, etc.
+
+        # Use application-specific prefix
+        jwt_provider = load_jwt_provider(prefix="SOLIS_JWT_")
+        # Looks for: SOLIS_JWT_SECRET, SOLIS_JWT_REQUIRED, etc.
+
+        jwt_provider = load_jwt_provider(prefix="MYAPP_JWT_")
+        # Looks for: MYAPP_JWT_SECRET, MYAPP_JWT_REQUIRED, etc.
+    """
+    import os
+    import json as json_module
+    from mcp_composer.core.auth.jwt.jwt_config import JWTConfig
+    from mcp_composer.core.auth.jwt.jwt_provider import JWTAuthProvider
+
+    secret_var = f"{prefix}SECRET"
+
+    # Priority 1: Direct secret/key content from {PREFIX}SECRET
+    jwt_secret = os.getenv(secret_var)
+    if jwt_secret:
+        try:
+            logger.info("Loading JWT public key from %s environment variable", secret_var)
+
+            # Detect format: PEM, JSON, or raw key
+            jwt_secret = jwt_secret.strip()
+
+            if jwt_secret.startswith("{") or jwt_secret.startswith("["):
+                # JSON format - parse and extract key
+                try:
+                    key_data = json_module.loads(jwt_secret)
+                    if isinstance(key_data, dict):
+                        # Safely extract public key from various possible structures
+                        public_key = key_data.get("public_key")
+                        if not public_key:
+                            public_key = key_data.get("publicKey")
+                        if not public_key:
+                            public_key = key_data.get("key")
+                        if not public_key:
+                            # Safely handle nested jwk structure
+                            jwk = key_data.get("jwk")
+                            if isinstance(jwk, dict):
+                                public_key = jwk.get("n")
+
+                        if not public_key:
+                            logger.warning("JSON doesn't contain 'public_key' field. Using raw content.")
+                            public_key = jwt_secret
+                    else:
+                        public_key = str(key_data)
+                    logger.info("Parsed public key from JSON format")
+                except json_module.JSONDecodeError:
+                    # Not valid JSON, treat as raw key
+                    public_key = jwt_secret
+                    logger.info("Using raw key content")
+            else:
+                # PEM format or raw key string
+                public_key = jwt_secret
+                logger.info("Using PEM/raw key format")
+
+            # Create JWT provider with dynamic prefix
+            provider = JWTAuthProvider.from_public_key(
+                public_key=public_key,
+                algorithm=os.getenv(f"{prefix}ALGORITHM", "RS256"),
+                issuer=os.getenv(f"{prefix}ISSUER"),
+                audience=os.getenv(f"{prefix}AUDIENCE"),
+            )
+            logger.info("JWT authentication configured from %s", secret_var)
+            return provider
+
+        except Exception as e:
+            logger.error("Failed to load JWT from %s: %s", secret_var, e, exc_info=True)
+            raise
+
+    # Priority 2: Load from full environment configuration
+    try:
+        jwt_config: JWTConfig = JWTConfig.from_env(prefix=prefix)
+        provider: JWTAuthProvider = JWTAuthProvider(config=jwt_config)
+        logger.info("JWT authentication configured from environment with prefix: %s", prefix)
+        return provider
+    except Exception as e:
+        # Check if JWT is required - fail fast if misconfigured
+        # Use the prefix to construct the REQUIRED environment variable name
+        required_var = f"{prefix}REQUIRED"
+        jwt_required = os.getenv(required_var, "false").lower() == "true"
+        if jwt_required:
+            logger.error("JWT authentication is required but configuration failed: %s", e)
+            raise RuntimeError(
+                f"JWT authentication is required ({required_var}=true) but configuration failed: {e}"
+            ) from e
+
+        logger.warning("Failed to load JWT config from environment with prefix '%s': %s", prefix, e)
+        logger.info("JWT authentication disabled - running without auth")
+        return None
+
+
+def log_jwt_configuration(jwt_provider: Optional["JWTAuthProvider"]) -> None:
+    """
+    Log JWT authentication configuration status.
+
+    Args:
+        jwt_provider: JWTAuthProvider instance or None
+
+    Example:
+        >>> jwt_provider = load_jwt_provider()
+        >>> log_jwt_configuration(jwt_provider)
+    """
+    if jwt_provider:
+        logger.info("JWT authentication: ENABLED")
+        logger.info("JWT algorithm: %s", jwt_provider.config.algorithm)
+        logger.info("JWT verify expiration: %s", jwt_provider.config.verify_exp)
+    else:
+        logger.warning("JWT authentication: DISABLED")

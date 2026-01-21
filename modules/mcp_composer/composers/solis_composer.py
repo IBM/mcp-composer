@@ -6,9 +6,7 @@ for secure access to Solis resources.
 """
 import os
 import asyncio
-import json as json_module
-from mcp_composer.core.auth.jwt.jwt_config import JWTConfig
-from mcp_composer.core.auth.jwt.jwt_provider import JWTAuthProvider
+from mcp_composer.core.auth.jwt.jwt_utils import load_jwt_provider, log_jwt_configuration
 from mcp_composer.core.tools.ibm_document_search_tool import IBMDocumentSearchTool
 from mcp_composer.middleware.tool.tool_filter import ListFilteredTool
 from mcp_composer import MCPComposer
@@ -16,106 +14,8 @@ from mcp_composer.core.utils import LoggerFactory
 
 logger = LoggerFactory.get_logger()
 
-
-# Configure JWT authentication for Solis
-def load_jwt_provider(prefix: str = "SOLIS_JWT_") -> JWTAuthProvider | None:
-    """
-    Load JWT provider with configurable environment variable prefix.
-
-    Args:
-        prefix: Environment variable prefix (default: "SOLIS_JWT_")
-                For example, "MYAPP_JWT_" would look for MYAPP_JWT_SECRET, etc.
-
-    Priority order:
-    1. {PREFIX}SECRET - Direct PEM/key content in environment variable
-    2. Full environment configuration ({PREFIX}PUBLIC_KEY, {PREFIX}ALGORITHM, etc.)
-
-    Example:
-        # Use default SOLIS prefix
-        jwt_provider = load_jwt_provider()
-
-        # Use custom prefix for different app
-        jwt_provider = load_jwt_provider(prefix="MYAPP_JWT_")
-    """
-    secret_var = f"{prefix}SECRET"
-
-    # Priority 1: Direct secret/key content from {PREFIX}SECRET
-    jwt_secret = os.getenv(secret_var)
-    if jwt_secret:
-        try:
-            logger.info("Loading JWT public key from %s environment variable", secret_var)
-
-            # Detect format: PEM, JSON, or raw key
-            jwt_secret = jwt_secret.strip()
-
-            if jwt_secret.startswith("{") or jwt_secret.startswith("["):
-                # JSON format - parse and extract key
-                try:
-                    key_data = json_module.loads(jwt_secret)
-                    if isinstance(key_data, dict):
-                        # Safely extract public key from various possible structures
-                        public_key = key_data.get("public_key")
-                        if not public_key:
-                            public_key = key_data.get("publicKey")
-                        if not public_key:
-                            public_key = key_data.get("key")
-                        if not public_key:
-                            # Safely handle nested jwk structure
-                            jwk = key_data.get("jwk")
-                            if isinstance(jwk, dict):
-                                public_key = jwk.get("n")
-                        
-                        if not public_key:
-                            logger.warning("JSON doesn't contain 'public_key' field. Using raw content.")
-                            public_key = jwt_secret
-                    else:
-                        public_key = str(key_data)
-                    logger.info("Parsed public key from JSON format")
-                except json_module.JSONDecodeError:
-                    # Not valid JSON, treat as raw key
-                    public_key = jwt_secret
-                    logger.info("Using raw key content")
-            else:
-                # PEM format or raw key string
-                public_key = jwt_secret
-                logger.info("Using PEM/raw key format")
-
-            # Create JWT provider with dynamic prefix
-            provider = JWTAuthProvider.from_public_key(
-                public_key=public_key,
-                algorithm=os.getenv(f"{prefix}ALGORITHM", "RS256"),
-                issuer=os.getenv(f"{prefix}ISSUER"),
-                audience=os.getenv(f"{prefix}AUDIENCE"),
-            )
-            logger.info("JWT authentication configured from %s", secret_var)
-            return provider
-
-        except Exception as e:
-            logger.error("Failed to load JWT from %s: %s", secret_var, e, exc_info=True)
-            raise
-
-    # Priority 2: Load from full environment configuration
-    try:
-        jwt_config: JWTConfig = JWTConfig.from_env(prefix=prefix)
-        provider: JWTAuthProvider = JWTAuthProvider(config=jwt_config)
-        logger.info("JWT authentication configured from environment with prefix: %s", prefix)
-        return provider
-    except Exception as e:
-        # Check if JWT is required - fail fast if misconfigured
-        jwt_required = os.getenv("SOLIS_JWT_REQUIRED", "false").lower() == "true"
-        if jwt_required:
-            logger.error("JWT authentication is required but configuration failed: %s", e)
-            raise RuntimeError(
-                f"JWT authentication is required (SOLIS_JWT_REQUIRED=true) but configuration failed: {e}"
-            ) from e
-        
-        logger.warning("Failed to load JWT config from environment: %s", e)
-        logger.info("JWT authentication disabled - running without auth")
-        return None
-
-
-# Load JWT provider
-jwt_provider = load_jwt_provider()
+# Load JWT provider from utility function with SOLIS-specific prefix
+jwt_provider = load_jwt_provider(prefix="SOLIS_JWT_")
 
 # Option 3: Explicit configuration (uncomment to use)
 # jwt_provider = JWTAuthProvider.from_secret(
@@ -131,17 +31,6 @@ jwt_provider = load_jwt_provider()
 
 # Initialize composer with JWT authentication
 gw = MCPComposer(name="solis-composer", auth=jwt_provider.get_verifier() if jwt_provider else None)
-
-
-def log_jwt_configuration(jwt_provider: JWTAuthProvider | None) -> None:
-    """Log JWT authentication configuration status."""
-    if jwt_provider:
-        logger.info("JWT authentication: ENABLED")
-        logger.info("JWT algorithm: %s", jwt_provider.config.algorithm)
-        logger.info("JWT verify expiration: %s", jwt_provider.config.verify_exp)
-    else:
-        logger.warning("JWT authentication: DISABLED")
-
 
 def setup_middleware(composer: MCPComposer) -> None:
     """Configure and register middleware components."""
