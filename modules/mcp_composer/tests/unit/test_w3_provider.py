@@ -63,7 +63,7 @@ class TestW3Provider:
 
         provider = W3Provider(
             client_id="custom_client_id",
-            client_secret="custom_client_credential",
+            client_secret="custom_client_credential",  # pragma: allowlist secret
             config_url="https://custom.w3.ibm.com/.well-known/openid-configuration",
             introspection_url="https://custom.w3.ibm.com/introspect",
             base_url="https://my-server.com",
@@ -187,7 +187,7 @@ class TestW3Provider:
 
         provider = W3Provider(
             client_id="test_client_id",
-            client_secret="test_client_credential",
+            client_secret="test_client_credential",  # pragma: allowlist secret
             config_url="https://preprod.login.w3.ibm.com/oidc/endpoint/default/.well-known/openid-configuration",
             introspection_url="https://preprod.login.w3.ibm.com/v1.0/endpoint/default/introspect",
             base_url="http://localhost:9000",
