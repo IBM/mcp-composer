@@ -363,10 +363,18 @@ def run_composer(
     ] = None,
     # Feature flags
     disable_composer_tools: Annotated[
-        Optional[str],
+        bool,
         Option(
             "--disable-composer-tools",
-            help="Comma-separated list of composer tool names to disable (e.g., --disable-composer-tools='t1,t2' or --disable-composer-tools='[t1,t2]')",
+            help="Disable all composer tools",
+        ),
+    ] = False,
+    # Feature flags (specific tools)
+    disable_composer_tools_specific: Annotated[
+        Optional[str],
+        Option(
+            "--disable-composer-tools-specific",
+            help="Comma-separated list of composer tool names to disable (e.g., t1,t2 or [t1,t2])",
         ),
     ] = None,
     # Environment variables
@@ -476,6 +484,7 @@ def run_composer(
                 remote_auth_type=remote_auth_type,
                 client_auth_type=client_auth_type,
                 disable_composer_tools=disable_composer_tools,
+                disable_composer_tools_specific=disable_composer_tools_specific,
                 host=host,
                 port=port,
             )
@@ -677,10 +686,17 @@ def main_callback(
         ),
     ] = None,
     disable_composer_tools: Annotated[
-        Optional[str],
+        Optional[bool],
         Option(
             "--disable-composer-tools",
-            help="Comma-separated list of composer tool names to disable (e.g., --disable-composer-tools='t1,t2' or --disable-composer-tools='[t1,t2]')",
+            help="Disable all composer tools",
+        ),
+    ] = False,
+    disable_composer_tools_specific: Annotated[
+        Optional[str],
+        Option(
+            "--disable-composer-tools-specific",
+            help="Comma-separated list of composer tool names to disable (e.g., t1,t2 or [t1,t2])",
         ),
     ] = None,
     pass_environment: Annotated[
@@ -790,6 +806,7 @@ def main_callback(
                 auth_provider or "oidc",
                 sse_url,
                 disable_composer_tools,
+                disable_composer_tools_specific,
                 pass_environment,
                 remote_auth_type,
                 client_auth_type,
@@ -914,7 +931,12 @@ def main_callback(
                 sse_url=sse_url,
                 remote_auth_type=remote_auth_type,
                 client_auth_type=client_auth_type,
-                disable_composer_tools=disable_composer_tools,
+                disable_composer_tools=(
+                    bool(disable_composer_tools)
+                    if disable_composer_tools is not None
+                    else False
+                ),
+                disable_composer_tools_specific=disable_composer_tools_specific,
                 host=host,
                 port=port,
                 timeout=timeout,
@@ -938,7 +960,8 @@ async def run_dynamic_composer(
     sse_url: Optional[str] = None,
     remote_auth_type: str = "none",
     client_auth_type: str = "none",
-    disable_composer_tools: Optional[str] = None,
+    disable_composer_tools: bool = False,
+    disable_composer_tools_specific: Optional[str] = None,
     host: str = "localhost",
     port: int = 9000,
     timeout: Optional[int] = None,
@@ -971,22 +994,32 @@ async def run_dynamic_composer(
         logger.info("Running MCP Composer without OAuth")
         mcp = MCPComposer("composer", config=config)  # type: ignore
 
-    # Remove composer tools if disable-composer-tools is specified
-    if disable_composer_tools:
-        # Parse the input: handle formats like "t1,t2" or "[t1,t2]"
-        tools_str = disable_composer_tools.strip()
-        if tools_str.startswith("[") and tools_str.endswith("]"):
-            tools_str = tools_str[1:-1]  # Remove brackets
-        tools_to_disable = [t.strip() for t in tools_str.split(",") if t.strip()]
-
-        tools = await mcp.get_tools()
-        logger.info("Removing specified composer tools: %s", tools_to_disable)
-        for tool_name in tools_to_disable:
-            if tool_name in tools:
+    # Disable tools based on flags
+    try:
+        if disable_composer_tools:
+            # Disable all tools: remove all available tools one by one
+            logger.info("Disabling all composer tools as requested")
+            tools = await mcp.get_tools()
+            for tool_name in list(tools.keys() if isinstance(tools, dict) else tools):
                 mcp.remove_tool(tool_name)
-                logger.info("Removed tool: %s", tool_name)
-            else:
-                logger.warning("Tool '%s' not found in available tools", tool_name)
+            logger.info("All tools removed")
+        elif disable_composer_tools_specific:
+            # Parse the input: handle formats like "t1,t2" or "[t1,t2]"
+            tools_str = disable_composer_tools_specific.strip()
+            if tools_str.startswith("[") and tools_str.endswith("]"):
+                tools_str = tools_str[1:-1]  # Remove brackets
+            tools_to_disable = [t.strip() for t in tools_str.split(",") if t.strip()]
+
+            tools = await mcp.get_tools()
+            logger.info("Removing specified composer tools: %s", tools_to_disable)
+            for tool_name in tools_to_disable:
+                if tool_name in tools:
+                    mcp.remove_tool(tool_name)
+                    logger.info("Removed tool: %s", tool_name)
+                else:
+                    logger.warning("Tool '%s' not found in available tools", tool_name)
+    except Exception as exc:
+        logger.warning("Failed to adjust tools based on flags: %s", exc)
 
     if sse_url:
         logger.info("mounting Remote server into MCP composer")
@@ -1010,7 +1043,15 @@ async def run_dynamic_composer(
             ).get_provider_instance()
             logger.info("Created remote client with OAuth")
             remote_proxy = MCPComposer("composer", auth=oauth_provider)
-            await remote_proxy._tool_manager.disable_tools(["all"])
+            # Remove all tools on the proxy to act as pure remote
+            try:
+                tools = await remote_proxy.get_tools()
+                for tool_name in list(
+                    tools.keys() if isinstance(tools, dict) else tools
+                ):
+                    remote_proxy.remove_tool(tool_name)
+            except Exception as exc:
+                logger.warning("Failed to clear proxy tools: %s", exc)
 
         elif client_auth_type == "oauth":
             client_issuer = get_issuer(remote_url)
@@ -1168,7 +1209,8 @@ def _apply_config_and_start_server(
     auth_type: Optional[str],
     auth_provider: str,
     sse_url: Optional[str],  # pylint: disable=unused-argument
-    disable_composer_tools: Optional[str],
+    disable_composer_tools: Optional[bool],
+    disable_composer_tools_specific: Optional[str],
     pass_environment: Optional[bool],  # pylint: disable=unused-argument
     remote_auth_type: Optional[str],  # pylint: disable=unused-argument
     client_auth_type: Optional[str],  # pylint: disable=unused-argument
@@ -1219,6 +1261,7 @@ def _apply_config_and_start_server(
             auth_provider,
             sse_url,
             disable_composer_tools,
+            disable_composer_tools_specific,
             pass_environment,
             remote_auth_type,
             client_auth_type,
@@ -1260,7 +1303,8 @@ def _create_composer_instance(
     auth_type: Optional[str],
     auth_provider: str,
     sse_url: Optional[str],
-    disable_composer_tools: Optional[str],
+    disable_composer_tools: Optional[bool],
+    disable_composer_tools_specific: Optional[str],
     pass_environment: Optional[bool],
     remote_auth_type: Optional[str],
     client_auth_type: Optional[str],
@@ -1301,21 +1345,30 @@ def _create_composer_instance(
         composer = MCPComposer("composer", config=config)
 
     # Disable composer tools if requested
-    if disable_composer_tools:
-        # Parse the input: handle formats like "t1,t2" or "[t1,t2]"
-        tools_str = disable_composer_tools.strip()
-        if tools_str.startswith("[") and tools_str.endswith("]"):
-            tools_str = tools_str[1:-1]  # Remove brackets
-        tools_to_disable = [t.strip() for t in tools_str.split(",") if t.strip()]
-
-        tools = asyncio.run(composer.get_tools())
-        logger.info("Removing specified composer tools: %s", tools_to_disable)
-        for tool_name in tools_to_disable:
-            if tool_name in tools:
+    try:
+        if disable_composer_tools is True:
+            # Remove all tools synchronously via fallback approach
+            tools = asyncio.run(composer.get_tools())
+            for tool_name in list(tools.keys() if isinstance(tools, dict) else tools):
                 composer.remove_tool(tool_name)
-                logger.info("Removed tool: %s", tool_name)
-            else:
-                logger.warning("Tool '%s' not found in available tools", tool_name)
+            logger.info("All composer tools removed (disable all)")
+        elif disable_composer_tools_specific:
+            # Parse specific list
+            tools_str = disable_composer_tools_specific.strip()
+            if tools_str.startswith("[") and tools_str.endswith("]"):
+                tools_str = tools_str[1:-1]
+            tools_to_disable = [t.strip() for t in tools_str.split(",") if t.strip()]
+
+            tools = asyncio.run(composer.get_tools())
+            logger.info("Removing specified composer tools: %s", tools_to_disable)
+            for tool_name in tools_to_disable:
+                if tool_name in tools:
+                    composer.remove_tool(tool_name)
+                    logger.info("Removed tool: %s", tool_name)
+                else:
+                    logger.warning("Tool '%s' not found in available tools", tool_name)
+    except Exception as exc:
+        logger.warning("Failed to adjust tools during creation: %s", exc)
 
     return composer
 
