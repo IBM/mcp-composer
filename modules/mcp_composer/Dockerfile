@@ -64,6 +64,16 @@ COPY --from=builder /app /app
 COPY --from=builder /bin/uv /bin/uv
 COPY --from=builder /bin/uvx /bin/uvx
 
+COPY --from=builder /etc/pki /etc/pki
+COPY --from=builder /etc/ssl /etc/ssl
+COPY --from=builder /etc/nsswitch.conf /etc/nsswitch.conf
+COPY --from=builder /etc/passwd /etc/passwd
+COPY --from=builder /etc/group /etc/group
+
+COPY --from=builder /usr/lib64/libnss_* /usr/lib64/
+COPY --from=builder /usr/lib64/libssl.so.* /usr/lib64/
+COPY --from=builder /usr/lib64/libcrypto.so.* /usr/lib64/
+
 COPY --from=builder /usr/lib64/libgcc_s.so.* /usr/lib64/
 COPY --from=builder /usr/lib64/libstdc++.so.* /usr/lib64/
 COPY --from=builder /usr/lib64/librt.so.* /usr/lib64/
@@ -72,6 +82,5 @@ COPY --from=builder /usr/bin/sqlite3 /usr/bin/sqlite3
 
 ENV PYTHONPATH=/app/src
 ENV UV_CACHE_DIR="/tmp/.cache/uv"
-USER 1001
-CMD ["uv", "run", "--no-project", "composers/solis_composer.py"]
 
+CMD ["uv", "run", "--no-project", "composers/solis_composer.py"]
