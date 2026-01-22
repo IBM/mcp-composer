@@ -32,6 +32,7 @@ from mcp_composer.core.auth_handler import (
     AsperaJWTClient,
     SolisJWTClient,
     SolisJWTTokenGenerator,
+    TurboJWTClient,
 )
 from mcp_composer.core.tools.graphql_tool import GraphQLTool
 from mcp_composer.core.member_servers.layered_factory_oa import LayeredOpenAPIFactory
@@ -285,7 +286,7 @@ class MCPServerBuilder:
                     )
                 )
                 headers[ConfigKey.AUTH_HEADER.value] = f"{auth_header}"
-                logger.info("the url is '%s", base_url)
+                logger.info("the url is %s", base_url)
                 http_client = httpx.AsyncClient(base_url=base_url, headers=headers)
 
             case AuthStrategy.JSESSIONID.value:
@@ -328,6 +329,27 @@ class MCPServerBuilder:
                     base_url=base_url,
                     auth_data=auth_config,
                     headers=headers,
+                    timeout=30.0,
+                )
+
+            case AuthStrategy.TURBO_OAUTH_HANDLER:
+                logger.info("Setting up Turbo JWT authentication client")
+                turbo_auth = TurboJWTClient(
+                    base_url=base_url,
+                    auth_data=auth_config,
+                    headers=headers,
+                    timeout=30.0,
+                )
+                try:
+                    await turbo_auth.ensure_token()
+                except Exception as e:  # pragma: no cover - fail fast for misconfig
+                    logger.error("Turbo OAuth token prefetch failed: %s", e)
+                    raise
+
+                http_client = httpx.AsyncClient(
+                    base_url=base_url,
+                    headers=headers,
+                    auth=turbo_auth,
                     timeout=30.0,
                 )
             case _:
