@@ -14,7 +14,77 @@ Authentication in MCP Composer works at multiple levels:
 
 The **Auth Handler** supports the following authentication strategies:
 
-### 1. Bearer Token Authentication
+### 1. JWT (JSON Web Token) Authentication
+
+JWT authentication provides secure, stateless authentication using signed tokens. MCP Composer includes a dedicated JWT authentication module with support for FastMCP's built-in JWTVerifier.
+
+**Quick Start:**
+
+```python
+from mcp_composer.core.auth.jwt import JWTProvider
+
+# Load JWT provider from environment variables
+jwt_provider = JWTProvider.from_env()
+
+# Use with MCPComposer
+composer = MCPComposer(
+    name="secure-composer",
+    auth=jwt_provider.verifier
+)
+```
+
+**Features:**
+- FastMCP JWTVerifier integration
+- Support for PEM public keys and JWKS endpoints
+- Token validation with issuer, audience, and scope verification
+- Automatic token extraction from Authorization headers
+- Comprehensive error handling for expired/invalid tokens
+- Environment-based configuration
+
+**Configuration Options:**
+
+The JWT module supports **dynamic environment variable prefixes**, allowing you to configure different JWT settings for different composers or applications:
+
+```python
+# Example 1: Using default "JWT_" prefix
+JWT_SECRET="-----BEGIN PUBLIC KEY-----\n...\n-----END PUBLIC KEY-----"
+JWT_ALGORITHM=RS256
+JWT_ISSUER=https://auth.example.com
+JWT_AUDIENCE=your-api-audience
+
+# Example 2: Using custom "MYAPP_JWT_" prefix
+MYAPP_JWT_SECRET="-----BEGIN PUBLIC KEY-----\n...\n-----END PUBLIC KEY-----"
+MYAPP_JWT_ALGORITHM=RS256
+MYAPP_JWT_ISSUER=https://myapp.example.com
+MYAPP_JWT_AUDIENCE=myapp-api
+
+```
+
+**Loading with Custom Prefix:**
+
+```python
+from mcp_composer.core.auth.jwt import JWTConfig, JWTAuthProvider
+
+# Load with default "JWT_" prefix
+jwt_provider = JWTAuthProvider.from_env()
+
+# Load with custom prefix
+jwt_config = JWTConfig.from_env(prefix="MYAPP_JWT_")
+jwt_provider = JWTAuthProvider(config=jwt_config)
+
+# Use in composer
+composer = MCPComposer(
+    name="my-composer",
+    auth=jwt_provider.verifier
+)
+```
+
+**For detailed JWT setup instructions, see:**
+- [`modules/mcp_composer/composers/QUICK_START_JWT.md`](../../modules/mcp_composer/composers/QUICK_START_JWT.md) - 2-minute quick start
+- [`modules/mcp_composer/composers/SOLIS_JWT_SETUP.md`](../../modules/mcp_composer/composers/SOLIS_JWT_SETUP.md) - Comprehensive setup guide
+- [`modules/mcp_composer/src/mcp_composer/core/auth/jwt/README.md`](../../modules/mcp_composer/src/mcp_composer/core/auth/jwt/README.md) - Technical implementation details
+
+### 2. Bearer Token Authentication
 
 The most common authentication method for API-based services.
 
@@ -39,7 +109,9 @@ await composer.register_mcp_server({
 - Support for token refresh
 - Secure token storage
 
-### 2. API Key Authentication
+**Note:** For JWT-based bearer tokens, see the JWT Authentication section above.
+
+### 3. API Key Authentication
 
 Simple key-based authentication for APIs.
 
@@ -65,7 +137,7 @@ await composer.register_mcp_server({
 - Support for query parameter authentication
 - Simple key management
 
-### 3. OAuth 2.0 Authentication
+### 4. OAuth 2.0 Authentication
 
 Full OAuth 2.0 support for enterprise services.
 
@@ -160,7 +232,7 @@ sequenceDiagram
    - Client receives the response without needing to handle OAuth complexity
    - Token management is completely transparent to the client
 
-### 4. Dynamic Bearer (IBM IAM-style)
+### 5. Dynamic Bearer (IBM IAM-style)
 
 Dynamic token management for cloud services that require token exchange.
 
@@ -566,7 +638,49 @@ await composer.register_mcp_server({
 
 ## 🔒 Security Best Practices
 
-### 1. Environment Variables
+### 1. JWT Token Security
+
+When using JWT authentication with dynamic prefixes:
+
+```python
+# ✅ DO: Use custom prefixes for different applications
+MYAPP_JWT_SECRET="-----BEGIN PUBLIC KEY-----\n...\n-----END PUBLIC KEY-----"
+OTHERAPP_JWT_SECRET="-----BEGIN PUBLIC KEY-----\n...\n-----END PUBLIC KEY-----"
+
+# ✅ DO: Store public keys in environment variables
+JWT_SECRET="-----BEGIN PUBLIC KEY-----\n...\n-----END PUBLIC KEY-----"
+
+# ✅ DO: Use JWKS endpoints for automatic key rotation
+JWT_JWKS_URI=https://auth.example.com/.well-known/jwks.json
+
+# ✅ DO: Validate issuer and audience
+JWT_ISSUER=https://auth.example.com
+JWT_AUDIENCE=your-api-audience
+
+# ✅ DO: Require specific scopes
+JWT_REQUIRED_SCOPES=read,write,admin
+
+# ✅ DO: Use different prefixes for different environments
+DEV_JWT_SECRET="dev-public-key"
+PROD_JWT_SECRET="prod-public-key"
+
+# ❌ DON'T: Hardcode private keys in code
+# ❌ DON'T: Skip token validation
+# ❌ DON'T: Use weak algorithms (e.g., HS256 for public APIs)
+# ❌ DON'T: Mix environment variables from different apps without prefixes
+```
+
+**JWT Security Checklist:**
+- Always validate token signature
+- Verify issuer and audience claims
+- Check token expiration (exp claim)
+- Validate required scopes
+- Use strong algorithms (RS256, ES256)
+- Rotate keys regularly via JWKS
+- Never expose private keys
+- Use HTTPS for all token transmission
+
+### 2. Environment Variables
 
 Always store sensitive credentials in environment variables:
 
@@ -586,11 +700,11 @@ await composer.register_mcp_server({
 })
 ```
 
-### 2. Token Rotation
+### 3. Token Rotation
 
 Implement token rotation for enhanced security. See the README for examples.
 
-### 3. Credential Encryption
+### 4. Credential Encryption
 
 Encrypt sensitive credentials before storage. See the README for examples.
 

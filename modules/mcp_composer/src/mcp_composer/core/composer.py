@@ -9,6 +9,7 @@ from typing import Any, Dict, Optional, Union, Literal
 from dotenv import load_dotenv
 from fastmcp import FastMCP
 from fastmcp.server.auth.auth import OAuthProvider
+from fastmcp.server.auth.providers.jwt import JWTVerifier
 from starlette.middleware import Middleware as ASGIMiddleware
 from fastmcp.tools.tool import Tool
 from fastmcp.resources.resource import Resource
@@ -73,7 +74,7 @@ class MCPComposer(FastMCP):
         config: Optional[Union[list[dict], str]] = None,
         database_config: Optional[Union[Dict[str, Any], DatabaseInterface]] = None,
         version_adapter_config: Optional[Dict[str, Any]] = None,
-        auth: OAuthProvider | None = None,
+        auth: OAuthProvider | JWTVerifier | None = None,
     ):
         super().__init__(name=name, auth=auth)
         self._config_manager = ConfigManager(
