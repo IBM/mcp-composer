@@ -48,6 +48,7 @@ class PostgresAdapter(DatabaseInterface):
         """
         self._table_name = table_name
         self._resources_table_name = f"{table_name}_resources"
+        self._prompts_table_name = f"{table_name}_prompts"
         self._pool: Optional[asyncpg.Pool] = None
         self._min_size = min_size
         self._max_size = max_size
@@ -179,7 +180,79 @@ class PostgresAdapter(DatabaseInterface):
                 """
             )
 
-            logger.info("PostgreSQL database and table initialized successfully")
+            # Create prompts table
+            try:
+                # Check if table exists with correct schema
+                table_exists = await conn.fetchval(
+                    f"""
+                    SELECT EXISTS (
+                        SELECT FROM information_schema.tables
+                        WHERE table_schema = 'public'
+                        AND table_name = '{self._prompts_table_name}'
+                    );
+                    """
+                )
+
+                if not table_exists:
+                    # Create new table
+                    await conn.execute(
+                        f"""
+                        CREATE TABLE {self._prompts_table_name} (
+                            name VARCHAR(255) PRIMARY KEY,
+                            data JSONB NOT NULL,
+                            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                        );
+                        """
+                    )
+                    logger.info("Prompts table created successfully")
+
+                    # Create index
+                    await conn.execute(
+                        f"""
+                        CREATE INDEX idx_{self._prompts_table_name}_name
+                        ON {self._prompts_table_name} (name);
+                        """
+                    )
+                    logger.info("Prompts table index created successfully")
+                else:
+                    # Table exists, verify it has the correct schema
+                    has_name_column = await conn.fetchval(
+                        f"""
+                        SELECT EXISTS (
+                            SELECT FROM information_schema.columns
+                            WHERE table_name = '{self._prompts_table_name}'
+                            AND column_name = 'name'
+                        );
+                        """
+                    )
+
+                    if has_name_column:
+                        logger.info("Prompts table already exists with correct schema")
+                        # Try to create index if it doesn't exist
+                        try:
+                            await conn.execute(
+                                f"""
+                                CREATE INDEX IF NOT EXISTS idx_{self._prompts_table_name}_name
+                                ON {self._prompts_table_name} (name);
+                                """
+                            )
+                        except Exception:
+                            pass  # Index might already exist
+                    else:
+                        logger.warning(
+                            "Prompts table exists but has incorrect schema. Please run fix_prompts_table.sql to fix it."
+                        )
+            except Exception as e:
+                logger.warning(
+                    "Failed to create prompts table: %s. Prompts persistence may not work. "
+                    "Run fix_prompts_table.sql to manually create the table.",
+                    e,
+                )
+                # Don't fail initialization if prompts table creation fails
+                # This allows the system to work without prompt persistence
+
+            logger.info("PostgreSQL database and tables initialized successfully")
         finally:
             await conn.close()
 
@@ -912,3 +985,98 @@ class PostgresAdapter(DatabaseInterface):
         """Destructor for compatibility (no-op with direct connections)."""
         # With direct connections, there's no persistent pool to close
         # This method is kept for compatibility
+
+    def load_all_prompts(self) -> List[Dict]:
+        """Load all prompts from PostgreSQL"""
+        return self._run_async(self._async_load_all_prompts())
+
+    async def _async_load_all_prompts(self) -> List[Dict]:
+        """Async implementation of loading all prompts"""
+        try:
+            conn = await self._get_connection()
+            try:
+                rows = await conn.fetch(f"SELECT data FROM {self._prompts_table_name} ORDER BY created_at")
+                prompts = [self._parse_config(row["data"]) for row in rows]
+                logger.info("Loaded %d prompts from PostgreSQL", len(prompts))
+                return prompts
+            finally:
+                await conn.close()
+        except Exception as e:
+            logger.error("Failed to load prompts from PostgreSQL: %s", e)
+            return []
+
+    def add_prompt(self, prompt: Dict) -> None:
+        """Add or update a prompt in PostgreSQL"""
+        self._run_async(self._async_add_prompt(prompt))
+
+    async def _async_add_prompt(self, prompt: Dict) -> None:
+        """Async implementation of adding/updating a prompt"""
+        prompt_name = prompt.get("name")
+        if not prompt_name:
+            logger.warning("Prompt missing 'name' field, skipping storage")
+            return
+
+        try:
+            conn = await self._get_connection()
+            try:
+                # Use INSERT ... ON CONFLICT to handle both insert and update
+                await conn.execute(
+                    f"""
+                    INSERT INTO {self._prompts_table_name} (name, data, created_at, updated_at)
+                    VALUES ($1, $2, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                    ON CONFLICT (name)
+                    DO UPDATE SET
+                        data = EXCLUDED.data,
+                        updated_at = CURRENT_TIMESTAMP
+                    """,
+                    prompt_name,
+                    json.dumps(prompt),
+                )
+                logger.info("Saved prompt '%s' to PostgreSQL", prompt_name)
+            finally:
+                await conn.close()
+        except Exception as e:
+            logger.error("Failed to save prompt '%s' to PostgreSQL: %s", prompt_name, e)
+            raise
+
+    def remove_prompt(self, prompt_name: str) -> None:
+        """Remove a prompt from PostgreSQL"""
+        self._run_async(self._async_remove_prompt(prompt_name))
+
+    async def _async_remove_prompt(self, prompt_name: str) -> None:
+        """Async implementation of removing a prompt"""
+        try:
+            conn = await self._get_connection()
+            try:
+                result = await conn.execute(f"DELETE FROM {self._prompts_table_name} WHERE name = $1", prompt_name)
+                if result == "DELETE 1":
+                    logger.info("Deleted prompt '%s' from PostgreSQL", prompt_name)
+                else:
+                    logger.info("Prompt '%s' not found in PostgreSQL", prompt_name)
+            finally:
+                await conn.close()
+        except Exception as e:
+            logger.error("Failed to delete prompt '%s' from PostgreSQL: %s", prompt_name, e)
+
+    def get_prompt(self, prompt_name: str) -> Dict:
+        """Get a specific prompt from PostgreSQL"""
+        return self._run_async(self._async_get_prompt(prompt_name))
+
+    async def _async_get_prompt(self, prompt_name: str) -> Dict:
+        """Async implementation of getting a specific prompt"""
+        try:
+            conn = await self._get_connection()
+            try:
+                row = await conn.fetchrow(f"SELECT data FROM {self._prompts_table_name} WHERE name = $1", prompt_name)
+                if row:
+                    prompt = self._parse_config(row["data"])
+                    logger.info("Retrieved prompt '%s' from PostgreSQL", prompt_name)
+                    return prompt
+                else:
+                    logger.warning("Prompt '%s' not found in PostgreSQL", prompt_name)
+                    return {}
+            finally:
+                await conn.close()
+        except Exception as e:
+            logger.error("Failed to get prompt '%s' from PostgreSQL: %s", prompt_name, e)
+            return {}
