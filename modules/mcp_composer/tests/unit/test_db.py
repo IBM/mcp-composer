@@ -47,25 +47,41 @@ async def test_composer_restart_persists_and_restores_server(
     caplog.set_level(logging.DEBUG)
     logger = logging.getLogger(__name__)
 
-    # -------- First run --------
-    composer_1 = MCPComposer(
-        "composer", config=[server_config], database_config=fake_db
-    )
-    await composer_1.setup_member_servers()
-    tools_1 = await composer_1.get_tools()
-    logger.debug("[First run] Tools: %s", tools_1)
-    assert any(
-        server_config["id"] in t for t in tools_1
-    ), "Server tools not available after registration"
+    # Mock the MCP server to avoid network calls
+    mock_server = MagicMock()
+    mock_tool = MagicMock()
+    mock_tool.name = f"{server_config['id']}_test_tool"
+    mock_server.get_tools = AsyncMock(return_value={mock_tool.name: mock_tool})
 
-    # -------- Simulate restart --------
-    composer_2 = MCPComposer("composer", database_config=fake_db)
-    await composer_2.setup_member_servers()
-    tools_2 = await composer_2.get_tools()
-    logger.debug("[After restart] Tools: %s", tools_2)
-    assert any(
-        server_config["id"] in t for t in tools_2
-    ), "Server tool not found after restart"
+    # Mock the as_proxy method to return a mock proxy
+    mock_proxy = MagicMock()
+    mock_proxy.get_tools = AsyncMock(return_value={mock_tool.name: mock_tool})
+
+    with patch(
+        "mcp_composer.core.member_servers.server_manager.MCPServerBuilder"
+    ) as mock_builder, patch("fastmcp.server.server.FastMCP.as_proxy") as mock_as_proxy:
+        mock_builder.return_value.build = AsyncMock(return_value=mock_server)
+        mock_as_proxy.return_value = mock_proxy
+
+        # -------- First run --------
+        composer_1 = MCPComposer(
+            "composer", config=[server_config], database_config=fake_db
+        )
+        await composer_1.setup_member_servers()
+        tools_1 = await composer_1.get_tools()
+        logger.debug("[First run] Tools: %s", tools_1)
+        assert any(
+            server_config["id"] in t for t in tools_1
+        ), "Server tools not available after registration"
+
+        # -------- Simulate restart --------
+        composer_2 = MCPComposer("composer", database_config=fake_db)
+        await composer_2.setup_member_servers()
+        tools_2 = await composer_2.get_tools()
+        logger.debug("[After restart] Tools: %s", tools_2)
+        assert any(
+            server_config["id"] in t for t in tools_2
+        ), "Server tool not found after restart"
 
 
 @pytest.mark.asyncio
