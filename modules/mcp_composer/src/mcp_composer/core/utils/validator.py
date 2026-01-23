@@ -54,6 +54,8 @@ class ConfigKey(str, Enum):
 
     USER_PASSWORD = "user_password"
 
+    SERVER = "server"
+
 
 class MemberServerType(str, Enum):
     """Types of member servers."""
@@ -79,7 +81,6 @@ class AuthStrategy(str, Enum):
     JSESSIONID = "jessionid"
     ASPERA_OAUTH_HANDLER = "aspera_oauth_handler"
     SOLIS_JWT_HANDLER = "solis_jwt_handler"
-    TURBO_OAUTH_HANDLER = "turbo_oauth_handler"
 
 
 class ValidationError(Exception):
@@ -166,7 +167,6 @@ class ServerConfigValidator:
                 "user_email",
                 "password",
             ],
-            AuthStrategy.TURBO_OAUTH_HANDLER: ["client_id", "client_secret", "scope"],
         }
 
         # Check if strategy is supported
@@ -205,23 +205,6 @@ class ServerConfigValidator:
                 missing.append(ConfigKey.CERT_VALUE)
             if not has_token_url:
                 missing.append("token_url")
-        elif strategy == AuthStrategy.TURBO_OAUTH_HANDLER:
-            missing = []
-            # Check for clientId or client_id
-            has_client_id = bool(auth.get(ConfigKey.CLIENT_ID) or auth.get("client_id"))
-            if not has_client_id:
-                missing.append("clientId or client_id")
-
-            # Check for clientSecret or client_secret
-            has_client_secret = bool(
-                auth.get(ConfigKey.CLIENT_SECRET) or auth.get("client_secret")
-            )
-            if not has_client_secret:
-                missing.append("clientSecret or client_secret")
-
-            # Check for scope
-            if not auth.get(ConfigKey.SCOPE):
-                missing.append("scope")
         elif strategy == AuthStrategy.SOLIS_JWT_HANDLER:
             missing = []
 

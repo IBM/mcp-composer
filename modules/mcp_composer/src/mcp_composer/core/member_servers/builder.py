@@ -25,14 +25,13 @@ from mcp_composer.core.utils import (
 )
 from mcp_composer.core.auth_handler import (
     DynamicTokenClient,
+    DynamicTokenClientOAuth,
     DynamicTokenManager,
-    build_oauth_client,
     OAuthRefreshClient,
-    resolve_env_value,
     AsperaJWTClient,
     SolisJWTClient,
     SolisJWTTokenGenerator,
-    TurboJWTClient,
+    resolve_env_value,
 )
 from mcp_composer.core.tools.graphql_tool import GraphQLTool
 from mcp_composer.core.member_servers.layered_factory_oa import LayeredOpenAPIFactory
@@ -226,8 +225,17 @@ class MCPServerBuilder:
 
             case AuthStrategy.DYNAMIC_BEARER:
                 logger.info("Setting up dynamic bearer token client")
-                http_client = DynamicTokenClient(base_url, auth_config, headers=headers)
-
+                http_client = DynamicTokenClient(
+                    base_url=base_url,
+                    auth_data=auth_config,
+                    headers=headers,
+                )
+                await http_client._refresh_token()
+                dynamic_token_client_oauth = DynamicTokenClientOAuth(
+                    access_token=http_client._access_token,
+                    auth_prefix=http_client._auth_prefix,
+                )
+                http_client.auth = dynamic_token_client_oauth
             case AuthStrategy.OAUTH:
                 logger.info("Setting up OAuth client with auto-refresh")
                 # Use the generic resolve_env_value function to handle ENV_* values
@@ -332,26 +340,6 @@ class MCPServerBuilder:
                     timeout=30.0,
                 )
 
-            case AuthStrategy.TURBO_OAUTH_HANDLER:
-                logger.info("Setting up Turbo JWT authentication client")
-                turbo_auth = TurboJWTClient(
-                    base_url=base_url,
-                    auth_data=auth_config,
-                    headers=headers,
-                    timeout=30.0,
-                )
-                try:
-                    await turbo_auth.ensure_token()
-                except Exception as e:  # pragma: no cover - fail fast for misconfig
-                    logger.error("Turbo OAuth token prefetch failed: %s", e)
-                    raise
-
-                http_client = httpx.AsyncClient(
-                    base_url=base_url,
-                    headers=headers,
-                    auth=turbo_auth,
-                    timeout=30.0,
-                )
             case _:
                 # Default/fallback client
                 if headers:
