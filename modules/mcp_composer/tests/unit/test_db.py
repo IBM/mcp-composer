@@ -185,15 +185,32 @@ async def test_empty_database_loads_no_servers():
 async def test_no_database_config_works(fake_db, server_config):
     # Test with no database config
     print("Testing composer with no database config %s", server_config)
-    composer = MCPComposer("composer", config=[server_config])
-    await composer.setup_member_servers()
 
-    # Should still work but not persist
-    tools = await composer.get_tools()
-    assert any(server_config["id"] in t for t in tools)
+    # Mock the MCP server to avoid network calls
+    mock_server = MagicMock()
+    mock_tool = MagicMock()
+    mock_tool.name = f"{server_config['id']}_test_tool"
+    mock_server.get_tools = AsyncMock(return_value={mock_tool.name: mock_tool})
 
-    # Verify nothing was persisted to database
-    assert len(fake_db._servers) == 0
+    # Mock the as_proxy method to return a mock proxy
+    mock_proxy = MagicMock()
+    mock_proxy.get_tools = AsyncMock(return_value={mock_tool.name: mock_tool})
+
+    with patch(
+        "mcp_composer.core.member_servers.server_manager.MCPServerBuilder"
+    ) as mock_builder, patch("fastmcp.server.server.FastMCP.as_proxy") as mock_as_proxy:
+        mock_builder.return_value.build = AsyncMock(return_value=mock_server)
+        mock_as_proxy.return_value = mock_proxy
+
+        composer = MCPComposer("composer", config=[server_config])
+        await composer.setup_member_servers()
+
+        # Should still work but not persist
+        tools = await composer.get_tools()
+        assert any(server_config["id"] in t for t in tools)
+
+        # Verify nothing was persisted to database
+        assert len(fake_db._servers) == 0
 
 
 @pytest.mark.asyncio
