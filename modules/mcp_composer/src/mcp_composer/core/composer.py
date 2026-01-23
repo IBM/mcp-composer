@@ -187,6 +187,8 @@ class MCPComposer(FastMCP):
         self._prompt_manager = MCPPromptManager(
             server_manager=self._server_manager, database=database
         )
+        # Load prompts from database on startup
+        self._prompt_manager.load_prompts_from_db()
 
         self._db_configs: list[dict] = self._server_manager.load_all_servers_db()
         self._config: list[dict] = []
@@ -279,6 +281,7 @@ class MCPComposer(FastMCP):
             self.filter_prompts,
             self.disable_prompts,
             self.enable_prompts,
+            self.delete_prompts,
         ]
 
         resource_tools = [
@@ -751,6 +754,25 @@ class MCPComposer(FastMCP):
         Enable a prompt or multiple prompts from the member server
         """
         return await self._prompt_manager.enable_prompts(prompts, server_id)
+
+    def delete_prompts(self, prompt_names: Union[str, list[str]]) -> dict:
+        """
+        Delete one or more prompts from the composer and database.
+        
+        Args:
+            prompt_names: Single prompt name or list of prompt names to delete
+            
+        Returns:
+            dict: Dictionary with prompt names as keys and status messages as values
+            
+        Example:
+            # Delete a single prompt
+            result = composer.delete_prompts("my_prompt")
+            
+            # Delete multiple prompts
+            result = composer.delete_prompts(["prompt1", "prompt2"])
+        """
+        return self._prompt_manager.delete_prompts(prompt_names)
 
     async def create_resource_template(self, resource_config: dict) -> str:
         """Add a resource template to the composer."""

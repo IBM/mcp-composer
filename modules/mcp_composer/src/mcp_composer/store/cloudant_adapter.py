@@ -23,6 +23,7 @@ class CloudantAdapter(DatabaseInterface):
     def __init__(self, api_key: str, service_url: str, db_name: str = "mcp_servers"):
         self._db_name = db_name
         self._resources_db_name = f"{db_name}_resources"
+        self._prompts_db_name = f"{db_name}_prompts"
         self._api_key = api_key
         self._service_url = service_url
         self._client = self._initialize_client()
@@ -40,6 +41,9 @@ class CloudantAdapter(DatabaseInterface):
             client.put_database(self._db_name)
         if self._resources_db_name not in existing_dbs:
             client.put_database(self._resources_db_name)
+        if self._prompts_db_name not in existing_dbs:
+            client.put_database(self._prompts_db_name)
+            logger.info("Created Cloudant database '%s' for prompts", self._prompts_db_name)
 
         return client
 
@@ -95,7 +99,7 @@ class CloudantAdapter(DatabaseInterface):
             )
 
         except ApiException as e:
-            if e.code == 404 and not enable:
+            if e.status_code == 404 and not enable:
                 # Create a new document if server not found and we're disabling tools
                 logger.info(
                     "Server %s does not exist in database. Adding with disabled tools list.",
@@ -142,7 +146,7 @@ class CloudantAdapter(DatabaseInterface):
             ).get_result()
             logger.info("Updated server '%s' in Cloudant", doc_id)
         except ApiException as e:
-            if e.code == 404:
+            if e.status_code == 404:
                 try:
                     self._client.post_document(
                         db=self._db_name, document=Document(**config)
@@ -203,7 +207,7 @@ class CloudantAdapter(DatabaseInterface):
             )
 
         except ApiException as e:
-            if e.code == 404:
+            if e.status_code == 404:
                 # Document does not exist, create a new one
                 logger.info(
                     "Server '%s' not found in database. Adding it with tool description.",
@@ -282,7 +286,7 @@ class CloudantAdapter(DatabaseInterface):
 
         except ApiException as e:
             # Add server config to db with disabled prompts list, since it not exist
-            if e.code == 404:
+            if e.status_code == 404:
                 logger.info(
                     "Server %s is not exist in database. Adding the server with disabled prompt list",
                     server_id,
@@ -384,7 +388,7 @@ class CloudantAdapter(DatabaseInterface):
 
         except ApiException as e:
             # Add server config to db with disabled resources list, since it not exist
-            if e.code == 404:
+            if e.status_code == 404:
                 logger.info(
                     "Server %s is not exist in database. Adding the server with disabled resource list",
                     server_id,
@@ -467,7 +471,7 @@ class CloudantAdapter(DatabaseInterface):
                 "Marked server '%s' as deactivated. Response: %s", server_id, response
             )
         except ApiException as e:
-            if e.code == 404:
+            if e.status_code == 404:
                 logger.error("Server '%s' not found. Cannot deactivate.", server_id)
             else:
                 logger.error("Error deactivating server '%s': %s", server_id, e)
@@ -486,7 +490,7 @@ class CloudantAdapter(DatabaseInterface):
             logger.info("Server '%s' has status: %s", server_id, status)
             return status
         except ApiException as e:
-            if e.code == 404:
+            if e.status_code == 404:
                 logger.warning("Server '%s' not found when fetching status.", server_id)
             else:
                 logger.error(
@@ -523,7 +527,7 @@ class CloudantAdapter(DatabaseInterface):
             logger.info("Updated configuration for server '%s'", server_id)
 
         except ApiException as e:
-            if e.code == 404:
+            if e.status_code == 404:
                 logger.error("Server '%s' not found in Cloudant.", server_id)
                 raise ValueError(f"Server '{server_id}' not found in Cloudant.") from e
             logger.error("Failed to update server '%s': %s", server_id, e)
@@ -553,7 +557,7 @@ class CloudantAdapter(DatabaseInterface):
             ).get_result()
             logger.info("Updated resource '%s' in Cloudant", doc_id)
         except ApiException as e:
-            if e.code == 404:
+            if e.status_code == 404:
                 self._client.post_document(
                     db=self._resources_db_name, document=Document(**resource_doc)
                 ).get_result()
@@ -574,8 +578,75 @@ class CloudantAdapter(DatabaseInterface):
             )
             logger.info("Deleted resource '%s' from Cloudant", resource_id)
         except ApiException as e:
-            if e.code == 404:
+            if e.status_code == 404:
                 logger.info("Resource '%s' already absent in Cloudant", resource_id)
             else:
                 logger.error("Failed to delete resource '%s': %s", resource_id, e)
                 raise
+
+    def load_all_prompts(self) -> List[Dict]:
+        """Load all prompts from Cloudant prompts database"""
+        try:
+            result = self._client.post_all_docs(db=self._prompts_db_name, include_docs=True).get_result()
+            prompts = [row["doc"] for row in result.get("rows", []) if "doc" in row]
+            logger.info("Loaded %d prompts from Cloudant", len(prompts))
+            return prompts
+        except Exception as exc:  # pylint: disable=broad-exception-caught
+            logger.error("Cloudant prompt read failed: %s", exc)
+            return []
+
+    def add_prompt(self, prompt: Dict) -> None:
+        """Add or update a prompt in Cloudant prompts database"""
+        if "name" not in prompt:
+            logger.error("Prompt must have a 'name' field")
+            return
+
+        doc_id = prompt["name"]
+        prompt_doc = dict(prompt)
+        prompt_doc["_id"] = doc_id
+
+        try:
+            # Try to get existing document to update it
+            existing = self._client.get_document(db=self._prompts_db_name, doc_id=doc_id).get_result()
+            prompt_doc["_rev"] = existing["_rev"]
+            self._client.post_document(db=self._prompts_db_name, document=Document(**prompt_doc)).get_result()
+            logger.info("Updated prompt '%s' in Cloudant", doc_id)
+        except ApiException as e:
+            if e.status_code == 404:
+                # Document doesn't exist, create new one
+                self._client.post_document(db=self._prompts_db_name, document=Document(**prompt_doc)).get_result()
+                logger.info("Saved new prompt '%s' to Cloudant", doc_id)
+            else:
+                logger.error("Failed to upsert prompt '%s': %s", doc_id, e)
+                raise
+
+    def remove_prompt(self, prompt_name: str) -> None:
+        """Remove a prompt from Cloudant prompts database"""
+        try:
+            existing = self._client.get_document(db=self._prompts_db_name, doc_id=prompt_name).get_result()
+            self._client.delete_document(
+                db=self._prompts_db_name,
+                doc_id=existing["_id"],
+                rev=existing["_rev"],
+            )
+            logger.info("Deleted prompt '%s' from Cloudant", prompt_name)
+        except ApiException as e:
+            if e.status_code == 404:
+                logger.info("Prompt '%s' already absent in Cloudant", prompt_name)
+            else:
+                logger.error("Failed to delete prompt '%s': %s", prompt_name, e)
+                raise
+
+    def get_prompt(self, prompt_name: str) -> Dict:
+        """Get a specific prompt from Cloudant prompts database"""
+        try:
+            doc = self._client.get_document(db=self._prompts_db_name, doc_id=prompt_name).get_result()
+            logger.info("Retrieved prompt '%s' from Cloudant", prompt_name)
+            return doc
+        except ApiException as e:
+            if e.code == 404:
+                logger.warning("Prompt '%s' not found in Cloudant", prompt_name)
+                return {}
+            else:
+                logger.error("Failed to get prompt '%s': %s", prompt_name, e)
+                return {}
