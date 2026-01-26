@@ -12,26 +12,32 @@ from mcp_composer.core.prompts.prompt_manager import MCPPromptManager
 @pytest.mark.asyncio
 async def test_prompts():
     """Test basic prompt functionality through composer interface."""
-    composer = MCPComposer("composer")
-    config = [
-        {
-            "name": "promo_http_avg_response",
-            "description": "Average response time of promo HTTP calls handled by a cluster",
-            "template": "What is the average response time of promo HTTP calls handled by Kubernetes cluster {{ cluster }}?",
-            "arguments": [
-                {
-                    "name": "cluster",
-                    "type": "string",
-                    "required": "true",
-                    "description": "The name of the Kubernetes cluster",
-                }
-            ],
-        }
-    ]
-    composer.add_prompts(config)
-    prompts = await composer.get_all_prompts()
-    assert len(prompts) == 1
-    assert "promo_http_avg_response" in prompts[0]
+    # Mock the database to prevent loading prompts during initialization
+    with patch("mcp_composer.core.composer.LocalFileAdapter") as mock_db_class:
+        mock_db_instance = MagicMock()
+        mock_db_instance.load_all_prompts.return_value = []
+        mock_db_class.return_value = mock_db_instance
+
+        composer = MCPComposer("composer")
+        config = [
+            {
+                "name": "promo_http_avg_response",
+                "description": "Average response time of promo HTTP calls handled by a cluster",
+                "template": "What is the average response time of promo HTTP calls handled by Kubernetes cluster {{ cluster }}?",
+                "arguments": [
+                    {
+                        "name": "cluster",
+                        "type": "string",
+                        "required": "true",
+                        "description": "The name of the Kubernetes cluster",
+                    }
+                ],
+            }
+        ]
+        composer.add_prompts(config)
+        prompts = await composer.get_all_prompts()
+        assert len(prompts) == 1
+        assert "promo_http_avg_response" in prompts[0]
 
 
 @pytest.mark.asyncio
@@ -61,7 +67,9 @@ async def test_add_prompts():
 @pytest.mark.asyncio
 async def test_builder():
     """Test prompt builder functionality through composer interface."""
-    config = [{"id": "mcp-prompt", "type": "local", "prompt_path": "test/data/prompts.json"}]
+    config = [
+        {"id": "mcp-prompt", "type": "local", "prompt_path": "test/data/prompts.json"}
+    ]
     composer = MCPComposer("composer", config=config)
     await composer.setup_member_servers()
     prompts = await composer.get_all_prompts()
@@ -72,7 +80,9 @@ async def test_builder():
 @pytest.mark.asyncio
 async def test_builder_local():
     """Test local prompt builder functionality through composer interface."""
-    config = [{"id": "mcp-prompt", "type": "local", "prompt_path": "test/data/prompts.json"}]
+    config = [
+        {"id": "mcp-prompt", "type": "local", "prompt_path": "test/data/prompts.json"}
+    ]
     composer = MCPComposer("composer", config=config)
     await composer.setup_member_servers()
     prompts = await composer.get_all_prompts()
@@ -90,20 +100,32 @@ async def test_get_all_prompts_returns_list():
             "template": "Hello, this is a test prompt.",
         }
     ]
-    composer = MCPComposer("composer")
-    added = composer.add_prompts(prompt_config)
-    assert len(added) == 1
-    assert added[0] == "test_prompt"
-    prompts = await composer.get_all_prompts()
-    assert len(prompts) == 1
+    # Mock the database to prevent loading prompts during initialization
+    with patch("mcp_composer.core.composer.LocalFileAdapter") as mock_db:
+        mock_db_instance = MagicMock()
+        mock_db_instance.load_all_prompts.return_value = []
+        mock_db.return_value = mock_db_instance
+
+        composer = MCPComposer("composer")
+        added = composer.add_prompts(prompt_config)
+        assert len(added) == 1
+        assert added[0] == "test_prompt"
+        prompts = await composer.get_all_prompts()
+        assert len(prompts) == 1
 
 
 @pytest.mark.asyncio
 async def test_get_all_prompts_empty():
     """Test get_all_prompts returns empty list when no prompts are added."""
-    composer = MCPComposer("composer")
-    prompts = await composer.get_all_prompts()
-    assert len(prompts) == 0
+    # Mock the database to prevent loading prompts during initialization
+    with patch("mcp_composer.core.composer.LocalFileAdapter") as mock_db:
+        mock_db_instance = MagicMock()
+        mock_db_instance.load_all_prompts.return_value = []
+        mock_db.return_value = mock_db_instance
+
+        composer = MCPComposer("composer")
+        prompts = await composer.get_all_prompts()
+        assert len(prompts) == 0
 
 
 @pytest.mark.asyncio
@@ -130,7 +152,9 @@ async def test_list_prompts_per_server_not_found():
     """Test listing prompts for non-existent server."""
     composer = MCPComposer("composer")
 
-    result = await composer._prompt_manager.list_prompts_per_server("non-existent-server")
+    result = await composer._prompt_manager.list_prompts_per_server(
+        "non-existent-server"
+    )
     assert result == []
 
 
@@ -199,9 +223,13 @@ async def test_disable_prompts():
     mock_prompt.description = "A test prompt"
     mock_prompt.__str__ = MagicMock(return_value="Hello, this is a test prompt.")
 
-    composer._prompt_manager.get_prompts = AsyncMock(return_value={"test-server_test_prompt": mock_prompt})
+    composer._prompt_manager.get_prompts = AsyncMock(
+        return_value={"test-server_test_prompt": mock_prompt}
+    )
 
-    result = await composer._prompt_manager.disable_prompts(["test_prompt"], "test-server")
+    result = await composer._prompt_manager.disable_prompts(
+        ["test_prompt"], "test-server"
+    )
     assert "Disabled" in result
 
 
@@ -227,9 +255,13 @@ async def test_enable_prompts():
     mock_prompt.description = "A test prompt"
     mock_prompt.__str__ = MagicMock(return_value="Hello, this is a test prompt.")
 
-    composer._prompt_manager.get_prompts = AsyncMock(return_value={"test-server_test_prompt": mock_prompt})
+    composer._prompt_manager.get_prompts = AsyncMock(
+        return_value={"test-server_test_prompt": mock_prompt}
+    )
 
-    result = await composer._prompt_manager.enable_prompts(["test_prompt"], "test-server")
+    result = await composer._prompt_manager.enable_prompts(
+        ["test_prompt"], "test-server"
+    )
     assert "Enabled" in result
 
 
@@ -268,11 +300,15 @@ async def test_disable_and_enable_prompts_integration():
     )
 
     # Disable prompts
-    result = await composer._prompt_manager.disable_prompts(["prompt1", "prompt2"], "test-server")
+    result = await composer._prompt_manager.disable_prompts(
+        ["prompt1", "prompt2"], "test-server"
+    )
     assert "Disabled" in result
 
     # Enable prompts
-    result = await composer._prompt_manager.enable_prompts(["prompt1", "prompt2"], "test-server")
+    result = await composer._prompt_manager.enable_prompts(
+        ["prompt1", "prompt2"], "test-server"
+    )
     assert "Enabled" in result
 
 
@@ -320,10 +356,14 @@ async def test_disable_prompts_with_mounted_server():
     mock_prompt.description = "A test prompt"
     mock_prompt.__str__ = MagicMock(return_value="Hello, this is a test prompt.")
 
-    composer._prompt_manager.get_prompts = AsyncMock(return_value={"test-server_test_prompt": mock_prompt})
+    composer._prompt_manager.get_prompts = AsyncMock(
+        return_value={"test-server_test_prompt": mock_prompt}
+    )
 
     # Disable prompt
-    result = await composer._prompt_manager.disable_prompts(["test_prompt"], "test-server")
+    result = await composer._prompt_manager.disable_prompts(
+        ["test_prompt"], "test-server"
+    )
     assert "Disabled" in result
 
 
@@ -348,10 +388,14 @@ async def test_enable_prompts_with_mounted_server():
     mock_prompt.description = "A test prompt"
     mock_prompt.__str__ = MagicMock(return_value="Hello, this is a test prompt.")
 
-    composer._prompt_manager.get_prompts = AsyncMock(return_value={"test-server_test_prompt": mock_prompt})
+    composer._prompt_manager.get_prompts = AsyncMock(
+        return_value={"test-server_test_prompt": mock_prompt}
+    )
 
     # Enable prompt
-    result = await composer._prompt_manager.enable_prompts(["test_prompt"], "test-server")
+    result = await composer._prompt_manager.enable_prompts(
+        ["test_prompt"], "test-server"
+    )
     assert "Enabled" in result
 
 
@@ -389,11 +433,15 @@ async def test_disable_and_enable_prompts_integration_with_mounted_server():
     )
 
     # Disable prompts
-    result = await composer._prompt_manager.disable_prompts(["prompt1", "prompt2"], "test-server")
+    result = await composer._prompt_manager.disable_prompts(
+        ["prompt1", "prompt2"], "test-server"
+    )
     assert "Disabled" in result
 
     # Enable prompts
-    result = await composer._prompt_manager.enable_prompts(["prompt1", "prompt2"], "test-server")
+    result = await composer._prompt_manager.enable_prompts(
+        ["prompt1", "prompt2"], "test-server"
+    )
     assert "Enabled" in result
 
 
@@ -430,30 +478,36 @@ async def test_list_prompts_per_server_filters_disabled_with_mounted_server():
 @pytest.mark.asyncio
 async def test_list_prompts_filters_disabled_prompts():
     """Test that list_prompts filters out disabled prompts."""
-    composer = MCPComposer("composer")
+    # Mock the database to prevent loading prompts during initialization
+    with patch("mcp_composer.core.composer.LocalFileAdapter") as mock_db:
+        mock_db_instance = MagicMock()
+        mock_db_instance.load_all_prompts.return_value = []
+        mock_db.return_value = mock_db_instance
 
-    # Mock server manager to simulate mounted server
-    mock_server_manager = MagicMock()
-    mock_server = MagicMock()
-    mock_server.health_status = HealthStatus.healthy
-    mock_server.disabled_prompts = ["test_prompt"]
-    mock_server_manager.list.return_value = [mock_server]
+        composer = MCPComposer("composer")
 
-    composer._prompt_manager._server_manager = mock_server_manager
+        # Mock server manager to simulate mounted server
+        mock_server_manager = MagicMock()
+        mock_server = MagicMock()
+        mock_server.health_status = HealthStatus.healthy
+        mock_server.disabled_prompts = ["test_prompt"]
+        mock_server_manager.list.return_value = [mock_server]
 
-    # Add a test prompt
-    prompt_config = [
-        {
-            "name": "test_prompt",
-            "description": "A test prompt",
-            "template": "Hello, this is a test prompt.",
-        }
-    ]
-    composer.add_prompts(prompt_config)
+        composer._prompt_manager._server_manager = mock_server_manager
 
-    # List prompts should not include disabled prompts
-    result = await composer._prompt_manager.list_prompts()
-    assert len(result) == 0
+        # Add a test prompt
+        prompt_config = [
+            {
+                "name": "test_prompt",
+                "description": "A test prompt",
+                "template": "Hello, this is a test prompt.",
+            }
+        ]
+        composer.add_prompts(prompt_config)
+
+        # List prompts should not include disabled prompts
+        result = await composer._prompt_manager.list_prompts()
+        assert len(result) == 0
 
 
 @pytest.mark.asyncio
@@ -530,7 +584,9 @@ async def test_add_prompts_with_invalid_type():
     mock_server_manager = MagicMock()
     prompt_manager = MCPPromptManager(mock_server_manager)
 
-    with pytest.raises(TypeError, match="Prompt config must be a dict or a list of dicts"):
+    with pytest.raises(
+        TypeError, match="Prompt config must be a dict or a list of dicts"
+    ):
         prompt_manager.add_prompts("invalid_config")
 
 
@@ -641,7 +697,9 @@ async def test_disable_prompts_with_database():
     mock_prompt.description = "A test prompt"
     mock_prompt.__str__ = MagicMock(return_value="Hello, this is a test prompt.")
 
-    prompt_manager.get_prompts = AsyncMock(return_value={"test-server_test_prompt": mock_prompt})
+    prompt_manager.get_prompts = AsyncMock(
+        return_value={"test-server_test_prompt": mock_prompt}
+    )
 
     # Mock the server manager's disable_prompts method to call the database
     def mock_disable_prompts(prompts, server_id):
@@ -677,7 +735,9 @@ async def test_enable_prompts_with_database():
     mock_prompt.description = "A test prompt"
     mock_prompt.__str__ = MagicMock(return_value="Hello, this is a test prompt.")
 
-    prompt_manager.get_prompts = AsyncMock(return_value={"test-server_test_prompt": mock_prompt})
+    prompt_manager.get_prompts = AsyncMock(
+        return_value={"test-server_test_prompt": mock_prompt}
+    )
 
     # Mock the server manager's enable_prompts method to call the database
     def mock_enable_prompts(prompts, server_id):
@@ -912,7 +972,9 @@ async def test_add_prompts_with_errors():
     prompt_manager = MCPPromptManager(mock_server_manager)
 
     # Mock build_prompt_from_dict to fail on second call
-    with patch("mcp_composer.core.prompts.prompt_manager.build_prompt_from_dict") as mock_build:
+    with patch(
+        "mcp_composer.core.prompts.prompt_manager.build_prompt_from_dict"
+    ) as mock_build:
         mock_prompt = MagicMock()
         mock_prompt.name = "test_prompt"
         mock_build.side_effect = [mock_prompt, ValueError("Invalid prompt")]
@@ -933,10 +995,14 @@ async def test_add_prompts_all_fail():
     mock_server_manager = MagicMock()
     prompt_manager = MCPPromptManager(mock_server_manager)
 
-    with patch("mcp_composer.core.prompts.prompt_manager.build_prompt_from_dict") as mock_build:
+    with patch(
+        "mcp_composer.core.prompts.prompt_manager.build_prompt_from_dict"
+    ) as mock_build:
         mock_build.side_effect = ValueError("Invalid prompt")
 
-        prompt_config = [{"name": "prompt1", "description": "Test 1", "template": "Template 1"}]
+        prompt_config = [
+            {"name": "prompt1", "description": "Test 1", "template": "Template 1"}
+        ]
 
         result = prompt_manager.add_prompts(prompt_config)
         assert result == []  # Empty list when all fail
@@ -980,7 +1046,9 @@ async def test_list_prompts_per_server_different_server():
     """Test listing prompts per server with prompts from different server."""
     mock_server_manager = MagicMock()
     prompt_manager = MCPPromptManager(mock_server_manager)
-    prompt_manager.get_prompts = AsyncMock(return_value={"other_server_prompt1": MagicMock()})
+    prompt_manager.get_prompts = AsyncMock(
+        return_value={"other_server_prompt1": MagicMock()}
+    )
 
     result = await prompt_manager.list_prompts_per_server("test_server")
     assert result == []  # No prompts for test_server
@@ -1084,7 +1152,9 @@ async def test_disable_prompts_unhealthy_server():
 
     # Mock the get method to raise an exception for unhealthy server
     mock_server_manager.get.side_effect = Exception("MCP Server 'test_server' is down.")
-    prompt_manager._server_manager.check_server_exist.side_effect = Exception("MCP Server 'test_server' is down.")
+    prompt_manager._server_manager.check_server_exist.side_effect = Exception(
+        "MCP Server 'test_server' is down."
+    )
 
     result = await prompt_manager.disable_prompts(["test_prompt"], "test_server")
     assert "Failed to disable prompts" in result
@@ -1111,7 +1181,9 @@ async def test_enable_prompts_unhealthy_server():
 
     # Mock the get method to raise an exception for unhealthy server
     mock_server_manager.get.side_effect = Exception("MCP Server 'test_server' is down.")
-    prompt_manager._server_manager.check_server_exist.side_effect = Exception("MCP Server 'test_server' is down.")
+    prompt_manager._server_manager.check_server_exist.side_effect = Exception(
+        "MCP Server 'test_server' is down."
+    )
 
     result = await prompt_manager.enable_prompts(["test_prompt"], "test_server")
     assert "Failed to enable prompts" in result

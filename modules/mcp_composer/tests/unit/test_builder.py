@@ -1,4 +1,4 @@
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
 from fastmcp import FastMCP
 import httpx
@@ -38,7 +38,9 @@ async def test_build_from_client_with_headers():
     }
     builder = MCPServerBuilder(config)
     with (
-        patch("mcp_composer.core.member_servers.builder.StreamableHttpTransport") as _mock_transport,
+        patch(
+            "mcp_composer.core.member_servers.builder.StreamableHttpTransport"
+        ) as _mock_transport,
         patch("mcp_composer.core.member_servers.builder.Client") as _mock_client,
         patch("mcp_composer.core.member_servers.builder.FastMCP") as mock_fastmcp,
     ):
@@ -60,7 +62,9 @@ async def test_build_from_client_exception():
         patch("mcp_composer.core.member_servers.builder.FastMCP") as mock_fastmcp,
     ):
         mock_fastmcp.as_proxy.side_effect = Exception("Connection failed")
-        with pytest.raises(RuntimeError, match="Failed to build member MCP server 'srv'"):
+        with pytest.raises(
+            RuntimeError, match="Failed to build member MCP server 'srv'"
+        ):
             await builder._build_from_client()
 
 
@@ -73,7 +77,9 @@ async def test_build_from_transport_http():
     }
     builder = MCPServerBuilder(config)
     with (
-        patch("mcp_composer.core.member_servers.builder.StreamableHttpTransport") as _mock_transport,
+        patch(
+            "mcp_composer.core.member_servers.builder.StreamableHttpTransport"
+        ) as _mock_transport,
         patch("mcp_composer.core.member_servers.builder.Client") as _mock_client,
         patch("mcp_composer.core.member_servers.builder.FastMCP") as mock_fastmcp,
     ):
@@ -91,7 +97,9 @@ async def test_build_from_transport_sse():
     }
     builder = MCPServerBuilder(config)
     with (
-        patch("mcp_composer.core.member_servers.builder.SSETransport") as _mock_transport,
+        patch(
+            "mcp_composer.core.member_servers.builder.SSETransport"
+        ) as _mock_transport,
         patch("mcp_composer.core.member_servers.builder.Client") as _mock_client,
         patch("mcp_composer.core.member_servers.builder.FastMCP") as mock_fastmcp,
     ):
@@ -112,7 +120,9 @@ async def test_build_from_transport_stdio():
     }
     builder = MCPServerBuilder(config)
     with (
-        patch("mcp_composer.core.member_servers.builder.StdioTransport") as _mock_transport,
+        patch(
+            "mcp_composer.core.member_servers.builder.StdioTransport"
+        ) as _mock_transport,
         patch("mcp_composer.core.member_servers.builder.Client") as _mock_client,
         patch("mcp_composer.core.member_servers.builder.FastMCP") as mock_fastmcp,
     ):
@@ -132,7 +142,9 @@ async def test_build_from_transport_http_with_oauth():
     }
     builder = MCPServerBuilder(config)
     with (
-        patch("mcp_composer.core.member_servers.builder.StreamableHttpTransport") as _mock_transport,
+        patch(
+            "mcp_composer.core.member_servers.builder.StreamableHttpTransport"
+        ) as _mock_transport,
         patch("mcp_composer.core.member_servers.builder.Client") as _mock_client,
         patch("mcp_composer.core.member_servers.builder.FastMCP") as mock_fastmcp,
         patch("mcp_composer.core.member_servers.builder.OAuth") as _mock_oauth,
@@ -165,10 +177,14 @@ async def test_build_from_transport_http_with_solis_jwt_handler():
     builder = MCPServerBuilder(config)
 
     with (
-        patch("mcp_composer.core.member_servers.builder.StreamableHttpTransport") as mock_transport,
+        patch(
+            "mcp_composer.core.member_servers.builder.StreamableHttpTransport"
+        ) as mock_transport,
         patch("mcp_composer.core.member_servers.builder.Client") as mock_client_cls,
         patch("mcp_composer.core.member_servers.builder.FastMCP") as mock_fastmcp,
-        patch("mcp_composer.core.member_servers.builder.SolisJWTTokenGenerator") as mock_token_gen_cls,
+        patch(
+            "mcp_composer.core.member_servers.builder.SolisJWTTokenGenerator"
+        ) as mock_token_gen_cls,
     ):
         mock_token_gen = MagicMock()
         mock_token_gen.get_jwt_token = AsyncMock(return_value="mock-jwt-token")
@@ -226,11 +242,17 @@ async def test_build_from_openapi_with_spec_url():
     }
     builder = MCPServerBuilder(config)
     with (
-        patch("mcp_composer.core.member_servers.builder.load_spec_from_url") as mock_load_spec,
-        patch("mcp_composer.core.member_servers.builder.load_custom_mappings_from_json") as mock_load_mappings,
+        patch(
+            "mcp_composer.core.member_servers.builder.load_spec_from_url"
+        ) as mock_load_spec,
+        patch(
+            "mcp_composer.core.member_servers.builder.load_custom_mappings_from_json"
+        ) as mock_load_mappings,
         patch("mcp_composer.core.member_servers.builder.FastMCP") as mock_fastmcp,
         patch("mcp_composer.core.member_servers.builder.jsonref") as mock_jsonref,
-        patch("mcp_composer.core.member_servers.builder.httpx.AsyncClient") as _mock_client,
+        patch(
+            "mcp_composer.core.member_servers.builder.httpx.AsyncClient"
+        ) as _mock_client,
     ):
         mock_load_spec.return_value = {"openapi": "3.0.0"}
         mock_load_mappings.return_value = []
@@ -258,10 +280,14 @@ async def test_build_from_openapi_with_spec_filepath():
     builder = MCPServerBuilder(config)
     with (
         patch("mcp_composer.core.member_servers.builder.load_json") as mock_load_json,
-        patch("mcp_composer.core.member_servers.builder.load_custom_mappings_from_json") as mock_load_mappings,
+        patch(
+            "mcp_composer.core.member_servers.builder.load_custom_mappings_from_json"
+        ) as mock_load_mappings,
         patch("mcp_composer.core.member_servers.builder.FastMCP") as mock_fastmcp,
         patch("mcp_composer.core.member_servers.builder.jsonref") as mock_jsonref,
-        patch("mcp_composer.core.member_servers.builder.httpx.AsyncClient") as _mock_client,
+        patch(
+            "mcp_composer.core.member_servers.builder.httpx.AsyncClient"
+        ) as _mock_client,
         patch.dict("os.environ", {"MCP_COMPOSER_MODE": "dev"}),
     ):
         mock_load_json.return_value = {"openapi": "3.0.0"}
@@ -291,11 +317,17 @@ async def test_build_from_openapi_with_custom_routes():
     }
     builder = MCPServerBuilder(config)
     with (
-        patch("mcp_composer.core.member_servers.builder.load_spec_from_url") as mock_load_spec,
-        patch("mcp_composer.core.member_servers.builder.load_custom_mappings_from_json") as mock_load_mappings,
+        patch(
+            "mcp_composer.core.member_servers.builder.load_spec_from_url"
+        ) as mock_load_spec,
+        patch(
+            "mcp_composer.core.member_servers.builder.load_custom_mappings_from_json"
+        ) as mock_load_mappings,
         patch("mcp_composer.core.member_servers.builder.FastMCP") as mock_fastmcp,
         patch("mcp_composer.core.member_servers.builder.jsonref") as mock_jsonref,
-        patch("mcp_composer.core.member_servers.builder.httpx.AsyncClient") as _mock_client,
+        patch(
+            "mcp_composer.core.member_servers.builder.httpx.AsyncClient"
+        ) as _mock_client,
     ):
         mock_load_spec.return_value = {"openapi": "3.0.0"}
         mock_load_mappings.return_value = [{"route": "/custom", "method": "GET"}]
@@ -324,20 +356,42 @@ async def test_build_from_openapi_with_dynamic_bearer():
     }
     builder = MCPServerBuilder(config)
     with (
-        patch("mcp_composer.core.member_servers.builder.load_spec_from_url") as mock_load_spec,
-        patch("mcp_composer.core.member_servers.builder.load_custom_mappings_from_json") as mock_load_mappings,
+        patch(
+            "mcp_composer.core.member_servers.builder.load_spec_from_url"
+        ) as mock_load_spec,
+        patch(
+            "mcp_composer.core.member_servers.builder.load_custom_mappings_from_json"
+        ) as mock_load_mappings,
         patch("mcp_composer.core.member_servers.builder.FastMCP") as mock_fastmcp,
         patch("mcp_composer.core.member_servers.builder.jsonref") as mock_jsonref,
-        patch("mcp_composer.core.member_servers.builder.DynamicTokenClient") as mock_dynamic_client,
+        patch(
+            "mcp_composer.core.member_servers.builder.DynamicTokenClient"
+        ) as mock_dynamic_client,
+        patch(
+            "mcp_composer.core.member_servers.builder.DynamicTokenClientOAuth"
+        ) as mock_oauth,
     ):
         mock_load_spec.return_value = {"openapi": "3.0.0"}
         mock_load_mappings.return_value = []
         mock_jsonref.loads.return_value = {"openapi": "3.0.0"}
         mock_fastmcp.from_openapi.return_value = "mcp_server"
-        mock_dynamic_client.return_value = "dynamic_client"
+
+        # Mock the DynamicTokenClient instance with required methods and attributes
+        mock_client_instance = Mock()
+        mock_client_instance._refresh_token = AsyncMock()
+        mock_client_instance._access_token = "test_token"
+        mock_client_instance._auth_prefix = "Bearer"
+        mock_client_instance.auth = None
+        mock_dynamic_client.return_value = mock_client_instance
+
+        # Mock the DynamicTokenClientOAuth instance
+        mock_oauth_instance = Mock()
+        mock_oauth.return_value = mock_oauth_instance
 
         result = await builder._build_from_openapi()
         assert result == "mcp_server"
+        # Verify _refresh_token was called
+        mock_client_instance._refresh_token.assert_called_once()
 
 
 @pytest.mark.asyncio
@@ -357,11 +411,17 @@ async def test_build_from_openapi_with_apikey():
     }
     builder = MCPServerBuilder(config)
     with (
-        patch("mcp_composer.core.member_servers.builder.load_spec_from_url") as mock_load_spec,
-        patch("mcp_composer.core.member_servers.builder.load_custom_mappings_from_json") as mock_load_mappings,
+        patch(
+            "mcp_composer.core.member_servers.builder.load_spec_from_url"
+        ) as mock_load_spec,
+        patch(
+            "mcp_composer.core.member_servers.builder.load_custom_mappings_from_json"
+        ) as mock_load_mappings,
         patch("mcp_composer.core.member_servers.builder.FastMCP") as mock_fastmcp,
         patch("mcp_composer.core.member_servers.builder.jsonref") as mock_jsonref,
-        patch("mcp_composer.core.member_servers.builder.httpx.AsyncClient") as _mock_client,
+        patch(
+            "mcp_composer.core.member_servers.builder.httpx.AsyncClient"
+        ) as _mock_client,
     ):
         mock_load_spec.return_value = {"openapi": "3.0.0"}
         mock_load_mappings.return_value = []
@@ -390,11 +450,17 @@ async def test_build_from_openapi_with_jsessionid_success():
     }
     builder = MCPServerBuilder(config)
     with (
-        patch("mcp_composer.core.member_servers.builder.load_spec_from_url") as mock_load_spec,
-        patch("mcp_composer.core.member_servers.builder.load_custom_mappings_from_json") as mock_load_mappings,
+        patch(
+            "mcp_composer.core.member_servers.builder.load_spec_from_url"
+        ) as mock_load_spec,
+        patch(
+            "mcp_composer.core.member_servers.builder.load_custom_mappings_from_json"
+        ) as mock_load_mappings,
         patch("mcp_composer.core.member_servers.builder.FastMCP") as mock_fastmcp,
         patch("mcp_composer.core.member_servers.builder.jsonref") as mock_jsonref,
-        patch("mcp_composer.core.member_servers.builder.DynamicTokenManager") as mock_token_manager,
+        patch(
+            "mcp_composer.core.member_servers.builder.DynamicTokenManager"
+        ) as mock_token_manager,
     ):
         mock_load_spec.return_value = {"openapi": "3.0.0"}
         mock_load_mappings.return_value = []
@@ -402,7 +468,9 @@ async def test_build_from_openapi_with_jsessionid_success():
         mock_fastmcp.from_openapi.return_value = "mcp_server"
 
         mock_manager_instance = AsyncMock()
-        mock_manager_instance.get_authenticated_http_client_for_jessonid.return_value = "authenticated_client"
+        mock_manager_instance.get_authenticated_http_client_for_jessonid.return_value = (
+            "authenticated_client"
+        )
         mock_token_manager.return_value = mock_manager_instance
 
         result = await builder._build_from_openapi()
@@ -425,11 +493,17 @@ async def test_build_from_openapi_with_jsessionid_keyerror():
     }
     builder = MCPServerBuilder(config)
     with (
-        patch("mcp_composer.core.member_servers.builder.load_spec_from_url") as mock_load_spec,
-        patch("mcp_composer.core.member_servers.builder.load_custom_mappings_from_json") as mock_load_mappings,
+        patch(
+            "mcp_composer.core.member_servers.builder.load_spec_from_url"
+        ) as mock_load_spec,
+        patch(
+            "mcp_composer.core.member_servers.builder.load_custom_mappings_from_json"
+        ) as mock_load_mappings,
         patch("mcp_composer.core.member_servers.builder.FastMCP") as mock_fastmcp,
         patch("mcp_composer.core.member_servers.builder.jsonref") as mock_jsonref,
-        patch("mcp_composer.core.member_servers.builder.DynamicTokenManager") as mock_token_manager,
+        patch(
+            "mcp_composer.core.member_servers.builder.DynamicTokenManager"
+        ) as mock_token_manager,
     ):
         mock_load_spec.return_value = {"openapi": "3.0.0"}
         mock_load_mappings.return_value = []
@@ -437,7 +511,9 @@ async def test_build_from_openapi_with_jsessionid_keyerror():
         mock_fastmcp.from_openapi.return_value = "mcp_server"
 
         mock_manager_instance = AsyncMock()
-        mock_manager_instance.get_authenticated_http_client_for_jessonid.side_effect = KeyError("missing_key")
+        mock_manager_instance.get_authenticated_http_client_for_jessonid.side_effect = (
+            KeyError("missing_key")
+        )
         mock_token_manager.return_value = mock_manager_instance
 
         result = await builder._build_from_openapi()
@@ -462,11 +538,17 @@ async def test_build_from_openapi_with_jsessionid_httperror():
     }
     builder = MCPServerBuilder(config)
     with (
-        patch("mcp_composer.core.member_servers.builder.load_spec_from_url") as mock_load_spec,
-        patch("mcp_composer.core.member_servers.builder.load_custom_mappings_from_json") as mock_load_mappings,
+        patch(
+            "mcp_composer.core.member_servers.builder.load_spec_from_url"
+        ) as mock_load_spec,
+        patch(
+            "mcp_composer.core.member_servers.builder.load_custom_mappings_from_json"
+        ) as mock_load_mappings,
         patch("mcp_composer.core.member_servers.builder.FastMCP") as mock_fastmcp,
         patch("mcp_composer.core.member_servers.builder.jsonref") as mock_jsonref,
-        patch("mcp_composer.core.member_servers.builder.DynamicTokenManager") as mock_token_manager,
+        patch(
+            "mcp_composer.core.member_servers.builder.DynamicTokenManager"
+        ) as mock_token_manager,
     ):
         mock_load_spec.return_value = {"openapi": "3.0.0"}
         mock_load_mappings.return_value = []
@@ -474,7 +556,9 @@ async def test_build_from_openapi_with_jsessionid_httperror():
         mock_fastmcp.from_openapi.return_value = "mcp_server"
 
         mock_manager_instance = AsyncMock()
-        mock_manager_instance.get_authenticated_http_client_for_jessonid.side_effect = httpx.HTTPError("HTTP error")
+        mock_manager_instance.get_authenticated_http_client_for_jessonid.side_effect = (
+            httpx.HTTPError("HTTP error")
+        )
         mock_token_manager.return_value = mock_manager_instance
 
         result = await builder._build_from_openapi()
@@ -499,11 +583,17 @@ async def test_build_from_openapi_with_jsessionid_general_exception():
     }
     builder = MCPServerBuilder(config)
     with (
-        patch("mcp_composer.core.member_servers.builder.load_spec_from_url") as mock_load_spec,
-        patch("mcp_composer.core.member_servers.builder.load_custom_mappings_from_json") as mock_load_mappings,
+        patch(
+            "mcp_composer.core.member_servers.builder.load_spec_from_url"
+        ) as mock_load_spec,
+        patch(
+            "mcp_composer.core.member_servers.builder.load_custom_mappings_from_json"
+        ) as mock_load_mappings,
         patch("mcp_composer.core.member_servers.builder.FastMCP") as mock_fastmcp,
         patch("mcp_composer.core.member_servers.builder.jsonref") as mock_jsonref,
-        patch("mcp_composer.core.member_servers.builder.DynamicTokenManager") as mock_token_manager,
+        patch(
+            "mcp_composer.core.member_servers.builder.DynamicTokenManager"
+        ) as mock_token_manager,
     ):
         mock_load_spec.return_value = {"openapi": "3.0.0"}
         mock_load_mappings.return_value = []
@@ -511,7 +601,9 @@ async def test_build_from_openapi_with_jsessionid_general_exception():
         mock_fastmcp.from_openapi.return_value = "mcp_server"
 
         mock_manager_instance = AsyncMock()
-        mock_manager_instance.get_authenticated_http_client_for_jessonid.side_effect = Exception("Unexpected error")
+        mock_manager_instance.get_authenticated_http_client_for_jessonid.side_effect = (
+            Exception("Unexpected error")
+        )
         mock_token_manager.return_value = mock_manager_instance
 
         result = await builder._build_from_openapi()
@@ -545,7 +637,9 @@ async def test_build_from_graphql():
     }
     builder = MCPServerBuilder(config)
     with (
-        patch("mcp_composer.core.member_servers.builder.GraphQLTool") as mock_graphql_tool,
+        patch(
+            "mcp_composer.core.member_servers.builder.GraphQLTool"
+        ) as mock_graphql_tool,
         patch("mcp_composer.core.member_servers.builder.FastMCP") as mock_fastmcp,
     ):
         mock_tool_instance = MagicMock()
@@ -569,7 +663,9 @@ async def test_build_from_local_file():
     builder = MCPServerBuilder(config)
     with (
         patch("mcp_composer.core.member_servers.builder.load_json") as mock_load_json,
-        patch("mcp_composer.core.member_servers.builder.build_prompt_from_dict") as mock_build_prompt,
+        patch(
+            "mcp_composer.core.member_servers.builder.build_prompt_from_dict"
+        ) as mock_build_prompt,
         patch("mcp_composer.core.member_servers.builder.FastMCP") as mock_fastmcp,
     ):
         mock_load_json.return_value = [
@@ -595,7 +691,9 @@ def test_build_from_fastapi():
         ConfigKey.TYPE: "fastapi",
     }
     builder = MCPServerBuilder(config)
-    with pytest.raises(NotImplementedError, match="Local file loading not yet supported"):
+    with pytest.raises(
+        NotImplementedError, match="Local file loading not yet supported"
+    ):
         builder._build_from_fastapi()
 
 
@@ -611,7 +709,9 @@ async def test_build_openapi():
     }
     builder = MCPServerBuilder(config)
     with (
-        patch("mcp_composer.core.member_servers.builder.MCPServerBuilder._build_from_openapi") as mock_build_openapi,
+        patch(
+            "mcp_composer.core.member_servers.builder.MCPServerBuilder._build_from_openapi"
+        ) as mock_build_openapi,
     ):
         mock_build_openapi.return_value = "mcp_server"
         result = await builder.build()
@@ -626,7 +726,9 @@ async def test_build_graphql():
     }
     builder = MCPServerBuilder(config)
     with (
-        patch("mcp_composer.core.member_servers.builder.MCPServerBuilder._build_from_graphql") as mock_build_graphql,
+        patch(
+            "mcp_composer.core.member_servers.builder.MCPServerBuilder._build_from_graphql"
+        ) as mock_build_graphql,
     ):
         mock_build_graphql.return_value = "mcp_server"
         result = await builder.build()
@@ -642,7 +744,9 @@ async def test_build_local():
     }
     builder = MCPServerBuilder(config)
     with (
-        patch("mcp_composer.core.member_servers.builder.MCPServerBuilder._build_from_local_file") as mock_build_local,
+        patch(
+            "mcp_composer.core.member_servers.builder.MCPServerBuilder._build_from_local_file"
+        ) as mock_build_local,
     ):
         mock_build_local.return_value = "mcp_server"
         result = await builder.build()
@@ -657,7 +761,9 @@ async def test_build_fastapi():
     }
     builder = MCPServerBuilder(config)
     with (
-        patch("mcp_composer.core.member_servers.builder.MCPServerBuilder._build_from_fastapi") as mock_build_fastapi,
+        patch(
+            "mcp_composer.core.member_servers.builder.MCPServerBuilder._build_from_fastapi"
+        ) as mock_build_fastapi,
     ):
         mock_build_fastapi.return_value = "mcp_server"
         result = await builder.build()
@@ -830,7 +936,9 @@ async def test_layered_enabled_returns_only_three_tools():
             ConfigKey.ENDPOINT: "https://api.example.com/v1",
             ConfigKey.SPEC_FILEPATH: "/path/to/spec.json",
             "layered": True,
-            "custom_routes": [{"methods": ["GET"], "pattern": ".*", "mcp_type": "TOOL"}],
+            "custom_routes": [
+                {"methods": ["GET"], "pattern": ".*", "mcp_type": "TOOL"}
+            ],
         },
         ConfigKey.AUTH_STRATEGY: AuthStrategy.APIKEY,
         ConfigKey.AUTH: {ConfigKey.APIKEY: "test-api-key"},
@@ -867,7 +975,9 @@ async def test_layered_enabled_returns_only_three_tools():
                     "responses": {
                         "201": {
                             "description": "User created",
-                            "content": {"application/json": {"schema": {"type": "object"}}},
+                            "content": {
+                                "application/json": {"schema": {"type": "object"}}
+                            },
                         }
                     },
                 },
@@ -887,7 +997,9 @@ async def test_layered_enabled_returns_only_three_tools():
                     "responses": {
                         "200": {
                             "description": "Successful response",
-                            "content": {"application/json": {"schema": {"type": "object"}}},
+                            "content": {
+                                "application/json": {"schema": {"type": "object"}}
+                            },
                         }
                     },
                 }
@@ -897,9 +1009,13 @@ async def test_layered_enabled_returns_only_three_tools():
 
     with (
         patch("mcp_composer.core.member_servers.builder.load_json") as mock_load_json,
-        patch("mcp_composer.core.member_servers.builder.load_custom_mappings_from_json") as mock_load_mappings,
+        patch(
+            "mcp_composer.core.member_servers.builder.load_custom_mappings_from_json"
+        ) as mock_load_mappings,
         patch("mcp_composer.core.member_servers.builder.jsonref") as mock_jsonref,
-        patch("mcp_composer.core.member_servers.builder.httpx.AsyncClient") as _mock_client,
+        patch(
+            "mcp_composer.core.member_servers.builder.httpx.AsyncClient"
+        ) as _mock_client,
         patch.dict("os.environ", {"MCP_COMPOSER_MODE": "dev"}),
     ):
         # Mock the spec loading
@@ -911,7 +1027,9 @@ async def test_layered_enabled_returns_only_three_tools():
         mcp_server = await builder._build_from_openapi()
 
         # Verify it's a LayeredOpenAPIFactory instance (not FastMCP)
-        assert isinstance(mcp_server, LayeredOpenAPIFactory), "Should use LayeredOpenAPIFactory when layered=True"
+        assert isinstance(
+            mcp_server, LayeredOpenAPIFactory
+        ), "Should use LayeredOpenAPIFactory when layered=True"
 
         # Verify the server has exactly 3 tools
         # Since LayeredOpenAPIFactory inherits from FastMCP, it should have _tool_manager
@@ -924,7 +1042,9 @@ async def test_layered_enabled_returns_only_three_tools():
         expected_tools = ["get_service_info", "get_type_info", "make_tool_call"]
 
         for expected_tool in expected_tools:
-            assert expected_tool in tool_names, f"Expected tool '{expected_tool}' not found in {tool_names}"
+            assert (
+                expected_tool in tool_names
+            ), f"Expected tool '{expected_tool}' not found in {tool_names}"
 
         # Verify no additional tools are present
         for tool_name in tool_names:
@@ -980,9 +1100,13 @@ async def test_layered_disabled_uses_fastmcp():
 
     with (
         patch("mcp_composer.core.member_servers.builder.load_json") as mock_load_json,
-        patch("mcp_composer.core.member_servers.builder.load_custom_mappings_from_json") as mock_load_mappings,
+        patch(
+            "mcp_composer.core.member_servers.builder.load_custom_mappings_from_json"
+        ) as mock_load_mappings,
         patch("mcp_composer.core.member_servers.builder.jsonref") as mock_jsonref,
-        patch("mcp_composer.core.member_servers.builder.httpx.AsyncClient") as _mock_client,
+        patch(
+            "mcp_composer.core.member_servers.builder.httpx.AsyncClient"
+        ) as _mock_client,
         patch.dict("os.environ", {"MCP_COMPOSER_MODE": "dev"}),
     ):
         # Mock the spec loading
@@ -995,8 +1119,8 @@ async def test_layered_disabled_uses_fastmcp():
 
         # Verify it's a FastMCP instance (not LayeredOpenAPIFactory)
         assert isinstance(mcp_server, FastMCP), "Should use FastMCP when layered=False"
-        assert not isinstance(mcp_server, LayeredOpenAPIFactory), (
-            "Should NOT use LayeredOpenAPIFactory when layered=False"
-        )
+        assert not isinstance(
+            mcp_server, LayeredOpenAPIFactory
+        ), "Should NOT use LayeredOpenAPIFactory when layered=False"
 
         print("✓ Verified FastMCP is used when layered=False")
