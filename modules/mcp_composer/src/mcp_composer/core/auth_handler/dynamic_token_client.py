@@ -11,7 +11,18 @@ logger = LoggerFactory.get_logger()
 
 # Constants
 DEFAULT_TOKEN_EXPIRY = 3600  # 1 hour
-TOKEN_REFRESH_BUFFER = 60    # Refresh 1 minute early
+TOKEN_REFRESH_BUFFER = 60  # Refresh 1 minute early
+
+
+class DynamicTokenClientOAuth(httpx.Auth):
+
+    def __init__(self, access_token=None, auth_prefix="Bearer") -> None:
+        self._access_token = access_token
+        self._auth_prefix = auth_prefix
+
+    def auth_flow(self, request):
+        request.headers["Authorization"] = f"{self._auth_prefix} {self._access_token}"
+        yield request
 
 
 class DynamicTokenClient(httpx.AsyncClient):
@@ -32,6 +43,9 @@ class DynamicTokenClient(httpx.AsyncClient):
         self._expires_at = 0
         self.auth_data = auth_data
         self.headers = headers or {}
+        self._auth_prefix = (
+            auth_data.get("auth_prefix", "Bearer") if auth_data else "Bearer"
+        )
         # Pass everything to parent class
         super().__init__(
             base_url=base_url,
@@ -39,6 +53,14 @@ class DynamicTokenClient(httpx.AsyncClient):
             headers=self.headers,
             **kwargs,
         )
+
+    def _get_header_for_basic_auth(self, _id: str, _secret: str) -> dict[str, str]:
+        credentials = f"{_id}:{_secret}"
+        encoded_credentials = base64.b64encode(credentials.encode()).decode()
+        return {
+            "Authorization": f"Basic {encoded_credentials}",
+            "Accept": "application/json",
+        }
 
     # pylint: disable=too-many-locals,too-many-branches,too-many-statements
     async def _refresh_token(self) -> None:
@@ -48,46 +70,76 @@ class DynamicTokenClient(httpx.AsyncClient):
             _id = resolve_env_value(self.auth_data.get(ConfigKey.ID))
             _secret = resolve_env_value(self.auth_data.get(ConfigKey.SECRET))
             apikey = resolve_env_value(self.auth_data.get(ConfigKey.APIKEY, None))
+            scope = self.auth_data.get(ConfigKey.SCOPE, None)
+            server = self.auth_data.get(ConfigKey.SERVER, "").lower()
             # Expect apikey to be in headers: self.headers["apikey"]
             token_url = self.auth_data.get(ConfigKey.Token_URL)
-            auth_generation_method = self.auth_data.get(ConfigKey.TOKEN_GEN_AUTH_METHOD,"")
+            auth_generation_method = self.auth_data.get(
+                ConfigKey.TOKEN_GEN_AUTH_METHOD, ""
+            )
 
             if not token_url:
                 raise ValueError("token_url must be provided in auth_data.")
 
             if not apikey and not (_id and _secret):
-                raise ValueError("Either apikey or (id and secret) must be provided in auth_data.")
+                raise ValueError(
+                    "Either apikey or (id and secret) must be provided in auth_data."
+                )
 
             logger.debug("Refreshing token using method: %s", auth_generation_method)
 
             if auth_generation_method == "jwt" and apikey:
-                headers = {"Content-Type": "application/json", "Accept": "application/json"}
+                headers = {
+                    "Content-Type": "application/json",
+                    "Accept": "application/json",
+                }
                 data = {ConfigKey.APIKEY: apikey}
                 response = await super().post(token_url, headers=headers, json=data)
-            elif auth_generation_method == AuthStrategy.BASIC:
 
-                credentials = f"{_id}:{_secret}"
-                encoded_credentials = base64.b64encode(credentials.encode()).decode()
-
-                headers = {
-                    "Accept": "application/json",
-                    "Authorization": f"Basic {encoded_credentials}"
+            elif (
+                auth_generation_method.lower() == AuthStrategy.BASIC.lower()
+                and server == "turbo"
+            ):
+                headers = self._get_header_for_basic_auth(_id, _secret)
+                headers["Content-Type"] = "application/x-www-form-urlencoded"
+                data = {
+                    "grant_type": "client_credentials",
+                    "scope": scope,
                 }
-
                 try:
                     auth = httpx.BasicAuth(str(_id), str(_secret))
-                    if self.auth_data.get(ConfigKey.TOKEN_GEN_METHOD,"get").lower()=="post":
-                        response = await super().post(token_url, headers=headers, auth=auth)
+                    response = await super().post(
+                        token_url, headers=headers, auth=auth, data=data
+                    )
+                except httpx.HTTPError as exc:
+                    logger.error("Turbo Basic auth request failed: %s", exc)
+                    logger.error("Token URL: %s", token_url)
+                    masked_secret = "*" * len(str(_secret)) if _secret else None
+                    logger.error("ID: %s, Secret: %s", _id, masked_secret)
+                    raise
+
+            elif auth_generation_method.lower() == AuthStrategy.BASIC.lower():
+                headers = self._get_header_for_basic_auth(_id, _secret)
+                try:
+                    auth = httpx.BasicAuth(str(_id), str(_secret))
+                    if (
+                        self.auth_data.get(ConfigKey.TOKEN_GEN_METHOD, "get").lower()
+                        == "post"
+                    ):
+                        response = await super().post(
+                            token_url, headers=headers, auth=auth
+                        )
                     else:
-                        response = await super().get(token_url, headers=headers, auth=auth)
+                        response = await super().get(
+                            token_url, headers=headers, auth=auth
+                        )
                 except httpx.HTTPError as exc:
                     logger.error("Basic auth request failed: %s", exc)
                     logger.error("Token URL: %s", token_url)
-                    masked_secret = (
-                        "*" * len(str(_secret)) if _secret else None
-                    )
+                    masked_secret = "*" * len(str(_secret)) if _secret else None
                     logger.error("ID: %s, Secret: %s", _id, masked_secret)
                     raise
+
             else:
                 # IAM-style
                 headers = {"Content-Type": "application/x-www-form-urlencoded"}
@@ -100,7 +152,9 @@ class DynamicTokenClient(httpx.AsyncClient):
             # Check if we got a valid token even with a 401 status (some APIs do this)
             token_data = response.json()
 
-            self._access_token = token_data.get("access_token") or token_data.get("token")
+            self._access_token = token_data.get("access_token") or token_data.get(
+                "token"
+            )
 
             if self._access_token:
                 logger.debug(
@@ -163,9 +217,7 @@ class DynamicTokenClient(httpx.AsyncClient):
         # Prevent recursion if the token_url is being called
         token_url = self.auth_data.get("token_url") if self.auth_data else None
         if token_url and str(url).startswith(str(token_url)):
-            logger.debug(
-                "Requesting token, skipping token refresh. kwargs=%s", kwargs
-            )
+            logger.debug("Requesting token, skipping token refresh. kwargs=%s", kwargs)
             try:
                 return await super().request(method, url, **kwargs)
             except httpx.HTTPError as e:
@@ -185,5 +237,7 @@ class DynamicTokenClient(httpx.AsyncClient):
         headers.update(kwargs.pop("headers", {}))
         headers["Authorization"] = f"Bearer {self._access_token}"
         headers.setdefault("Content-Type", "application/json")
-        logger.debug("Making request to %s with headers: %s and kwargs: %s", url, headers, kwargs)
+        logger.debug(
+            "Making request to %s with headers: %s and kwargs: %s", url, headers, kwargs
+        )
         return await super().request(method, url, headers=headers, **kwargs)

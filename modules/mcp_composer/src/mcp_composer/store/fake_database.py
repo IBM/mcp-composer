@@ -3,12 +3,16 @@ from mcp_composer.store.database import DatabaseInterface
 
 
 class FakeDatabase(DatabaseInterface):
-    """A simple in-memory DB stub used for tests."""
+    """A simple in-memory DB stub used for tests.
+
+    Implements all abstract methods from DatabaseInterface for testing purposes.
+    """
 
     def __init__(self) -> None:
         self._servers: dict[str, Dict] = {}
         self._tools: list[Dict] = []
         self._resources: dict[str, Dict] = {}
+        self._prompts: dict[str, Dict] = {}
 
     def load_all_servers(self) -> list[Dict]:
         return list(self._servers.values())
@@ -23,6 +27,7 @@ class FakeDatabase(DatabaseInterface):
         self._servers.clear()
         self._tools.clear()
         self._resources.clear()
+        self._prompts.clear()
 
     def mark_deactivated(self, server_id: str) -> None:
         if server_id in self._servers:
@@ -93,3 +98,21 @@ class FakeDatabase(DatabaseInterface):
 
     def delete_resource(self, resource_id: str) -> None:
         self._resources.pop(resource_id, None)
+
+    def load_all_prompts(self) -> List[Dict]:
+        """Load all prompts from storage"""
+        return list(self._prompts.values())
+
+    def add_prompt(self, prompt: Dict) -> None:
+        """Add or update a prompt in storage"""
+        prompt_name = prompt.get("name")
+        if prompt_name:
+            self._prompts[prompt_name] = prompt
+
+    def remove_prompt(self, prompt_name: str) -> None:
+        """Remove a prompt from storage"""
+        self._prompts.pop(prompt_name, None)
+
+    def get_prompt(self, prompt_name: str) -> Dict:
+        """Get a specific prompt from storage"""
+        return self._prompts.get(prompt_name, {})

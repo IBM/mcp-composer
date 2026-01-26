@@ -54,7 +54,7 @@ class ConfigKey(str, Enum):
 
     USER_PASSWORD = "user_password"
 
-
+    SERVER = "server"
 
 
 class MemberServerType(str, Enum):
@@ -81,7 +81,6 @@ class AuthStrategy(str, Enum):
     JSESSIONID = "jessionid"
     ASPERA_OAUTH_HANDLER = "aspera_oauth_handler"
     SOLIS_JWT_HANDLER = "solis_jwt_handler"
-
 
 
 class ValidationError(Exception):
@@ -156,8 +155,18 @@ class ServerConfigValidator:
             AuthStrategy.BEARER: ["token"],
             AuthStrategy.DYNAMIC_BEARER: ["apikey", "token_url", "id", "secret"],
             AuthStrategy.OAUTH: ["client_id", "client_secret", "token_url"],
-            AuthStrategy.ASPERA_OAUTH_HANDLER: ["client_id", "secret", ConfigKey.CERT_VALUE, "token_url"],
-            AuthStrategy.SOLIS_JWT_HANDLER: ["login_url", "return_url", "user_email", "password"],
+            AuthStrategy.ASPERA_OAUTH_HANDLER: [
+                "client_id",
+                "secret",
+                ConfigKey.CERT_VALUE,
+                "token_url",
+            ],
+            AuthStrategy.SOLIS_JWT_HANDLER: [
+                "login_url",
+                "return_url",
+                "user_email",
+                "password",
+            ],
         }
 
         # Check if strategy is supported
@@ -185,8 +194,8 @@ class ServerConfigValidator:
                 or auth.get(ConfigKey.CLIENT_SECRET)
                 or auth.get("clientSecret")
             )
-            has_cert = bool(auth.get(ConfigKey.CERT_VALUE) )
-            has_token_url = bool(auth.get(ConfigKey.Token_URL) )
+            has_cert = bool(auth.get(ConfigKey.CERT_VALUE))
+            has_token_url = bool(auth.get(ConfigKey.Token_URL))
             missing = []
             if not has_client_id:
                 missing.append("clientId or client_id")
@@ -287,7 +296,6 @@ class ServerConfigValidator:
             raise ValidationError(
                 f"Missing required field(s) in {ConfigKey.GRAPHQL}: {', '.join(missing)}"
             )
-
 
 
 class AllServersValidator:
