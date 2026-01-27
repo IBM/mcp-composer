@@ -14,6 +14,18 @@ DEFAULT_TOKEN_EXPIRY = 3600  # 1 hour
 TOKEN_REFRESH_BUFFER = 60  # Refresh 1 minute early
 
 
+class DynamicTokenClientOAuth(httpx.Auth):
+
+    def __init__(self, access_token=None, auth_prefix="Bearer") -> None:
+        self._access_token = access_token
+        self._auth_prefix = auth_prefix
+
+    def auth_flow(self, request):
+        request.headers["Authorization"] = f"{self._auth_prefix} {self._access_token}"
+        yield request
+
+
+
 class DynamicTokenClient(httpx.AsyncClient):
     def __init__(
         self,
@@ -32,6 +44,9 @@ class DynamicTokenClient(httpx.AsyncClient):
         self._expires_at = 0
         self.auth_data = auth_data
         self.headers = headers or {}
+        self._auth_prefix = (
+            auth_data.get("auth_prefix", "Bearer") if auth_data else "Bearer"
+        )
         # Pass everything to parent class
         super().__init__(
             base_url=base_url,
@@ -39,6 +54,14 @@ class DynamicTokenClient(httpx.AsyncClient):
             headers=self.headers,
             **kwargs,
         )
+
+    def _get_header_for_basic_auth(self, _id: str, _secret: str) -> dict[str, str]:
+        credentials = f"{_id}:{_secret}"
+        encoded_credentials = base64.b64encode(credentials.encode()).decode()
+        return {
+            "Authorization": f"Basic {encoded_credentials}",
+            "Accept": "application/json",
+        }
 
     # pylint: disable=too-many-locals,too-many-branches,too-many-statements
     async def _refresh_token(self) -> None:
@@ -48,6 +71,8 @@ class DynamicTokenClient(httpx.AsyncClient):
             _id = resolve_env_value(self.auth_data.get(ConfigKey.ID))
             _secret = resolve_env_value(self.auth_data.get(ConfigKey.SECRET))
             apikey = resolve_env_value(self.auth_data.get(ConfigKey.APIKEY, None))
+            scope = self.auth_data.get(ConfigKey.SCOPE, None)
+            server = self.auth_data.get(ConfigKey.SERVER, "").lower()
             # Expect apikey to be in headers: self.headers["apikey"]
             token_url = self.auth_data.get(ConfigKey.Token_URL)
             auth_generation_method = self.auth_data.get(
@@ -71,7 +96,7 @@ class DynamicTokenClient(httpx.AsyncClient):
                 }
                 data = {ConfigKey.APIKEY: apikey}
                 response = await super().post(token_url, headers=headers, json=data)
-            elif auth_generation_method == AuthStrategy.BASIC:
+
 
                 credentials = f"{_id}:{_secret}"
                 encoded_credentials = base64.b64encode(credentials.encode()).decode()
@@ -79,8 +104,32 @@ class DynamicTokenClient(httpx.AsyncClient):
                 headers = {
                     "Accept": "application/json",
                     "Authorization": f"Basic {encoded_credentials}",
-                }
 
+            elif (
+                auth_generation_method.lower() == AuthStrategy.BASIC.lower()
+                and server == "turbo"
+            ):
+                headers = self._get_header_for_basic_auth(_id, _secret)
+                headers["Content-Type"] = "application/x-www-form-urlencoded"
+                data = {
+                    "grant_type": "client_credentials",
+                    "scope": scope,
+
+                }
+                try:
+                    auth = httpx.BasicAuth(str(_id), str(_secret))
+                    response = await super().post(
+                        token_url, headers=headers, auth=auth, data=data
+                    )
+                except httpx.HTTPError as exc:
+                    logger.error("Turbo Basic auth request failed: %s", exc)
+                    logger.error("Token URL: %s", token_url)
+                    masked_secret = "*" * len(str(_secret)) if _secret else None
+                    logger.error("ID: %s, Secret: %s", _id, masked_secret)
+                    raise
+
+            elif auth_generation_method.lower() == AuthStrategy.BASIC.lower():
+                headers = self._get_header_for_basic_auth(_id, _secret)
                 try:
                     auth = httpx.BasicAuth(str(_id), str(_secret))
                     if (
@@ -97,7 +146,11 @@ class DynamicTokenClient(httpx.AsyncClient):
                 except httpx.HTTPError as exc:
                     logger.error("Basic auth request failed: %s", exc)
                     logger.error("Token URL: %s", token_url)
+                    masked_secret = "*" * len(str(_secret)) if _secret else None
+                    logger.error("ID: %s, Secret: %s", _id, masked_secret)
+
                     raise
+
             else:
                 # IAM-style
                 headers = {"Content-Type": "application/x-www-form-urlencoded"}

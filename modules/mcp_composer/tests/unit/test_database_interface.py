@@ -34,6 +34,10 @@ class TestDatabaseInterface:
             "load_all_resources",
             "upsert_resource",
             "delete_resource",
+            "load_all_prompts",
+            "add_prompt",
+            "remove_prompt",
+            "get_prompt",
         }
 
         assert abstract_methods == expected_methods
@@ -108,6 +112,18 @@ class TestDatabaseInterface:
 
             def delete_resource(self, storage_id):
                 pass
+
+            def load_all_prompts(self):
+                return []
+
+            def add_prompt(self, prompt):
+                pass
+
+            def remove_prompt(self, prompt_name):
+                pass
+
+            def get_prompt(self, prompt_name):
+                return {}
 
         # Should work without raising TypeError
         db = MockDatabase()

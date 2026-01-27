@@ -1,4 +1,4 @@
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
 from fastmcp import FastMCP
 import httpx
@@ -367,15 +367,31 @@ async def test_build_from_openapi_with_dynamic_bearer():
         patch(
             "mcp_composer.core.member_servers.builder.DynamicTokenClient"
         ) as mock_dynamic_client,
+        patch(
+            "mcp_composer.core.member_servers.builder.DynamicTokenClientOAuth"
+        ) as mock_oauth,
     ):
         mock_load_spec.return_value = {"openapi": "3.0.0"}
         mock_load_mappings.return_value = []
         mock_jsonref.loads.return_value = {"openapi": "3.0.0"}
         mock_fastmcp.from_openapi.return_value = "mcp_server"
-        mock_dynamic_client.return_value = "dynamic_client"
+
+        # Mock the DynamicTokenClient instance with required methods and attributes
+        mock_client_instance = Mock()
+        mock_client_instance._refresh_token = AsyncMock()
+        mock_client_instance._access_token = "test_token"
+        mock_client_instance._auth_prefix = "Bearer"
+        mock_client_instance.auth = None
+        mock_dynamic_client.return_value = mock_client_instance
+
+        # Mock the DynamicTokenClientOAuth instance
+        mock_oauth_instance = Mock()
+        mock_oauth.return_value = mock_oauth_instance
 
         result = await builder._build_from_openapi()
         assert result == "mcp_server"
+        # Verify _refresh_token was called
+        mock_client_instance._refresh_token.assert_called_once()
 
 
 @pytest.mark.asyncio

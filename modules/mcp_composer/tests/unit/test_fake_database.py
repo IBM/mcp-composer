@@ -20,6 +20,8 @@ class TestFakeDatabase:
         """Test FakeDatabase initialization"""
         assert fake_db._servers == {}
         assert fake_db._tools == []
+        assert fake_db._resources == {}
+        assert fake_db._prompts == {}
 
     def test_load_all_servers_empty(self, fake_db):
         """Test loading all servers when database is empty"""
@@ -76,11 +78,15 @@ class TestFakeDatabase:
         # Add some data
         fake_db._servers["server1"] = {"id": "server1"}
         fake_db._tools = [{"name": "tool1"}]
+        fake_db._resources["res1"] = {"storage_id": "res1"}
+        fake_db._prompts["prompt1"] = {"name": "prompt1"}
 
         fake_db.reset()
 
         assert fake_db._servers == {}
         assert fake_db._tools == []
+        assert fake_db._resources == {}
+        assert fake_db._prompts == {}
 
     def test_mark_deactivated_existing_server(self, fake_db):
         """Test marking an existing server as deactivated"""
@@ -366,3 +372,124 @@ class TestFakeDatabase:
         assert doc["status"] == "deactivated"
         assert "disabled_prompts" in doc
         assert "disabled_resources" in doc
+
+    def test_load_all_resources_empty(self, fake_db):
+        """Test loading all resources when database is empty"""
+        resources = fake_db.load_all_resources()
+        assert resources == []
+
+    def test_load_all_resources_with_data(self, fake_db):
+        """Test loading all resources with data"""
+        resource1 = {"storage_id": "res1", "name": "Resource 1"}
+        resource2 = {"storage_id": "res2", "name": "Resource 2"}
+
+        fake_db._resources["res1"] = resource1
+        fake_db._resources["res2"] = resource2
+
+        resources = fake_db.load_all_resources()
+        assert len(resources) == 2
+        assert resource1 in resources
+        assert resource2 in resources
+
+    def test_upsert_resource(self, fake_db):
+        """Test upserting a resource"""
+        resource = {"storage_id": "res1", "name": "Test Resource"}
+        fake_db.upsert_resource(resource)
+
+        assert "res1" in fake_db._resources
+        assert fake_db._resources["res1"] == resource
+
+    def test_upsert_resource_overwrite(self, fake_db):
+        """Test upserting a resource overwrites existing one"""
+        resource1 = {"storage_id": "res1", "name": "Original Resource"}
+        resource2 = {"storage_id": "res1", "name": "Updated Resource"}
+
+        fake_db.upsert_resource(resource1)
+        fake_db.upsert_resource(resource2)
+
+        assert fake_db._resources["res1"] == resource2
+
+    def test_delete_resource_existing(self, fake_db):
+        """Test deleting an existing resource"""
+        resource = {"storage_id": "res1", "name": "Test Resource"}
+        fake_db._resources["res1"] = resource
+
+        fake_db.delete_resource("res1")
+
+        assert "res1" not in fake_db._resources
+
+    def test_delete_resource_nonexistent(self, fake_db):
+        """Test deleting a non-existent resource"""
+        fake_db.delete_resource("nonexistent-res")
+        # Should not raise an exception
+
+    def test_load_all_prompts_empty(self, fake_db):
+        """Test loading all prompts when database is empty"""
+        prompts = fake_db.load_all_prompts()
+        assert prompts == []
+
+    def test_load_all_prompts_with_data(self, fake_db):
+        """Test loading all prompts with data"""
+        prompt1 = {"name": "prompt1", "description": "Prompt 1"}
+        prompt2 = {"name": "prompt2", "description": "Prompt 2"}
+
+        fake_db._prompts["prompt1"] = prompt1
+        fake_db._prompts["prompt2"] = prompt2
+
+        prompts = fake_db.load_all_prompts()
+        assert len(prompts) == 2
+        assert prompt1 in prompts
+        assert prompt2 in prompts
+
+    def test_add_prompt(self, fake_db):
+        """Test adding a prompt"""
+        prompt = {"name": "test_prompt", "description": "Test Prompt"}
+        fake_db.add_prompt(prompt)
+
+        assert "test_prompt" in fake_db._prompts
+        assert fake_db._prompts["test_prompt"] == prompt
+
+    def test_add_prompt_overwrite(self, fake_db):
+        """Test adding a prompt overwrites existing one"""
+        prompt1 = {"name": "test_prompt", "description": "Original Prompt"}
+        prompt2 = {"name": "test_prompt", "description": "Updated Prompt"}
+
+        fake_db.add_prompt(prompt1)
+        fake_db.add_prompt(prompt2)
+
+        assert fake_db._prompts["test_prompt"] == prompt2
+
+    def test_add_prompt_without_name(self, fake_db):
+        """Test adding a prompt without a name"""
+        prompt = {"description": "Prompt without name"}
+        fake_db.add_prompt(prompt)
+
+        # Should not be added
+        assert len(fake_db._prompts) == 0
+
+    def test_remove_prompt_existing(self, fake_db):
+        """Test removing an existing prompt"""
+        prompt = {"name": "test_prompt", "description": "Test Prompt"}
+        fake_db._prompts["test_prompt"] = prompt
+
+        fake_db.remove_prompt("test_prompt")
+
+        assert "test_prompt" not in fake_db._prompts
+
+    def test_remove_prompt_nonexistent(self, fake_db):
+        """Test removing a non-existent prompt"""
+        fake_db.remove_prompt("nonexistent-prompt")
+        # Should not raise an exception
+
+    def test_get_prompt_existing(self, fake_db):
+        """Test getting an existing prompt"""
+        prompt = {"name": "test_prompt", "description": "Test Prompt"}
+        fake_db._prompts["test_prompt"] = prompt
+
+        result = fake_db.get_prompt("test_prompt")
+        assert result == prompt
+
+    def test_get_prompt_nonexistent(self, fake_db):
+        """Test getting a non-existent prompt"""
+        result = fake_db.get_prompt("nonexistent-prompt")
+        assert result == {}

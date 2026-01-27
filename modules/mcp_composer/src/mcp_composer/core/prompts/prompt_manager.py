@@ -80,6 +80,17 @@ class MCPPromptManager(PromptManager):
                 added_prompt = self.add_prompt(prompt)
                 added.append(added_prompt.name)
                 logger.info("Prompt '%s' added successfully", added_prompt.name)
+
+                # Save to database if available
+                if self._database:
+                    try:
+                        self._save_prompt_to_db(entry)
+                    except Exception as db_error:
+                        logger.warning(
+                            "Failed to save prompt '%s' to database: %s",
+                            added_prompt.name,
+                            db_error
+                        )
             except Exception as e:
                 error_msg = f"Failed to add prompt at index {i}: {str(e)}"
                 errors.append(error_msg)
@@ -89,6 +100,92 @@ class MCPPromptManager(PromptManager):
             logger.warning("Some prompts failed to add: %s", errors)
 
         return added
+
+    def _save_prompt_to_db(self, prompt_config: dict) -> None:
+        """Save a prompt configuration to the database."""
+        if not self._database:
+            return
+
+        try:
+            self._database.add_prompt(prompt_config)
+            logger.debug("Saved prompt '%s' to database", prompt_config.get("name"))
+        except Exception as e:
+            logger.error("Failed to save prompt to database: %s", e)
+            raise
+
+    def load_prompts_from_db(self) -> List[str]:
+        """Load all prompts from database and register them."""
+        if not self._database:
+            logger.info("No database configured, skipping prompt loading")
+            return []
+
+        try:
+            stored_prompts = self._database.load_all_prompts()
+            logger.info("Loading %d prompts from database", len(stored_prompts))
+
+            loaded = []
+            for prompt_config in stored_prompts:
+                try:
+                    prompt = build_prompt_from_dict(prompt_config)
+                    added_prompt = self.add_prompt(prompt)
+                    loaded.append(added_prompt.name)
+                    logger.info("Loaded prompt '%s' from database", added_prompt.name)
+                except Exception as e:
+                    logger.error(
+                        "Failed to load prompt '%s' from database: %s", prompt_config.get("name", "unknown"), e
+                    )
+
+            return loaded
+        except Exception as e:
+            logger.error("Failed to load prompts from database: %s", e)
+            return []
+
+    def delete_prompts(self, prompt_names: Union[str, List[str]]) -> Dict[str, str]:
+        """
+        Delete one or more prompts from the composer and database.
+
+        Args:
+            prompt_names: Single prompt name or list of prompt names to delete
+
+        Returns:
+            Dict[str, str]: Dictionary with prompt names as keys and status messages as values
+        """
+        if isinstance(prompt_names, str):
+            prompt_names = [prompt_names]
+        elif not isinstance(prompt_names, list):
+            raise TypeError("Prompt names must be a string or a list of strings")
+
+        results = {}
+
+        for prompt_name in prompt_names:
+            try:
+                # Remove from in-memory prompts
+                if prompt_name in self._prompts:
+                    del self._prompts[prompt_name]
+                    logger.info("Removed prompt '%s'", prompt_name)
+                else:
+                    logger.warning("Prompt '%s' not found in memory", prompt_name)
+
+                # Remove from database if available
+                if self._database:
+                    try:
+                        self._database.remove_prompt(prompt_name)
+                        results[prompt_name] = "Successfully deleted"
+                        logger.info("Deleted prompt '%s'", prompt_name)
+                    except Exception as db_error:
+                        results[prompt_name] = (
+                            f"Deleted from memory but failed to delete from database: {str(db_error)}"
+                        )
+                        logger.warning("Failed to delete prompt '%s' from database: %s", prompt_name, db_error)
+                else:
+                    results[prompt_name] = "Successfully deleted from memory (no database configured)"
+
+            except Exception as e:
+                error_msg = f"Failed to delete prompt: {str(e)}"
+                results[prompt_name] = error_msg
+                logger.error("Failed to delete prompt '%s': %s", prompt_name, e)
+
+        return results
 
     async def list_prompts_per_server(self, server_id: str) -> List[Dict]:
         """List all prompts from a specific server."""
