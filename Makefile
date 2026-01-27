@@ -16,7 +16,6 @@ TEST_IMAGE_URI = mcp-composer-test
 BUILD_ENGINE ?= docker
 BUILD_ENGINE_ARGS ?= --platform linux/amd64
 
-
 docker-build: docker-build-root
 
 docker-push:
@@ -50,7 +49,6 @@ deploy:
 	@echo "export PROMOTION_ENV_APP_SET=application-sets/aws-dev/us-east-1/application-set.yaml"
 	@echo "export DEVELOPMENT_ENV_APP_SET=application-sets/aws-dev/us-east-1/application-set.yaml"	
 	@echo "export REPLACEMENTS=\"resources/values.yaml config.imageTag.app,$(REGISTRY_IMAGE_TAG_SHORT);resources/values.yaml config.imageTag.client,$(REGISTRY_IMAGE_TAG_SHORT);resources/values.yaml config.imageTag.root,$(REGISTRY_IMAGE_TAG_SHORT)\""
-
 
 
 vars: 
