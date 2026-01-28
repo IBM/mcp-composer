@@ -12,26 +12,32 @@ from mcp_composer.core.prompts.prompt_manager import MCPPromptManager
 @pytest.mark.asyncio
 async def test_prompts():
     """Test basic prompt functionality through composer interface."""
-    composer = MCPComposer("composer")
-    config = [
-        {
-            "name": "promo_http_avg_response",
-            "description": "Average response time of promo HTTP calls handled by a cluster",
-            "template": "What is the average response time of promo HTTP calls handled by Kubernetes cluster {{ cluster }}?",
-            "arguments": [
-                {
-                    "name": "cluster",
-                    "type": "string",
-                    "required": "true",
-                    "description": "The name of the Kubernetes cluster",
-                }
-            ],
-        }
-    ]
-    composer.add_prompts(config)
-    prompts = await composer.get_all_prompts()
-    assert len(prompts) == 1
-    assert "promo_http_avg_response" in prompts[0]
+    # Mock the database to prevent loading prompts during initialization
+    with patch("mcp_composer.core.composer.LocalFileAdapter") as mock_db_class:
+        mock_db_instance = MagicMock()
+        mock_db_instance.load_all_prompts.return_value = []
+        mock_db_class.return_value = mock_db_instance
+
+        composer = MCPComposer("composer")
+        config = [
+            {
+                "name": "promo_http_avg_response",
+                "description": "Average response time of promo HTTP calls handled by a cluster",
+                "template": "What is the average response time of promo HTTP calls handled by Kubernetes cluster {{ cluster }}?",
+                "arguments": [
+                    {
+                        "name": "cluster",
+                        "type": "string",
+                        "required": "true",
+                        "description": "The name of the Kubernetes cluster",
+                    }
+                ],
+            }
+        ]
+        composer.add_prompts(config)
+        prompts = await composer.get_all_prompts()
+        assert len(prompts) == 1
+        assert "promo_http_avg_response" in prompts[0]
 
 
 @pytest.mark.asyncio
@@ -94,20 +100,32 @@ async def test_get_all_prompts_returns_list():
             "template": "Hello, this is a test prompt.",
         }
     ]
-    composer = MCPComposer("composer")
-    added = composer.add_prompts(prompt_config)
-    assert len(added) == 1
-    assert added[0] == "test_prompt"
-    prompts = await composer.get_all_prompts()
-    assert len(prompts) == 1
+    # Mock the database to prevent loading prompts during initialization
+    with patch("mcp_composer.core.composer.LocalFileAdapter") as mock_db:
+        mock_db_instance = MagicMock()
+        mock_db_instance.load_all_prompts.return_value = []
+        mock_db.return_value = mock_db_instance
+
+        composer = MCPComposer("composer")
+        added = composer.add_prompts(prompt_config)
+        assert len(added) == 1
+        assert added[0] == "test_prompt"
+        prompts = await composer.get_all_prompts()
+        assert len(prompts) == 1
 
 
 @pytest.mark.asyncio
 async def test_get_all_prompts_empty():
     """Test get_all_prompts returns empty list when no prompts are added."""
-    composer = MCPComposer("composer")
-    prompts = await composer.get_all_prompts()
-    assert len(prompts) == 0
+    # Mock the database to prevent loading prompts during initialization
+    with patch("mcp_composer.core.composer.LocalFileAdapter") as mock_db:
+        mock_db_instance = MagicMock()
+        mock_db_instance.load_all_prompts.return_value = []
+        mock_db.return_value = mock_db_instance
+
+        composer = MCPComposer("composer")
+        prompts = await composer.get_all_prompts()
+        assert len(prompts) == 0
 
 
 @pytest.mark.asyncio
@@ -460,30 +478,36 @@ async def test_list_prompts_per_server_filters_disabled_with_mounted_server():
 @pytest.mark.asyncio
 async def test_list_prompts_filters_disabled_prompts():
     """Test that list_prompts filters out disabled prompts."""
-    composer = MCPComposer("composer")
+    # Mock the database to prevent loading prompts during initialization
+    with patch("mcp_composer.core.composer.LocalFileAdapter") as mock_db:
+        mock_db_instance = MagicMock()
+        mock_db_instance.load_all_prompts.return_value = []
+        mock_db.return_value = mock_db_instance
 
-    # Mock server manager to simulate mounted server
-    mock_server_manager = MagicMock()
-    mock_server = MagicMock()
-    mock_server.health_status = HealthStatus.healthy
-    mock_server.disabled_prompts = ["test_prompt"]
-    mock_server_manager.list.return_value = [mock_server]
+        composer = MCPComposer("composer")
 
-    composer._prompt_manager._server_manager = mock_server_manager
+        # Mock server manager to simulate mounted server
+        mock_server_manager = MagicMock()
+        mock_server = MagicMock()
+        mock_server.health_status = HealthStatus.healthy
+        mock_server.disabled_prompts = ["test_prompt"]
+        mock_server_manager.list.return_value = [mock_server]
 
-    # Add a test prompt
-    prompt_config = [
-        {
-            "name": "test_prompt",
-            "description": "A test prompt",
-            "template": "Hello, this is a test prompt.",
-        }
-    ]
-    composer.add_prompts(prompt_config)
+        composer._prompt_manager._server_manager = mock_server_manager
 
-    # List prompts should not include disabled prompts
-    result = await composer._prompt_manager.list_prompts()
-    assert len(result) == 0
+        # Add a test prompt
+        prompt_config = [
+            {
+                "name": "test_prompt",
+                "description": "A test prompt",
+                "template": "Hello, this is a test prompt.",
+            }
+        ]
+        composer.add_prompts(prompt_config)
+
+        # List prompts should not include disabled prompts
+        result = await composer._prompt_manager.list_prompts()
+        assert len(result) == 0
 
 
 @pytest.mark.asyncio

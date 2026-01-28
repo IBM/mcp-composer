@@ -2,9 +2,9 @@
     {
         "id": "mcp-server-fetch",
         "type": "sse",
-        "endpoint": "https://mcp-server-fetch.1vgzmntiwjzl.eu-es.codeengine.appdomain.cloud/sse",
-        "timeout": 120.0,
-        "sse_read_timeout": 120.0,
+        "endpoint": "http://localhost:8000/sse",
+        "timeout": 5.0,
+        "sse_read_timeout": 5.0,
         "tools_description": {
             "fetch_html": "Fetch HTML content from a URL",
             "fetch_markdown": "Fetch markdown content from a URL",

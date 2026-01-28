@@ -5,7 +5,7 @@
         "disabled_tools": [
             "fetch_html"
         ],
-        "endpoint": "https://mcp-server-fetch.1vgzmntiwjzl.eu-es.codeengine.appdomain.cloud/sse"
+        "endpoint": "http://localhost:8000/sse"
     },
     "mock_update_tool_description": [
         {
@@ -14,7 +14,7 @@
             "tools_description": {
                 "fetch_html": "Test description"
             },
-            "endpoint": "https://mcp-server-fetch.1vgzmntiwjzl.eu-es.codeengine.appdomain.cloud/sse"
+            "endpoint": "http://localhost:8000/sse"
         }
     ],
     "openapi_input": {
@@ -98,12 +98,12 @@
     "server_with_missing_descriptions": {
         "id": "mcp-stock-info",
         "type": "http",
-        "endpoint": "https://mcp-stock-info.1vgzmntiwjzl.eu-es.codeengine.appdomain.cloud/mcp"
+        "endpoint": "http://localhost:8001/mcp"
     },
     "server_with_valid_descriptions": {
         "id": "mcp-server-fetch",
         "type": "sse",
-        "endpoint": "https://mcp-server-fetch.1vgzmntiwjzl.eu-es.codeengine.appdomain.cloud/sse",
+        "endpoint": "http://localhost:8000/sse",
         "timeout": 120.0,
         "sse_read_timeout": 120.0,
         "tools_description": {

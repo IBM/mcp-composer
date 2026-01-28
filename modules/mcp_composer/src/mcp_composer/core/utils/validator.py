@@ -51,8 +51,8 @@ class ConfigKey(str, Enum):
     CERT_VALUE = "cert_private_key"
     CERT_URL = "cert_url"
     USER_EMAIL = "user_email"
-
     USER_PASSWORD = "user_password"
+    SERVER = "server"
 
 
 class MemberServerType(str, Enum):

@@ -73,3 +73,23 @@ class DatabaseInterface(ABC):
     @abstractmethod
     def delete_resource(self, resource_id: str) -> None:
         pass
+
+    @abstractmethod
+    def load_all_prompts(self) -> List[Dict]:
+        """Load all prompts from storage"""
+        pass
+
+    @abstractmethod
+    def add_prompt(self, prompt: Dict) -> None:
+        """Add or update a prompt in storage"""
+        pass
+
+    @abstractmethod
+    def remove_prompt(self, prompt_name: str) -> None:
+        """Remove a prompt from storage"""
+        pass
+
+    @abstractmethod
+    def get_prompt(self, prompt_name: str) -> Dict:
+        """Get a specific prompt from storage"""
+        pass

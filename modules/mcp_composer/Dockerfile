@@ -1,6 +1,6 @@
 ARG BUILDER_IMAGE=icr.io/ibm-dreadnought-prod-images/ubi9/python312-builder
 ARG RUNTIME_IMAGE=icr.io/ibm-dreadnought-prod-images/ubi9/python312-runtime
-ARG DREADNOUGHT_PYTHON312_TAG=v9.7.3
+ARG DREADNOUGHT_PYTHON312_TAG=SET_VALID_TAG
 
 #########################################
 # -------- Stage 1: Builder --------
@@ -31,20 +31,16 @@ RUN dnf --refresh update -y \
 
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
-RUN ln -sf /usr/bin/python3.12 /usr/bin/python3 && \
-    ln -sf /usr/bin/pip3.12    /usr/bin/pip
-
 RUN dnf install -y sqlite sqlite-devel && \
     dnf clean all
 
-
 WORKDIR /app
 
-COPY pyproject.toml uv.lock ./
+COPY . .
+
+ENV UV_PYTHON=/usr/bin/python3.12
 
 RUN uv sync --locked --no-install-project --no-dev
-
-COPY . /app
 
 
 #########################################
@@ -52,12 +48,25 @@ COPY . /app
 #########################################
 FROM ${RUNTIME_IMAGE}:${DREADNOUGHT_PYTHON312_TAG} AS final
 
-USER 1001
+ENV UV_NO_SYNC=1
+
+USER root
+
 WORKDIR /app
 
 COPY --from=builder /app /app
 COPY --from=builder /bin/uv /bin/uv
 COPY --from=builder /bin/uvx /bin/uvx
+
+COPY --from=builder /etc/pki /etc/pki
+COPY --from=builder /etc/ssl /etc/ssl
+COPY --from=builder /etc/nsswitch.conf /etc/nsswitch.conf
+COPY --from=builder /etc/passwd /etc/passwd
+COPY --from=builder /etc/group /etc/group
+
+COPY --from=builder /usr/lib64/libnss_* /usr/lib64/
+COPY --from=builder /usr/lib64/libssl.so.* /usr/lib64/
+COPY --from=builder /usr/lib64/libcrypto.so.* /usr/lib64/
 
 COPY --from=builder /usr/lib64/libgcc_s.so.* /usr/lib64/
 COPY --from=builder /usr/lib64/libstdc++.so.* /usr/lib64/
@@ -65,7 +74,6 @@ COPY --from=builder /usr/lib64/librt.so.* /usr/lib64/
 COPY --from=builder /usr/lib64/libsqlite3.so.* /usr/lib64/
 COPY --from=builder /usr/bin/sqlite3 /usr/bin/sqlite3
 
-ENV PATH="/app/.venv/bin:$PATH"
 ENV PYTHONPATH=/app/src
 ENV UV_CACHE_DIR="/tmp/.cache/uv"
 

@@ -2,6 +2,7 @@
 /*
 
 # (re)include core files:
+
 !/uv.lock
 !/pyproject.toml
 !/src/
@@ -10,10 +11,19 @@
 !/spec
 !/composers
 
+
+# REQUIRED for docker build from repo root
+!Dockerfile
+!Dockerfile.*
+!src/**
+!composers/**
+
+
 ### ignore final ###
 __pycache__
 *.egg-info
 /src/mcp_composer/.*.example
+
 
 ### metafiles ###
 .DS_Store

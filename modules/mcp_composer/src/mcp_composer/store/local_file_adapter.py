@@ -23,6 +23,7 @@ class LocalFileAdapter(DatabaseInterface):
         self,
         file_path: str | None = None,
         resources_file_path: str | None = None,
+        prompts_file_path: str | None = None,
     ):
         if file_path is None:
             file_path = os.getenv("SERVER_CONFIG_FILE_PATH", "member_servers.json")
@@ -32,6 +33,11 @@ class LocalFileAdapter(DatabaseInterface):
                 "RESOURCE_CONFIG_FILE_PATH", "composer_resources.json"
             )
         self._resources_file_path = Path(resources_file_path)
+        if prompts_file_path is None:
+            prompts_file_path = os.getenv(
+                "PROMPTS_CONFIG_FILE_PATH", "composer_prompts.json"
+            )
+        self._prompts_file_path = Path(prompts_file_path)
         logger.info(
             "Using local file storage for configuration storage: %s", self._file_path
         )
@@ -39,9 +45,11 @@ class LocalFileAdapter(DatabaseInterface):
         # Initialize file availability flag to False (pessimistic approach)
         self._file_available = False
         self._resources_file_available = False
+        self._prompts_file_available = False
 
         self._ensure_file_exists()
         self._ensure_resources_file_exists()
+        self._ensure_prompts_file_exists()
 
     def _ensure_file_exists(self) -> None:
         """Ensure the file exists, create it if it doesn't. Fail gracefully if creation fails."""
@@ -82,6 +90,26 @@ class LocalFileAdapter(DatabaseInterface):
                 self._resources_file_available = True
         else:
             self._resources_file_available = True
+
+    def _ensure_prompts_file_exists(self) -> None:
+        """Ensure the prompts file exists, create it if it doesn't."""
+        if not self._prompts_file_path.exists():
+            try:
+                logger.info("Creating composer prompts storage file")
+                self._prompts_file_path.parent.mkdir(parents=True, exist_ok=True)
+                with open(self._prompts_file_path, "w", encoding="utf-8") as f:
+                    json.dump([], f)
+                logger.info("Successfully created composer prompts storage file")
+            except Exception as e:
+                logger.warning(
+                    "Failed to create composer prompts storage file: %s. Continuing without file persistence.",
+                    e,
+                )
+                self._prompts_file_available = False
+            else:
+                self._prompts_file_available = True
+        else:
+            self._prompts_file_available = True
 
     def _read_data(self) -> List[Dict]:
         if not self._file_available:
@@ -136,6 +164,37 @@ class LocalFileAdapter(DatabaseInterface):
         except Exception as e:
             logger.warning("Failed to write to composer resources storage file: %s", e)
             self._resources_file_available = False
+
+    def _read_prompts_data(self) -> List[Dict]:
+        """Read prompts data from file"""
+        if not self._prompts_file_available:
+            return []
+
+        try:
+            with open(self._prompts_file_path, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except (json.JSONDecodeError, FileNotFoundError):
+            return []
+        except Exception as e:
+            logger.warning(
+                "Failed to read from composer prompts storage file: %s", e
+            )
+            self._prompts_file_available = False
+            return []
+
+    def _write_prompts_data(self, data: List[Dict]) -> None:
+        """Write prompts data to file"""
+        if not self._prompts_file_available:
+            return
+
+        try:
+            with open(self._prompts_file_path, "w", encoding="utf-8") as f:
+                json.dump(data, f, indent=2)
+        except Exception as e:
+            logger.warning(
+                "Failed to write to composer prompts storage file: %s", e
+            )
+            self._prompts_file_available = False
 
     def load_all_servers(self) -> List[Dict]:
         """Fetch all member server from file storage"""
@@ -454,3 +513,52 @@ class LocalFileAdapter(DatabaseInterface):
 
         self._write_data(data)
         logger.info("Updated local config for server %s", server_id)
+
+    def load_all_prompts(self) -> List[Dict]:
+        """Load all prompts from storage"""
+        return self._read_prompts_data()
+
+    def add_prompt(self, prompt: Dict) -> None:
+        """Add or update a prompt in storage"""
+        data = self._read_prompts_data()
+        prompt_name = prompt.get("name")
+
+        if not prompt_name:
+            logger.warning("Prompt missing 'name' field, skipping storage")
+            return
+
+        # Check if prompt already exists and update it
+        updated = False
+        for i, existing_prompt in enumerate(data):
+            if existing_prompt.get("name") == prompt_name:
+                data[i] = prompt
+                updated = True
+                logger.info("Updated prompt '%s' in local file", prompt_name)
+                break
+
+        if not updated:
+            data.append(prompt)
+            logger.info("Added new prompt '%s' to local file", prompt_name)
+
+        self._write_prompts_data(data)
+
+    def remove_prompt(self, prompt_name: str) -> None:
+        """Remove a prompt from storage"""
+        data = self._read_prompts_data()
+        updated_data = [p for p in data if p.get("name") != prompt_name]
+
+        if len(updated_data) < len(data):
+            self._write_prompts_data(updated_data)
+            logger.info("Deleted prompt '%s' from local file", prompt_name)
+        else:
+            logger.info("Prompt '%s' not found in local file", prompt_name)
+
+    def get_prompt(self, prompt_name: str) -> Dict:
+        """Get a specific prompt from storage"""
+        data = self._read_prompts_data()
+        for prompt in data:
+            if prompt.get("name") == prompt_name:
+                logger.info("Retrieved prompt '%s' from local file", prompt_name)
+                return prompt
+        logger.warning("Prompt '%s' not found in local file", prompt_name)
+        return {}
