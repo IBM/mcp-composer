@@ -5,7 +5,6 @@ import logging
 from typing import Dict, List, Any
 
 from fastmcp.resources import Resource, ResourceManager, ResourceTemplate
-from fastmcp.settings import DuplicateBehavior
 
 from mcp_composer.core.member_servers.member_server import HealthStatus
 from mcp_composer.core.member_servers.server_manager import ServerManager
@@ -23,10 +22,9 @@ class MCPResourceManager(ResourceManager):
     def __init__(
         self,
         server_manager: ServerManager,
-        duplicate_behavior: DuplicateBehavior | None = None,
         database=None,
     ):
-        super().__init__(duplicate_behavior)
+        super().__init__(duplicate_behavior=None)
         self._server_manager = server_manager
         self._database = database
         # Store references to parent's dicts before we shadow them

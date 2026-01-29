@@ -9,7 +9,6 @@ from sklearn.metrics.pairwise import cosine_similarity
 
 
 from fastmcp.tools.tool import Tool
-from fastmcp.settings import DuplicateBehavior
 
 
 from mcp_composer.core.member_servers.member_server import HealthStatus, MemberMCPServer
@@ -37,25 +36,24 @@ except ImportError:
 logger = LoggerFactory.get_logger()
 
 
-class MCPToolManager(ToolManager):
+class MCPToolManager:
     """Manages member servers tools."""
 
     def __init__(
         self,
         composer: MCPComposer,
         server_manager: ServerManager,
-        duplicate_behavior: DuplicateBehavior | None = None,
         database: Optional[DatabaseInterface] = None,
     ):
-        super().__init__(duplicate_behavior)
+        # Note: ToolManager doesn't exist in FastMCP 3.0, so we don't inherit from it
         self._composer = composer
         self._server_manager = server_manager
         self._database = database
         self._disabled_tools: list[str] = []
 
     def _get_mounted_servers(self):
-        """Safely access _mounted_servers, returning empty list if not initialized."""
-        return self._composer._mounted_servers
+        """Safely access mounted servers, returning empty list if not initialized."""
+        return self._server_manager.get_mounted_servers()
 
     def unmount(self, server_id):
         """Unmount a member server"""
