@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, Optional
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 
-from fastmcp.tools import ToolManager
+
 from fastmcp.tools.tool import Tool
 from fastmcp.settings import DuplicateBehavior
 
