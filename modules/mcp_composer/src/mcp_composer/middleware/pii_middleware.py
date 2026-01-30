@@ -368,7 +368,9 @@ class SecretsAndPIIMiddleware(Middleware):
             self._logger.error("[%s] PII redaction failed: %s", tool, str(e))
             if self.debug_mode:
                 self._logger.error(
-                    "[%s] Result structure that failed: %s", tool, self._safe_repr(result)
+                    "[%s] Result structure that failed: %s",
+                    tool,
+                    self._safe_repr(result),
                 )
             return result
 
@@ -434,7 +436,9 @@ class SecretsAndPIIMiddleware(Middleware):
 
         except Exception as e:
             if self.debug_mode:
-                self._logger.error("[%s] Content attribute redaction failed: %s", tool, e)
+                self._logger.error(
+                    "[%s] Content attribute redaction failed: %s", tool, e
+                )
             return result
 
     def _redact_data_attribute(self, result: Any, tool: str) -> Any:

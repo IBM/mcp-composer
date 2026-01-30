@@ -81,7 +81,7 @@ class PolicyMiddleware(Middleware):
         logger.info(
             "Policy middleware initialized with mode: %s, enforcer: %s",
             self._get_mode_name(),
-            type(self.policy_enforcer).__name__
+            type(self.policy_enforcer).__name__,
         )
 
     def _get_mode_name(self) -> str:
@@ -147,7 +147,9 @@ class PolicyMiddleware(Middleware):
                 raise ValueError(f"Unsupported policy mode: {self.mode}")
 
         except Exception as e:
-            logger.error("Failed to initialize %s enforcer: %s", self._get_mode_name(), e)
+            logger.error(
+                "Failed to initialize %s enforcer: %s", self._get_mode_name(), e
+            )
             # Fallback to file enforcer
             logger.info("Falling back to file enforcer")
             return FilePolicyEnforcer(SETTINGS.policy_file_path)
@@ -197,7 +199,8 @@ class PolicyMiddleware(Middleware):
             logger.debug(
                 "Tool '%s' is '%s' by %s enforcer",
                 tool_name,
-                'allowed' if is_allowed else 'denied', self._get_mode_name()
+                "allowed" if is_allowed else "denied",
+                self._get_mode_name(),
             )
             # Update metrics
             if is_allowed:
@@ -218,7 +221,9 @@ class PolicyMiddleware(Middleware):
             # Check if access is denied
             if not is_allowed:
                 logger.warning(
-                    "Access denied for tool '%s' by %s enforcer", tool_name, self._get_mode_name()
+                    "Access denied for tool '%s' by %s enforcer",
+                    tool_name,
+                    self._get_mode_name(),
                 )
                 raise McpError(
                     mt.ErrorData(
@@ -304,7 +309,9 @@ class PolicyMiddleware(Middleware):
             # Check if access is denied
             if not is_allowed:
                 logger.warning(
-                    "Access denied for resource '%s' by %s enforcer", resource_uri, self._get_mode_name()
+                    "Access denied for resource '%s' by %s enforcer",
+                    resource_uri,
+                    self._get_mode_name(),
                 )
                 raise McpError(
                     mt.ErrorData(
@@ -390,7 +397,9 @@ class PolicyMiddleware(Middleware):
             # Check if access is denied
             if not is_allowed:
                 logger.warning(
-                    "Access denied for prompt '%s' by %s enforcer", prompt_name, self._get_mode_name()
+                    "Access denied for prompt '%s' by %s enforcer",
+                    prompt_name,
+                    self._get_mode_name(),
                 )
                 raise McpError(
                     mt.ErrorData(
@@ -466,7 +475,9 @@ class PolicyMiddleware(Middleware):
                 if is_allowed:
                     filtered_tools.append(tool)
                     logger.debug(
-                        "Allowed tool: %s and length: %d", tool_name, len(filtered_tools)
+                        "Allowed tool: %s and length: %d",
+                        tool_name,
+                        len(filtered_tools),
                     )
                 else:
                     if self.enable_audit_logging:
@@ -642,7 +653,8 @@ class PolicyMiddleware(Middleware):
                 logger.info("Reloaded policy for %s enforcer", self._get_mode_name())
             else:
                 logger.warning(
-                    "Policy enforcer %s does not support reloading", type(self.policy_enforcer).__name__
+                    "Policy enforcer %s does not support reloading",
+                    type(self.policy_enforcer).__name__,
                 )
         except Exception as e:
             logger.error("Failed to reload policy: %s", e)

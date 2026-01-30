@@ -34,7 +34,9 @@ class LayeredOpenAPIFactory(FastMCP):
         openapi_spec: dict[str, Any],
         client: httpx.AsyncClient,
         custom_routes: list[RouteMap] | None = None,
-        custom_routes_exclude_all: list[RouteMap] | None = None,  # pylint: disable=unused-argument
+        custom_routes_exclude_all: (
+            list[RouteMap] | None
+        ) = None,  # pylint: disable=unused-argument
         tool_descriptions: dict[str, str] | None = None,
     ):
         # Initialize the parent FastMCP class first
@@ -102,23 +104,26 @@ All tools automatically resolve OpenAPI schema references and provide enhanced m
         get_service_desc = (
             self._safe_tool_description(
                 "get_service_info",
-                "Discover and list available OpenAPI services (operations) for this layered server."
-                )
-            + LAYERED_SERVICE_ARGS_RETURNS).strip()
+                "Discover and list available OpenAPI services (operations) for this layered server.",
+            )
+            + LAYERED_SERVICE_ARGS_RETURNS
+        ).strip()
 
         get_type_desc = (
             self._safe_tool_description(
                 "get_type_info",
-                "Show detailed parameter, request, and response schema information for a chosen OpenAPI service."
-                )
-            + LAYERED_TYPE_ARGS_RETURNS).strip()
+                "Show detailed parameter, request, and response schema information for a chosen OpenAPI service.",
+            )
+            + LAYERED_TYPE_ARGS_RETURNS
+        ).strip()
 
         make_call_desc = (
             self._safe_tool_description(
                 "make_tool_call",
-                "Execute an HTTP request against the underlying API for a chosen OpenAPI service."
-                )
-            + LAYERED_CALL_ARGS_RETURNS).strip()
+                "Execute an HTTP request against the underlying API for a chosen OpenAPI service.",
+            )
+            + LAYERED_CALL_ARGS_RETURNS
+        ).strip()
 
         # Add our custom tools with configurable descriptions
         self.add_tool(
@@ -139,11 +144,12 @@ All tools automatically resolve OpenAPI schema references and provide enhanced m
                 description=make_call_desc,
             )
         )
+
     def _safe_tool_description(self, key, fallback):
         value = self._tool_descriptions.get(key, "")
         if not isinstance(value, str):
             value = ""
-        return (value.strip() or fallback)
+        return value.strip() or fallback
 
     def _resolve_schema_reference(self, ref: str) -> Dict[str, Any]:
         """
@@ -171,7 +177,9 @@ All tools automatically resolve OpenAPI schema references and provide enhanced m
 
         return current if isinstance(current, dict) else {}
 
-    def _extract_parameter_schemas(self, parameters: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    def _extract_parameter_schemas(
+        self, parameters: List[Dict[str, Any]]
+    ) -> List[Dict[str, Any]]:
         """
         Extract and enhance parameter information including schema details.
 
@@ -203,10 +211,14 @@ All tools automatically resolve OpenAPI schema references and provide enhanced m
                 enhanced_param = {
                     PARAMETER_KEYS["NAME"]: param.get(PARAMETER_KEYS["NAME"]),
                     PARAMETER_KEYS["IN"]: param.get(PARAMETER_KEYS["IN"]),
-                    PARAMETER_KEYS["REQUIRED"]: param.get(PARAMETER_KEYS["REQUIRED"], DEFAULT_VALUES["REQUIRED"]),
-                    PARAMETER_KEYS["TYPE"]: schema.get(SCHEMA_KEYS["TYPE"], DEFAULT_VALUES["UNKNOWN_TYPE"])
-                    if schema
-                    else DEFAULT_VALUES["UNKNOWN_TYPE"],
+                    PARAMETER_KEYS["REQUIRED"]: param.get(
+                        PARAMETER_KEYS["REQUIRED"], DEFAULT_VALUES["REQUIRED"]
+                    ),
+                    PARAMETER_KEYS["TYPE"]: (
+                        schema.get(SCHEMA_KEYS["TYPE"], DEFAULT_VALUES["UNKNOWN_TYPE"])
+                        if schema
+                        else DEFAULT_VALUES["UNKNOWN_TYPE"]
+                    ),
                     PARAMETER_KEYS["DESCRIPTION"]: param.get(
                         PARAMETER_KEYS["DESCRIPTION"], DEFAULT_VALUES["EMPTY_STRING"]
                     ),
@@ -219,7 +231,9 @@ All tools automatically resolve OpenAPI schema references and provide enhanced m
 
         return enhanced_params
 
-    def _extract_request_body_schema(self, request_body: Dict[str, Any]) -> Dict[str, Any]:
+    def _extract_request_body_schema(
+        self, request_body: Dict[str, Any]
+    ) -> Dict[str, Any]:
         """
         Extract and clean schema from request body using fastmcp utilities.
 
@@ -337,24 +351,41 @@ All tools automatically resolve OpenAPI schema references and provide enhanced m
                                     SERVICE_KEYS["OPERATION_ID"]: operation_id,
                                     SERVICE_KEYS["DESCRIPTION"]: operation.get(
                                         OPERATION_KEYS["DESCRIPTION"],
-                                        operation.get(OPERATION_KEYS["SUMMARY"], f"API operation: {operation_id}"),
+                                        operation.get(
+                                            OPERATION_KEYS["SUMMARY"],
+                                            f"API operation: {operation_id}",
+                                        ),
                                     ),
                                     SERVICE_KEYS["SUMMARY"]: operation.get(
-                                        OPERATION_KEYS["SUMMARY"], DEFAULT_VALUES["EMPTY_STRING"]
+                                        OPERATION_KEYS["SUMMARY"],
+                                        DEFAULT_VALUES["EMPTY_STRING"],
                                     ),
                                     SERVICE_KEYS["HTTP_METHOD"]: http_method.upper(),
                                     SERVICE_KEYS["PATH"]: path,
-                                    SERVICE_KEYS["PARAMETERS"]: self._extract_parameter_schemas(
-                                        operation.get(OPERATION_KEYS["PARAMETERS"], DEFAULT_VALUES["EMPTY_LIST"])
+                                    SERVICE_KEYS[
+                                        "PARAMETERS"
+                                    ]: self._extract_parameter_schemas(
+                                        operation.get(
+                                            OPERATION_KEYS["PARAMETERS"],
+                                            DEFAULT_VALUES["EMPTY_LIST"],
+                                        )
                                     ),
-                                    SERVICE_KEYS["REQUEST_BODY"]: self._extract_request_body_schema(
+                                    SERVICE_KEYS[
+                                        "REQUEST_BODY"
+                                    ]: self._extract_request_body_schema(
                                         operation.get(OPERATION_KEYS["REQUEST_BODY"])
                                     ),
-                                    SERVICE_KEYS["RESPONSES"]: self._extract_response_schemas(
-                                        operation.get(OPERATION_KEYS["RESPONSES"], DEFAULT_VALUES["EMPTY_DICT"])
+                                    SERVICE_KEYS[
+                                        "RESPONSES"
+                                    ]: self._extract_response_schemas(
+                                        operation.get(
+                                            OPERATION_KEYS["RESPONSES"],
+                                            DEFAULT_VALUES["EMPTY_DICT"],
+                                        )
                                     ),
                                     SERVICE_KEYS["TAGS"]: operation.get(
-                                        OPERATION_KEYS["TAGS"], DEFAULT_VALUES["EMPTY_LIST"]
+                                        OPERATION_KEYS["TAGS"],
+                                        DEFAULT_VALUES["EMPTY_LIST"],
                                     ),
                                 }
         return services
@@ -419,14 +450,18 @@ All tools automatically resolve OpenAPI schema references and provide enhanced m
         """
         if service not in self.service_info:
             return {
-                RESPONSE_KEYS["ERROR"]: ERROR_MESSAGES["SERVICE_NOT_FOUND"].format(service),
+                RESPONSE_KEYS["ERROR"]: ERROR_MESSAGES["SERVICE_NOT_FOUND"].format(
+                    service
+                ),
                 "available_services": list(self.service_info.keys()),
             }
 
         service_data = self.service_info[service]
 
         # Parameters are already enhanced with schema information
-        parameters = service_data.get(SERVICE_KEYS["PARAMETERS"], DEFAULT_VALUES["EMPTY_LIST"])
+        parameters = service_data.get(
+            SERVICE_KEYS["PARAMETERS"], DEFAULT_VALUES["EMPTY_LIST"]
+        )
 
         return {
             "service": service,
@@ -452,7 +487,9 @@ All tools automatically resolve OpenAPI schema references and provide enhanced m
             return {
                 "available_services": {
                     name: {
-                        SERVICE_KEYS["OPERATION_ID"]: info[SERVICE_KEYS["OPERATION_ID"]],
+                        SERVICE_KEYS["OPERATION_ID"]: info[
+                            SERVICE_KEYS["OPERATION_ID"]
+                        ],
                         SERVICE_KEYS["DESCRIPTION"]: info[SERVICE_KEYS["DESCRIPTION"]],
                         SERVICE_KEYS["SUMMARY"]: info[SERVICE_KEYS["SUMMARY"]],
                         SERVICE_KEYS["HTTP_METHOD"]: info[SERVICE_KEYS["HTTP_METHOD"]],
@@ -467,7 +504,9 @@ All tools automatically resolve OpenAPI schema references and provide enhanced m
 
         if service not in self.service_info:
             return {
-                RESPONSE_KEYS["ERROR"]: ERROR_MESSAGES["SERVICE_NOT_FOUND"].format(service),
+                RESPONSE_KEYS["ERROR"]: ERROR_MESSAGES["SERVICE_NOT_FOUND"].format(
+                    service
+                ),
                 "available_services": list(self.service_info.keys()),
             }
 
@@ -503,20 +542,38 @@ All tools automatically resolve OpenAPI schema references and provide enhanced m
                     ]
                 ),
                 "has_schemas": any(
-                    p.get("schema") for p in service_data.get(SERVICE_KEYS["PARAMETERS"], []) if isinstance(p, dict)
+                    p.get("schema")
+                    for p in service_data.get(SERVICE_KEYS["PARAMETERS"], [])
+                    if isinstance(p, dict)
                 ),
             },
             "request_body_summary": {
                 "has_schema": bool(service_data.get(SERVICE_KEYS["REQUEST_BODY"])),
-                "has_example": bool(service_data.get(SERVICE_KEYS["REQUEST_BODY"], {}).get(SCHEMA_KEYS["EXAMPLE"]))
-                if service_data.get(SERVICE_KEYS["REQUEST_BODY"])
-                else False,
-                "has_ref": bool(service_data.get(SERVICE_KEYS["REQUEST_BODY"], {}).get("original_ref"))
-                if service_data.get(SERVICE_KEYS["REQUEST_BODY"])
-                else False,
-                "schema_type": service_data.get(SERVICE_KEYS["REQUEST_BODY"], {}).get(SCHEMA_KEYS["TYPE"])
-                if service_data.get(SERVICE_KEYS["REQUEST_BODY"])
-                else None,
+                "has_example": (
+                    bool(
+                        service_data.get(SERVICE_KEYS["REQUEST_BODY"], {}).get(
+                            SCHEMA_KEYS["EXAMPLE"]
+                        )
+                    )
+                    if service_data.get(SERVICE_KEYS["REQUEST_BODY"])
+                    else False
+                ),
+                "has_ref": (
+                    bool(
+                        service_data.get(SERVICE_KEYS["REQUEST_BODY"], {}).get(
+                            "original_ref"
+                        )
+                    )
+                    if service_data.get(SERVICE_KEYS["REQUEST_BODY"])
+                    else False
+                ),
+                "schema_type": (
+                    service_data.get(SERVICE_KEYS["REQUEST_BODY"], {}).get(
+                        SCHEMA_KEYS["TYPE"]
+                    )
+                    if service_data.get(SERVICE_KEYS["REQUEST_BODY"])
+                    else None
+                ),
             },
             "responses_summary": {
                 "count": len(service_data.get(SERVICE_KEYS["RESPONSES"], {})),
@@ -530,9 +587,11 @@ All tools automatically resolve OpenAPI schema references and provide enhanced m
                     for r in service_data.get(SERVICE_KEYS["RESPONSES"], {}).values()
                     if isinstance(r, dict)
                 ),
-                "status_codes": list(service_data.get(SERVICE_KEYS["RESPONSES"], {}).keys())
-                if isinstance(service_data.get(SERVICE_KEYS["RESPONSES"], {}), dict)
-                else [],
+                "status_codes": (
+                    list(service_data.get(SERVICE_KEYS["RESPONSES"], {}).keys())
+                    if isinstance(service_data.get(SERVICE_KEYS["RESPONSES"], {}), dict)
+                    else []
+                ),
             },
         }
 
@@ -550,7 +609,9 @@ All tools automatically resolve OpenAPI schema references and provide enhanced m
             "schema_summary": schema_summary,
         }
 
-    async def make_tool_call(self, service: str, request: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    async def make_tool_call(
+        self, service: str, request: Optional[Dict[str, Any]] = None
+    ) -> Dict[str, Any]:
         """
         Execute an API call to the specified service.
 
@@ -560,7 +621,9 @@ All tools automatically resolve OpenAPI schema references and provide enhanced m
         """
         if service not in self.service_info:
             return {
-                RESPONSE_KEYS["ERROR"]: ERROR_MESSAGES["SERVICE_NOT_FOUND"].format(service),
+                RESPONSE_KEYS["ERROR"]: ERROR_MESSAGES["SERVICE_NOT_FOUND"].format(
+                    service
+                ),
                 "available_services": list(self.service_info.keys()),
             }
 
@@ -572,15 +635,21 @@ All tools automatically resolve OpenAPI schema references and provide enhanced m
         try:
             # Manual request execution using the httpx client
             url_path = service_data[SERVICE_KEYS["PATH"]]
-            path_params = request_dict.get(REQUEST_KEYS["PATH_PARAMS"], DEFAULT_VALUES["EMPTY_DICT"])
+            path_params = request_dict.get(
+                REQUEST_KEYS["PATH_PARAMS"], DEFAULT_VALUES["EMPTY_DICT"]
+            )
             for param_name, param_value in path_params.items():
                 url_path = url_path.replace(f"{{{param_name}}}", str(param_value))
 
             response = await self.client.request(
                 method=service_data[SERVICE_KEYS["HTTP_METHOD"]],
                 url=url_path,
-                params=request_dict.get(REQUEST_KEYS["QUERY_PARAMS"], DEFAULT_VALUES["EMPTY_DICT"]),
-                headers=request_dict.get(REQUEST_KEYS["HEADERS"], DEFAULT_VALUES["EMPTY_DICT"]),
+                params=request_dict.get(
+                    REQUEST_KEYS["QUERY_PARAMS"], DEFAULT_VALUES["EMPTY_DICT"]
+                ),
+                headers=request_dict.get(
+                    REQUEST_KEYS["HEADERS"], DEFAULT_VALUES["EMPTY_DICT"]
+                ),
                 json=request_dict.get(REQUEST_KEYS["BODY"]),
             )
 
@@ -600,5 +669,7 @@ All tools automatically resolve OpenAPI schema references and provide enhanced m
             return {
                 RESPONSE_KEYS["SUCCESS"]: False,
                 RESPONSE_KEYS["SERVICE"]: service,
-                RESPONSE_KEYS["ERROR"]: ERROR_MESSAGES["API_CALL_FAILED"].format(str(e)),
+                RESPONSE_KEYS["ERROR"]: ERROR_MESSAGES["API_CALL_FAILED"].format(
+                    str(e)
+                ),
             }

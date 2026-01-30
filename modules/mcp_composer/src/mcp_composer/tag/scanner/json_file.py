@@ -4,6 +4,7 @@ import json
 from ..models import ToolDescriptor
 from .base import Scanner
 
+
 class JsonFileScanner(Scanner):
     def __init__(self, path: str):
         self.path = path

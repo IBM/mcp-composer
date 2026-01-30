@@ -76,7 +76,9 @@ async def create_tools(schema):
                 def make_tool(tool_name, arg_defs):
                     # Create function signature dynamically based on arguments
                     if arg_defs:
-                        param_names = [arg["name"] for arg in arg_defs if arg.get("name")]
+                        param_names = [
+                            arg["name"] for arg in arg_defs if arg.get("name")
+                        ]
 
                         async def dynamic_arg_tool(**kwargs):
                             missing = [p for p in param_names if p not in kwargs]
@@ -97,14 +99,12 @@ async def create_tools(schema):
                                 arg_assignments.append(f"{name}: {formatted_value}")
 
                             args_string = ", ".join(arg_assignments)
-                            query_body = (
-                                f"""
+                            query_body = f"""
                         query {{
                           {tool_name}({args_string}) {{
                             __typename
                           }}
                         }}"""
-                            )
 
                             response = await http_client.post(
                                 "", json={"query": query_body}
@@ -129,6 +129,7 @@ async def create_tools(schema):
                             name=tool_name,
                             description=f"Query {tool_name} with parameters: {', '.join(param_names)}",
                         )
+
                     # Create a function without parameters
                     async def tool_func_without_args():
                         query_body = f"query {{ {tool_name} {{ __typename }} }}"

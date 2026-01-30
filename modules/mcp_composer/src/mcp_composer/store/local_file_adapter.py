@@ -150,9 +150,7 @@ class LocalFileAdapter(DatabaseInterface):
         except (json.JSONDecodeError, FileNotFoundError):
             return []
         except Exception as e:
-            logger.warning(
-                "Failed to read from composer resources storage file: %s", e
-            )
+            logger.warning("Failed to read from composer resources storage file: %s", e)
             self._resources_file_available = False
             return []
 
@@ -164,9 +162,7 @@ class LocalFileAdapter(DatabaseInterface):
             with open(self._resources_file_path, "w", encoding="utf-8") as f:
                 json.dump(data, f, indent=2)
         except Exception as e:
-            logger.warning(
-                "Failed to write to composer resources storage file: %s", e
-            )
+            logger.warning("Failed to write to composer resources storage file: %s", e)
             self._resources_file_available = False
 
     def _read_prompts_data(self) -> List[Dict]:

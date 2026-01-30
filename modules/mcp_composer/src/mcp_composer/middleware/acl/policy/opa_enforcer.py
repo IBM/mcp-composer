@@ -1,5 +1,5 @@
 from typing import Dict, Any, Optional
-import httpx # type: ignore
+import httpx  # type: ignore
 from mcp_composer.middleware.acl.policy.base_policy_enforcer import BasePolicyEnforcer
 from mcp_composer.middleware.acl.acl_utils import extract_context_info
 from mcp_composer.core.utils.logger import LoggerFactory
@@ -78,7 +78,9 @@ class OPARegoPolicyEnforcer(BasePolicyEnforcer):
                     # OPA returns {"result": true/false}
                     return result.get("result", False)
                 logger.error(
-                    "OPA query failed with status %d: %s", response.status_code, response.text
+                    "OPA query failed with status %d: %s",
+                    response.status_code,
+                    response.text,
                 )
                 return None
 
@@ -149,7 +151,9 @@ class OPARegoPolicyEnforcer(BasePolicyEnforcer):
 
         logger.debug(
             "OPA policy check - Tool: %s, Allowed: %s, Context: %s",
-            tool_name, result, context_info
+            tool_name,
+            result,
+            context_info,
         )
 
         return result
@@ -171,7 +175,9 @@ class OPARegoPolicyEnforcer(BasePolicyEnforcer):
 
         # For other roles, deny by default (fail secure)
         logger.warning(
-            "Fallback policy check - denying access to %s for role %s", tool_name, context_info['role']
+            "Fallback policy check - denying access to %s for role %s",
+            tool_name,
+            context_info["role"],
         )
         return False
 
@@ -208,7 +214,9 @@ class OPARegoPolicyEnforcer(BasePolicyEnforcer):
 
         logger.debug(
             "OPA policy check (async) - Tool: %s, Allowed: %s, Context: %s",
-            tool_name, result, context_info
+            tool_name,
+            result,
+            context_info,
         )
 
         return result

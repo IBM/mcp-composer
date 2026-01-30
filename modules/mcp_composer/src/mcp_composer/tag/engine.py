@@ -81,40 +81,55 @@ class TagEngine:
         for rule in rules:
             if rule.matches(tool.model_dump()):
                 then = rule.then or {}
-                r.evidence.setdefault("rules", []).append(rule.name) # pylint: disable=no-member
+                r.evidence.setdefault("rules", []).append(
+                    rule.name
+                )  # pylint: disable=no-member
                 for cap in then.get("add_capabilities", []):
                     try:
-                        r.capabilities.append(Capability(cap)) # pylint: disable=no-member
+                        r.capabilities.append(
+                            Capability(cap)
+                        )  # pylint: disable=no-member
                     except Exception:
-                        r.evidence.setdefault("unknown_capabilities", []).append(cap) # pylint: disable=no-member
+                        r.evidence.setdefault("unknown_capabilities", []).append(
+                            cap
+                        )  # pylint: disable=no-member
                 policy = then.get("policy", {})
                 if "pii_risk" in policy:
                     r.policy.pii_risk = (
-                        r.policy.pii_risk # pylint: disable=no-member
-                        if r.policy.pii_risk != PiiRisk.NONE # pylint: disable=no-member
+                        r.policy.pii_risk  # pylint: disable=no-member
+                        if r.policy.pii_risk
+                        != PiiRisk.NONE  # pylint: disable=no-member
                         else PiiRisk(policy["pii_risk"])
                     )  # conservative merge
                 if "hipaa" in policy:
-                    r.policy.hipaa = policy["hipaa"] # pylint: disable=no-member
+                    r.policy.hipaa = policy["hipaa"]  # pylint: disable=no-member
                 if "gdpr" in policy:
-                    r.policy.gdpr = policy["gdpr"] # pylint: disable=no-member
+                    r.policy.gdpr = policy["gdpr"]  # pylint: disable=no-member
                 if "residency" in policy:
-                    r.policy.residency.update(policy["residency"])  # pylint: disable=no-member
+                    r.policy.residency.update(
+                        policy["residency"]
+                    )  # pylint: disable=no-member
 
         # 2) Heuristics (schema-based PII)
         schema_text = {**tool.input_schema, **tool.output_schema}
         risk = self._pii_risk_from_schema(schema_text)
-        if risk.value > r.policy.pii_risk.value: # pylint: disable=no-member
-            r.policy.pii_risk = risk # pylint: disable=no-member
-            r.evidence.setdefault("pii_fields", []).append("schema_hints") # pylint: disable=no-member
+        if risk.value > r.policy.pii_risk.value:  # pylint: disable=no-member
+            r.policy.pii_risk = risk  # pylint: disable=no-member
+            r.evidence.setdefault("pii_fields", []).append(
+                "schema_hints"
+            )  # pylint: disable=no-member
 
         # 3) Residency from endpoint hint (unless explicitly set by rules)
-        if r.policy.residency.get("required_region") == str(Region.GLOBAL): # pylint: disable=no-member
+        if r.policy.residency.get("required_region") == str(
+            Region.GLOBAL
+        ):  # pylint: disable=no-member
             r.policy.residency = self._infer_residency(tool.endpoint)
 
         # 4) HIPAA heuristics
         if self._phi_hint(tool.description):
-            r.policy.hipaa = "possible" if r.policy.hipaa == "none" else r.policy.hipaa # pylint: disable=no-member
+            r.policy.hipaa = (
+                "possible" if r.policy.hipaa == "none" else r.policy.hipaa
+            )  # pylint: disable=no-member
 
         return r
 
@@ -130,7 +145,7 @@ class TagEngine:
                 summary["capability_counts"][str(c)] = (
                     summary["capability_counts"].get(str(c), 0) + 1
                 )
-            pr = rep.policy.pii_risk # pylint: disable=no-member
+            pr = rep.policy.pii_risk  # pylint: disable=no-member
             summary["pii_risk_counts"][str(pr)] = (
                 summary["pii_risk_counts"].get(str(pr), 0) + 1
             )

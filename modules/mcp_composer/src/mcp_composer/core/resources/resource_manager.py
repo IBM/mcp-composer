@@ -31,9 +31,9 @@ class MCPResourceManager(ResourceManager):
         self._database = database
         # Store references to parent's dicts before we shadow them
         # Access parent's _resources and _templates from instance dict before shadowing
-        instance_dict = object.__getattribute__(self, '__dict__')
-        self._parent_resources = instance_dict.get('_resources', {})
-        self._parent_templates = instance_dict.get('_templates', {})
+        instance_dict = object.__getattribute__(self, "__dict__")
+        self._parent_resources = instance_dict.get("_resources", {})
+        self._parent_templates = instance_dict.get("_templates", {})
         # self._fastmcp_resource_manager = fastmcp_resource_manager
         self._resource_templates: Dict[str, ResourceTemplate] = {}
         self._resources: Dict[str, Resource] = {}
@@ -129,7 +129,7 @@ class MCPResourceManager(ResourceManager):
     def _get_mounted_servers(self):
         """Safely access _mounted_servers, returning empty list if not initialized."""
         # Check if the parent class has this attribute
-        if not hasattr(super(), '_mounted_servers'):
+        if not hasattr(super(), "_mounted_servers"):
             return []
         return super()._mounted_servers
 
@@ -139,14 +139,14 @@ class MCPResourceManager(ResourceManager):
         # First try to get from parent class
         parent_mounted = self._get_mounted_servers()
         # Also check if we have our own _mounted_servers (for tests)
-        if hasattr(self, '_mounted_servers'):
+        if hasattr(self, "_mounted_servers"):
             # Use our own list if it exists
             parent_mounted = self._mounted_servers
         if not parent_mounted:
             return
         # Access the parent class's _mounted_servers directly for deletion
         for idx, mounted_server in enumerate(parent_mounted):
-            if hasattr(mounted_server, 'prefix') and mounted_server.prefix == server_id:
+            if hasattr(mounted_server, "prefix") and mounted_server.prefix == server_id:
                 del parent_mounted[idx]
                 break
 
@@ -509,9 +509,7 @@ class MCPResourceManager(ResourceManager):
             logger.error("Error adding resource template: %s", e)
             return f"Failed to add resource template: {str(e)}"
 
-    async def create_resource(
-        self, resource_config: dict, persist: bool = True
-    ) -> str:
+    async def create_resource(self, resource_config: dict, persist: bool = True) -> str:
         """
         Create a resource in the composer using FastMCP's built-in add_resource.
         """
@@ -597,7 +595,7 @@ class MCPResourceManager(ResourceManager):
         if resource_type in (None, self.RESOURCE_KIND):
             # Iterate through our _resources dict and match by name
             for key, resource in list(self._resources.items()):
-                if hasattr(resource, 'name') and resource.name.lower() in targets:
+                if hasattr(resource, "name") and resource.name.lower() in targets:
                     removed.append(resource.name)
                     del self._resources[key]
                     self._remove_persisted_record(
@@ -605,7 +603,7 @@ class MCPResourceManager(ResourceManager):
                     )
             # Also check parent's dict in case resources were stored there
             for key, resource in list(self._parent_resources.items()):
-                if hasattr(resource, 'name') and resource.name.lower() in targets:
+                if hasattr(resource, "name") and resource.name.lower() in targets:
                     if resource.name not in removed:  # Avoid duplicate removal messages
                         removed.append(resource.name)
                     del self._parent_resources[key]
@@ -617,7 +615,7 @@ class MCPResourceManager(ResourceManager):
         if resource_type in (None, self.TEMPLATE_KIND):
             # Iterate through our _resource_templates dict and match by name
             for key, template in list(self._resource_templates.items()):
-                if hasattr(template, 'name') and template.name.lower() in targets:
+                if hasattr(template, "name") and template.name.lower() in targets:
                     removed.append(template.name)
                     del self._resource_templates[key]
                     self._remove_persisted_record(
@@ -625,7 +623,7 @@ class MCPResourceManager(ResourceManager):
                     )
             # Also check parent's dict in case templates were stored there
             for key, template in list(self._parent_templates.items()):
-                if hasattr(template, 'name') and template.name.lower() in targets:
+                if hasattr(template, "name") and template.name.lower() in targets:
                     if template.name not in removed:  # Avoid duplicate removal messages
                         removed.append(template.name)
                     del self._parent_templates[key]

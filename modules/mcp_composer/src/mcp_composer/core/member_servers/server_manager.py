@@ -84,7 +84,7 @@ class ServerManager:
             sub_mcp = await builder.build()
 
             # Handle both cases: mcp_composer as object or as callback function
-            if hasattr(mcp_composer, 'mount'):
+            if hasattr(mcp_composer, "mount"):
                 mcp_composer.mount(sub_mcp, server_id)
             else:
                 mcp_composer(sub_mcp, server_id)

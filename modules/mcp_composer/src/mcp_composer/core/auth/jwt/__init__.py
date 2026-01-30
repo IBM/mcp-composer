@@ -6,11 +6,11 @@ It offers a clean interface for configuring and using JWT authentication in MCP 
 
 Example:
     >>> from mcp_composer.core.auth.jwt import JWTAuthProvider, JWTConfig
-    >>> 
+    >>>
     >>> # Load from environment
     >>> jwt_config = JWTConfig.from_env(prefix="SOLIS_JWT_")
     >>> jwt_provider = JWTAuthProvider(config=jwt_config)
-    >>> 
+    >>>
     >>> # Use with MCPComposer
     >>> from mcp_composer import MCPComposer
     >>> composer = MCPComposer("my-composer", auth=jwt_provider.get_verifier())

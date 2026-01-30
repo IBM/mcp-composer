@@ -5,7 +5,7 @@ Inspired by permit-fastmcp's comprehensive identity extraction approach.
 
 import re
 from typing import Dict, Any, Optional, Tuple
-import jwt # type: ignore
+import jwt  # type: ignore
 from mcp_composer.middleware.acl.policy.config import SETTINGS, IdentityMode, Settings
 from mcp_composer.middleware.acl.policy.schemas import AuthContext
 from mcp_composer.core.utils.logger import LoggerFactory

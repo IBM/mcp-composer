@@ -58,7 +58,10 @@ class HashiCorpVaultPolicyEnforcer(BasePolicyEnforcer):
         self._initialize_client()
 
         logger.info(
-            "Initialized Vault policy enforcer - URL: %s, Path: %s/%s", vault_url, mount_point, policy_path
+            "Initialized Vault policy enforcer - URL: %s, Path: %s/%s",
+            vault_url,
+            mount_point,
+            policy_path,
         )
 
     def _initialize_client(self) -> None:
@@ -72,7 +75,7 @@ class HashiCorpVaultPolicyEnforcer(BasePolicyEnforcer):
                 logger.warning(
                     "Vault client is not authenticated. URL: %s, Token: %s",
                     self.vault_url,
-                    '***' if self.token else 'None'
+                    "***" if self.token else "None",
                 )
                 return
 
@@ -103,7 +106,9 @@ class HashiCorpVaultPolicyEnforcer(BasePolicyEnforcer):
             # Read policy from KV v2
             secret_path = f"{self.policy_path}/{role}"
             logger.debug(
-                "Retrieving policy for role %s from Vault from path %s", role, secret_path
+                "Retrieving policy for role %s from Vault from path %s",
+                role,
+                secret_path,
             )
             response = self.client.secrets.kv.v2.read_secret_version(
                 path=secret_path, mount_point=self.mount_point
@@ -125,7 +130,9 @@ class HashiCorpVaultPolicyEnforcer(BasePolicyEnforcer):
             if "InvalidPath" in str(e):
                 logger.debug("No policy found for role %s in Vault", role)
             else:
-                logger.error("Error retrieving policy for role %s from Vault: %s", role, e)
+                logger.error(
+                    "Error retrieving policy for role %s from Vault: %s", role, e
+                )
             return None
 
     def _evaluate_conditions(
@@ -176,7 +183,9 @@ class HashiCorpVaultPolicyEnforcer(BasePolicyEnforcer):
         if project_restrictions and context_info.get("project"):
             if context_info["project"] not in project_restrictions:
                 logger.debug(
-                    "Project restriction not met: %s not in %s", context_info['project'], project_restrictions
+                    "Project restriction not met: %s not in %s",
+                    context_info["project"],
+                    project_restrictions,
                 )
                 return False
 
@@ -185,7 +194,9 @@ class HashiCorpVaultPolicyEnforcer(BasePolicyEnforcer):
         if agent_restrictions and context_info.get("agent_type"):
             if context_info["agent_type"] not in agent_restrictions:
                 logger.debug(
-                    "Agent type restriction not met: %s not in %s", context_info['agent_type'], agent_restrictions
+                    "Agent type restriction not met: %s not in %s",
+                    context_info["agent_type"],
+                    agent_restrictions,
                 )
                 return False
 
@@ -204,7 +215,9 @@ class HashiCorpVaultPolicyEnforcer(BasePolicyEnforcer):
         """
         # Check if client is available and authenticated
 
-        logger.debug("Checking Vault policy for tool: %s, Context: %s", tool_name, context)
+        logger.debug(
+            "Checking Vault policy for tool: %s, Context: %s", tool_name, context
+        )
         if not self.client or not self.client.is_authenticated():
             logger.warning(
                 "Vault client not available or not authenticated, denying access"

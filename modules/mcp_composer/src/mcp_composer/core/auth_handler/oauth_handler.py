@@ -54,7 +54,9 @@ async def refresh_access_token(
 
     async with httpx.AsyncClient(timeout=timeout_seconds) as client:
         try:
-            response = await client.post(token_url, data=data, headers={"Accept": "application/json"})
+            response = await client.post(
+                token_url, data=data, headers={"Accept": "application/json"}
+            )
             response.raise_for_status()
         except httpx.HTTPError as exc:
             logger.error("OAuth refresh request failed: %s", exc)
@@ -69,7 +71,9 @@ async def refresh_access_token(
     return access_token
 
 
-async def build_oauth_client(base_url: str, auth_config: Dict[str, Any]) -> httpx.AsyncClient:
+async def build_oauth_client(
+    base_url: str, auth_config: Dict[str, Any]
+) -> httpx.AsyncClient:
     """Build an httpx.AsyncClient authenticated via OAuth using refresh token.
 
     Supported auth_config keys (both camelCase and snake_case accepted):
@@ -89,7 +93,9 @@ async def build_oauth_client(base_url: str, auth_config: Dict[str, Any]) -> http
     refresh_token_value = resolve_env_value(auth_config.get(ConfigKey.REFRESH_TOKEN))
 
     if not all([client_id, client_secret, token_url, refresh_token_value]):
-        raise RuntimeError("Missing required OAuth configuration: client_id, client_secret, token_url, refresh_token")
+        raise RuntimeError(
+            "Missing required OAuth configuration: client_id, client_secret, token_url, refresh_token"
+        )
 
     access_token = await refresh_access_token(
         client_id=client_id,
@@ -141,7 +147,9 @@ class OAuthRefreshClient(httpx.AsyncClient):
         self._access_token = token
         self._expires_at = time.time() + 3600 - 60
 
-    async def request(self, method: str, url: httpx.URL | str, **kwargs: Any) -> httpx.Response:
+    async def request(
+        self, method: str, url: httpx.URL | str, **kwargs: Any
+    ) -> httpx.Response:
         await self._ensure_token()
         headers = kwargs.pop("headers", {})
         headers["Authorization"] = f"Bearer {self._access_token}"

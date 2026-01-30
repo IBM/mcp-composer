@@ -440,9 +440,7 @@ def _create_backstage_component(
 
         return component
     except Exception as error:  # pylint: disable=broad-exception-caught
-        logger.error(
-            "Error creating Backstage component for %s: %s", name, error
-        )
+        logger.error("Error creating Backstage component for %s: %s", name, error)
         raise
 
 

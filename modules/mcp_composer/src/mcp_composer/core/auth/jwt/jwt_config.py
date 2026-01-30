@@ -45,27 +45,41 @@ class JWTConfig(BaseModel):
     """
 
     # Secret or public key (one required)
-    secret: Optional[str] = Field(None, description="Secret key for HS256/HS384/HS512 algorithms")
-    public_key: Optional[str] = Field(None, description="Public key for RS256/ES256/PS256 algorithms")
+    secret: Optional[str] = Field(
+        None, description="Secret key for HS256/HS384/HS512 algorithms"
+    )
+    public_key: Optional[str] = Field(
+        None, description="Public key for RS256/ES256/PS256 algorithms"
+    )
 
     # Algorithm
-    algorithm: str = Field(default="HS256", description="JWT signing algorithm (HS256, RS256, ES256, etc.)")
+    algorithm: str = Field(
+        default="HS256", description="JWT signing algorithm (HS256, RS256, ES256, etc.)"
+    )
 
     # Validation options
     issuer: Optional[str] = Field(None, description="Expected token issuer (iss claim)")
-    audience: Optional[str] = Field(None, description="Expected token audience (aud claim)")
+    audience: Optional[str] = Field(
+        None, description="Expected token audience (aud claim)"
+    )
     verify_exp: bool = Field(default=True, description="Verify token expiration")
     verify_iss: bool = Field(default=False, description="Verify token issuer")
     verify_aud: bool = Field(default=False, description="Verify token audience")
     verify_signature: bool = Field(default=True, description="Verify token signature")
 
     # Token extraction
-    header_name: str = Field(default="Authorization", description="HTTP header containing JWT")
+    header_name: str = Field(
+        default="Authorization", description="HTTP header containing JWT"
+    )
     header_prefix: str = Field(default="Bearer", description="Token prefix in header")
 
     # Additional options
-    required_claims: List[str] = Field(default_factory=list, description="List of required claims in JWT")
-    leeway: int = Field(default=0, description="Leeway in seconds for exp/nbf/iat validation")
+    required_claims: List[str] = Field(
+        default_factory=list, description="List of required claims in JWT"
+    )
+    leeway: int = Field(
+        default=0, description="Leeway in seconds for exp/nbf/iat validation"
+    )
 
     @field_validator("public_key")
     @classmethod
@@ -91,7 +105,7 @@ class JWTConfig(BaseModel):
             )
         return v
 
-    @model_validator(mode='after')
+    @model_validator(mode="after")
     def validate_key_presence(self):
         """Ensure at least one of secret or public_key is provided."""
         if not self.secret and not self.public_key:
@@ -117,7 +131,9 @@ class JWTConfig(BaseModel):
             "PS512",  # RSA-PSS
         ]
         if v not in valid_algorithms:
-            raise ValueError(f"Invalid algorithm: {v}. Must be one of {valid_algorithms}")
+            raise ValueError(
+                f"Invalid algorithm: {v}. Must be one of {valid_algorithms}"
+            )
         return v
 
     @classmethod
@@ -127,7 +143,7 @@ class JWTConfig(BaseModel):
 
         Args:
             prefix: Prefix for environment variables (default: JWT_)
-        
+
         Note:
             The prefix will be automatically normalized to end with underscore.
 

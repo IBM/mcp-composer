@@ -36,11 +36,15 @@ def extract_jwt_from_header(header_value: str, prefix: str = "Bearer") -> Option
 
     parts = header_value.strip().split()
     if len(parts) != 2:
-        logger.warning("Invalid authorization header format: expected 2 parts, got %d", len(parts))
+        logger.warning(
+            "Invalid authorization header format: expected 2 parts, got %d", len(parts)
+        )
         return None
 
     if parts[0] != prefix:
-        logger.warning("Invalid authorization prefix: expected '%s', got '%s'", prefix, parts[0])
+        logger.warning(
+            "Invalid authorization prefix: expected '%s', got '%s'", prefix, parts[0]
+        )
         return None
 
     logger.debug("Successfully extracted JWT token from header")
@@ -178,7 +182,11 @@ def generate_jwt_token(
 
     try:
         token = jwt.encode(payload, secret, algorithm=algorithm)
-        logger.debug("Generated JWT token with expiration: %d seconds, claims: %d", expires_in, len(payload))
+        logger.debug(
+            "Generated JWT token with expiration: %d seconds, claims: %d",
+            expires_in,
+            len(payload),
+        )
         return token
     except Exception as e:
         logger.error("Failed to generate JWT token: %s", e)
@@ -203,7 +211,9 @@ def validate_jwt_claims(claims: Dict[str, Any], required_claims: List[str]) -> b
         >>> print(is_valid)  # False (missing 'tenant')
     """
     if not required_claims:
-        logger.warning("No required claims specified for JWT validation - validation skipped")
+        logger.warning(
+            "No required claims specified for JWT validation - validation skipped"
+        )
         return True
 
     missing_claims = [claim for claim in required_claims if claim not in claims]
@@ -309,7 +319,9 @@ def is_jwt_expired(token: str, leeway: int = 0) -> bool:
     return is_expired
 
 
-def extract_jwt_claims(token: str, claim_names: Optional[List[str]] = None) -> Dict[str, Any]:
+def extract_jwt_claims(
+    token: str, claim_names: Optional[List[str]] = None
+) -> Dict[str, Any]:
     """
     Extract specific claims from a JWT token without verification.
 
@@ -336,7 +348,9 @@ def extract_jwt_claims(token: str, claim_names: Optional[List[str]] = None) -> D
             return all_claims
 
         # Extract only requested claims
-        extracted = {name: all_claims.get(name) for name in claim_names if name in all_claims}
+        extracted = {
+            name: all_claims.get(name) for name in claim_names if name in all_claims
+        }
 
         logger.debug("Extracted %d claims from JWT", len(extracted))
         return extracted
@@ -392,7 +406,9 @@ def load_jwt_provider(prefix: str = "JWT_") -> Optional["JWTAuthProvider"]:
     jwt_secret = os.getenv(secret_var)
     if jwt_secret:
         try:
-            logger.info("Loading JWT public key from %s environment variable", secret_var)
+            logger.info(
+                "Loading JWT public key from %s environment variable", secret_var
+            )
 
             # Detect format: PEM, JSON, or raw key
             jwt_secret = jwt_secret.strip()
@@ -415,7 +431,9 @@ def load_jwt_provider(prefix: str = "JWT_") -> Optional["JWTAuthProvider"]:
                                 public_key = jwk.get("n")
 
                         if not public_key:
-                            logger.warning("JSON doesn't contain 'public_key' field. Using raw content.")
+                            logger.warning(
+                                "JSON doesn't contain 'public_key' field. Using raw content."
+                            )
                             public_key = jwt_secret
                     else:
                         public_key = str(key_data)
@@ -447,7 +465,9 @@ def load_jwt_provider(prefix: str = "JWT_") -> Optional["JWTAuthProvider"]:
     try:
         jwt_config: JWTConfig = JWTConfig.from_env(prefix=prefix)
         provider: JWTAuthProvider = JWTAuthProvider(config=jwt_config)
-        logger.info("JWT authentication configured from environment with prefix: %s", prefix)
+        logger.info(
+            "JWT authentication configured from environment with prefix: %s", prefix
+        )
         return provider
     except Exception as e:
         # Check if JWT is required - fail fast if misconfigured
@@ -455,12 +475,16 @@ def load_jwt_provider(prefix: str = "JWT_") -> Optional["JWTAuthProvider"]:
         required_var = f"{prefix}REQUIRED"
         jwt_required = os.getenv(required_var, "false").lower() == "true"
         if jwt_required:
-            logger.error("JWT authentication is required but configuration failed: %s", e)
+            logger.error(
+                "JWT authentication is required but configuration failed: %s", e
+            )
             raise RuntimeError(
                 f"JWT authentication is required ({required_var}=true) but configuration failed: {e}"
             ) from e
 
-        logger.warning("Failed to load JWT config from environment with prefix '%s': %s", prefix, e)
+        logger.warning(
+            "Failed to load JWT config from environment with prefix '%s': %s", prefix, e
+        )
         logger.info("JWT authentication disabled - running without auth")
         return None
 

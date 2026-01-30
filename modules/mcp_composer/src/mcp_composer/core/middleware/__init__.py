@@ -32,20 +32,18 @@ __all__ = [
     "MiddlewareManager",
     "HookFilter",
     "HookPolicy",
-    
     # Configuration models
     "MiddlewareConfig",
-    "MiddlewareEntry", 
+    "MiddlewareEntry",
     "MiddlewareSettings",
     "Conditions",
     "LogicStep",
     "HookLogic",
     "AllowedHook",
     "ModeEnum",
-    
     # Utility functions
     "_match_glob",
-    "_import_kind", 
+    "_import_kind",
     "_hook_name",
     "load_and_validate_config",
     "export_json_schema",

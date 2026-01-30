@@ -37,7 +37,9 @@ def generate_tag(
     mcp_scan_output: str = typer.Option(None, help="Path to MCP-Scan output JSON"),
     args: str = typer.Option(None, help="Arguments for the command in stdio mode"),
     rules: str = typer.Option("rules/rules_default.yaml", help="Rules YAML file"),
-    policy: str = typer.Option(None, help="Policy YAML (optional)"),  # pylint: disable=unused-argument
+    policy: str = typer.Option(
+        None, help="Policy YAML (optional)"
+    ),  # pylint: disable=unused-argument
     output: str = typer.Option(
         None, help="Write MCP Tag/Scan/Catalog results to this path"
     ),

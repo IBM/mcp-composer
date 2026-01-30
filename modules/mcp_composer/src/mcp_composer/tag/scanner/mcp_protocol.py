@@ -167,13 +167,17 @@ class McpProtocolScanner(Scanner):
             logger.error(
                 "Failed to collect tools from MCP server %s: %s", self.endpoint, str(e)
             )
-            raise RuntimeError(f"Failed to collect tools from MCP server {self.endpoint}: {e}")
+            raise RuntimeError(
+                f"Failed to collect tools from MCP server {self.endpoint}: {e}"
+            )
 
     def _create_mcp_client(self) -> Client:
         """Create a fastmcp client for the given URL and transport."""
         try:
             logger.info(
-                "Creating MCP client for %s using transport %s", self.endpoint, self.transport
+                "Creating MCP client for %s using transport %s",
+                self.endpoint,
+                self.transport,
             )
             if self.transport == "http":
                 transport_obj = StreamableHttpTransport(
@@ -189,7 +193,7 @@ class McpProtocolScanner(Scanner):
                     raise ValueError("Error: No command provided for stdio transport.")
                 cmd = parts[0]
                 args = shlex.split(self.args) if self.args else []
-                logger.info("Executing command: %s %s", cmd, ' '.join(args))
+                logger.info("Executing command: %s %s", cmd, " ".join(args))
                 transport_obj = StdioTransport(command=cmd, args=args)
             else:
                 raise ValueError(f"Unsupported transport: {self.transport}")
@@ -419,7 +423,9 @@ class McpProtocolScanner(Scanner):
         try:
             async with self.client:
                 logger.info(
-                    "Connected to MCP server at %s using %s", self.endpoint, self.transport
+                    "Connected to MCP server at %s using %s",
+                    self.endpoint,
+                    self.transport,
                 )
                 self.server_info = await self._get_server_info()
                 tools = await self._get_tools_list()
@@ -439,4 +445,6 @@ class McpProtocolScanner(Scanner):
                 self.endpoint,
                 str(e),
             )
-            raise RuntimeError(f"Error during MCP protocol collection from {self.endpoint}: {e}")
+            raise RuntimeError(
+                f"Error during MCP protocol collection from {self.endpoint}: {e}"
+            )

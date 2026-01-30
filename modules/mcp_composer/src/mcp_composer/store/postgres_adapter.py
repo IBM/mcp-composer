@@ -59,7 +59,9 @@ class PostgresAdapter(DatabaseInterface):
         else:
             # Use individual parameters
             if not all([host, database, user, password]):
-                raise ValueError("Either 'url' or all of 'host', 'database', 'user', 'password' must be provided")
+                raise ValueError(
+                    "Either 'url' or all of 'host', 'database', 'user', 'password' must be provided"
+                )
 
             self._connection_params = {
                 "host": host,
@@ -85,17 +87,19 @@ class PostgresAdapter(DatabaseInterface):
         try:
             parsed = urlparse(url)
 
-            if parsed.scheme not in ['postgresql', 'postgres']:
-                raise ValueError(f"Invalid URL scheme: {parsed.scheme}. Expected 'postgresql' or 'postgres'")
+            if parsed.scheme not in ["postgresql", "postgres"]:
+                raise ValueError(
+                    f"Invalid URL scheme: {parsed.scheme}. Expected 'postgresql' or 'postgres'"
+                )
 
             if not parsed.hostname:
                 raise ValueError("URL must include hostname")
 
-            if not parsed.path or parsed.path == '/':
+            if not parsed.path or parsed.path == "/":
                 raise ValueError("URL must include database name")
 
             # Remove leading slash from path to get database name
-            database = parsed.path.lstrip('/')
+            database = parsed.path.lstrip("/")
 
             connection_params = {
                 "host": parsed.hostname,
@@ -132,7 +136,9 @@ class PostgresAdapter(DatabaseInterface):
         # Validate connection parameters
         required_keys = ["host", "database", "user", "password"]
         if not all(k in self._connection_params for k in required_keys):
-            raise ValueError("Connection parameters must include host, database, user, and password")
+            raise ValueError(
+                "Connection parameters must include host, database, user, and password"
+            )
 
         try:
             # Use asyncio.run to execute async code synchronously, but handle existing event loop
@@ -157,10 +163,12 @@ class PostgresAdapter(DatabaseInterface):
             await conn.execute(create_table_query)
 
             # Create index on id for faster lookups
-            await conn.execute(f"""
+            await conn.execute(
+                f"""
                 CREATE INDEX IF NOT EXISTS idx_{self._table_name}_id
                 ON {self._table_name} (id);
-            """)
+            """
+            )
 
             await conn.execute(
                 f"""
@@ -261,6 +269,7 @@ class PostgresAdapter(DatabaseInterface):
         try:
             # Try to get the current event loop
             asyncio.get_running_loop()
+
             # If we're in an async context, we need to create a task
             # But since we're in a sync method, we'll use asyncio.run_coroutine_threadsafe
             # Create a new event loop in a separate thread
@@ -304,8 +313,7 @@ class PostgresAdapter(DatabaseInterface):
             try:
                 # Check if server exists
                 result = await conn.fetchrow(
-                    f"SELECT config FROM {self._table_name} WHERE id = $1",
-                    server_id
+                    f"SELECT config FROM {self._table_name} WHERE id = $1", server_id
                 )
 
                 if result:
@@ -357,7 +365,8 @@ class PostgresAdapter(DatabaseInterface):
                         config = EXCLUDED.config,
                         updated_at = CURRENT_TIMESTAMP
                     """,
-                    server_id, json.dumps(config)
+                    server_id,
+                    json.dumps(config),
                 )
 
                 logger.info(
@@ -411,7 +420,8 @@ class PostgresAdapter(DatabaseInterface):
                         config = EXCLUDED.config,
                         updated_at = CURRENT_TIMESTAMP
                     """,
-                    doc_id, json.dumps(config)
+                    doc_id,
+                    json.dumps(config),
                 )
                 logger.info("Saved server '%s' to PostgreSQL", doc_id)
             finally:
@@ -430,8 +440,7 @@ class PostgresAdapter(DatabaseInterface):
             conn = await self._get_connection()
             try:
                 await conn.execute(
-                    f"DELETE FROM {self._table_name} WHERE id = $1",
-                    server_id
+                    f"DELETE FROM {self._table_name} WHERE id = $1", server_id
                 )
                 logger.info("Deleted server '%s' from PostgreSQL", server_id)
             finally:
@@ -452,7 +461,9 @@ class PostgresAdapter(DatabaseInterface):
         self, tool: str, description: str, server_id: str
     ) -> None:
         """Update tool description synchronously."""
-        self._run_async(self._async_update_tool_description(tool, description, server_id))
+        self._run_async(
+            self._async_update_tool_description(tool, description, server_id)
+        )
 
     async def _async_update_tool_description(
         self, tool: str, description: str, server_id: str
@@ -463,8 +474,7 @@ class PostgresAdapter(DatabaseInterface):
             try:
                 # Get existing config
                 result = await conn.fetchrow(
-                    f"SELECT config FROM {self._table_name} WHERE id = $1",
-                    server_id
+                    f"SELECT config FROM {self._table_name} WHERE id = $1", server_id
                 )
 
                 if result:
@@ -491,7 +501,8 @@ class PostgresAdapter(DatabaseInterface):
                         config = EXCLUDED.config,
                         updated_at = CURRENT_TIMESTAMP
                     """,
-                    server_id, json.dumps(config)
+                    server_id,
+                    json.dumps(config),
                 )
 
                 logger.info(
@@ -517,8 +528,7 @@ class PostgresAdapter(DatabaseInterface):
             try:
                 # Get existing config
                 result = await conn.fetchrow(
-                    f"SELECT config FROM {self._table_name} WHERE id = $1",
-                    server_id
+                    f"SELECT config FROM {self._table_name} WHERE id = $1", server_id
                 )
 
                 if result:
@@ -572,7 +582,8 @@ class PostgresAdapter(DatabaseInterface):
                         config = EXCLUDED.config,
                         updated_at = CURRENT_TIMESTAMP
                     """,
-                    server_id, json.dumps(config)
+                    server_id,
+                    json.dumps(config),
                 )
 
                 logger.info(
@@ -599,8 +610,7 @@ class PostgresAdapter(DatabaseInterface):
             try:
                 # Get existing config
                 result = await conn.fetchrow(
-                    f"SELECT config FROM {self._table_name} WHERE id = $1",
-                    server_id
+                    f"SELECT config FROM {self._table_name} WHERE id = $1", server_id
                 )
 
                 if result:
@@ -622,7 +632,8 @@ class PostgresAdapter(DatabaseInterface):
                         config = EXCLUDED.config,
                         updated_at = CURRENT_TIMESTAMP
                     """,
-                    server_id, json.dumps(config)
+                    server_id,
+                    json.dumps(config),
                 )
 
                 logger.info(
@@ -641,15 +652,16 @@ class PostgresAdapter(DatabaseInterface):
         """Disable resources synchronously."""
         self._run_async(self._async_disable_resources(resources, server_id))
 
-    async def _async_disable_resources(self, resources: list[str], server_id: str) -> None:
+    async def _async_disable_resources(
+        self, resources: list[str], server_id: str
+    ) -> None:
         """Async implementation of disabling resources."""
         try:
             conn = await self._get_connection()
             try:
                 # Get existing config
                 result = await conn.fetchrow(
-                    f"SELECT config FROM {self._table_name} WHERE id = $1",
-                    server_id
+                    f"SELECT config FROM {self._table_name} WHERE id = $1", server_id
                 )
 
                 if result:
@@ -680,7 +692,9 @@ class PostgresAdapter(DatabaseInterface):
                         config,
                     )
 
-                    duplicate_resource = check_duplicate_tool(existing_resources, resources)
+                    duplicate_resource = check_duplicate_tool(
+                        existing_resources, resources
+                    )
                     if duplicate_resource:
                         raise ToolDuplicateError(
                             f"Resource {duplicate_resource} is already disabled"
@@ -703,7 +717,8 @@ class PostgresAdapter(DatabaseInterface):
                         config = EXCLUDED.config,
                         updated_at = CURRENT_TIMESTAMP
                     """,
-                    server_id, json.dumps(config)
+                    server_id,
+                    json.dumps(config),
                 )
 
                 logger.info(
@@ -723,15 +738,16 @@ class PostgresAdapter(DatabaseInterface):
         """Enable resources synchronously."""
         self._run_async(self._async_enable_resources(resources, server_id))
 
-    async def _async_enable_resources(self, resources: list[str], server_id: str) -> None:
+    async def _async_enable_resources(
+        self, resources: list[str], server_id: str
+    ) -> None:
         """Async implementation of enabling resources."""
         try:
             conn = await self._get_connection()
             try:
                 # Get existing config
                 result = await conn.fetchrow(
-                    f"SELECT config FROM {self._table_name} WHERE id = $1",
-                    server_id
+                    f"SELECT config FROM {self._table_name} WHERE id = $1", server_id
                 )
 
                 if result:
@@ -753,7 +769,8 @@ class PostgresAdapter(DatabaseInterface):
                         config = EXCLUDED.config,
                         updated_at = CURRENT_TIMESTAMP
                     """,
-                    server_id, json.dumps(config)
+                    server_id,
+                    json.dumps(config),
                 )
 
                 logger.info(
@@ -780,8 +797,7 @@ class PostgresAdapter(DatabaseInterface):
             conn = await self._get_connection()
             try:
                 result = await conn.fetchrow(
-                    f"SELECT config FROM {self._table_name} WHERE id = $1",
-                    server_id
+                    f"SELECT config FROM {self._table_name} WHERE id = $1", server_id
                 )
 
                 if result:
@@ -792,7 +808,9 @@ class PostgresAdapter(DatabaseInterface):
                         server_doc,
                     )
                 else:
-                    logger.warning("No server details found in DB for server_id: %s", server_id)
+                    logger.warning(
+                        "No server details found in DB for server_id: %s", server_id
+                    )
             finally:
                 await conn.close()
 
@@ -811,8 +829,7 @@ class PostgresAdapter(DatabaseInterface):
             try:
                 # Get existing config
                 result = await conn.fetchrow(
-                    f"SELECT config FROM {self._table_name} WHERE id = $1",
-                    server_id
+                    f"SELECT config FROM {self._table_name} WHERE id = $1", server_id
                 )
 
                 if result:
@@ -826,7 +843,8 @@ class PostgresAdapter(DatabaseInterface):
                         SET config = $1, updated_at = CURRENT_TIMESTAMP
                         WHERE id = $2
                         """,
-                        json.dumps(config), server_id
+                        json.dumps(config),
+                        server_id,
                     )
                     logger.info("Marked server '%s' as deactivated", server_id)
                 else:
@@ -848,13 +866,14 @@ class PostgresAdapter(DatabaseInterface):
             conn = await self._get_connection()
             try:
                 result = await conn.fetchrow(
-                    f"SELECT config FROM {self._table_name} WHERE id = $1",
-                    server_id
+                    f"SELECT config FROM {self._table_name} WHERE id = $1", server_id
                 )
 
                 if result:
                     config = self._parse_config(result["config"])
-                    status = config.get("status", "active")  # default to 'active' if not set
+                    status = config.get(
+                        "status", "active"
+                    )  # default to 'active' if not set
                     logger.info("Server '%s' has status: %s", server_id, status)
                     return status
                 logger.warning("Server '%s' not found when fetching status.", server_id)
@@ -884,8 +903,7 @@ class PostgresAdapter(DatabaseInterface):
             try:
                 # Check if server exists
                 result = await conn.fetchrow(
-                    f"SELECT id FROM {self._table_name} WHERE id = $1",
-                    server_id
+                    f"SELECT id FROM {self._table_name} WHERE id = $1", server_id
                 )
                 if not result:
                     logger.error("Server '%s' not found in PostgreSQL.", server_id)
@@ -898,7 +916,8 @@ class PostgresAdapter(DatabaseInterface):
                     SET config = $1, updated_at = CURRENT_TIMESTAMP
                     WHERE id = $2
                     """,
-                    json.dumps(config), server_id
+                    json.dumps(config),
+                    server_id,
                 )
 
                 logger.info("Updated configuration for server '%s'", server_id)

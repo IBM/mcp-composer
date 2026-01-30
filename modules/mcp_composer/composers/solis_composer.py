@@ -4,9 +4,13 @@ Solis Composer with JWT Authentication.
 This composer integrates IBM Document Search tools with JWT-based authentication
 for secure access to Solis resources.
 """
+
 import os
 import asyncio
-from mcp_composer.core.auth.jwt.jwt_utils import load_jwt_provider, log_jwt_configuration
+from mcp_composer.core.auth.jwt.jwt_utils import (
+    load_jwt_provider,
+    log_jwt_configuration,
+)
 from mcp_composer.core.tools.ibm_document_search_tool import IBMDocumentSearchTool
 from mcp_composer.middleware.tool.tool_filter import ListFilteredTool
 from mcp_composer import MCPComposer
@@ -30,7 +34,10 @@ jwt_provider = load_jwt_provider(prefix="SOLIS_JWT_")
 # )
 
 # Initialize composer with JWT authentication
-gw = MCPComposer(name="solis-composer", auth=jwt_provider.get_verifier() if jwt_provider else None)
+gw = MCPComposer(
+    name="solis-composer", auth=jwt_provider.get_verifier() if jwt_provider else None
+)
+
 
 def setup_middleware(composer: MCPComposer) -> None:
     """Configure and register middleware components."""
@@ -82,9 +89,7 @@ async def run_composer_mode(composer: MCPComposer, mode: str) -> None:
     """Execute composer in specified mode."""
     handler = MODE_HANDLERS.get(mode)
     if not handler:
-        raise ValueError(
-            f"Unsupported MCP_MODE: {mode}. Use 'http', 'sse', or 'stdio'"
-        )
+        raise ValueError(f"Unsupported MCP_MODE: {mode}. Use 'http', 'sse', or 'stdio'")
     await handler(composer)
 
 

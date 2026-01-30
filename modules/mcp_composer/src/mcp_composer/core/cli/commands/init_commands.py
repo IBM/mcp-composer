@@ -35,79 +35,81 @@ app = typer.Typer(
 
 @app.command("init")
 def init_project(
-    project_name: Annotated[Optional[str], Argument(
-        help="Name of the project to initialize"
-    )] = None,
-
-    defaults: Annotated[bool, Option(
-        "--defaults",
-        help="Skip interactive prompts and use default values"
-    )] = False,
-
-    with_examples: Annotated[bool, Option(
-        "--with-examples",
-        help="Include example files (sample tool, routes, configs)"
-    )] = False,
-
-    with_venv: Annotated[bool, Option(
-        "--with-venv",
-        help="Create a virtual environment in the project"
-    )] = True,
-
-    adapter: Annotated[Optional[str], Option(
-        "--adapter",
-        help=(
-            "Setup variant: 'local' (stdio/local development), "
-            "'cloud' (http/sse deployment), or 'api' (openapi/graphql)"
+    project_name: Annotated[
+        Optional[str], Argument(help="Name of the project to initialize")
+    ] = None,
+    defaults: Annotated[
+        bool,
+        Option("--defaults", help="Skip interactive prompts and use default values"),
+    ] = False,
+    with_examples: Annotated[
+        bool,
+        Option(
+            "--with-examples",
+            help="Include example files (sample tool, routes, configs)",
         ),
-        case_sensitive=False
-    )] = None,
-
-    port: Annotated[int, Option(
-        "--port", "-p",
-        help="Default port for HTTP/SSE server"
-    )] = 9000,
-
-    host: Annotated[str, Option(
-        "--host",
-        help="Default host for HTTP/SSE server"
-    )] = "0.0.0.0",
-
-    server_mode: Annotated[Optional[str], Option(
-        "--server-mode",
-        help=(
-            "Default server mode: http, sse, stdio, openapi, "
-            "graphql, local, or client"
+    ] = False,
+    with_venv: Annotated[
+        bool, Option("--with-venv", help="Create a virtual environment in the project")
+    ] = True,
+    adapter: Annotated[
+        Optional[str],
+        Option(
+            "--adapter",
+            help=(
+                "Setup variant: 'local' (stdio/local development), "
+                "'cloud' (http/sse deployment), or 'api' (openapi/graphql)"
+            ),
+            case_sensitive=False,
         ),
-        case_sensitive=False
-    )] = None,
-
-    auth_type: Annotated[Optional[str], Option(
-        "--auth-type",
-        help="Authentication type: oauth or none",
-        case_sensitive=False
-    )] = None,
-
-    database: Annotated[Optional[str], Option(
-        "--database",
-        help="Database type: sqlite, postgres, or none",
-        case_sensitive=False
-    )] = None,
-
-    description: Annotated[Optional[str], Option(
-        "--description",
-        help="Project description"
-    )] = None,
-
-    directory: Annotated[Optional[str], Option(
-        "--directory", "-d",
-        help="Target directory for project (defaults to project name)"
-    )] = None,
-
-    force: Annotated[bool, Option(
-        "--force", "-f",
-        help="Overwrite existing directory if it exists"
-    )] = False,
+    ] = None,
+    port: Annotated[
+        int, Option("--port", "-p", help="Default port for HTTP/SSE server")
+    ] = 9000,
+    host: Annotated[
+        str, Option("--host", help="Default host for HTTP/SSE server")
+    ] = "0.0.0.0",
+    server_mode: Annotated[
+        Optional[str],
+        Option(
+            "--server-mode",
+            help=(
+                "Default server mode: http, sse, stdio, openapi, "
+                "graphql, local, or client"
+            ),
+            case_sensitive=False,
+        ),
+    ] = None,
+    auth_type: Annotated[
+        Optional[str],
+        Option(
+            "--auth-type",
+            help="Authentication type: oauth or none",
+            case_sensitive=False,
+        ),
+    ] = None,
+    database: Annotated[
+        Optional[str],
+        Option(
+            "--database",
+            help="Database type: sqlite, postgres, or none",
+            case_sensitive=False,
+        ),
+    ] = None,
+    description: Annotated[
+        Optional[str], Option("--description", help="Project description")
+    ] = None,
+    directory: Annotated[
+        Optional[str],
+        Option(
+            "--directory",
+            "-d",
+            help="Target directory for project (defaults to project name)",
+        ),
+    ] = None,
+    force: Annotated[
+        bool, Option("--force", "-f", help="Overwrite existing directory if it exists")
+    ] = False,
 ) -> None:
     """
     Initialize a new MCP Composer workspace.
@@ -160,7 +162,14 @@ def init_project(
     # Interactive prompts if not using --defaults
     if not defaults:
         config = _interactive_setup(
-            project_name, adapter, port, host, server_mode, auth_type, database, description
+            project_name,
+            adapter,
+            port,
+            host,
+            server_mode,
+            auth_type,
+            database,
+            description,
         )
     else:
         # Use provided values or defaults
@@ -194,12 +203,14 @@ def init_project(
         if not force:
             if not defaults and not Confirm.ask(
                 f"[yellow]Directory {target_dir} already exists. Overwrite?[/yellow]",
-                default=False
+                default=False,
             ):
                 rprint("[red]❌ Initialization cancelled.[/red]")
                 raise typer.Exit(0)
             if defaults:
-                rprint(f"[red]❌ Directory {target_dir} already exists. Use --force to overwrite.[/red]")
+                rprint(
+                    f"[red]❌ Directory {target_dir} already exists. Use --force to overwrite.[/red]"
+                )
                 raise typer.Exit(1)
 
         # Remove existing directory
@@ -260,16 +271,13 @@ def _interactive_setup(
 
     # Project name
     if not project_name:
-        project_name = Prompt.ask(
-            "[cyan]Project name[/cyan]",
-            default="mcp-project"
-        )
+        project_name = Prompt.ask("[cyan]Project name[/cyan]", default="mcp-project")
 
     # Description
     if not description:
         description = Prompt.ask(
             "[cyan]Project description[/cyan]",
-            default=f"A new MCP Composer project: {project_name}"
+            default=f"A new MCP Composer project: {project_name}",
         )
 
     # Adapter type
@@ -277,7 +285,7 @@ def _interactive_setup(
         adapter = Prompt.ask(
             "[cyan]Setup variant[/cyan]",
             choices=["local", "cloud", "api"],
-            default="local"
+            default="local",
         )
 
     # Mode
@@ -286,38 +294,32 @@ def _interactive_setup(
             server_mode = Prompt.ask(
                 "[cyan]Server mode[/cyan]",
                 choices=["stdio", "local", "http", "sse"],
-                default="stdio"
+                default="stdio",
             )
         elif adapter == "api":
             server_mode = Prompt.ask(
                 "[cyan]Server mode[/cyan]",
                 choices=["openapi", "graphql", "http", "sse"],
-                default="openapi"
+                default="openapi",
             )
         else:
             server_mode = Prompt.ask(
                 "[cyan]Server mode[/cyan]",
                 choices=["http", "sse", "openapi", "client"],
-                default="http"
+                default="http",
             )
 
     # Port (only for http/sse)
     if server_mode in ["http", "sse"]:
-        port = int(Prompt.ask(
-            "[cyan]Server port[/cyan]",
-            default=str(port)
-        ))
-        host = Prompt.ask(
-            "[cyan]Server host[/cyan]",
-            default=host
-        )
+        port = int(Prompt.ask("[cyan]Server port[/cyan]", default=str(port)))
+        host = Prompt.ask("[cyan]Server host[/cyan]", default=host)
 
     # Authentication
     if not auth_type:
         auth_type = Prompt.ask(
             "[cyan]Authentication type[/cyan]",
             choices=["none", "oauth"],
-            default="none"
+            default="none",
         )
 
     # Database
@@ -325,14 +327,11 @@ def _interactive_setup(
         database = Prompt.ask(
             "[cyan]Database type[/cyan]",
             choices=["none", "sqlite", "postgres"],
-            default="none"
+            default="none",
         )
 
     # Examples
-    with_examples = Confirm.ask(
-        "[cyan]Include example files?[/cyan]",
-        default=True
-    )
+    with_examples = Confirm.ask("[cyan]Include example files?[/cyan]", default=True)
 
     return {
         "project_name": project_name,
@@ -360,7 +359,7 @@ def _validate_environment(target_dir: Path) -> Dict[str, Dict]:
     results["dependencies"]["python"] = {
         "status": "ok" if python_version >= (3, 11) else "warning",
         "message": f"Python {python_version.major}.{python_version.minor}.{python_version.micro}",
-        "required": "Python 3.11+"
+        "required": "Python 3.11+",
     }
 
     # Check if uv is available
@@ -368,7 +367,7 @@ def _validate_environment(target_dir: Path) -> Dict[str, Dict]:
     results["dependencies"]["uv"] = {
         "status": "ok" if uv_available else "warning",
         "message": "uv package manager" + (" found" if uv_available else " not found"),
-        "required": "uv (recommended)"
+        "required": "uv (recommended)",
     }
 
     # Check if git is available
@@ -376,14 +375,14 @@ def _validate_environment(target_dir: Path) -> Dict[str, Dict]:
     results["dependencies"]["git"] = {
         "status": "ok" if git_available else "info",
         "message": "git" + (" found" if git_available else " not found"),
-        "required": "git (optional)"
+        "required": "git (optional)",
     }
 
     # Check if project directory is writable
     results["paths"]["project_dir"] = {
         "status": "ok" if os.access(target_dir, os.W_OK) else "error",
         "message": f"Project directory: {target_dir}",
-        "required": "Writable project directory"
+        "required": "Writable project directory",
     }
 
     # Check if config files exist
@@ -391,26 +390,26 @@ def _validate_environment(target_dir: Path) -> Dict[str, Dict]:
     results["paths"]["config_file"] = {
         "status": "ok" if config_file.exists() else "error",
         "message": f"Config file: {config_file}",
-        "required": "Configuration file"
+        "required": "Configuration file",
     }
 
     # Check permissions
     results["permissions"]["read"] = {
         "status": "ok" if os.access(target_dir, os.R_OK) else "error",
         "message": "Read permission",
-        "required": "Read access"
+        "required": "Read access",
     }
 
     results["permissions"]["write"] = {
         "status": "ok" if os.access(target_dir, os.W_OK) else "error",
         "message": "Write permission",
-        "required": "Write access"
+        "required": "Write access",
     }
 
     results["permissions"]["execute"] = {
         "status": "ok" if os.access(target_dir, os.X_OK) else "error",
         "message": "Execute permission",
-        "required": "Execute access"
+        "required": "Execute access",
     }
 
     return results
@@ -420,12 +419,9 @@ def _display_validation_results(results: Dict[str, Dict]) -> None:
     """Display validation results in a formatted way."""
 
     def _get_status_icon(status: str) -> str:
-        return {
-            "ok": "✅",
-            "warning": "⚠️",
-            "info": "ℹ️",
-            "error": "❌"
-        }.get(status, "❓")
+        return {"ok": "✅", "warning": "⚠️", "info": "ℹ️", "error": "❌"}.get(
+            status, "❓"
+        )
 
     for category, checks in results.items():
         rprint(f"\n[bold cyan]{category.title()}:[/bold cyan]")
@@ -446,7 +442,7 @@ def _create_virtual_environment(target_dir: Path) -> bool:
                 cwd=target_dir,
                 capture_output=True,
                 text=True,
-                check=False
+                check=False,
             )
             if result.returncode == 0:
                 rprint("[green]  ✅ Virtual environment created with uv[/green]")
@@ -460,10 +456,12 @@ def _create_virtual_environment(target_dir: Path) -> bool:
             cwd=target_dir,
             capture_output=True,
             text=True,
-            check=False
+            check=False,
         )
         if result.returncode == 0:
-            rprint("[green]  ✅ Virtual environment created with python3 -m venv[/green]")
+            rprint(
+                "[green]  ✅ Virtual environment created with python3 -m venv[/green]"
+            )
             return True
         rprint(f"[yellow]  ⚠️  venv creation failed: {result.stderr}[/yellow]")
         return False
@@ -472,7 +470,9 @@ def _create_virtual_environment(target_dir: Path) -> bool:
         return False
 
 
-def _show_success_message(config: Dict, target_dir: Path, validation_results: Dict, venv_created: bool = False) -> None:
+def _show_success_message(
+    config: Dict, target_dir: Path, validation_results: Dict, venv_created: bool = False
+) -> None:
     """Display success message with next steps."""
 
     # Check if there were any errors
@@ -570,7 +570,7 @@ def _show_success_message(config: Dict, target_dir: Path, validation_results: Di
         """,
         title="🎉 Setup Complete",
         border_style="green",
-        padding=(1, 2)
+        padding=(1, 2),
     )
 
     console.print(panel)

@@ -4,7 +4,7 @@ from mcp_composer.core.utils.logger import LoggerFactory
 logger = LoggerFactory.get_logger()
 
 
-class BasePolicyEnforcer(ABC): # pylint: disable=too-few-public-methods
+class BasePolicyEnforcer(ABC):  # pylint: disable=too-few-public-methods
     """
     Abstract base class for all policy enforcers.
     Implementations must define the is_allowed method.

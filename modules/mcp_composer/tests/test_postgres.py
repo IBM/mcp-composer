@@ -31,7 +31,9 @@ def test_url_parsing():
     print("\n🧪 Testing URL parsing...")
 
     # Test URL parsing method directly
-    adapter = PostgresAdapter.__new__(PostgresAdapter)  # Create without calling __init__
+    adapter = PostgresAdapter.__new__(
+        PostgresAdapter
+    )  # Create without calling __init__
 
     test_urls = [
         "postgresql://user:password_placeholder@localhost:5432/db",
@@ -47,10 +49,10 @@ def test_url_parsing():
 
         # Assert that parsing was successful
         assert parsed is not None
-        assert 'host' in parsed
-        assert 'database' in parsed
-        assert 'user' in parsed
-        assert 'password' in parsed
+        assert "host" in parsed
+        assert "database" in parsed
+        assert "user" in parsed
+        assert "password" in parsed
 
 
 def test_invalid_urls():
@@ -59,13 +61,18 @@ def test_invalid_urls():
 
     print("\n🧪 Testing invalid URL handling...")
 
-    adapter = PostgresAdapter.__new__(PostgresAdapter)  # Create without calling __init__
+    adapter = PostgresAdapter.__new__(
+        PostgresAdapter
+    )  # Create without calling __init__
 
     invalid_urls = [
         ("http://user:password_placeholder@localhost:5432/db", "Wrong scheme"),
         ("postgresql://localhost:5432/db", "Missing user/password"),
         ("postgresql://user@localhost:5432/db", "Missing password"),
-        ("postgresql://test_user:test_password_placeholder@localhost:5432/", "Missing database"),
+        (
+            "postgresql://test_user:test_password_placeholder@localhost:5432/",
+            "Missing database",
+        ),
     ]
 
     for i, (url, description) in enumerate(invalid_urls, 1):
@@ -82,9 +89,12 @@ def test_table_creation_sql():
 
     # Check if the _async_initialize_database method exists and has the right SQL
     import inspect
+
     source = inspect.getsource(PostgresAdapter._async_initialize_database)
 
-    assert "updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP" in source, "Table creation SQL missing updated_at column"
+    assert (
+        "updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP" in source
+    ), "Table creation SQL missing updated_at column"
     print("✅ Table creation SQL includes updated_at column")
 
     assert "CREATE TABLE IF NOT EXISTS" in source, "Table creation logic missing"
@@ -106,24 +116,39 @@ def test_adapter_creation_with_url():
         print(f"✅ Connection params: {adapter._connection_params}")
 
         # Verify connection parameters
-        assert adapter._connection_params['host'] == 'localhost'
-        assert adapter._connection_params['port'] == 5432
-        assert adapter._connection_params['database'] == 'test_db'
-        assert adapter._connection_params['user'] == 'test_user'
-        assert adapter._connection_params['password'] == 'test_password_placeholder'
+        assert adapter._connection_params["host"] == "localhost"
+        assert adapter._connection_params["port"] == 5432
+        assert adapter._connection_params["database"] == "test_db"
+        assert adapter._connection_params["user"] == "test_user"
+        assert adapter._connection_params["password"] == "test_password_placeholder"
 
     except Exception as e:
-        if any(keyword in str(e).lower() for keyword in ["connection", "connect", "role", "does not exist", "authorization", "database"]):
-            print("✅ PostgreSQL adapter created successfully (connection failed as expected)")
+        if any(
+            keyword in str(e).lower()
+            for keyword in [
+                "connection",
+                "connect",
+                "role",
+                "does not exist",
+                "authorization",
+                "database",
+            ]
+        ):
+            print(
+                "✅ PostgreSQL adapter created successfully (connection failed as expected)"
+            )
             if adapter:
                 print(f"✅ Connection params: {adapter._connection_params}")
 
                 # Verify connection parameters even when connection fails
-                assert adapter._connection_params['host'] == 'localhost'
-                assert adapter._connection_params['port'] == 5432
-                assert adapter._connection_params['database'] == 'test_db'
-                assert adapter._connection_params['user'] == 'test_user'
-                assert adapter._connection_params['password'] == 'test_password_placeholder'
+                assert adapter._connection_params["host"] == "localhost"
+                assert adapter._connection_params["port"] == 5432
+                assert adapter._connection_params["database"] == "test_db"
+                assert adapter._connection_params["user"] == "test_user"
+                assert (
+                    adapter._connection_params["password"]
+                    == "test_password_placeholder"
+                )
         else:
             print(f"❌ Unexpected error: {e}")
             pytest.fail(f"Unexpected error during adapter creation: {e}")
@@ -138,35 +163,50 @@ def test_adapter_creation_with_individual_params():
     adapter = None
     try:
         adapter = PostgresAdapter(
-            host='localhost',
+            host="localhost",
             port=5432,
-            database='test_db',
-            user='test_user',
-            password='test_password_placeholder',
-            table_name='test_table'
+            database="test_db",
+            user="test_user",
+            password="test_password_placeholder",
+            table_name="test_table",
         )
         print("✅ PostgreSQL adapter created successfully with individual parameters")
         print(f"✅ Connection params: {adapter._connection_params}")
 
         # Verify connection parameters
-        assert adapter._connection_params['host'] == 'localhost'
-        assert adapter._connection_params['port'] == 5432
-        assert adapter._connection_params['database'] == 'test_db'
-        assert adapter._connection_params['user'] == 'test_user'
-        assert adapter._connection_params['password'] == 'test_password_placeholder'
+        assert adapter._connection_params["host"] == "localhost"
+        assert adapter._connection_params["port"] == 5432
+        assert adapter._connection_params["database"] == "test_db"
+        assert adapter._connection_params["user"] == "test_user"
+        assert adapter._connection_params["password"] == "test_password_placeholder"
 
     except Exception as e:
-        if any(keyword in str(e).lower() for keyword in ["connection", "connect", "role", "does not exist", "authorization", "database"]):
-            print("✅ PostgreSQL adapter created successfully (connection failed as expected)")
+        if any(
+            keyword in str(e).lower()
+            for keyword in [
+                "connection",
+                "connect",
+                "role",
+                "does not exist",
+                "authorization",
+                "database",
+            ]
+        ):
+            print(
+                "✅ PostgreSQL adapter created successfully (connection failed as expected)"
+            )
             if adapter:
                 print(f"✅ Connection params: {adapter._connection_params}")
 
                 # Verify connection parameters even when connection fails
-                assert adapter._connection_params['host'] == 'localhost'
-                assert adapter._connection_params['port'] == 5432
-                assert adapter._connection_params['database'] == 'test_db'
-                assert adapter._connection_params['user'] == 'test_user'
-                assert adapter._connection_params['password'] == 'test_password_placeholder'
+                assert adapter._connection_params["host"] == "localhost"
+                assert adapter._connection_params["port"] == 5432
+                assert adapter._connection_params["database"] == "test_db"
+                assert adapter._connection_params["user"] == "test_user"
+                assert (
+                    adapter._connection_params["password"]
+                    == "test_password_placeholder"
+                )
         else:
             print(f"❌ Unexpected error: {e}")
             pytest.fail(f"Unexpected error during adapter creation: {e}")
@@ -178,7 +218,10 @@ def test_missing_parameters():
 
     print("\n🧪 Testing missing parameters...")
 
-    with pytest.raises(ValueError, match="Either 'url' or all of 'host', 'database', 'user', 'password' must be provided"):
+    with pytest.raises(
+        ValueError,
+        match="Either 'url' or all of 'host', 'database', 'user', 'password' must be provided",
+    ):
         PostgresAdapter()
 
     print("✅ Missing parameters correctly rejected")
@@ -199,15 +242,20 @@ def test_url_parsing_logic_standalone():
         parsed = urlparse(url)
 
         # Validate scheme
-        assert parsed.scheme in ['postgresql', 'postgres'], f"Invalid scheme '{parsed.scheme}' for URL '{url}'"
+        assert parsed.scheme in [
+            "postgresql",
+            "postgres",
+        ], f"Invalid scheme '{parsed.scheme}' for URL '{url}'"
 
         # Validate hostname
         assert parsed.hostname is not None, f"Missing hostname in URL '{url}'"
 
         # Validate database path
-        assert parsed.path and parsed.path != '/', f"Missing database name in URL '{url}'"
+        assert (
+            parsed.path and parsed.path != "/"
+        ), f"Missing database name in URL '{url}'"
 
-        database = parsed.path.lstrip('/')
+        database = parsed.path.lstrip("/")
 
         connection_params = {
             "host": parsed.hostname,
@@ -219,7 +267,9 @@ def test_url_parsing_logic_standalone():
 
         # Validate credentials
         assert connection_params["user"] is not None, f"Missing username in URL '{url}'"
-        assert connection_params["password"] is not None, f"Missing password in URL '{url}'"
+        assert (
+            connection_params["password"] is not None
+        ), f"Missing password in URL '{url}'"
 
         print(f"✅ Test {i}: URL '{url}' parsed successfully")
         print(f"   Parsed: {connection_params}")
@@ -236,7 +286,7 @@ def test_connection_parameter_construction():
     connection_params = {
         "host": parsed.hostname,
         "port": parsed.port or 5432,
-        "database": parsed.path.lstrip('/'),
+        "database": parsed.path.lstrip("/"),
         "user": parsed.username,
         "password": parsed.password,
     }
@@ -249,7 +299,9 @@ def test_connection_parameter_construction():
         "password": "test_password_placeholder",
     }
 
-    assert connection_params == expected_params, f"URL-based connection parameters mismatch: {connection_params}"
+    assert (
+        connection_params == expected_params
+    ), f"URL-based connection parameters mismatch: {connection_params}"
     print("✅ URL-based connection parameters constructed correctly")
 
     # Test individual parameters
@@ -261,7 +313,9 @@ def test_connection_parameter_construction():
         "password": "test_password_placeholder",
     }
 
-    assert individual_params == expected_params, f"Individual connection parameters mismatch: {individual_params}"
+    assert (
+        individual_params == expected_params
+    ), f"Individual connection parameters mismatch: {individual_params}"
     print("✅ Individual connection parameters constructed correctly")
 
 
@@ -285,7 +339,9 @@ def test_jsonb_handling():
         else:
             pytest.fail(f"Unexpected config data type: {type(config_data)}")
 
-        assert isinstance(parsed_config, dict), f"Config data not parsed as dict: {type(parsed_config)}"
+        assert isinstance(
+            parsed_config, dict
+        ), f"Config data not parsed as dict: {type(parsed_config)}"
         print(f"✅ Test {i}: Config data parsed successfully: {parsed_config}")
 
 
@@ -298,17 +354,17 @@ def test_async_sync_bridge():
     adapter = PostgresAdapter.__new__(PostgresAdapter)
 
     # Test that _run_async method exists
-    assert hasattr(adapter, '_run_async'), "_run_async method not found"
+    assert hasattr(adapter, "_run_async"), "_run_async method not found"
     print("✅ _run_async method found")
 
     # Test that async methods exist
     async_methods = [
-        '_async_initialize_database',
-        '_async_load_all_servers',
-        '_async_add_server',
-        '_async_remove_server',
-        '_async_get_document',
-        '_async_save_disabled_tools_to_db',
+        "_async_initialize_database",
+        "_async_load_all_servers",
+        "_async_add_server",
+        "_async_remove_server",
+        "_async_get_document",
+        "_async_save_disabled_tools_to_db",
     ]
 
     for method_name in async_methods:
@@ -325,20 +381,27 @@ def test_database_interface_compliance():
     print("\n🧪 Testing DatabaseInterface compliance...")
 
     # Check that PostgresAdapter implements DatabaseInterface
-    assert issubclass(PostgresAdapter, DatabaseInterface), "PostgresAdapter does not implement DatabaseInterface"
+    assert issubclass(
+        PostgresAdapter, DatabaseInterface
+    ), "PostgresAdapter does not implement DatabaseInterface"
 
     # Get all abstract methods from DatabaseInterface
     import inspect
+
     abstract_methods = set()
     for name, method in inspect.getmembers(DatabaseInterface):
-        if inspect.isfunction(method) and getattr(method, '__isabstractmethod__', False):
+        if inspect.isfunction(method) and getattr(
+            method, "__isabstractmethod__", False
+        ):
             abstract_methods.add(name)
 
     # Check that PostgresAdapter implements all abstract methods
     adapter_methods = set(dir(PostgresAdapter))
 
     for method in abstract_methods:
-        assert method in adapter_methods, f"PostgresAdapter missing required method: {method}"
+        assert (
+            method in adapter_methods
+        ), f"PostgresAdapter missing required method: {method}"
 
     print("✅ PostgresAdapter fully implements DatabaseInterface")
 
@@ -359,7 +422,9 @@ def test_table_creation_sql_construction():
     );
     """
 
-    assert "updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP" in create_table_query, "Table creation SQL missing updated_at column"
+    assert (
+        "updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP" in create_table_query
+    ), "Table creation SQL missing updated_at column"
     print("✅ Table creation SQL includes updated_at column")
 
     # Test migration SQL
@@ -368,7 +433,9 @@ def test_table_creation_sql_construction():
         ADD COLUMN updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
     """
 
-    assert "ALTER TABLE" in migration_query and "ADD COLUMN updated_at" in migration_query, "Migration logic for updated_at column missing"
+    assert (
+        "ALTER TABLE" in migration_query and "ADD COLUMN updated_at" in migration_query
+    ), "Migration logic for updated_at column missing"
     print("✅ Migration logic for updated_at column found")
 
 
@@ -380,7 +447,10 @@ def test_invalid_url_handling_standalone():
         ("http://user:password_placeholder@localhost:5432/db", "Wrong scheme"),
         ("postgresql://localhost:5432/db", "Missing user/password"),
         ("postgresql://user@localhost:5432/db", "Missing password"),
-        ("postgresql://test_user:test_password_placeholder@localhost:5432/", "Missing database"),
+        (
+            "postgresql://test_user:test_password_placeholder@localhost:5432/",
+            "Missing database",
+        ),
         ("postgresql://user:password_placeholder@localhost:5432", "Missing database"),
     ]
 
@@ -388,23 +458,31 @@ def test_invalid_url_handling_standalone():
         parsed = urlparse(url)
 
         # Check scheme
-        if parsed.scheme not in ['postgresql', 'postgres']:
-            print(f"✅ Test {i}: {description} - '{url}' correctly rejected (invalid scheme)")
+        if parsed.scheme not in ["postgresql", "postgres"]:
+            print(
+                f"✅ Test {i}: {description} - '{url}' correctly rejected (invalid scheme)"
+            )
             continue
 
         # Check hostname
         if not parsed.hostname:
-            print(f"✅ Test {i}: {description} - '{url}' correctly rejected (missing hostname)")
+            print(
+                f"✅ Test {i}: {description} - '{url}' correctly rejected (missing hostname)"
+            )
             continue
 
         # Check database
-        if not parsed.path or parsed.path == '/':
-            print(f"✅ Test {i}: {description} - '{url}' correctly rejected (missing database)")
+        if not parsed.path or parsed.path == "/":
+            print(
+                f"✅ Test {i}: {description} - '{url}' correctly rejected (missing database)"
+            )
             continue
 
         # Check user/password
         if not parsed.username or not parsed.password:
-            print(f"✅ Test {i}: {description} - '{url}' correctly rejected (missing credentials)")
+            print(
+                f"✅ Test {i}: {description} - '{url}' correctly rejected (missing credentials)"
+            )
             continue
 
         pytest.fail(f"Test {i}: {description} - '{url}' should have failed but didn't")
@@ -420,10 +498,10 @@ def test_postgres_integration():
     # This test will only run if PostgreSQL is available
     try:
         adapter = PostgresAdapter(
-            host='localhost',
-            database='postgres',
-            user='test_user_placeholder',
-            password='test_password_placeholder'
+            host="localhost",
+            database="postgres",
+            user="test_user_placeholder",
+            password="test_password_placeholder",
         )
 
         # Test basic operations
@@ -431,17 +509,23 @@ def test_postgres_integration():
         print(f"✅ Loaded {len(servers)} servers from database")
 
         # Test adding a server
-        test_config = {'id': 'pytest_test_server', 'type': 'test', 'name': 'Pytest Test Server'}
+        test_config = {
+            "id": "pytest_test_server",
+            "type": "test",
+            "name": "Pytest Test Server",
+        }
         adapter.add_server(test_config)
         print("✅ Added test server to database")
 
         # Test getting the server back
-        server = adapter.get_document('pytest_test_server')
-        assert server.get('name') == 'Pytest Test Server', "Retrieved server name doesn't match"
+        server = adapter.get_document("pytest_test_server")
+        assert (
+            server.get("name") == "Pytest Test Server"
+        ), "Retrieved server name doesn't match"
         print("✅ Retrieved test server from database")
 
         # Clean up
-        adapter.remove_server('pytest_test_server')
+        adapter.remove_server("pytest_test_server")
         print("✅ Removed test server from database")
 
         adapter.close()
@@ -495,7 +579,9 @@ if __name__ == "__main__":
     print(f"Tests failed: {failed}")
 
     if failed == 0:
-        print("🎉 All tests passed! PostgreSQL adapter with asyncpg is working perfectly!")
+        print(
+            "🎉 All tests passed! PostgreSQL adapter with asyncpg is working perfectly!"
+        )
         print("\n📖 Comprehensive test coverage includes:")
         print("✅ Import and basic functionality")
         print("✅ URL parsing and validation")

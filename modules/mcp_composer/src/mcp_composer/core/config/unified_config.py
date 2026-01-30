@@ -22,11 +22,17 @@ class ServerConfig(BaseModel):
     id: str = Field(..., description="Unique identifier for the server")
     type: str = Field(..., description="Server type (http, sse, openapi, stdio, etc.)")
     endpoint: Optional[str] = Field(None, description="Server endpoint URL")
-    open_api: Optional[Dict[str, Any]] = Field(None, description="OpenAPI configuration")
+    open_api: Optional[Dict[str, Any]] = Field(
+        None, description="OpenAPI configuration"
+    )
     auth_strategy: Optional[str] = Field(None, description="Authentication strategy")
-    auth: Optional[Dict[str, Any]] = Field(None, description="Authentication configuration")
+    auth: Optional[Dict[str, Any]] = Field(
+        None, description="Authentication configuration"
+    )
     command: Optional[str] = Field(None, description="Command for stdio servers")
-    args: Optional[List[str]] = Field(None, description="Command arguments for stdio servers")
+    args: Optional[List[str]] = Field(
+        None, description="Command arguments for stdio servers"
+    )
     env: Optional[Dict[str, str]] = Field(None, description="Environment variables")
     cwd: Optional[str] = Field(None, description="Working directory")
     label: Optional[str] = Field(None, description="Human-readable label")
@@ -44,7 +50,9 @@ class ServerConfig(BaseModel):
     def validate_type(cls, v: str) -> str:
         valid_types = ["http", "sse", "openapi", "stdio", "graphql", "local", "client"]
         if v not in valid_types:
-            raise ValueError(f"Invalid server type '{v}'. Must be one of: {', '.join(valid_types)}")
+            raise ValueError(
+                f"Invalid server type '{v}'. Must be one of: {', '.join(valid_types)}"
+            )
         return v
 
 
@@ -55,8 +63,12 @@ class MiddlewareConfig(BaseModel):
     kind: str = Field(..., description="Python import path to middleware class")
     mode: str = Field("enabled", description="Middleware mode (enabled/disabled)")
     priority: int = Field(100, ge=0, le=10000, description="Execution priority")
-    applied_hooks: List[str] = Field(..., description="Hooks where middleware is applied")
-    config: Optional[Dict[str, Any]] = Field(None, description="Middleware-specific configuration")
+    applied_hooks: List[str] = Field(
+        ..., description="Hooks where middleware is applied"
+    )
+    config: Optional[Dict[str, Any]] = Field(
+        None, description="Middleware-specific configuration"
+    )
     description: Optional[str] = Field(None, description="Middleware description")
     version: Optional[str] = Field("0.0.0", description="Middleware version")
 
@@ -97,7 +109,9 @@ class PromptConfig(BaseModel):
     name: str = Field(..., description="Unique name for the prompt")
     description: str = Field(..., description="Prompt description")
     template: str = Field(..., description="Prompt template")
-    arguments: Optional[List[PromptArgument]] = Field(None, description="Prompt arguments")
+    arguments: Optional[List[PromptArgument]] = Field(
+        None, description="Prompt arguments"
+    )
 
     @field_validator("name")
     @classmethod
@@ -130,14 +144,28 @@ class ResourceConfig(BaseModel):
 
     name: str = Field(..., description="Unique name for the resource")
     description: Optional[str] = Field(default=None, description="Resource description")
-    uri: Optional[str] = Field(default=None, description="Resource URI (for static resources)")
-    uri_template: Optional[str] = Field(default=None, description="Resource URI template (for dynamic resources)")
+    uri: Optional[str] = Field(
+        default=None, description="Resource URI (for static resources)"
+    )
+    uri_template: Optional[str] = Field(
+        default=None, description="Resource URI template (for dynamic resources)"
+    )
     text: Optional[str] = Field(default=None, description="Resource content/text")
-    template: Optional[str] = Field(default=None, description="Template content (alias for text)")
-    mime_type: Optional[str] = Field(default="text/plain", description="MIME type of the resource")
-    tags: Optional[List[str]] = Field(default=None, description="Tags for categorization")
-    enabled: Optional[bool] = Field(default=True, description="Whether the resource is enabled")
-    parameters: Optional[Dict[str, Any]] = Field(default=None, description="Template parameters")
+    template: Optional[str] = Field(
+        default=None, description="Template content (alias for text)"
+    )
+    mime_type: Optional[str] = Field(
+        default="text/plain", description="MIME type of the resource"
+    )
+    tags: Optional[List[str]] = Field(
+        default=None, description="Tags for categorization"
+    )
+    enabled: Optional[bool] = Field(
+        default=True, description="Whether the resource is enabled"
+    )
+    parameters: Optional[Dict[str, Any]] = Field(
+        default=None, description="Template parameters"
+    )
 
     @field_validator("name")
     @classmethod
@@ -163,15 +191,27 @@ class ResourceConfig(BaseModel):
 class UnifiedConfig(BaseModel):
     """Unified configuration schema for MCP Composer."""
 
-    servers: Optional[List[ServerConfig]] = Field(None, description="List of server configurations")
-    middleware: Optional[List[MiddlewareConfig]] = Field(None, description="List of middleware configurations")
-    prompts: Optional[List[PromptConfig]] = Field(None, description="List of prompt configurations")
-    tools: Optional[Dict[str, ToolConfig]] = Field(None, description="Dictionary of tool configurations")
-    resources: Optional[List[ResourceConfig]] = Field(None, description="List of resource configurations")
+    servers: Optional[List[ServerConfig]] = Field(
+        None, description="List of server configurations"
+    )
+    middleware: Optional[List[MiddlewareConfig]] = Field(
+        None, description="List of middleware configurations"
+    )
+    prompts: Optional[List[PromptConfig]] = Field(
+        None, description="List of prompt configurations"
+    )
+    tools: Optional[Dict[str, ToolConfig]] = Field(
+        None, description="Dictionary of tool configurations"
+    )
+    resources: Optional[List[ResourceConfig]] = Field(
+        None, description="List of resource configurations"
+    )
 
     @field_validator("servers")
     @classmethod
-    def validate_servers(cls, v: Optional[List[ServerConfig]]) -> Optional[List[ServerConfig]]:
+    def validate_servers(
+        cls, v: Optional[List[ServerConfig]]
+    ) -> Optional[List[ServerConfig]]:
         if v is not None:
             # Check for duplicate server IDs
             server_ids = [server.id for server in v]
@@ -181,7 +221,9 @@ class UnifiedConfig(BaseModel):
 
     @field_validator("middleware")
     @classmethod
-    def validate_middleware(cls, v: Optional[List[MiddlewareConfig]]) -> Optional[List[MiddlewareConfig]]:
+    def validate_middleware(
+        cls, v: Optional[List[MiddlewareConfig]]
+    ) -> Optional[List[MiddlewareConfig]]:
         if v is not None:
             # Check for duplicate middleware names
             middleware_names = [mw.name for mw in v]
@@ -191,7 +233,9 @@ class UnifiedConfig(BaseModel):
 
     @field_validator("prompts")
     @classmethod
-    def validate_prompts(cls, v: Optional[List[PromptConfig]]) -> Optional[List[PromptConfig]]:
+    def validate_prompts(
+        cls, v: Optional[List[PromptConfig]]
+    ) -> Optional[List[PromptConfig]]:
         if v is not None:
             # Check for duplicate prompt names
             prompt_names = [prompt.name for prompt in v]
@@ -201,7 +245,9 @@ class UnifiedConfig(BaseModel):
 
     @field_validator("resources")
     @classmethod
-    def validate_resources(cls, v: Optional[List[ResourceConfig]]) -> Optional[List[ResourceConfig]]:
+    def validate_resources(
+        cls, v: Optional[List[ResourceConfig]]
+    ) -> Optional[List[ResourceConfig]]:
         if v is not None:
             # Check for duplicate resource names
             resource_names = [resource.name for resource in v]
@@ -236,7 +282,9 @@ class UnifiedConfigValidator:
             self._validate_tools()
             self._validate_resources()
         except Exception as e:
-            raise ConfigValidationError(f"Configuration validation failed: {str(e)}") from e
+            raise ConfigValidationError(
+                f"Configuration validation failed: {str(e)}"
+            ) from e
 
     def _validate_servers(self) -> None:
         """Validate server configurations."""
@@ -252,14 +300,18 @@ class UnifiedConfigValidator:
                     )
             elif server.type == "openapi":
                 if not server.open_api:
-                    raise ConfigValidationError(f"Server '{server.id}' of type 'openapi' requires 'open_api' field")
+                    raise ConfigValidationError(
+                        f"Server '{server.id}' of type 'openapi' requires 'open_api' field"
+                    )
                 if not server.open_api.get("endpoint"):
                     raise ConfigValidationError(
                         f"Server '{server.id}' of type 'openapi' requires 'endpoint' in 'open_api' field"
                     )
             elif server.type == "stdio":
                 if not server.command:
-                    raise ConfigValidationError(f"Server '{server.id}' of type 'stdio' requires 'command' field")
+                    raise ConfigValidationError(
+                        f"Server '{server.id}' of type 'stdio' requires 'command' field"
+                    )
 
     def _validate_middleware(self) -> None:
         """Validate middleware configurations."""
@@ -268,7 +320,9 @@ class UnifiedConfigValidator:
 
         for middleware in self.config.middleware:
             if not middleware.applied_hooks:
-                raise ConfigValidationError(f"Middleware '{middleware.name}' requires 'applied_hooks' field")
+                raise ConfigValidationError(
+                    f"Middleware '{middleware.name}' requires 'applied_hooks' field"
+                )
 
     def _validate_prompts(self) -> None:
         """Validate prompt configurations."""
@@ -277,7 +331,9 @@ class UnifiedConfigValidator:
 
         for prompt in self.config.prompts:
             if not prompt.description:
-                raise ConfigValidationError(f"Prompt '{prompt.name}' requires 'description' field")
+                raise ConfigValidationError(
+                    f"Prompt '{prompt.name}' requires 'description' field"
+                )
 
     def _validate_tools(self) -> None:
         """Validate tool configurations."""
@@ -291,7 +347,9 @@ class UnifiedConfigValidator:
             # Additional tool-specific validation can be added here
             if hasattr(tool_config, "openapi") and tool_config.openapi:
                 if not hasattr(tool_config, "paths") or not tool_config.paths:
-                    raise ConfigValidationError(f"Tool '{tool_name}' with OpenAPI specification requires 'paths' field")
+                    raise ConfigValidationError(
+                        f"Tool '{tool_name}' with OpenAPI specification requires 'paths' field"
+                    )
 
     def _validate_resources(self) -> None:
         """Validate resource configurations."""

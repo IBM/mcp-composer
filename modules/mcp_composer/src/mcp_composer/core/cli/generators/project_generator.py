@@ -133,7 +133,9 @@ class ProjectGenerator:
 
         # Example middleware
         example_middleware = self._generate_example_middleware()
-        middleware_path = self.target_dir / "examples" / "middleware" / "example_middleware.py"
+        middleware_path = (
+            self.target_dir / "examples" / "middleware" / "example_middleware.py"
+        )
         self._write_text_file(middleware_path, example_middleware)
 
         # Example config
@@ -389,17 +391,17 @@ member_servers.json
         logger.info("Starting in LOCAL mode")
         await composer.run_stdio_async()"""
         elif mode == "sse":
-            mode_startup = f'''    if mode == "sse":
+            mode_startup = f"""    if mode == "sse":
         host = os.getenv("MCP_HOST", "{self.config.get("host", "0.0.0.0")}")
         port = int(os.getenv("MCP_PORT", "{self.config.get("port", 9000)}"))
         logger.info(f"Starting in SSE mode on {{host}}:{{port}}")
-        await composer.run_sse_async(host=host, port=port, path="/sse")'''
+        await composer.run_sse_async(host=host, port=port, path="/sse")"""
         elif mode == "http":
-            mode_startup = f'''    if mode == "http":
+            mode_startup = f"""    if mode == "http":
         host = os.getenv("MCP_HOST", "{self.config.get("host", "0.0.0.0")}")
         port = int(os.getenv("MCP_PORT", "{self.config.get("port", 9000)}"))
         logger.info(f"Starting in HTTP mode on {{host}}:{{port}}")
-        await composer.run_http_async(host=host, port=port, path="/mcp")'''
+        await composer.run_http_async(host=host, port=port, path="/mcp")"""
         elif mode == "openapi":
             mode_startup = """    if mode == "openapi":
         logger.info("Starting in OpenAPI mode")
@@ -407,17 +409,17 @@ member_servers.json
         logger.info("OpenAPI server configured - access via composer tools")
         await composer.run_stdio_async()"""
         elif mode == "graphql":
-            mode_startup = f'''    if mode == "graphql":
+            mode_startup = f"""    if mode == "graphql":
         host = os.getenv("MCP_HOST", "{self.config.get("host", "0.0.0.0")}")
         port = int(os.getenv("MCP_PORT", "{self.config.get("port", 9000)}"))
         logger.info(f"Starting in GraphQL mode on {{host}}:{{port}}")
-        await composer.run_http_async(host=host, port=port, path="/graphql")'''
+        await composer.run_http_async(host=host, port=port, path="/graphql")"""
         elif mode == "client":
-            mode_startup = f'''    if mode == "client":
+            mode_startup = f"""    if mode == "client":
         host = os.getenv("MCP_HOST", "{self.config.get("host", "0.0.0.0")}")
         port = int(os.getenv("MCP_PORT", "{self.config.get("port", 9000)}"))
         logger.info(f"Starting in CLIENT mode on {{host}}:{{port}}")
-        await composer.run_http_async(host=host, port=port, path="/mcp")'''
+        await composer.run_http_async(host=host, port=port, path="/mcp")"""
         else:
             mode_startup = """    if mode == "stdio":
         await composer.run_stdio_async()"""
@@ -446,23 +448,23 @@ logger = LoggerFactory.get_logger()
 async def main():
     """Main entry point for the MCP Composer server."""
     logger.info("Starting {self.config["project_name"]}...")
-    
+
     # Load configuration
     config_path = os.getenv("CONFIG_PATH", "config/config.json")
     logger.info(f"Loading configuration from {{config_path}}")
-    
+
     # Create MCP Composer instance
     composer = MCPComposer(
         name="{self.config["project_name"]}",
         config_path=config_path
     )
-    
+
     # Setup member servers
     await composer.setup_member_servers()
-    
+
     # Start server based on mode
     mode = os.getenv("MCP_MODE", "{mode}")
-    
+
 {mode_startup}
     else:
         logger.error(f"Unknown mode: {{mode}}")
@@ -482,7 +484,7 @@ if __name__ == "__main__":
 
     def _generate_pyproject_toml(self) -> str:
         """Generate pyproject.toml content."""
-        return f'''[project]
+        return f"""[project]
 name = "{self.config["project_name"]}"
 version = "0.1.0"
 description = "{self.config["description"]}"
@@ -524,7 +526,7 @@ target-version = "py311"
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
-'''
+"""
 
     def _generate_requirements(self) -> str:
         """Generate requirements.txt content."""
@@ -546,10 +548,10 @@ from typing import Dict, Any
 def example_tool(name: str = "World") -> Dict[str, Any]:
     """
     Example tool that greets a user.
-    
+
     Args:
         name: Name to greet
-        
+
     Returns:
         A greeting message
     """
@@ -562,10 +564,10 @@ def example_tool(name: str = "World") -> Dict[str, Any]:
 async def async_example_tool(name: str = "World") -> Dict[str, Any]:
     """
     Async example tool that greets a user.
-    
+
     Args:
         name: Name to greet
-        
+
     Returns:
         A greeting message
     """
@@ -589,7 +591,7 @@ from mcp_composer.middleware.base_middleware import BaseMiddleware
 
 class ExampleMiddleware(BaseMiddleware):
     """Example middleware that logs requests."""
-    
+
     async def on_call_tool(
         self,
         tool_name: str,
@@ -598,22 +600,22 @@ class ExampleMiddleware(BaseMiddleware):
     ) -> Any:
         """
         Hook that runs before tool execution.
-        
+
         Args:
             tool_name: Name of the tool being called
             arguments: Arguments passed to the tool
             next: Next middleware in the chain
-            
+
         Returns:
             Result from the tool execution
         """
         self.logger.info(f"Calling tool: {tool_name} with args: {arguments}")
-        
+
         # Call the next middleware/tool
         result = await next(tool_name, arguments)
-        
+
         self.logger.info(f"Tool {tool_name} returned: {result}")
-        
+
         return result
 '''
 
@@ -648,7 +650,9 @@ class ExampleMiddleware(BaseMiddleware):
 
         start_command = f"mcp-composer run --mode {mode}"
         if mode in ["http", "sse"]:
-            start_command += f" --host {self.config['host']} --port {self.config['port']}"
+            start_command += (
+                f" --host {self.config['host']} --port {self.config['port']}"
+            )
         start_command += " --config-path config/config.json"
 
         return f"""# {self.config["project_name"]}

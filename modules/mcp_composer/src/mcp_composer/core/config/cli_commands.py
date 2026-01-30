@@ -46,7 +46,7 @@ def cmd_show_config(args: argparse.Namespace) -> int:
                 for server in config_dict["servers"]:
                     print(f"ID: {server['id']}")
                     print(f"Type: {server['type']}")
-                    if server.get('endpoint'):
+                    if server.get("endpoint"):
                         print(f"Endpoint: {server['endpoint']}")
                     print("---")
             elif args.section == "middleware" and config_dict.get("middleware"):
@@ -68,7 +68,9 @@ def cmd_show_config(args: argparse.Namespace) -> int:
                 print("=== TOOLS ===")
                 for tool_name, tool_config in config_dict["tools"].items():
                     print(f"Name: {tool_name}")
-                    print(f"Type: {'OpenAPI' if tool_config.get('openapi') else 'Custom'}")
+                    print(
+                        f"Type: {'OpenAPI' if tool_config.get('openapi') else 'Custom'}"
+                    )
                     print("---")
             else:
                 print(f"No {args.section} section found in configuration")
@@ -97,7 +99,9 @@ async def cmd_apply_config(args: argparse.Namespace) -> int:
                     sections = [ConfigSection(args.config)]
                 except ValueError:
                     print(f"❌ Invalid config section: {args.config}")
-                    print(f"Valid sections: {', '.join([s.value for s in ConfigSection])}")
+                    print(
+                        f"Valid sections: {', '.join([s.value for s in ConfigSection])}"
+                    )
                     return 1
 
         # Create a mock composer for now (in real implementation, this would be passed in)
@@ -114,9 +118,9 @@ async def cmd_apply_config(args: argparse.Namespace) -> int:
             print(f"  Registered: {len(result.get('registered', []))}")
             print(f"  Failed: {len(result.get('failed', []))}")
 
-            if result.get('failed'):
+            if result.get("failed"):
                 print("  Failures:")
-                for failure in result['failed']:
+                for failure in result["failed"]:
                     print(f"    - {failure}")
 
         return 0
@@ -133,57 +137,51 @@ def cmd_apply_config_sync(args: argparse.Namespace) -> int:
 
 def add_config_commands(parser: argparse.ArgumentParser) -> None:
     """Add unified configuration commands to the argument parser."""
-    subparsers = parser.add_subparsers(dest='config_command', help='Configuration management commands')
+    subparsers = parser.add_subparsers(
+        dest="config_command", help="Configuration management commands"
+    )
 
     # Validate command
     validate_parser = subparsers.add_parser(
-        'validate',
-        help='Validate a configuration file'
+        "validate", help="Validate a configuration file"
     )
     validate_parser.add_argument(
-        'configfilepath',
-        help='Path to the configuration file to validate'
+        "configfilepath", help="Path to the configuration file to validate"
     )
 
     # Show command
-    show_parser = subparsers.add_parser(
-        'show',
-        help='Show configuration file contents'
+    show_parser = subparsers.add_parser("show", help="Show configuration file contents")
+    show_parser.add_argument(
+        "configfilepath", help="Path to the configuration file to show"
     )
     show_parser.add_argument(
-        'configfilepath',
-        help='Path to the configuration file to show'
-    )
-    show_parser.add_argument(
-        '--section',
-        choices=['servers', 'middleware', 'prompts', 'tools'],
-        help='Show only a specific section'
+        "--section",
+        choices=["servers", "middleware", "prompts", "tools"],
+        help="Show only a specific section",
     )
 
     # Apply command
     apply_parser = subparsers.add_parser(
-        'apply',
-        help='Apply configuration to MCP Composer'
+        "apply", help="Apply configuration to MCP Composer"
     )
     apply_parser.add_argument(
-        'configfilepath',
-        help='Path to the configuration file to apply'
+        "configfilepath", help="Path to the configuration file to apply"
     )
     apply_parser.add_argument(
-        '--config',
-        choices=['servers', 'middleware', 'prompts', 'tools', 'all'],
-        default='all',
-        help='Which configuration sections to apply (default: all)'
+        "--config",
+        choices=["servers", "middleware", "prompts", "tools", "all"],
+        default="all",
+        help="Which configuration sections to apply (default: all)",
     )
 
 
 def handle_config_commands(args: argparse.Namespace) -> int:
     """Handle unified configuration commands."""
-    if args.config_command == 'validate':
+    if args.config_command == "validate":
         return cmd_validate_config(args)
-    if args.config_command == 'show':
+    if args.config_command == "show":
         return cmd_show_config(args)
-    if args.config_command == 'apply':
+    if args.config_command == "apply":
         return cmd_apply_config_sync(args)
 
     print(f"❌ Unknown config command: {args.config_command}")
@@ -201,23 +199,20 @@ Examples:
   mcp-composer --config show --configfilepath config.json --section servers
   mcp-composer --config apply --configfilepath config.json --config all
   mcp-composer --config apply --configfilepath config.json --config servers
-        """
+        """,
     )
 
     # Add the main config argument
     parser.add_argument(
-        '--config',
-        choices=['validate', 'show', 'apply'],
-        help='Configuration command to execute'
+        "--config",
+        choices=["validate", "show", "apply"],
+        help="Configuration command to execute",
     )
+    parser.add_argument("--configfilepath", help="Path to the configuration file")
     parser.add_argument(
-        '--configfilepath',
-        help='Path to the configuration file'
-    )
-    parser.add_argument(
-        '--section',
-        choices=['servers', 'middleware', 'prompts', 'tools'],
-        help='Section to show (for show command)'
+        "--section",
+        choices=["servers", "middleware", "prompts", "tools"],
+        help="Section to show (for show command)",
     )
 
     return parser

@@ -129,7 +129,11 @@ async def test_list_resources_preserves_fields():
 
     listed_resources = await composer.list_resources()
     target = next(
-        (resource for resource in listed_resources if resource["name"] == "metadata_resource"),
+        (
+            resource
+            for resource in listed_resources
+            if resource["name"] == "metadata_resource"
+        ),
         None,
     )
 
@@ -141,7 +145,9 @@ async def test_list_resources_preserves_fields():
 
     # resources/read equivalent: verify the underlying resource exposes the same metadata/content
     manager_resources = await composer._resource_manager.list_resources()
-    manager_target = next((res for res in manager_resources if res.name == "metadata_resource"), None)
+    manager_target = next(
+        (res for res in manager_resources if res.name == "metadata_resource"), None
+    )
     assert manager_target is not None, "Underlying resource should exist"
     assert manager_target.description == resource_config["description"]
     assert str(manager_target.uri) == resource_config["uri"]
@@ -163,7 +169,14 @@ async def test_list_resources_returns_text_field():
     await composer._resource_manager.create_resource(resource_config)
 
     listed_resources = await composer.list_resources()
-    target = next((resource for resource in listed_resources if resource["name"] == "textual_resource"), None)
+    target = next(
+        (
+            resource
+            for resource in listed_resources
+            if resource["name"] == "textual_resource"
+        ),
+        None,
+    )
     assert target is not None
     assert target["text"] == resource_config["text"]
 
@@ -183,7 +196,14 @@ async def test_list_resource_templates_returns_text_field():
     await composer._resource_manager.create_resource_template(template_config)
 
     listed_templates = await composer.list_resource_templates()
-    target = next((template for template in listed_templates if template["name"] == "textual_template"), None)
+    target = next(
+        (
+            template
+            for template in listed_templates
+            if template["name"] == "textual_template"
+        ),
+        None,
+    )
     assert target is not None
     assert target["text"] == template_config["text"]
 
@@ -230,7 +250,9 @@ async def test_list_resources_per_server_not_found():
     """Test listing resources for non-existent server."""
     composer = MCPComposer("test-composer")
 
-    result = await composer._resource_manager.list_resources_per_server("non-existent-server")
+    result = await composer._resource_manager.list_resources_per_server(
+        "non-existent-server"
+    )
     assert result == []
 
 
@@ -421,10 +443,14 @@ async def test_disable_resources():
     mock_resource.name = "test_resource"
     mock_resource.description = "A test resource"
 
-    composer._resource_manager.get_resources = AsyncMock(return_value={"test-server_test_resource": mock_resource})
+    composer._resource_manager.get_resources = AsyncMock(
+        return_value={"test-server_test_resource": mock_resource}
+    )
     composer._resource_manager.get_resource_templates = AsyncMock(return_value={})
 
-    result = await composer._resource_manager.disable_resources(["test_resource"], "test-server")
+    result = await composer._resource_manager.disable_resources(
+        ["test_resource"], "test-server"
+    )
     assert "Disabled" in result
 
 
@@ -450,10 +476,14 @@ async def test_enable_resources():
     mock_resource.name = "test_resource"
     mock_resource.description = "A test resource"
 
-    composer._resource_manager.get_resources = AsyncMock(return_value={"test-server_test_resource": mock_resource})
+    composer._resource_manager.get_resources = AsyncMock(
+        return_value={"test-server_test_resource": mock_resource}
+    )
     composer._resource_manager.get_resource_templates = AsyncMock(return_value={})
 
-    result = await composer._resource_manager.enable_resources(["test_resource"], "test-server")
+    result = await composer._resource_manager.enable_resources(
+        ["test_resource"], "test-server"
+    )
     # The method can't find the resource to enable, so it returns a "not found" message
     assert "No resources or resource templates found to enable" in result
 
@@ -512,11 +542,15 @@ async def test_disable_and_enable_resources_integration():
     composer._resource_manager.get_resource_templates = AsyncMock(return_value={})
 
     # Disable resources
-    result = await composer._resource_manager.disable_resources(["resource1", "resource2"], "test-server")
+    result = await composer._resource_manager.disable_resources(
+        ["resource1", "resource2"], "test-server"
+    )
     assert "Disabled" in result
 
     # Enable resources
-    result = await composer._resource_manager.enable_resources(["resource1", "resource2"], "test-server")
+    result = await composer._resource_manager.enable_resources(
+        ["resource1", "resource2"], "test-server"
+    )
     # The method is working and returning "Enabled"
     assert "Enabled" in result
 
@@ -551,11 +585,15 @@ async def test_disable_resources_with_mounted_server():
     mock_resource.name = "test_resource"
     mock_resource.description = "A test resource"
 
-    composer._resource_manager.get_resources = AsyncMock(return_value={"test-server_test_resource": mock_resource})
+    composer._resource_manager.get_resources = AsyncMock(
+        return_value={"test-server_test_resource": mock_resource}
+    )
     composer._resource_manager.get_resource_templates = AsyncMock(return_value={})
 
     # Disable resource
-    result = await composer._resource_manager.disable_resources(["test_resource"], "test-server")
+    result = await composer._resource_manager.disable_resources(
+        ["test_resource"], "test-server"
+    )
     assert "Disabled" in result
 
 
@@ -580,11 +618,15 @@ async def test_enable_resources_with_mounted_server():
     mock_resource.name = "test_resource"
     mock_resource.description = "A test resource"
 
-    composer._resource_manager.get_resources = AsyncMock(return_value={"test-server_test_resource": mock_resource})
+    composer._resource_manager.get_resources = AsyncMock(
+        return_value={"test-server_test_resource": mock_resource}
+    )
     composer._resource_manager.get_resource_templates = AsyncMock(return_value={})
 
     # Enable resource
-    result = await composer._resource_manager.enable_resources(["test_resource"], "test-server")
+    result = await composer._resource_manager.enable_resources(
+        ["test_resource"], "test-server"
+    )
     # The method can't find the resource to enable, so it returns a "not found" message
     assert "No resources or resource templates found to enable" in result
 
@@ -642,11 +684,15 @@ async def test_disable_and_enable_resources_integration_with_mounted_server():
     composer._resource_manager.get_resource_templates = AsyncMock(return_value={})
 
     # Disable resources
-    result = await composer._resource_manager.disable_resources(["resource1", "resource2"], "test-server")
+    result = await composer._resource_manager.disable_resources(
+        ["resource1", "resource2"], "test-server"
+    )
     assert "Disabled" in result
 
     # Enable resources
-    result = await composer._resource_manager.enable_resources(["resource1", "resource2"], "test-server")
+    result = await composer._resource_manager.enable_resources(
+        ["resource1", "resource2"], "test-server"
+    )
     # The method is working and returning "Enabled"
     assert "Enabled" in result
 
@@ -696,7 +742,9 @@ async def test_disable_resources_handles_both_types():
     )
     composer._resource_manager.get_resource_templates = AsyncMock(return_value={})
 
-    result = await composer._resource_manager.disable_resources(resources_to_disable, "test-server")
+    result = await composer._resource_manager.disable_resources(
+        resources_to_disable, "test-server"
+    )
     assert "Disabled" in result
 
     # Note: The mock server's disabled_resources list is not updated by the mocked server manager
@@ -818,7 +866,9 @@ async def test_get_resource_templates_method():
 
     # Mock the parent class method
     mock_template = MagicMock()
-    resource_manager.get_resource_templates = AsyncMock(return_value={"test_template": mock_template})
+    resource_manager.get_resource_templates = AsyncMock(
+        return_value={"test_template": mock_template}
+    )
 
     result = await resource_manager.get_resource_templates()
     assert "test_template" in result
@@ -925,7 +975,9 @@ async def test_disable_resources_with_database():
     mock_resource.name = "test_resource"
     mock_resource.description = "A test resource"
 
-    resource_manager.get_resources = AsyncMock(return_value={"test-server_test_resource": mock_resource})
+    resource_manager.get_resources = AsyncMock(
+        return_value={"test-server_test_resource": mock_resource}
+    )
     resource_manager.get_resource_templates = AsyncMock(return_value={})
 
     result = await resource_manager.disable_resources(["test_resource"], "test-server")
@@ -955,7 +1007,9 @@ async def test_enable_resources_with_database():
     mock_resource.name = "test_resource"
     mock_resource.description = "A test resource"
 
-    resource_manager.get_resources = AsyncMock(return_value={"test-server_test_resource": mock_resource})
+    resource_manager.get_resources = AsyncMock(
+        return_value={"test-server_test_resource": mock_resource}
+    )
     resource_manager.get_resource_templates = AsyncMock(return_value={})
 
     result = await resource_manager.enable_resources(["test_resource"], "test-server")

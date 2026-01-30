@@ -129,7 +129,9 @@ def validate_policy_config(config: Dict[str, Any]) -> bool:
 
     valid_modes = ["file", "vault", "opa", "jwt", "permit"]
     if config["mode"] not in valid_modes:
-        logger.error("Invalid policy mode: %s. Valid modes: %s", config["mode"], valid_modes)
+        logger.error(
+            "Invalid policy mode: %s. Valid modes: %s", config["mode"], valid_modes
+        )
         return False
 
     return True
