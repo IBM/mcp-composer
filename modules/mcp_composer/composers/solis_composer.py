@@ -16,6 +16,7 @@ from mcp_composer.core.tools import IBMDocSearchDirectTool
 from mcp_composer.core.auth.jwt import ISVTokenVerifier
 from mcp_composer.core.tools.ibm_document_search_tool import IBMDocumentSearchTool
 from mcp_composer.middleware.tool.tool_filter import ListFilteredTool
+from mcp_composer.middleware import TracingMiddleware
 from mcp_composer import MCPComposer
 from mcp_composer.core.utils import LoggerFactory
 from mcp_composer.middleware.error_sanitization_middleware import ErrorSanitizationMiddleware
@@ -51,6 +52,14 @@ gw = MCPComposer(name="solis-composer", auth=isv_verifier)  # pyright: ignore[re
 
 def setup_middleware(composer: MCPComposer) -> None:
     """Configure and register middleware components."""
+    gw.add_middleware(TracingMiddleware(
+        log_tools=True,
+        log_resources=False,
+        log_prompts=False,
+        log_args=True,
+        log_results=False,
+        log_level="INFO"
+    ))
     composer.add_middleware(middleware=ListFilteredTool(composer))
     # Add error sanitization middleware last to catch all errors
     composer.add_middleware(ErrorSanitizationMiddleware())

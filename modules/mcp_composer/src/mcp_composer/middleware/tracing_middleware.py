@@ -356,7 +356,108 @@ class TracingMiddleware(Middleware):
 
     async def on_list_tools(self, context: MiddlewareContext, call_next: CallNext):
         if self.log_tools:
-            self._log(context, "listing tools")
+            # Enhanced logging for list_tools
+            logger = _get_logger(context)
+            logger.info("=" * 80)
+            logger.info("LIST_TOOLS REQUEST - FULL DETAILS")
+            logger.info("=" * 80)
+            
+            # Log context information
+            session_id = _ctx_get(context, "fastmcp_context.session_id", "session_id")
+            composer_name = _ctx_get(context, "fastmcp_context.fastmcp.name", "composer_name")
+            tenant_id = _ctx_get(context, "tenant_id")
+            
+            logger.info("Session ID: %s", session_id or "N/A")
+            logger.info("Composer: %s", composer_name or "N/A")
+            logger.info("Tenant ID: %s", tenant_id or "N/A")
+            
+            # Log full request message details
+            if hasattr(context, 'message'):
+                msg = context.message
+                logger.info("-" * 80)
+                logger.info("REQUEST MESSAGE:")
+                logger.info("Type: %s", type(msg).__name__)
+                
+                # Log all message attributes
+                try:
+                    msg_dict = {}
+                    for attr in dir(msg):
+                        if not attr.startswith('_'):
+                            try:
+                                val = getattr(msg, attr)
+                                if not callable(val):
+                                    msg_dict[attr] = val
+                            except Exception:
+                                pass
+                    
+                    logger.info("Message attributes:")
+                    for key, value in msg_dict.items():
+                        logger.info("  %s: %s", key, _truncate(value, 500))
+                except Exception as e:
+                    logger.debug("Could not extract message attributes: %s", e)
+                
+                # Try to serialize full message as JSON
+                try:
+                    import json
+                    if hasattr(msg, 'model_dump'):
+                        msg_json = msg.model_dump()
+                    elif hasattr(msg, 'dict'):
+                        msg_json = msg.dict()
+                    else:
+                        msg_json = str(msg)
+                    logger.info("-" * 80)
+                    logger.info("FULL REQUEST (JSON):")
+                    logger.info("%s", json.dumps(msg_json, indent=2, default=str))
+                except Exception as e:
+                    logger.debug("Could not serialize message to JSON: %s", e)
+            
+            # Try to access HTTP request headers if available
+            logger.info("-" * 80)
+            logger.info("HTTP REQUEST HEADERS:")
+            try:
+                # Try to get the underlying HTTP request from fastmcp_context
+                fastmcp_ctx = getattr(context, 'fastmcp_context', None)
+                if fastmcp_ctx:
+                    # Check for request object
+                    request = getattr(fastmcp_ctx, 'request', None)
+                    if request and hasattr(request, 'headers'):
+                        for header_name, header_value in request.headers.items():
+                            # Redact sensitive headers
+                            if header_name.lower() in ['authorization', 'cookie']:
+                                if len(header_value) > 20:
+                                    redacted = f"{header_value[:10]}...{header_value[-10:]}"
+                                else:
+                                    redacted = "***REDACTED***"
+                                logger.info("  %s: %s", header_name, redacted)
+                            else:
+                                logger.info("  %s: %s", header_name, header_value)
+                    else:
+                        logger.info("  No HTTP request object found in context")
+                else:
+                    logger.info("  No fastmcp_context available")
+            except Exception as e:
+                logger.debug("Could not extract HTTP headers: %s", e)
+            
+            # Log context attributes
+            logger.info("-" * 80)
+            logger.info("CONTEXT DETAILS:")
+            try:
+                ctx_attrs = {}
+                for attr in dir(context):
+                    if not attr.startswith('_') and attr != 'message':
+                        try:
+                            val = getattr(context, attr)
+                            if not callable(val):
+                                ctx_attrs[attr] = val
+                        except Exception:
+                            pass
+                
+                for key, value in ctx_attrs.items():
+                    logger.info("  %s: %s", key, _truncate(value, 200))
+            except Exception as e:
+                logger.debug("Could not extract context attributes: %s", e)
+            
+            logger.info("-" * 80)
 
         span_cm = (
             _TRACER.start_as_current_span(self._span_name("mcp.list.tools"))
@@ -374,6 +475,23 @@ class TracingMiddleware(Middleware):
                 n = len(getattr(result, "tools", result))
             except Exception:
                 pass
+
+            if self.log_tools:
+                logger = _get_logger(context)
+                logger.info("Tools returned: %d", n)
+                
+                # Log tool names if available
+                try:
+                    tools = getattr(result, "tools", result)
+                    if tools and n > 0:
+                        tool_names = [getattr(t, 'name', str(t)) for t in tools[:10]]  # First 10
+                        logger.info("Tool names (first 10): %s", tool_names)
+                        if n > 10:
+                            logger.info("... and %d more tools", n - 10)
+                except Exception as e:
+                    logger.debug("Could not extract tool names: %s", e)
+                
+                logger.info("=" * 80)
 
             if self.enable_tracing:
                 _attr(span, "mcp.tools.count", n)

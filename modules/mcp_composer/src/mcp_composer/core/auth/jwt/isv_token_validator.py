@@ -58,6 +58,41 @@ class ISVAuthBackend(AuthenticationBackend):
         Returns:
             Tuple of (credentials, user) or None if authentication fails
         """
+        # Log incoming request details
+        logger.info("=" * 80)
+        logger.info("INCOMING REQUEST")
+        logger.info("=" * 80)
+        
+        # Access request properties through conn.scope
+        scope = conn.scope
+        logger.info("Method: %s", scope.get('method', 'N/A'))
+        logger.info("Path: %s", scope.get('path', 'N/A'))
+        logger.info("Query String: %s", scope.get('query_string', b'').decode('utf-8'))
+        logger.info("Client: %s", scope.get('client', 'N/A'))
+        logger.info("Server: %s", scope.get('server', 'N/A'))
+        
+        # Log all headers
+        logger.info("-" * 80)
+        logger.info("REQUEST HEADERS:")
+        logger.info("-" * 80)
+        headers = dict(scope.get('headers', []))
+        for header_name_bytes, header_value_bytes in headers.items():
+            header_name = header_name_bytes.decode('utf-8') if isinstance(header_name_bytes, bytes) else str(header_name_bytes)
+            header_value = header_value_bytes.decode('utf-8') if isinstance(header_value_bytes, bytes) else str(header_value_bytes)
+            
+            # Redact sensitive headers
+            if header_name.lower() in ['authorization', 'cookie']:
+                # Show only first/last few characters
+                if len(header_value) > 20:
+                    redacted = f"{header_value[:10]}...{header_value[-10:]}"
+                else:
+                    redacted = "***REDACTED***"
+                logger.info("%s: %s", header_name, redacted)
+            else:
+                logger.info("%s: %s", header_name, header_value)
+        
+        logger.info("=" * 80)
+        
         try:
             # Validate request and get token
             token_data = await self.validator.validate_request(conn)
@@ -67,11 +102,13 @@ class ISVAuthBackend(AuthenticationBackend):
 
             # Return credentials and user
             credentials = AuthCredentials(["authenticated"])
-            logger.debug("ISV authentication successful")
+            logger.info("✓ Authentication successful")
+            logger.info("=" * 80)
             return credentials, user
 
         except Exception as e:
-            logger.error("ISV authentication failed: %s", str(e))
+            logger.warning("✗ Authentication failed: %s", str(e))
+            logger.info("=" * 80)
             raise
 
 
