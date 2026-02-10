@@ -31,6 +31,7 @@ class JSONExtractionMiddleware(Middleware):
             if start_idx == -1:
                 logger.warning("No JSON found in string, wrapping as dict")
                 return {"raw": text}
+        
         # Try to parse from the found position onwards
         json_str = text[start_idx:]
         try:
