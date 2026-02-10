@@ -16,6 +16,7 @@ from mcp_composer.middleware.tool.tool_filter import ListFilteredTool
 from mcp_composer import MCPComposer
 from mcp_composer.core.utils import LoggerFactory
 from mcp_composer.middleware.json_extraction_middleware import JSONExtractionMiddleware
+from mcp_composer.middleware.error_sanitization_middleware import ErrorSanitizationMiddleware
 
 
 logger = LoggerFactory.get_logger()
@@ -44,8 +45,10 @@ gw = MCPComposer(
 def setup_middleware(composer: MCPComposer) -> None:
     """Configure and register middleware components."""
     composer.add_middleware(middleware=ListFilteredTool(composer))
-    composer.add_middleware(JSONExtractionMiddleware())
-    logger.info("Added ListFilteredTool middleware")
+    #composer.add_middleware(JSONExtractionMiddleware())
+    # Add error sanitization middleware last to catch all errors
+    composer.add_middleware(ErrorSanitizationMiddleware())
+    logger.info("Added middleware: ListFilteredTool, JSONExtractionMiddleware, ErrorSanitizationMiddleware")
 
 
 def setup_tools(composer: MCPComposer) -> None:
@@ -97,33 +100,6 @@ async def run_composer_mode(composer: MCPComposer, mode: str) -> None:
 
 
 async def main():
-    """
-    Initialize and run the Solis composer with JWT authentication.
-
-    Environment Variables:
-        MCP_MODE: Server mode (http, sse, stdio) - default: sse
-
-        JWT Configuration (prefix: SOLIS_JWT_):
-        - SOLIS_JWT_SECRET: Secret key for HS256 algorithm
-        - SOLIS_JWT_PUBLIC_KEY: Public key for RS256 algorithm
-        - SOLIS_JWT_ALGORITHM: JWT algorithm (default: HS256)
-        - SOLIS_JWT_ISSUER: Expected token issuer
-        - SOLIS_JWT_AUDIENCE: Expected token audience
-        - SOLIS_JWT_VERIFY_EXP: Verify expiration (default: true)
-        - SOLIS_JWT_VERIFY_ISS: Verify issuer (default: false)
-        - SOLIS_JWT_VERIFY_AUD: Verify audience (default: false)
-
-    Example:
-        # Set environment variables
-        export SOLIS_JWT_SECRET="your-secret-key"
-        export SOLIS_JWT_ALGORITHM="HS256"
-        export SOLIS_JWT_ISSUER="https://solis.ibm.com"
-        export SOLIS_JWT_VERIFY_EXP="true"
-        export MCP_MODE="sse"
-
-        # Run composer
-        python solis_composer.py
-    """
     mode = os.getenv("MCP_MODE", "sse").lower()
 
     logger.info("Starting Solis Composer in %s mode", mode)
