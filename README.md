@@ -13,6 +13,8 @@
 ## Table of Contents
 
 - [Overview](#overview)
+- [Environment URLs](#environment-urls)
+- [MCSP Cluster Deployment](#mcsp-cluster-deployment)
 - [Purpose](#purpose)
 - [Installation](#installation)
   - [Prerequisites](#prerequisites)
@@ -48,6 +50,45 @@ Servers and tools can be registered at runtime using structured JSON configurati
 The MCP Composer serves as an orchestrator for tool execution and forwards tool requests to the correct upstream MCP server or interface.
 
 The MCP Composer supports multiple tool types, such as OpenAPI (REST), GraphQL, CLI-based tools, client SDKs, and nested MCP servers.
+
+## Environment URLs
+
+| Service | Development | Stage | Production |
+|---------|-------------|-------|------------|
+| mcp-composer | [http://mcp-composer-root-mcp-composer.apps.rosa.ap-use1-d-dp-01.h07m.p3.openshiftapps.com](http://mcp-composer-root-mcp-composer.apps.rosa.ap-use1-d-dp-01.h07m.p3.openshiftapps.com) | [http://mcp-composer-root-mcp-composer.apps.rosa.ap-use1-t-dp-01.d677.p3.openshiftapps.com](http://mcp-composer-root-mcp-composer.apps.rosa.ap-use1-t-dp-01.d677.p3.openshiftapps.com) | to be created |
+
+## MCSP Cluster Deployment
+
+> **📦 Deployment Repository:** https://github.ibm.com/automation-paas-cd-pipeline/mcp-composer-cd/tree/dev
+
+### Manual Image Tag Update
+
+Use this process when you need to deploy a specific image version (e.g., testing a feature branch or if auto-deploy failed):
+
+#### 1. Find Built Images
+
+Navigate to your commit's CI/CD build stage to find the container images:
+<img width="612" alt="image" src="https://github.ibm.com/user-attachments/assets/69116c3e-7ac2-403c-aed2-8899869acf9e" />
+
+- **Example**: https://github.ibm.com/ibm-saas-platform/mcp-composer/runs/139994450
+
+You'll find the images with tags:
+```
+icr.io/automation-saas-platform-dev/mcp-composer-root:main-1769776103
+```
+
+#### 2. Update Image Tags
+
+Update the `imageTag` in the CD repository's values file for your target environment:
+
+**For Dev Environment:**
+- File: https://github.ibm.com/automation-paas-cd-pipeline/mcp-composer-cd/blob/dev/resources/values.yaml#L19
+
+**Example values.yaml update:**
+```yaml
+  imageTag:
+    root: "main-1769499279" #update this
+```
 
 ## Purpose
 
