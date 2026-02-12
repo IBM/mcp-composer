@@ -17,6 +17,7 @@ from mcp_composer.core.auth.jwt import ISVTokenVerifier
 from mcp_composer.core.tools.ibm_document_search_tool import IBMDocumentSearchTool
 from mcp_composer.middleware.tool.tool_filter import ListFilteredTool
 from mcp_composer.middleware import TracingMiddleware
+from mcp_composer.middleware.auth_context_middleware import AuthContextMiddleware
 from mcp_composer import MCPComposer
 from mcp_composer.core.utils import LoggerFactory
 from mcp_composer.middleware.error_sanitization_middleware import ErrorSanitizationMiddleware
@@ -52,14 +53,32 @@ gw = MCPComposer(name="solis-composer", auth=isv_verifier)  # pyright: ignore[re
 
 def setup_middleware(composer: MCPComposer) -> None:
     """Configure and register middleware components."""
-    gw.add_middleware(TracingMiddleware(
-        log_tools=True,
-        log_resources=False,
-        log_prompts=False,
-        log_args=True,
-        log_results=False,
-        log_level="INFO"
-    ))
+    # Add AuthContextMiddleware FIRST (highest priority)
+    # This extracts ISV token and cookies from incoming requests
+    gw.add_middleware(
+        AuthContextMiddleware(
+            forward_cookies=["mcsp-glb-iam-test", "mcsp-glb-iam-dev", "mcsp-glb-iam"],
+            add_isv_token=True,
+            add_cookie_header=True,
+        )
+    )
+    logger.info("Added AuthContextMiddleware for automatic header forwarding")
+
+    # Add TracingMiddleware for detailed logging
+    gw.add_middleware(
+        TracingMiddleware(
+            log_tools=True,
+            log_resources=False,
+            log_prompts=False,
+            log_args=True,
+            log_results=True,  # Enable detailed result logging
+            log_level="INFO",
+            max_payload_length=2000,  # Increase max length for detailed logs
+        )
+    )
+    logger.info("Added TracingMiddleware with enhanced logging")
+
+    # Add tool filtering middleware
     composer.add_middleware(middleware=ListFilteredTool(composer))
     # Add error sanitization middleware last to catch all errors
     composer.add_middleware(ErrorSanitizationMiddleware())

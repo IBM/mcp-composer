@@ -1,4 +1,5 @@
 import re
+import json
 from typing import Any, Dict, List, Optional
 
 import httpx
@@ -26,6 +27,18 @@ from mcp_composer.core.member_servers.layered_constants import (
     SERVICE_KEYS,
     USAGE_MESSAGES,
 )
+from mcp_composer.core.utils import LoggerFactory
+
+logger = LoggerFactory.get_logger()
+
+# Import auth context helper to get authentication headers
+try:
+    from mcp_composer.middleware.auth_context_middleware import get_auth_context
+
+    AUTH_CONTEXT_AVAILABLE = True
+except ImportError:
+    AUTH_CONTEXT_AVAILABLE = False
+    logger.debug("AuthContextMiddleware not available - auth context forwarding disabled")
 
 
 class LayeredOpenAPIFactory(FastMCP):
@@ -34,9 +47,7 @@ class LayeredOpenAPIFactory(FastMCP):
         openapi_spec: dict[str, Any],
         client: httpx.AsyncClient,
         custom_routes: list[RouteMap] | None = None,
-        custom_routes_exclude_all: (
-            list[RouteMap] | None
-        ) = None,  # pylint: disable=unused-argument
+        custom_routes_exclude_all: (list[RouteMap] | None) = None,  # pylint: disable=unused-argument
         tool_descriptions: dict[str, str] | None = None,
     ):
         # Initialize the parent FastMCP class first
@@ -177,9 +188,7 @@ All tools automatically resolve OpenAPI schema references and provide enhanced m
 
         return current if isinstance(current, dict) else {}
 
-    def _extract_parameter_schemas(
-        self, parameters: List[Dict[str, Any]]
-    ) -> List[Dict[str, Any]]:
+    def _extract_parameter_schemas(self, parameters: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """
         Extract and enhance parameter information including schema details.
 
@@ -211,9 +220,7 @@ All tools automatically resolve OpenAPI schema references and provide enhanced m
                 enhanced_param = {
                     PARAMETER_KEYS["NAME"]: param.get(PARAMETER_KEYS["NAME"]),
                     PARAMETER_KEYS["IN"]: param.get(PARAMETER_KEYS["IN"]),
-                    PARAMETER_KEYS["REQUIRED"]: param.get(
-                        PARAMETER_KEYS["REQUIRED"], DEFAULT_VALUES["REQUIRED"]
-                    ),
+                    PARAMETER_KEYS["REQUIRED"]: param.get(PARAMETER_KEYS["REQUIRED"], DEFAULT_VALUES["REQUIRED"]),
                     PARAMETER_KEYS["TYPE"]: (
                         schema.get(SCHEMA_KEYS["TYPE"], DEFAULT_VALUES["UNKNOWN_TYPE"])
                         if schema
@@ -231,9 +238,7 @@ All tools automatically resolve OpenAPI schema references and provide enhanced m
 
         return enhanced_params
 
-    def _extract_request_body_schema(
-        self, request_body: Dict[str, Any]
-    ) -> Dict[str, Any]:
+    def _extract_request_body_schema(self, request_body: Dict[str, Any]) -> Dict[str, Any]:
         """
         Extract and clean schema from request body using fastmcp utilities.
 
@@ -362,22 +367,16 @@ All tools automatically resolve OpenAPI schema references and provide enhanced m
                                     ),
                                     SERVICE_KEYS["HTTP_METHOD"]: http_method.upper(),
                                     SERVICE_KEYS["PATH"]: path,
-                                    SERVICE_KEYS[
-                                        "PARAMETERS"
-                                    ]: self._extract_parameter_schemas(
+                                    SERVICE_KEYS["PARAMETERS"]: self._extract_parameter_schemas(
                                         operation.get(
                                             OPERATION_KEYS["PARAMETERS"],
                                             DEFAULT_VALUES["EMPTY_LIST"],
                                         )
                                     ),
-                                    SERVICE_KEYS[
-                                        "REQUEST_BODY"
-                                    ]: self._extract_request_body_schema(
+                                    SERVICE_KEYS["REQUEST_BODY"]: self._extract_request_body_schema(
                                         operation.get(OPERATION_KEYS["REQUEST_BODY"])
                                     ),
-                                    SERVICE_KEYS[
-                                        "RESPONSES"
-                                    ]: self._extract_response_schemas(
+                                    SERVICE_KEYS["RESPONSES"]: self._extract_response_schemas(
                                         operation.get(
                                             OPERATION_KEYS["RESPONSES"],
                                             DEFAULT_VALUES["EMPTY_DICT"],
@@ -450,18 +449,14 @@ All tools automatically resolve OpenAPI schema references and provide enhanced m
         """
         if service not in self.service_info:
             return {
-                RESPONSE_KEYS["ERROR"]: ERROR_MESSAGES["SERVICE_NOT_FOUND"].format(
-                    service
-                ),
+                RESPONSE_KEYS["ERROR"]: ERROR_MESSAGES["SERVICE_NOT_FOUND"].format(service),
                 "available_services": list(self.service_info.keys()),
             }
 
         service_data = self.service_info[service]
 
         # Parameters are already enhanced with schema information
-        parameters = service_data.get(
-            SERVICE_KEYS["PARAMETERS"], DEFAULT_VALUES["EMPTY_LIST"]
-        )
+        parameters = service_data.get(SERVICE_KEYS["PARAMETERS"], DEFAULT_VALUES["EMPTY_LIST"])
 
         return {
             "service": service,
@@ -487,9 +482,7 @@ All tools automatically resolve OpenAPI schema references and provide enhanced m
             return {
                 "available_services": {
                     name: {
-                        SERVICE_KEYS["OPERATION_ID"]: info[
-                            SERVICE_KEYS["OPERATION_ID"]
-                        ],
+                        SERVICE_KEYS["OPERATION_ID"]: info[SERVICE_KEYS["OPERATION_ID"]],
                         SERVICE_KEYS["DESCRIPTION"]: info[SERVICE_KEYS["DESCRIPTION"]],
                         SERVICE_KEYS["SUMMARY"]: info[SERVICE_KEYS["SUMMARY"]],
                         SERVICE_KEYS["HTTP_METHOD"]: info[SERVICE_KEYS["HTTP_METHOD"]],
@@ -504,9 +497,7 @@ All tools automatically resolve OpenAPI schema references and provide enhanced m
 
         if service not in self.service_info:
             return {
-                RESPONSE_KEYS["ERROR"]: ERROR_MESSAGES["SERVICE_NOT_FOUND"].format(
-                    service
-                ),
+                RESPONSE_KEYS["ERROR"]: ERROR_MESSAGES["SERVICE_NOT_FOUND"].format(service),
                 "available_services": list(self.service_info.keys()),
             }
 
@@ -542,35 +533,23 @@ All tools automatically resolve OpenAPI schema references and provide enhanced m
                     ]
                 ),
                 "has_schemas": any(
-                    p.get("schema")
-                    for p in service_data.get(SERVICE_KEYS["PARAMETERS"], [])
-                    if isinstance(p, dict)
+                    p.get("schema") for p in service_data.get(SERVICE_KEYS["PARAMETERS"], []) if isinstance(p, dict)
                 ),
             },
             "request_body_summary": {
                 "has_schema": bool(service_data.get(SERVICE_KEYS["REQUEST_BODY"])),
                 "has_example": (
-                    bool(
-                        service_data.get(SERVICE_KEYS["REQUEST_BODY"], {}).get(
-                            SCHEMA_KEYS["EXAMPLE"]
-                        )
-                    )
+                    bool(service_data.get(SERVICE_KEYS["REQUEST_BODY"], {}).get(SCHEMA_KEYS["EXAMPLE"]))
                     if service_data.get(SERVICE_KEYS["REQUEST_BODY"])
                     else False
                 ),
                 "has_ref": (
-                    bool(
-                        service_data.get(SERVICE_KEYS["REQUEST_BODY"], {}).get(
-                            "original_ref"
-                        )
-                    )
+                    bool(service_data.get(SERVICE_KEYS["REQUEST_BODY"], {}).get("original_ref"))
                     if service_data.get(SERVICE_KEYS["REQUEST_BODY"])
                     else False
                 ),
                 "schema_type": (
-                    service_data.get(SERVICE_KEYS["REQUEST_BODY"], {}).get(
-                        SCHEMA_KEYS["TYPE"]
-                    )
+                    service_data.get(SERVICE_KEYS["REQUEST_BODY"], {}).get(SCHEMA_KEYS["TYPE"])
                     if service_data.get(SERVICE_KEYS["REQUEST_BODY"])
                     else None
                 ),
@@ -609,9 +588,7 @@ All tools automatically resolve OpenAPI schema references and provide enhanced m
             "schema_summary": schema_summary,
         }
 
-    async def make_tool_call(
-        self, service: str, request: Optional[Dict[str, Any]] = None
-    ) -> Dict[str, Any]:
+    async def make_tool_call(self, service: str, request: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         """
         Execute an API call to the specified service.
 
@@ -621,9 +598,7 @@ All tools automatically resolve OpenAPI schema references and provide enhanced m
         """
         if service not in self.service_info:
             return {
-                RESPONSE_KEYS["ERROR"]: ERROR_MESSAGES["SERVICE_NOT_FOUND"].format(
-                    service
-                ),
+                RESPONSE_KEYS["ERROR"]: ERROR_MESSAGES["SERVICE_NOT_FOUND"].format(service),
                 "available_services": list(self.service_info.keys()),
             }
 
@@ -635,28 +610,162 @@ All tools automatically resolve OpenAPI schema references and provide enhanced m
         try:
             # Manual request execution using the httpx client
             url_path = service_data[SERVICE_KEYS["PATH"]]
-            path_params = request_dict.get(
-                REQUEST_KEYS["PATH_PARAMS"], DEFAULT_VALUES["EMPTY_DICT"]
-            )
+            path_params = request_dict.get(REQUEST_KEYS["PATH_PARAMS"], DEFAULT_VALUES["EMPTY_DICT"])
             for param_name, param_value in path_params.items():
                 url_path = url_path.replace(f"{{{param_name}}}", str(param_value))
 
+            # Extract request components
+            http_method = service_data[SERVICE_KEYS["HTTP_METHOD"]]
+            query_params = request_dict.get(REQUEST_KEYS["QUERY_PARAMS"], DEFAULT_VALUES["EMPTY_DICT"])
+            request_headers = request_dict.get(REQUEST_KEYS["HEADERS"], DEFAULT_VALUES["EMPTY_DICT"])
+            request_body = request_dict.get(REQUEST_KEYS["BODY"])
+
+            # Get authentication context and build auth headers
+            auth_headers = {}
+            if AUTH_CONTEXT_AVAILABLE:
+                try:
+                    auth_context = get_auth_context()
+                    if auth_context:
+                        # Add ISV token as X-ISV-Token header
+                        if auth_context.get("isv_token"):
+                            auth_headers["X-ISV-Token"] = auth_context["isv_token"]
+                            logger.debug("Adding ISV token to request for service: %s", service)
+
+                        # Add platform cookies as X-Platform-Cookie header
+                        if auth_context.get("cookies"):
+                            cookie_str = "; ".join(f"{name}={value}" for name, value in auth_context["cookies"].items())
+                            if cookie_str:
+                                auth_headers["X-Platform-Cookie"] = cookie_str
+                                logger.debug("Adding platform cookies to request for service: %s", service)
+                except Exception as e:
+                    logger.warning("Failed to extract auth context for service %s: %s", service, e)
+
+            # Merge request headers with auth headers (auth headers take precedence)
+            final_headers = {**request_headers, **auth_headers}
+
+            # Build full URL
+            base_url = str(self.client.base_url) if self.client.base_url else ""
+            full_url = f"{base_url}{url_path}"
+
+            # Log outgoing HTTP request details
+            logger.info("=" * 80)
+            logger.info("OUTGOING HTTP REQUEST TO MEMBER SERVER")
+            logger.info("=" * 80)
+            logger.info("Service: %s", service)
+            logger.info("HTTP Method: %s", http_method)
+            logger.info("Full URL: %s", full_url)
+
+            if query_params:
+                logger.info("-" * 80)
+                logger.info("Query Parameters:")
+                try:
+                    logger.info("%s", json.dumps(query_params, indent=2))
+                except:
+                    logger.info("%s", query_params)
+
+            logger.info("-" * 80)
+            logger.info("Request Headers:")
+            # Log client's default headers
+            if hasattr(self.client, "headers") and self.client.headers:
+                logger.info("  Default Client Headers:")
+                for header_name, header_value in self.client.headers.items():
+                    # Redact sensitive headers
+                    if header_name.lower() in ["authorization", "api-key", "x-api-key"]:
+                        if len(str(header_value)) > 20:
+                            redacted = f"{str(header_value)[:10]}...{str(header_value)[-10:]}"
+                        else:
+                            redacted = "***REDACTED***"
+                        logger.info("    %s: %s", header_name, redacted)
+                    else:
+                        logger.info("    %s: %s", header_name, header_value)
+
+            # Log request-specific headers
+            if request_headers:
+                logger.info("  Request-Specific Headers:")
+                for header_name, header_value in request_headers.items():
+                    # Redact sensitive headers
+                    if header_name.lower() in ["authorization", "api-key", "x-api-key"]:
+                        if len(str(header_value)) > 20:
+                            redacted = f"{str(header_value)[:10]}...{str(header_value)[-10:]}"
+                        else:
+                            redacted = "***REDACTED***"
+                        logger.info("    %s: %s", header_name, redacted)
+                    else:
+                        logger.info("    %s: %s", header_name, header_value)
+
+            if request_body is not None:
+                logger.info("-" * 80)
+                logger.info("Request Body:")
+                try:
+                    body_json = json.dumps(request_body, indent=2)
+                    if len(body_json) > 2000:
+                        logger.info("%s", body_json[:2000])
+                        logger.info("... (+%d chars)", len(body_json) - 2000)
+                    else:
+                        logger.info("%s", body_json)
+                except:
+                    logger.info("%s", str(request_body)[:2000])
+
+            logger.info("=" * 80)
+
+            # Make the actual HTTP request with merged headers
             response = await self.client.request(
-                method=service_data[SERVICE_KEYS["HTTP_METHOD"]],
+                method=http_method,
                 url=url_path,
-                params=request_dict.get(
-                    REQUEST_KEYS["QUERY_PARAMS"], DEFAULT_VALUES["EMPTY_DICT"]
-                ),
-                headers=request_dict.get(
-                    REQUEST_KEYS["HEADERS"], DEFAULT_VALUES["EMPTY_DICT"]
-                ),
-                json=request_dict.get(REQUEST_KEYS["BODY"]),
+                params=query_params,
+                headers=final_headers,  # Use merged headers (request + auth)
+                json=request_body,
             )
+
+            # Log the actual headers that were sent (including auth headers added by httpx)
+            logger.info("-" * 80)
+            logger.info("ACTUAL HEADERS SENT (including httpx-added headers):")
+            if hasattr(response, "request") and hasattr(response.request, "headers"):
+                for header_name, header_value in response.request.headers.items():
+                    # Redact sensitive headers
+                    if header_name.lower() in ["authorization", "api-key", "x-api-key", "client-id", "client-secret"]:
+                        if len(str(header_value)) > 20:
+                            redacted = f"{str(header_value)[:10]}...{str(header_value)[-10:]}"
+                        else:
+                            redacted = "***REDACTED***"
+                        logger.info("  %s: %s", header_name, redacted)
+                    else:
+                        logger.info("  %s: %s", header_name, header_value)
+            logger.info("-" * 80)
+
+            # Log response details
+            logger.info("=" * 80)
+            logger.info("HTTP RESPONSE FROM MEMBER SERVER")
+            logger.info("=" * 80)
+            logger.info("Service: %s", service)
+            logger.info("Status Code: %d", response.status_code)
+            logger.info("Status Text: %s", response.reason_phrase if hasattr(response, "reason_phrase") else "N/A")
+
+            logger.info("-" * 80)
+            logger.info("Response Headers:")
+            for header_name, header_value in response.headers.items():
+                logger.info("  %s: %s", header_name, header_value)
+
+            logger.info("-" * 80)
+            logger.info("Response Body:")
 
             try:
                 response_data = response.json()
+                response_json = json.dumps(response_data, indent=2)
+                if len(response_json) > 2000:
+                    logger.info("%s", response_json[:2000])
+                    logger.info("... (+%d chars)", len(response_json) - 2000)
+                else:
+                    logger.info("%s", response_json)
             except:
                 response_data = response.text
+                if len(response_data) > 2000:
+                    logger.info("%s", response_data[:2000])
+                    logger.info("... (+%d chars)", len(response_data) - 2000)
+                else:
+                    logger.info("%s", response_data)
+
+            logger.info("=" * 80)
 
             return {
                 RESPONSE_KEYS["SUCCESS"]: True,
@@ -666,10 +775,16 @@ All tools automatically resolve OpenAPI schema references and provide enhanced m
             }
 
         except Exception as e:
+            logger.error("=" * 80)
+            logger.error("HTTP REQUEST FAILED")
+            logger.error("=" * 80)
+            logger.error("Service: %s", service)
+            logger.error("Error: %s", str(e))
+            logger.error("Error Type: %s", type(e).__name__)
+            logger.error("=" * 80)
+
             return {
                 RESPONSE_KEYS["SUCCESS"]: False,
                 RESPONSE_KEYS["SERVICE"]: service,
-                RESPONSE_KEYS["ERROR"]: ERROR_MESSAGES["API_CALL_FAILED"].format(
-                    str(e)
-                ),
+                RESPONSE_KEYS["ERROR"]: ERROR_MESSAGES["API_CALL_FAILED"].format(str(e)),
             }
