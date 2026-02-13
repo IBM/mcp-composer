@@ -57,7 +57,7 @@ def setup_middleware(composer: MCPComposer) -> None:
     # This extracts ISV token and cookies from incoming requests
     gw.add_middleware(
         AuthContextMiddleware(
-            forward_cookies=["mcsp-glb-iam-test", "mcsp-glb-iam-dev", "mcsp-glb-iam"],
+            forward_cookies=["mcsp-glb-iam-test", "mcsp-glb-iam-dev", "mcsp-glb-iam", "instance_id"],
             add_isv_token=True,
             add_cookie_header=True,
         )

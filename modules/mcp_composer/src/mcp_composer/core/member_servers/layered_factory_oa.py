@@ -666,18 +666,21 @@ All tools automatically resolve OpenAPI schema references and provide enhanced m
             logger.info("-" * 80)
             logger.info("Request Headers:")
             # Log client's default headers
-            if hasattr(self.client, "headers") and self.client.headers:
+            if hasattr(self.client, "headers") and self.client.headers and hasattr(self.client.headers, "items"):
                 logger.info("  Default Client Headers:")
-                for header_name, header_value in self.client.headers.items():
-                    # Redact sensitive headers
-                    if header_name.lower() in ["authorization", "api-key", "x-api-key"]:
-                        if len(str(header_value)) > 20:
-                            redacted = f"{str(header_value)[:10]}...{str(header_value)[-10:]}"
+                try:
+                    for header_name, header_value in self.client.headers.items():
+                        # Redact sensitive headers
+                        if header_name.lower() in ["authorization", "api-key", "x-api-key"]:
+                            if len(str(header_value)) > 20:
+                                redacted = f"{str(header_value)[:10]}...{str(header_value)[-10:]}"
+                            else:
+                                redacted = "***REDACTED***"
+                            logger.info("    %s: %s", header_name, redacted)
                         else:
-                            redacted = "***REDACTED***"
-                        logger.info("    %s: %s", header_name, redacted)
-                    else:
-                        logger.info("    %s: %s", header_name, header_value)
+                            logger.info("    %s: %s", header_name, header_value)
+                except (TypeError, AttributeError) as e:
+                    logger.debug("Could not iterate client headers: %s", e)
 
             # Log request-specific headers
             if request_headers:
@@ -720,17 +723,20 @@ All tools automatically resolve OpenAPI schema references and provide enhanced m
             # Log the actual headers that were sent (including auth headers added by httpx)
             logger.info("-" * 80)
             logger.info("ACTUAL HEADERS SENT (including httpx-added headers):")
-            if hasattr(response, "request") and hasattr(response.request, "headers"):
-                for header_name, header_value in response.request.headers.items():
-                    # Redact sensitive headers
-                    if header_name.lower() in ["authorization", "api-key", "x-api-key", "client-id", "client-secret"]:
-                        if len(str(header_value)) > 20:
-                            redacted = f"{str(header_value)[:10]}...{str(header_value)[-10:]}"
+            if hasattr(response, "request") and hasattr(response.request, "headers") and hasattr(response.request.headers, "items"):
+                try:
+                    for header_name, header_value in response.request.headers.items():
+                        # Redact sensitive headers
+                        if header_name.lower() in ["authorization", "api-key", "x-api-key", "client-id", "client-secret"]:
+                            if len(str(header_value)) > 20:
+                                redacted = f"{str(header_value)[:10]}...{str(header_value)[-10:]}"
+                            else:
+                                redacted = "***REDACTED***"
+                            logger.info("  %s: %s", header_name, redacted)
                         else:
-                            redacted = "***REDACTED***"
-                        logger.info("  %s: %s", header_name, redacted)
-                    else:
-                        logger.info("  %s: %s", header_name, header_value)
+                            logger.info("  %s: %s", header_name, header_value)
+                except (TypeError, AttributeError) as e:
+                    logger.debug("Could not iterate response.request.headers: %s", e)
             logger.info("-" * 80)
 
             # Log response details
@@ -743,8 +749,12 @@ All tools automatically resolve OpenAPI schema references and provide enhanced m
 
             logger.info("-" * 80)
             logger.info("Response Headers:")
-            for header_name, header_value in response.headers.items():
-                logger.info("  %s: %s", header_name, header_value)
+            if hasattr(response, "headers") and hasattr(response.headers, "items"):
+                try:
+                    for header_name, header_value in response.headers.items():
+                        logger.info("  %s: %s", header_name, header_value)
+                except (TypeError, AttributeError) as e:
+                    logger.debug("Could not iterate response.headers: %s", e)
 
             logger.info("-" * 80)
             logger.info("Response Body:")
