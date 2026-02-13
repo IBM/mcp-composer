@@ -79,7 +79,8 @@ class IBMDocSearchDirectTool(Tool):
                 "Search IBM documentation via IBM docs search API and return full page content as markdown. "
                 "A single call searches the IBM docs API, fetches up to max_results "
                 "full pages, and returns their complete content. Do NOT call multiple "
-                "times for the same topic. Use a broad, descriptive query."
+                "times for the same topic. Use this tool to answer questions about IBM product documentation, "
+                "how-to guides, configuration options, and feature explanations."
             ),
             parameters=parameters,
         )
