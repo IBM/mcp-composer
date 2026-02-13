@@ -11,7 +11,8 @@ from mcp_composer.core.auth.jwt.jwt_utils import (
     load_jwt_provider,
     log_jwt_configuration,
 )
-from mcp_composer.core.tools.ibm_document_search_tool import IBMDocumentSearchTool
+
+from mcp_composer.core.tools import IBMDocSearchDirectTool
 from mcp_composer.middleware.tool.tool_filter import ListFilteredTool
 from mcp_composer import MCPComposer
 from mcp_composer.core.utils import LoggerFactory
@@ -21,17 +22,6 @@ logger = LoggerFactory.get_logger()
 # Load JWT provider from utility function with SOLIS-specific prefix
 jwt_provider = load_jwt_provider(prefix="SOLIS_JWT_")
 
-# Option 3: Explicit configuration (uncomment to use)
-# jwt_provider = JWTAuthProvider.from_secret(
-#     secret=os.getenv("SOLIS_JWT_SECRET", "dev-secret-change-in-production"),
-#     algorithm="HS256",
-#     issuer="https://solis.ibm.com",
-#     audience="solis-api",
-#     verify_exp=True,
-#     verify_iss=True,
-#     verify_aud=True,
-#     required_claims=["sub", "role", "tenant"]
-# )
 
 # Initialize composer with JWT authentication
 gw = MCPComposer(
@@ -47,14 +37,9 @@ def setup_middleware(composer: MCPComposer) -> None:
 
 def setup_tools(composer: MCPComposer) -> None:
     """Configure and register tools."""
-    deep_research_tool = IBMDocumentSearchTool(
-        {
-            "name": "ibm_document_search",
-            "resource_manager": composer.resource_manager,
-        }
-    )
-    composer.add_tool(deep_research_tool)
-    logger.info("Added IBM Document Search tool")
+    ibm_doc_search_direct_tool = IBMDocSearchDirectTool()
+    composer.add_tool(ibm_doc_search_direct_tool)
+    logger.info("Added IBM Doc Search Direct Tool")
 
 
 async def run_http_mode(composer: MCPComposer) -> None:
