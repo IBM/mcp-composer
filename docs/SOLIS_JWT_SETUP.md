@@ -500,3 +500,16 @@ For issues or questions:
 2. Review the JWT module README
 3. Check application logs for detailed error messages
 4. Consult the main authentication guide
+
+
+# Option 3: Explicit configuration (uncomment to use)
+# jwt_provider = JWTAuthProvider.from_secret(
+#     secret=os.getenv("SOLIS_JWT_SECRET", "dev-secret-change-in-production"),
+#     algorithm="HS256",
+#     issuer="https://solis.ibm.com",
+#     audience="solis-api",
+#     verify_exp=True,
+#     verify_iss=True,
+#     verify_aud=True,
+#     required_claims=["sub", "role", "tenant"]
+# )

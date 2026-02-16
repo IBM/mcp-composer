@@ -5,6 +5,9 @@ import pytest
 from fastmcp.exceptions import ToolError
 
 from mcp_composer.middleware.circuit_breaker import CircuitBreakerMiddleware
+from mcp_composer.middleware.error_sanitization_middleware import (
+    ErrorSanitizationMiddleware,
+)
 from mcp_composer.middleware.pii_middleware import (
     Redactor,
     RedactionStrategy,
@@ -326,6 +329,241 @@ async def test_middleware_chain():
     assert "[REDACTED]" in str(result)
     assert "test@example.com" not in str(result)
     assert "secret_token" not in str(result)
+
+
+# ============================================================================
+# Error Sanitization Middleware Tests
+# ============================================================================
+
+
+def test_error_sanitization_middleware_initialization():
+    """Test ErrorSanitizationMiddleware initialization."""
+    middleware = ErrorSanitizationMiddleware()
+    assert middleware.enable_sanitization is True
+    assert middleware.exempt_tools == set()
+    assert middleware.log_full_traceback is True
+    assert middleware.track_statistics is True
+    assert middleware.get_error_statistics() == {}
+
+    middleware_custom = ErrorSanitizationMiddleware(
+        enable_sanitization=False,
+        exempt_tools={"internal_tool"},
+        log_full_traceback=False,
+        track_statistics=False,
+    )
+    assert middleware_custom.enable_sanitization is False
+    assert middleware_custom.exempt_tools == {"internal_tool"}
+    assert middleware_custom.log_full_traceback is False
+    assert middleware_custom.track_statistics is False
+
+
+def test_error_sanitization_categorize_error():
+    """Test error categorization for different error types."""
+    middleware = ErrorSanitizationMiddleware(track_statistics=False)
+
+    # Connection errors
+    cat, msg, sugg = middleware._categorize_error(Exception("Connection refused"))
+    assert cat == "connection"
+    assert "connect" in msg.lower()
+
+    # Authentication errors
+    cat, msg, sugg = middleware._categorize_error(Exception("401 Unauthorized"))
+    assert cat == "authentication"
+    assert "credential" in msg.lower() or "auth" in msg.lower()
+
+    # Not found errors
+    cat, msg, sugg = middleware._categorize_error(Exception("404 not found"))
+    assert cat == "not_found"
+    assert "found" in msg.lower()
+
+    # Rate limit errors
+    cat, msg, sugg = middleware._categorize_error(Exception("429 rate limit exceeded"))
+    assert cat == "rate_limit"
+    assert "wait" in msg.lower() or "request" in msg.lower()
+
+    # Server errors
+    cat, msg, sugg = middleware._categorize_error(Exception("503 Service Unavailable"))
+    assert cat == "server_error"
+    assert "unavailable" in msg.lower()
+
+    # Validation errors
+    cat, msg, sugg = middleware._categorize_error(Exception("ValidationError: invalid input"))
+    assert cat == "validation"
+    assert "invalid" in msg.lower()
+
+    # Configuration errors
+    cat, msg, sugg = middleware._categorize_error(Exception("config endpoint not set"))
+    assert cat == "configuration"
+
+    # Generic errors
+    cat, msg, sugg = middleware._categorize_error(Exception("Something went wrong"))
+    assert cat == "generic"
+    assert "unexpected" in msg.lower()
+
+
+def test_error_sanitization_sanitize_error_message():
+    """Test that sensitive information is removed from error messages."""
+    middleware = ErrorSanitizationMiddleware(track_statistics=False)
+
+    # File paths
+    result = middleware._sanitize_error_message(Exception("Error in /home/user/secret.py"))
+    assert "[path]" in result
+    assert "/home/user" not in result
+
+    # IP addresses
+    result = middleware._sanitize_error_message(Exception("Connection to 192.168.1.1 failed"))
+    assert "[ip]" in result
+    assert "192.168.1.1" not in result
+
+    # API keys
+    result = middleware._sanitize_error_message(Exception("api_key=sk-12345-secret"))
+    assert "[hidden]" in result or "hidden" in result
+    assert "sk-12345" not in result
+
+
+def test_error_sanitization_get_alternative_suggestions():
+    """Test alternative suggestions for different categories."""
+    middleware = ErrorSanitizationMiddleware(track_statistics=False)
+
+    suggestions = middleware._get_alternative_suggestions("test_tool", "connection")
+    assert len(suggestions) <= 3
+    assert any("connection" in s.lower() for s in suggestions)
+
+    suggestions = middleware._get_alternative_suggestions("search_docs", "not_found")
+    assert len(suggestions) <= 3
+    assert any("resource" in s.lower() for s in suggestions)
+
+
+def test_error_sanitization_get_method_name():
+    """Test method name extraction from context."""
+    middleware = ErrorSanitizationMiddleware(track_statistics=False)
+
+    # Tool name from message
+    context = Mock()
+    context.message = Mock()
+    context.message.name = "my_tool"
+    context.message.prompt_name = None
+    context.message.uri = None
+    context.method = None
+    assert middleware._get_method_name(context) == "call_tool:my_tool"
+
+    # Unknown when no message
+    context = Mock(spec=[])
+    assert middleware._get_method_name(context) == "unknown"
+
+
+@pytest.mark.asyncio
+async def test_error_sanitization_on_call_tool_success():
+    """Test that successful tool calls pass through unchanged."""
+    middleware = ErrorSanitizationMiddleware(track_statistics=False)
+
+    context = Mock()
+    context.message = Mock()
+    context.message.name = "test_tool"
+
+    call_next = AsyncMock(return_value="success_result")
+
+    result = await middleware.on_call_tool(context, call_next)
+    assert result == "success_result"
+    call_next.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_error_sanitization_on_call_tool_tool_error():
+    """Test that ToolError is sanitized and returns CallToolResult."""
+    middleware = ErrorSanitizationMiddleware(track_statistics=False)
+
+    context = Mock()
+    context.message = Mock()
+    context.message.name = "test_tool"
+
+    call_next = AsyncMock(side_effect=ToolError("401 Unauthorized - invalid token"))
+
+    result = await middleware.on_call_tool(context, call_next)
+
+    assert result.isError is True
+    assert len(result.content) == 1
+    assert result.content[0].text
+    assert "Authentication failed" in result.content[0].text
+    assert result.structuredContent["tool"] == "test_tool"
+    assert result.structuredContent["error"]
+    assert "alternatives" in result.structuredContent
+
+
+@pytest.mark.asyncio
+async def test_error_sanitization_on_call_tool_generic_exception():
+    """Test that generic Exception is sanitized and returns CallToolResult."""
+    middleware = ErrorSanitizationMiddleware(track_statistics=False)
+
+    context = Mock()
+    context.message = Mock()
+    context.message.name = "fetch_data"
+
+    call_next = AsyncMock(side_effect=Exception("Connection timeout to server"))
+
+    result = await middleware.on_call_tool(context, call_next)
+
+    assert result.isError is True
+    assert "Unable to connect" in result.content[0].text
+    assert result.structuredContent["tool"] == "fetch_data"
+
+
+@pytest.mark.asyncio
+async def test_error_sanitization_exempt_tools():
+    """Test that exempt tools pass errors through without sanitization."""
+    middleware = ErrorSanitizationMiddleware(
+        exempt_tools={"internal_debug_tool"},
+        track_statistics=False,
+    )
+
+    context = Mock()
+    context.message = Mock()
+    context.message.name = "internal_debug_tool"
+
+    call_next = AsyncMock(side_effect=ToolError("Raw error with /path/to/file"))
+
+    with pytest.raises(ToolError):
+        await middleware.on_call_tool(context, call_next)
+
+
+@pytest.mark.asyncio
+async def test_error_sanitization_disabled():
+    """Test that when sanitization is disabled, errors are re-raised."""
+    middleware = ErrorSanitizationMiddleware(
+        enable_sanitization=False,
+        track_statistics=False,
+    )
+
+    context = Mock()
+    context.message = Mock()
+    context.message.name = "test_tool"
+
+    call_next = AsyncMock(side_effect=ToolError("Some error"))
+
+    with pytest.raises(ToolError):
+        await middleware.on_call_tool(context, call_next)
+
+
+@pytest.mark.asyncio
+async def test_error_sanitization_statistics():
+    """Test error statistics tracking."""
+    middleware = ErrorSanitizationMiddleware(track_statistics=True)
+
+    context = Mock()
+    context.message = Mock()
+    context.message.name = "test_tool"
+
+    call_next = AsyncMock(side_effect=ToolError("Connection refused"))
+
+    await middleware.on_call_tool(context, call_next)
+    await middleware.on_call_tool(context, call_next)
+
+    stats = middleware.get_error_statistics()
+    assert len(stats) >= 1
+    assert any("test_tool" in k or "call_tool" in k for k in stats)
+
+    middleware.reset_statistics()
+    assert middleware.get_error_statistics() == {}
 
 
 # ============================================================================

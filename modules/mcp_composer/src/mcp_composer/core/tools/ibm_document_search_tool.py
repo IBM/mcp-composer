@@ -6,7 +6,7 @@ from typing import Dict, Any, Optional, List, Literal
 from fastmcp.tools import Tool
 from fastmcp.tools.tool import ToolResult
 from mcp.types import TextContent
-from pydantic import BaseModel, Field, ConfigDict, PrivateAttr, ValidationError
+from pydantic import BaseModel, Field, ConfigDict, PrivateAttr, ValidationError, field_validator
 
 from mcp_composer.core.utils import LoggerFactory
 
@@ -18,60 +18,54 @@ class IBMDocumentSearchInput(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    question: Optional[str] = Field(
-        None,
-        description=(
-            "Main research question to investigate. Optional - if not provided, will be derived from "
-            "search_query, sub_questions, or use a default."
-        ),
-        min_length=1,
-    )
-
+    question: str = Field(description="Main research question to investigate.", min_length=1)
     stage: Literal["planning", "citation", "summarization", "complete"] = Field(
         default="complete", description="Current research stage you're working on."
     )
-
     sub_questions: Optional[List[str]] = Field(
-        None,
-        description=(
-            "List of sub-questions you've identified (for planning stage). Used to provide context for guidance."
-        ),
+        None, description="List of sub-questions you've identified (for planning stage)."
     )
-
     sources_count: Optional[int] = Field(
-        None,
-        ge=0,
-        description="Optional count of sources found so far. Used to provide context-aware guidance.",
+        None, ge=0, description="Optional count of sources found so far."
     )
-
     gaps: Optional[List[str]] = Field(
         None,
-        description="Optional list of information gaps identified. Used to provide context-aware guidance.",
+        description=(
+            "Optional list of information gaps identified. "
+            "Accepts either a list of strings or a list of objects with 'title'/'url' fields "
+            "(objects will be converted to strings automatically)."
+        ),
     )
-
     additional_context: Optional[str] = Field(
         None, description="Extra guidance or constraints for the research."
     )
-
     search_query: Optional[str] = Field(
         None,
         description=(
             "Optional suggested search query. This is a hint for the agent to use when searching available "
-            "resources or using the url tool. The tool does not perform automatic searches - the agent should "
-            "use the url tool to fetch documentation pages."
+            "resources or using the url tool."
         ),
         min_length=1,
     )
-
     max_results: int = Field(
-        default=5,
-        ge=1,
-        le=10,
-        description=(
-            "Optional hint for maximum number of results to consider (default: 5, max: 10). This is guidance "
-            "only - actual search behavior depends on the tools the agent uses."
-        ),
+        default=5, ge=1, le=10,
+        description="Optional hint for maximum number of results to consider (default: 5, max: 10)."
     )
+
+    @field_validator("gaps", mode="before")
+    @classmethod
+    def normalize_gaps(cls, v: Any) -> Optional[List[str]]:
+        """Normalize gaps field to handle both string lists and object lists."""
+        if v is None:
+            return None
+        if not isinstance(v, list):
+            return [str(v)]
+        return [
+            gap if isinstance(gap, str)
+            else (gap.get("title") or gap.get("url") or gap.get("description") or str(gap))
+            if isinstance(gap, dict) else str(gap)
+            for gap in v
+        ]
 
 
 class IBMDocumentSearchTool(Tool):
@@ -400,12 +394,11 @@ To upload files to Aspera on Cloud, you can use several methods:
 surface-level responses. Always discover current documentation dynamically via `list_resources`.
 """
 
-        # Get tool name from config or use default
-        tool_name = "ibm_document_search"
-        if config and "name" in config:
-            tool_name = config["name"]
-        elif config and "id" in config:
-            tool_name = config["id"]
+        tool_name: str = "ibm_document_search"
+        if config:
+            name_or_id = config.get("name") or config.get("id")
+            if name_or_id and isinstance(name_or_id, str):
+                tool_name = name_or_id
 
         super().__init__(
             name=tool_name,
@@ -417,144 +410,95 @@ surface-level responses. Always discover current documentation dynamically via `
         self._resource_manager = None
 
         if config:
-            potential_resource_manager = None
-            if isinstance(config, dict):
-                potential_resource_manager = config.get("resource_manager")
-            elif hasattr(config, "resource_manager"):
-                potential_resource_manager = getattr(config, "resource_manager")
-
-            if potential_resource_manager is not None:
-                self._resource_manager = potential_resource_manager
-                logger.info(
-                    "IBM Document Search Tool configured with resource manager integration"
-                )
+            resource_manager = (
+                config.get("resource_manager") if isinstance(config, dict)
+                else getattr(config, "resource_manager", None) if hasattr(config, "resource_manager") else None
+            )
+            if resource_manager:
+                self._resource_manager = resource_manager
+                logger.info("IBM Document Search Tool configured with resource manager integration")
 
         logger.info("IBM Document Search Tool '%s' initialized", tool_name)
 
-    def _is_valid_http_url(self, uri: str) -> bool:
-        """
-        Check if a URI is a valid HTTP/HTTPS URL.
-
-        Args:
-            uri: The URI to check
-
-        Returns:
-            True if URI starts with http:// or https://, False otherwise
-        """
+    @staticmethod
+    def _is_valid_http_url(uri: str) -> bool:
+        """Check if URI is a valid HTTP/HTTPS URL."""
         if not uri or not isinstance(uri, str):
             return False
-        uri_lower = uri.lower().strip()
-        return uri_lower.startswith("http://") or uri_lower.startswith("https://")
+        return uri.lower().strip().startswith(("http://", "https://"))
 
     async def _get_available_resources(self) -> List[Dict[str, Any]]:
-        """
-        Get available resources from the resource manager, filtering for valid HTTP/HTTPS URLs only.
-
-        Returns:
-            List of available resources with name, description, uri, and mime_type (HTTP/HTTPS only)
-        """
-        resources = []
-        if self._resource_manager:
-            try:
-                resource_list = await self._resource_manager.list_resources()
-                for resource in resource_list:
-                    uri = str(getattr(resource, "uri", ""))
-
-                    # Filter: only include resources with valid HTTP/HTTPS URLs
-                    if self._is_valid_http_url(uri):
-                        resources.append(
-                            {
-                                "name": getattr(resource, "name", ""),
-                                "description": getattr(resource, "description", ""),
-                                "uri": uri,
-                                "mime_type": getattr(resource, "mime_type", ""),
-                                "tags": (
-                                    list(getattr(resource, "tags", []))
-                                    if hasattr(resource, "tags")
-                                    else []
-                                ),
-                                "text": getattr(resource, "text", ""),
-                            }
-                        )
-                    else:
-                        logger.debug(
-                            "Filtered out non-HTTP resource: %s with URI: %s",
-                            getattr(resource, "name", "unknown"),
-                            uri,
-                        )
-
-                logger.info(
-                    "Retrieved %s valid HTTP/HTTPS resources from resource manager (filtered from %s total)",
-                    len(resources),
-                    len(resource_list),
-                )
-            except Exception as e:
-                logger.warning(
-                    "Failed to retrieve resources from resource manager: %s", e
-                )
-        return resources
-
-    async def _search_resources(
-        self, query: str, max_results: int = 5
-    ) -> List[Dict[str, Any]]:
-        """
-        Search within available resources to suggest which ones to fetch.
-        Uses tag-based matching for intelligent resource selection.
-
-        Args:
-            query: Search query string
-            max_results: Maximum number of results to return (default: 5, max: 10)
-
-        Returns:
-            List of suggested resources to fetch with name, uri, description, and relevance score
-        """
+        """Get available resources from resource manager, filtering for HTTP/HTTPS URLs only."""
+        if not self._resource_manager:
+            return []
+        
         try:
-            max_results = min(max(1, max_results), 10)  # Clamp between 1 and 10
-            logger.info(
-                f"Searching resources for: {query} (max_results: {max_results})"
-            )
+            resource_list = await self._resource_manager.list_resources()
+            resources = []
+            
+            for resource in resource_list:
+                uri = str(getattr(resource, "uri", ""))
+                if not self._is_valid_http_url(uri):
+                    logger.debug("Filtered out non-HTTP resource: %s", getattr(resource, "name", "unknown"))
+                    continue
+                
+                resources.append({
+                    "name": getattr(resource, "name", ""),
+                    "description": getattr(resource, "description", ""),
+                    "uri": uri,
+                    "mime_type": getattr(resource, "mime_type", ""),
+                    "text": getattr(resource, "text", ""),
+                    "tags": list(getattr(resource, "tags", [])) if hasattr(resource, "tags") else [],
+                })
 
-            # Get available resources (already filtered for HTTP/HTTPS)
+            logger.info("Retrieved %s valid HTTP/HTTPS resources (filtered from %s total)", len(resources), len(resource_list))
+            return resources
+        except Exception as e:
+            logger.warning("Failed to retrieve resources from resource manager: %s", e)
+            return []
+
+    async def _search_resources(self, query: str, max_results: int = 5) -> List[Dict[str, Any]]:
+        """Search resources using tag-based matching."""
+        try:
+            max_results = min(max(1, max_results), 10)
+            logger.info("Searching resources for: %s (max_results: %s)", query, max_results)
+
             available_resources = await self._get_available_resources()
-
             if not available_resources:
                 logger.warning("No HTTP/HTTPS resources available to search")
                 return []
 
             # Normalize query for case-insensitive search
-            query_lower = query.lower()
-            query_terms = query_lower.split()
+            query_terms = set(query.lower().split())
 
-            # Score and filter resources based on query match
+            # Score and filter resources
             scored_resources = []
             for resource in available_resources:
                 name = resource.get("name", "").lower()
                 description = resource.get("description", "").lower()
                 text = resource.get("text", "").lower()
                 uri = resource.get("uri", "").lower()
-                tags = [tag.lower() for tag in resource.get("tags", [])]
+                tags = set(tag.lower() for tag in resource.get("tags", []))
 
-                # Calculate relevance score
                 score = 0
-
-                # TAG MATCHING (Highest Priority) - NEW!
-                # Exact tag match is the most reliable indicator
+                # Tag matching (highest priority)
+                exact_tag_matches = query_terms & tags
+                score += len(exact_tag_matches) * 15
                 for term in query_terms:
                     for tag in tags:
-                        if term == tag:
-                            score += 15  # Exact tag match - highest priority
-                        elif term in tag or tag in term:
-                            score += 8  # Partial tag match - high priority
+                        if term != tag and (term in tag or tag in term):
+                            score += 8
 
-                # Exact match in name
-                if query_lower in name:
+                # Name matching
+                query_str = " ".join(query_terms)
+                if query_str in name:
                     score += 10
-
-                # All query terms in name
-                if all(term in name for term in query_terms):
+                elif all(term in name for term in query_terms):
                     score += 8
+                elif any(term in name for term in query_terms):
+                    score += 5
 
-                # Query terms in description or text
+                # Description/text/uri matching
                 for term in query_terms:
                     if term in description:
                         score += 3
@@ -563,36 +507,21 @@ surface-level responses. Always discover current documentation dynamically via `
                     if term in uri:
                         score += 2
 
-                # Partial match in name
-                if any(term in name for term in query_terms):
-                    score += 5
-
                 if score > 0:
                     scored_resources.append((score, resource))
 
-            # Sort by score (descending) and take top results
             scored_resources.sort(key=lambda x: x[0], reverse=True)
-            results = []
+            results = [{
+                "title": r.get("name", "Unknown Resource"),
+                "url": r.get("uri", ""),
+                "snippet": r.get("description") or r.get("text", "")[:200],
+                "mime_type": r.get("mime_type", ""),
+                "tags": r.get("tags", []),
+                "relevance_score": score,
+            } for score, r in scored_resources[:max_results]]
 
-            for score, resource in scored_resources[:max_results]:
-                results.append(
-                    {
-                        "title": resource.get("name", "Unknown Resource"),
-                        "url": resource.get("uri", ""),
-                        "snippet": resource.get("description", "")
-                        or resource.get("text", "")[:200],
-                        "mime_type": resource.get("mime_type", ""),
-                        "tags": resource.get("tags", []),
-                        "relevance_score": score,
-                    }
-                )
-
-            logger.info(
-                "Found %s matching HTTP/HTTPS resources (tag-based matching)",
-                len(results),
-            )
+            logger.info("Found %s matching HTTP/HTTPS resources", len(results))
             return results
-
         except Exception as e:
             logger.error("Error searching resources: %s", e)
             return []
@@ -600,48 +529,26 @@ surface-level responses. Always discover current documentation dynamically via `
     def _match_resources_by_tags(
         self, question: str, available_resources: List[Dict[str, Any]]
     ) -> List[Dict[str, Any]]:
-        """
-        Match resources to a question using tag-based matching.
-
-        Args:
-            question: The user's question
-            available_resources: List of available resources with tags
-
-        Returns:
-            List of resources sorted by relevance (tag matches)
-        """
+        """Match resources to a question using tag-based matching."""
         if not available_resources:
             return []
 
-        # Extract keywords from question
-        question_lower = question.lower()
-        question_terms = set(question_lower.split())
-
-        # Score each resource based on tag matches
+        question_terms = set(question.lower().split())
         scored = []
+        
         for resource in available_resources:
-            tags = [tag.lower() for tag in resource.get("tags", [])]
+            tags = set(tag.lower() for tag in resource.get("tags", []))
             name = resource.get("name", "").lower()
             description = resource.get("description", "").lower()
             text = resource.get("text", "").lower()
 
-            score = 0
-
-            # Tag matching (highest priority)
+            score = len(question_terms & tags) * 10  # Exact tag matches
             for term in question_terms:
                 for tag in tags:
-                    if term == tag:
-                        score += 10  # Exact match
-                    elif term in tag or tag in term:
-                        score += 5  # Partial match
-
-            # Name matching
-            for term in question_terms:
+                    if term != tag and (term in tag or tag in term):
+                        score += 5
                 if term in name:
                     score += 3
-
-            # Description/text matching
-            for term in question_terms:
                 if term in description:
                     score += 1
                 if term in text:
@@ -650,41 +557,13 @@ surface-level responses. Always discover current documentation dynamically via `
             if score > 0:
                 scored.append((score, resource))
 
-        # Sort by score (descending)
         scored.sort(key=lambda x: x[0], reverse=True)
-
-        # Return sorted resources
-        matched = [resource for _, resource in scored]
-
+        matched = [r for _, r in scored]
+        
         if matched:
-            logger.info(f"Tag-based matching found {len(matched)} relevant resources")
-
+            logger.info("Tag-based matching found %s relevant resources", len(matched))
         return matched
 
-    def _derive_question_from_params(self, params: IBMDocumentSearchInput) -> str:
-        """
-        Derive a question from the input parameters if not provided directly.
-
-        Args:
-            params: Validated input parameters
-
-        Returns:
-            Derived or default question string
-        """
-        # Try search_query first
-        if params.search_query:
-            logger.info("Using search_query as question: %s", params.search_query)
-            return params.search_query
-
-        # Try first sub-question
-        if params.sub_questions and len(params.sub_questions) > 0:
-            derived = f"Research question related to: {params.sub_questions[0]}"
-            logger.info("Derived question from sub_questions: %s", derived)
-            return derived
-
-        # Default fallback
-        logger.warning("No question or search_query provided, using default question")
-        return "General IBM documentation search"
 
     async def _generate_stage_guidance(
         self, params: IBMDocumentSearchInput, available_resources: List[Dict[str, Any]]
@@ -701,34 +580,16 @@ surface-level responses. Always discover current documentation dynamically via `
         """
         # Format resources info
         if available_resources:
-            resources_list_text = self._format_resources_list(available_resources)
-
-            # Get unique tags from all resources
-            all_tags = set()
-            for resource in available_resources:
-                all_tags.update(resource.get("tags", []))
-
-            tags_summary = (
-                f"Available tags: {', '.join(sorted(all_tags))}" if all_tags else ""
-            )
-
-            resources_info = (
-                f"\n\n**Available Resources from MCP Server:**\n\n{resources_list_text}"
-            )
-            if tags_summary:
-                resources_info += f"\n\n**💡 Tag-Based Matching:** {tags_summary}"
-                resources_info += "\n   Match these tags to keywords in your question for best results."
+            all_tags = {tag for r in available_resources for tag in r.get("tags", [])}
+            resources_info = f"\n\n**Available Resources from MCP Server:**\n\n{self._format_resources_list(available_resources)}"
+            if all_tags:
+                resources_info += f"\n\n**💡 Tag-Based Matching:** Available tags: {', '.join(sorted(all_tags))}\n   Match these tags to keywords in your question for best results."
         else:
-            resources_info = (
-                "\n\n**Note:** No HTTP/HTTPS resources currently available. Use other available tools to "
-                "find documentation."
-            )
+            resources_info = "\n\n**Note:** No HTTP/HTTPS resources currently available. Use other available tools to find documentation."
 
-        # Get the actual question (derived if necessary)
-        question = params.question or self._derive_question_from_params(params)
-
-        # Base guidance - simple and unified
-        base_guidance = f"""**Document Search Guidance**
+        question = params.question
+        
+        guidance = f"""**Document Search Guidance**
 
 **Question:** {question}
 **Current Stage:** {params.stage}
@@ -751,63 +612,82 @@ surface-level responses. Always discover current documentation dynamically via `
 - Every fact needs a citation
 - Use only IBM documentation from list_resources
 - Follow links for comprehensive answers (3-5 pages typical)
-- Stay within IBM documentation domains
-"""
+- Stay within IBM documentation domains"""
 
-        # Add context if provided
         if params.sub_questions:
-            sub_q_list = "\n".join(
-                f"  {i+1}. {q}" for i, q in enumerate(params.sub_questions)
-            )
-            base_guidance += f"\n**Your Sub-questions:**\n{sub_q_list}\n"
-
+            guidance += f"\n\n**Your Sub-questions:**\n" + "\n".join(f"  {i+1}. {q}" for i, q in enumerate(params.sub_questions))
         if params.sources_count is not None:
-            base_guidance += f"\n**Sources Found So Far:** {params.sources_count}\n"
-
+            guidance += f"\n\n**Sources Found So Far:** {params.sources_count}"
         if params.gaps:
-            gaps_list = "\n".join(f"  - {g}" for g in params.gaps)
-            base_guidance += f"\n**Information Gaps:**\n{gaps_list}\n"
-
-        return base_guidance
+            guidance += "\n\n**Information Gaps:**\n" + "\n".join(f"  - {g}" for g in params.gaps)
+        
+        return guidance
 
     def _format_resources_list(self, resources: List[Dict[str, Any]]) -> str:
-        """Format the list of available resources for display with emphasis on tags"""
+        """Format resources list for display with emphasis on tags."""
         if not resources:
             return "No HTTP/HTTPS resources available."
 
         formatted = []
-        for i, resource in enumerate(resources, 1):
-            name = resource.get("name", "Unknown")
-            description = resource.get("description", "")
-            text = resource.get("text", "")
-            uri = resource.get("uri", "")
-            mime_type = resource.get("mime_type", "")
-            tags = resource.get("tags", [])
-
-            resource_str = f"{i}. **{name}**"
-            if uri:
-                resource_str += f"\n   URI: {uri}"
-
-            # Show tags prominently for matching
-            if tags:
-                resource_str += f"\n   Tags: {', '.join(tags)}"
-                resource_str += (
-                    "\n   💡 Match these tags to your question for best results"
-                )
-
-            if description:
-                resource_str += f"\n   Description: {description}"
-            elif text:
-                # Use text as description if description is empty
-                text_preview = text[:150] + "..." if len(text) > 150 else text
-                resource_str += f"\n   Description: {text_preview}"
-
-            if mime_type:
-                resource_str += f"\n   MIME Type: {mime_type}"
-
-            formatted.append(resource_str)
-
+        for i, r in enumerate(resources, 1):
+            parts = [f"{i}. **{r.get('name', 'Unknown')}**"]
+            if uri := r.get("uri"):
+                parts.append(f"   URI: {uri}")
+            if tags := r.get("tags"):
+                parts.append(f"   Tags: {', '.join(tags)}")
+                parts.append("   💡 Match these tags to your question for best results")
+            desc = r.get("description") or (r.get("text", "")[:150] + "..." if len(r.get("text", "")) > 150 else r.get("text", ""))
+            if desc:
+                parts.append(f"   Description: {desc}")
+            if mime := r.get("mime_type"):
+                parts.append(f"   MIME Type: {mime}")
+            formatted.append("\n".join(parts))
         return "\n\n".join(formatted)
+
+    @staticmethod
+    def _extract_json_from_string(text: str) -> Dict[str, Any]:
+        """Extract JSON object from string that may contain text before JSON."""
+        if not isinstance(text, str):
+            raise ValueError("Input must be a string")
+        
+        # Find the last '{' that likely starts a JSON object
+        start_idx = text.rfind('{')
+        if start_idx == -1:
+            raise ValueError("No JSON object found in string")
+        
+        # Extract JSON substring and find balanced braces
+        json_str = text[start_idx:]
+        brace_count = 0
+        end_idx = len(json_str)
+        
+        for i, char in enumerate(json_str):
+            if char == '{':
+                brace_count += 1
+            elif char == '}':
+                brace_count -= 1
+                if brace_count == 0:
+                    end_idx = i + 1
+                    break
+        
+        # Try to parse the balanced JSON
+        try:
+            return json.loads(json_str[:end_idx])
+        except json.JSONDecodeError:
+            # Fallback: try regex to find any JSON-like structure
+            import re
+            json_match = re.search(r'\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}', text)
+            if json_match:
+                try:
+                    return json.loads(json_match.group())
+                except json.JSONDecodeError:
+                    pass
+            raise ValueError(f"Could not extract valid JSON from string")
+
+    @staticmethod
+    def _extract_question_from_args(arguments: Dict[str, Any]) -> str:
+        """Extract question from arguments."""
+        question = arguments.get("question") or arguments.get("search_query")
+        return question.strip() if question and isinstance(question, str) else "Unknown question"
 
     def _handle_validation_error(
         self, error: ValidationError, raw_arguments: Dict[str, Any]
@@ -824,19 +704,7 @@ surface-level responses. Always discover current documentation dynamically via `
         """
         logger.error("Validation error in IBM document search: %s", error)
 
-        # Try to extract question from raw arguments
-        question = (
-            raw_arguments.get("question")
-            or raw_arguments.get("Question")
-            or raw_arguments.get("mainQuestion")
-            or raw_arguments.get("main_question")
-            or raw_arguments.get("search_query")
-            or raw_arguments.get("searchQuery")
-            or "Unknown question"
-        )
-
-        if isinstance(question, str):
-            question = question.strip()
+        question = self._extract_question_from_args(raw_arguments)
 
         error_response = {
             "stage": "error",
@@ -867,35 +735,42 @@ surface-level responses. Always discover current documentation dynamically via `
         logger.info("IBM document search tool run called with arguments: %s", arguments)
 
         try:
-            # Validate and parse arguments with Pydantic
-            # Handle both camelCase and snake_case by normalizing
-            normalized_args = {}
+            # Handle case where arguments might be a string with text before JSON
+            if isinstance(arguments, str):
+                logger.debug("Arguments received as string, attempting to extract JSON")
+                try:
+                    arguments = IBMDocumentSearchTool._extract_json_from_string(arguments)
+                except ValueError as e:
+                    logger.error("Failed to extract JSON from string arguments: %s", e)
+                    # Fallback: create minimal valid arguments from the string
+                    arg_str = str(arguments)
+                    question_text = arg_str[:200] if len(arg_str) > 200 else arg_str
+                    arguments = {"question": question_text}
+            
+            # Clean argument values that might contain mixed content
+            cleaned_args = {}
             for key, value in arguments.items():
-                # Convert camelCase to snake_case for common parameters
-                if key == "mainQuestion":
-                    normalized_args["question"] = value
-                elif key == "searchQuery":
-                    normalized_args["search_query"] = value
-                elif key == "subQuestions":
-                    normalized_args["sub_questions"] = value
-                elif key == "sourcesCount":
-                    normalized_args["sources_count"] = value
-                elif key == "maxResults":
-                    normalized_args["max_results"] = value
-                elif key == "additionalContext":
-                    normalized_args["additional_context"] = value
+                if isinstance(value, str) and '{' in value:
+                    if not value.strip().startswith('{'):
+                        try:
+                            cleaned_args[key] = IBMDocumentSearchTool._extract_json_from_string(value)
+                        except (ValueError, json.JSONDecodeError):
+                            cleaned_args[key] = value
+                    else:
+                        try:
+                            cleaned_args[key] = json.loads(value)
+                        except json.JSONDecodeError:
+                            cleaned_args[key] = value
                 else:
-                    normalized_args[key] = value
-
-            # Validate with Pydantic - this gives us type safety and automatic validation
-            params = IBMDocumentSearchInput(**normalized_args)
+                    cleaned_args[key] = value
+            
+            params = IBMDocumentSearchInput(**cleaned_args)
 
             # Get available resources (filtered for HTTP/HTTPS only)
             available_resources = await self._get_available_resources()
             logger.info("Available HTTP/HTTPS resources: %s", len(available_resources))
 
-            # Derive question if not provided
-            question = params.question or self._derive_question_from_params(params)
+            question = params.question
 
             # Generate guidance for the current stage
             guidance = await self._generate_stage_guidance(params, available_resources)
@@ -945,19 +820,7 @@ surface-level responses. Always discover current documentation dynamically via `
         except Exception as e:
             logger.error("Unexpected error in IBM document search: %s", e)
 
-            # Try to extract question from raw arguments
-            question = (
-                arguments.get("question")
-                or arguments.get("Question")
-                or arguments.get("mainQuestion")
-                or arguments.get("main_question")
-                or arguments.get("search_query")
-                or arguments.get("searchQuery")
-                or "Unknown question"
-            )
-
-            if isinstance(question, str):
-                question = question.strip()
+            question = self._extract_question_from_args(arguments)
 
             error_response = {
                 "stage": "error",

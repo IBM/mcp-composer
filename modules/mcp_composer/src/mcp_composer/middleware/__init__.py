@@ -16,6 +16,9 @@ from .concurrency import ConcurrencyLimiterMiddleware
 from .rate_limit_filter import RateLimitingMiddleware
 from .pii_middleware import SecretsAndPIIMiddleware, RedactionStrategy
 from .xml2json import FormatXml2Json
+from .json_extraction_middleware import JSONExtractionMiddleware
+from .error_sanitization_middleware import ErrorSanitizationMiddleware
+
 
 __all__ = [
     "PromptInjectionMiddleware",
@@ -25,4 +28,7 @@ __all__ = [
     "SecretsAndPIIMiddleware",
     "RedactionStrategy",
     "FormatXml2Json",
+    "JSONExtractionMiddleware",
+    "ErrorSanitizationMiddleware"
+
 ]
