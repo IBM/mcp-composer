@@ -15,7 +15,6 @@ from mcp_composer.core.tools.ibm_document_search_tool import IBMDocumentSearchTo
 from mcp_composer.middleware.tool.tool_filter import ListFilteredTool
 from mcp_composer import MCPComposer
 from mcp_composer.core.utils import LoggerFactory
-from mcp_composer.middleware.json_extraction_middleware import JSONExtractionMiddleware
 from mcp_composer.middleware.error_sanitization_middleware import ErrorSanitizationMiddleware
 
 
