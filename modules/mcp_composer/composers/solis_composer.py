@@ -23,18 +23,6 @@ logger = LoggerFactory.get_logger()
 # Load JWT provider from utility function with SOLIS-specific prefix
 jwt_provider = load_jwt_provider(prefix="SOLIS_JWT_")
 
-# Option 3: Explicit configuration (uncomment to use)
-# jwt_provider = JWTAuthProvider.from_secret(
-#     secret=os.getenv("SOLIS_JWT_SECRET", "dev-secret-change-in-production"),
-#     algorithm="HS256",
-#     issuer="https://solis.ibm.com",
-#     audience="solis-api",
-#     verify_exp=True,
-#     verify_iss=True,
-#     verify_aud=True,
-#     required_claims=["sub", "role", "tenant"]
-# )
-
 # Initialize composer with JWT authentication
 gw = MCPComposer(
     name="solis-composer", auth=jwt_provider.get_verifier() if jwt_provider else None
@@ -44,10 +32,9 @@ gw = MCPComposer(
 def setup_middleware(composer: MCPComposer) -> None:
     """Configure and register middleware components."""
     composer.add_middleware(middleware=ListFilteredTool(composer))
-    #composer.add_middleware(JSONExtractionMiddleware())
     # Add error sanitization middleware last to catch all errors
     composer.add_middleware(ErrorSanitizationMiddleware())
-    logger.info("Added middleware: ListFilteredTool, JSONExtractionMiddleware, ErrorSanitizationMiddleware")
+    logger.info("Added middleware: ListFilteredTool, ErrorSanitizationMiddleware")
 
 
 def setup_tools(composer: MCPComposer) -> None:
