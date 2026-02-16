@@ -41,6 +41,7 @@ dependencies = [
     "litellm>=1.0.0",
     "ollama>=0.6.1",
     "cryptography==46.0.5",
+    "protobuf==6.33.5",
 ]
 
 [project.urls]
