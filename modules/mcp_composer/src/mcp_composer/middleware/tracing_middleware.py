@@ -82,7 +82,7 @@ def _truncate(val: Any, max_len: int) -> Any:
         return "<unprintable>"
     if len(s) <= max_len:
         return s
-    return s[:max_len] + f"... (+{len(s)-max_len} chars)"
+    return s[:max_len] + f"... (+{len(s) - max_len} chars)"
 
 
 def _json_sha256(obj: Any) -> str:
@@ -215,17 +215,13 @@ class TracingMiddleware(Middleware):
             return detail or base
         return f"{base}:{detail}" if detail else base
 
-    def _decorate_common_attrs(
-        self, span, context: MiddlewareContext, op: str, name: str
-    ):
+    def _decorate_common_attrs(self, span, context: MiddlewareContext, op: str, name: str):
         _attr(span, "mcp.operation", op)
         _attr(span, "mcp.name", name)
         server_name, stripped = _split_tool_fullname(name)
 
         # Prefer FastMCP-provided values if present
-        composer_name = _ctx_get(
-            context, "fastmcp_context.fastmcp.name", "composer_name"
-        )
+        composer_name = _ctx_get(context, "fastmcp_context.fastmcp.name", "composer_name")
         server_ver = _ctx_get(context, "server_version")
         session_id = _ctx_get(context, "fastmcp_context.session_id", "session_id")
         tenant_id = _ctx_get(context, "tenant_id")
@@ -242,29 +238,159 @@ class TracingMiddleware(Middleware):
         tool = getattr(context.message, "name", "unknown")
         args = getattr(context.message, "arguments", {})
         start = time.time()
+        logger = _get_logger(context)
+
         if tool_calls:
             tool_calls.add(1, {"tool": tool})
         if in_bytes:
             try:
-                in_bytes.record(
-                    len(json.dumps(args, default=str).encode("utf-8")), {"tool": tool}
-                )
+                in_bytes.record(len(json.dumps(args, default=str).encode("utf-8")), {"tool": tool})
             except Exception:
                 pass
 
         if self.log_tools:
+            # Enhanced logging for tool calls
+            logger.info("=" * 80)
+            logger.info("TOOL CALL - FULL DETAILS")
+            logger.info("=" * 80)
+            logger.info("Tool Name: %s", tool)
+
+            # Log session and context info
+            session_id = _ctx_get(context, "fastmcp_context.session_id", "session_id")
+            composer_name = _ctx_get(context, "fastmcp_context.fastmcp.name", "composer_name")
+            tenant_id = _ctx_get(context, "tenant_id")
+
+            logger.info("Session ID: %s", session_id or "N/A")
+            logger.info("Composer: %s", composer_name or "N/A")
+            logger.info("Tenant ID: %s", tenant_id or "N/A")
+
+            # Log authentication context
+            logger.info("-" * 80)
+            logger.info("AUTHENTICATION CONTEXT:")
+            try:
+                # Try to get request from fastmcp_context
+                fastmcp_ctx = getattr(context, "fastmcp_context", None)
+                if fastmcp_ctx:
+                    request_ctx = getattr(fastmcp_ctx, "request_context", None)
+                    if request_ctx:
+                        request = getattr(request_ctx, "request", None)
+                        if request:
+                            # Log authentication headers
+                            if hasattr(request, "headers"):
+                                auth_header = request.headers.get("authorization")
+                                if auth_header:
+                                    # Redact token but show type
+                                    if auth_header.startswith("Bearer "):
+                                        token = auth_header[7:]
+                                        if len(token) > 20:
+                                            redacted = f"Bearer {token[:10]}...{token[-10:]}"
+                                        else:
+                                            redacted = "Bearer ***REDACTED***"
+                                        logger.info("  Authorization: %s", redacted)
+                                    else:
+                                        logger.info("  Authorization: ***REDACTED***")
+                                else:
+                                    logger.info("  Authorization: Not present")
+
+                                # Log cookie header (redacted)
+                                cookie_header = request.headers.get("cookie")
+                                if cookie_header:
+                                    # Show cookie names but redact values
+                                    cookies = cookie_header.split(";")
+                                    cookie_names = [c.split("=")[0].strip() for c in cookies]
+                                    logger.info("  Cookies present: %s", cookie_names)
+                                else:
+                                    logger.info("  Cookies: Not present")
+
+                                # Log grant_type if present
+                                grant_type = request.headers.get("grant_type")
+                                if grant_type:
+                                    logger.info("  Grant Type: %s", grant_type)
+
+                            # Log authenticated user info
+                            if hasattr(request, "state") and hasattr(request.state, "user"):
+                                user = request.state.user
+                                logger.info("  Authenticated User:")
+                                if hasattr(user, "identity"):
+                                    logger.info("    Identity: %s", user.identity)
+                                if hasattr(user, "is_authenticated"):
+                                    logger.info("    Is Authenticated: %s", user.is_authenticated)
+                                if hasattr(user, "access_token"):
+                                    token = user.access_token
+                                    if len(token) > 20:
+                                        redacted = f"{token[:10]}...{token[-10:]}"
+                                    else:
+                                        redacted = "***REDACTED***"
+                                    logger.info("    Access Token: %s", redacted)
+                            else:
+                                logger.info("  No authenticated user in request.state")
+                        else:
+                            logger.info("  No request object in request_context")
+                    else:
+                        logger.info("  No request_context in fastmcp_context")
+                else:
+                    logger.info("  No fastmcp_context available")
+            except Exception as e:
+                logger.debug("Could not extract authentication context: %s", e)
+
+            # Log tool arguments
+            logger.info("-" * 80)
+            logger.info("TOOL ARGUMENTS:")
             if self.log_args:
-                self._log(
-                    context, f"🛠️  call {tool} args={_truncate(args, self.max_len)}"
-                )
+                if args:
+                    try:
+                        args_json = json.dumps(args, indent=2, default=str)
+                        logger.info("%s", args_json)
+                    except Exception:
+                        logger.info("%s", _truncate(args, self.max_len))
+                else:
+                    logger.info("  No arguments")
             else:
-                self._log(context, f"🛠️  call {tool}")
+                logger.info("  (Argument logging disabled)")
+
+            # Try to identify if this is a member server tool and log endpoint
+            logger.info("-" * 80)
+            logger.info("TOOL ROUTING INFO:")
+            server_prefix, stripped_name = _split_tool_fullname(tool)
+            if server_prefix:
+                logger.info("  Member Server Prefix: %s", server_prefix)
+                logger.info("  Stripped Tool Name: %s", stripped_name)
+                logger.info("  This appears to be a member server tool")
+
+                # Try to get member server info from composer
+                try:
+                    if fastmcp_ctx:
+                        fastmcp = getattr(fastmcp_ctx, "fastmcp", None)
+                        if fastmcp and hasattr(fastmcp, "server_manager"):
+                            server_manager = fastmcp.server_manager
+                            if hasattr(server_manager, "servers"):
+                                # Look for the server
+                                for srv_name, srv_obj in server_manager.servers.items():
+                                    if srv_name == server_prefix or srv_name.startswith(server_prefix):
+                                        logger.info("  Member Server Found: %s", srv_name)
+                                        if hasattr(srv_obj, "config"):
+                                            config = srv_obj.config
+                                            if isinstance(config, dict):
+                                                # Log endpoint/URL if available
+                                                endpoint = (
+                                                    config.get("url") or config.get("endpoint") or config.get("command")
+                                                )
+                                                if endpoint:
+                                                    logger.info("  Server Endpoint: %s", endpoint)
+                                                transport = config.get("transport")
+                                                if transport:
+                                                    logger.info("  Transport: %s", transport)
+                                        break
+                except Exception as e:
+                    logger.debug("Could not extract member server info: %s", e)
+            else:
+                logger.info("  This is a local/direct tool (no member server prefix)")
+
+            logger.info("-" * 80)
 
         start = time.time()
         span_cm = (
-            _TRACER.start_as_current_span(self._span_name("agent.tool", tool))
-            if self.enable_tracing
-            else nullcontext()
+            _TRACER.start_as_current_span(self._span_name("agent.tool", tool)) if self.enable_tracing else nullcontext()
         )
 
         try:
@@ -299,28 +425,62 @@ class TracingMiddleware(Middleware):
                         {
                             "sha256": _json_sha256(result),
                             **(
-                                {"size_bytes": len(json.dumps(result, default=str))}
-                                if self.trace_payload_sizes
-                                else {}
+                                {"size_bytes": len(json.dumps(result, default=str))} if self.trace_payload_sizes else {}
                             ),
                         },
                     )
                     span.set_status(Status(StatusCode.OK))
 
                 if self.log_tools:
+                    # Enhanced result logging
+                    logger.info("-" * 80)
+                    logger.info("TOOL RESPONSE:")
+
                     if self.log_results:
-                        self._log(
-                            context,
-                            f"✅ {tool} result={_truncate(result, self.max_len)}",
-                        )
+                        try:
+                            # Try to extract detailed response information
+                            if hasattr(result, "content"):
+                                # MCP ToolResult format
+                                content = result.content
+                                logger.info("  Response Type: ToolResult")
+                                if isinstance(content, list):
+                                    logger.info("  Content Items: %d", len(content))
+                                    for idx, item in enumerate(content[:3]):  # First 3 items
+                                        if hasattr(item, "type"):
+                                            logger.info("    Item %d Type: %s", idx, item.type)
+                                        if hasattr(item, "text"):
+                                            logger.info("    Item %d Text: %s", idx, _truncate(item.text, 200))
+                                    if len(content) > 3:
+                                        logger.info("    ... and %d more items", len(content) - 3)
+                                else:
+                                    logger.info("  Content: %s", _truncate(content, self.max_len))
+
+                                # Log if there's an error
+                                if hasattr(result, "isError") and result.isError:
+                                    logger.warning("  Tool returned an error!")
+                            else:
+                                # Raw result
+                                logger.info("  Response Type: Raw")
+                                result_json = json.dumps(result, indent=2, default=str)
+                                if len(result_json) > self.max_len:
+                                    logger.info("  Result (truncated):\n%s", result_json[: self.max_len])
+                                    logger.info("  ... (+%d chars)", len(result_json) - self.max_len)
+                                else:
+                                    logger.info("  Result:\n%s", result_json)
+                        except Exception as e:
+                            logger.debug("Could not parse result details: %s", e)
+                            logger.info("  Result: %s", _truncate(result, self.max_len))
+
+                        logger.info("✅ Tool execution successful")
                     else:
-                        self._log(context, f"✅ {tool} ok")
+                        logger.info("  (Result logging disabled)")
+                        logger.info("✅ Tool execution successful")
+
+                    logger.info("=" * 80)
 
                 # Duration
                 if tool_duration:
-                    tool_duration.record(
-                        int((time.time() - start) * 1000), {"tool": tool}
-                    )
+                    tool_duration.record(int((time.time() - start) * 1000), {"tool": tool})
 
                 # Output size
                 if out_bytes:
@@ -335,7 +495,6 @@ class TracingMiddleware(Middleware):
                 return result
 
         except Exception as e:
-
             if self.enable_tracing:
                 try:
                     span.record_exception(e)  # type: ignore[attr-defined]
@@ -361,47 +520,48 @@ class TracingMiddleware(Middleware):
             logger.info("=" * 80)
             logger.info("LIST_TOOLS REQUEST - FULL DETAILS")
             logger.info("=" * 80)
-            
+
             # Log context information
             session_id = _ctx_get(context, "fastmcp_context.session_id", "session_id")
             composer_name = _ctx_get(context, "fastmcp_context.fastmcp.name", "composer_name")
             tenant_id = _ctx_get(context, "tenant_id")
-            
+
             logger.info("Session ID: %s", session_id or "N/A")
             logger.info("Composer: %s", composer_name or "N/A")
             logger.info("Tenant ID: %s", tenant_id or "N/A")
-            
+
             # Log full request message details
-            if hasattr(context, 'message'):
+            if hasattr(context, "message"):
                 msg = context.message
                 logger.info("-" * 80)
                 logger.info("REQUEST MESSAGE:")
                 logger.info("Type: %s", type(msg).__name__)
-                
+
                 # Log all message attributes
                 try:
                     msg_dict = {}
                     for attr in dir(msg):
-                        if not attr.startswith('_'):
+                        if not attr.startswith("_"):
                             try:
                                 val = getattr(msg, attr)
                                 if not callable(val):
                                     msg_dict[attr] = val
                             except Exception:
                                 pass
-                    
+
                     logger.info("Message attributes:")
                     for key, value in msg_dict.items():
                         logger.info("  %s: %s", key, _truncate(value, 500))
                 except Exception as e:
                     logger.debug("Could not extract message attributes: %s", e)
-                
+
                 # Try to serialize full message as JSON
                 try:
                     import json
-                    if hasattr(msg, 'model_dump'):
+
+                    if hasattr(msg, "model_dump"):
                         msg_json = msg.model_dump()
-                    elif hasattr(msg, 'dict'):
+                    elif hasattr(msg, "dict"):
                         msg_json = msg.dict()
                     else:
                         msg_json = str(msg)
@@ -410,20 +570,20 @@ class TracingMiddleware(Middleware):
                     logger.info("%s", json.dumps(msg_json, indent=2, default=str))
                 except Exception as e:
                     logger.debug("Could not serialize message to JSON: %s", e)
-            
+
             # Try to access HTTP request headers if available
             logger.info("-" * 80)
             logger.info("HTTP REQUEST HEADERS:")
             try:
                 # Try to get the underlying HTTP request from fastmcp_context
-                fastmcp_ctx = getattr(context, 'fastmcp_context', None)
+                fastmcp_ctx = getattr(context, "fastmcp_context", None)
                 if fastmcp_ctx:
                     # Check for request object
-                    request = getattr(fastmcp_ctx, 'request', None)
-                    if request and hasattr(request, 'headers'):
+                    request = getattr(fastmcp_ctx, "request", None)
+                    if request and hasattr(request, "headers"):
                         for header_name, header_value in request.headers.items():
                             # Redact sensitive headers
-                            if header_name.lower() in ['authorization', 'cookie']:
+                            if header_name.lower() in ["authorization", "cookie"]:
                                 if len(header_value) > 20:
                                     redacted = f"{header_value[:10]}...{header_value[-10:]}"
                                 else:
@@ -437,32 +597,30 @@ class TracingMiddleware(Middleware):
                     logger.info("  No fastmcp_context available")
             except Exception as e:
                 logger.debug("Could not extract HTTP headers: %s", e)
-            
+
             # Log context attributes
             logger.info("-" * 80)
             logger.info("CONTEXT DETAILS:")
             try:
                 ctx_attrs = {}
                 for attr in dir(context):
-                    if not attr.startswith('_') and attr != 'message':
+                    if not attr.startswith("_") and attr != "message":
                         try:
                             val = getattr(context, attr)
                             if not callable(val):
                                 ctx_attrs[attr] = val
                         except Exception:
                             pass
-                
+
                 for key, value in ctx_attrs.items():
                     logger.info("  %s: %s", key, _truncate(value, 200))
             except Exception as e:
                 logger.debug("Could not extract context attributes: %s", e)
-            
+
             logger.info("-" * 80)
 
         span_cm = (
-            _TRACER.start_as_current_span(self._span_name("mcp.list.tools"))
-            if self.enable_tracing
-            else nullcontext()
+            _TRACER.start_as_current_span(self._span_name("mcp.list.tools")) if self.enable_tracing else nullcontext()
         )
 
         with span_cm as span:
@@ -479,18 +637,18 @@ class TracingMiddleware(Middleware):
             if self.log_tools:
                 logger = _get_logger(context)
                 logger.info("Tools returned: %d", n)
-                
+
                 # Log tool names if available
                 try:
                     tools = getattr(result, "tools", result)
                     if tools and n > 0:
-                        tool_names = [getattr(t, 'name', str(t)) for t in tools[:10]]  # First 10
+                        tool_names = [getattr(t, "name", str(t)) for t in tools[:10]]  # First 10
                         logger.info("Tool names (first 10): %s", tool_names)
                         if n > 10:
                             logger.info("... and %d more tools", n - 10)
                 except Exception as e:
                     logger.debug("Could not extract tool names: %s", e)
-                
+
                 logger.info("=" * 80)
 
             if self.enable_tracing:
@@ -529,9 +687,7 @@ class TracingMiddleware(Middleware):
             self._log(context, "list prompts")
 
         span_cm = (
-            _TRACER.start_as_current_span(self._span_name("mcp.prompts.list"))
-            if self.enable_tracing
-            else nullcontext()
+            _TRACER.start_as_current_span(self._span_name("mcp.prompts.list")) if self.enable_tracing else nullcontext()
         )
 
         with span_cm as span:
