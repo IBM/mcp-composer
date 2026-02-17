@@ -32,13 +32,28 @@ from mcp_composer.core.utils import LoggerFactory
 logger = LoggerFactory.get_logger()
 
 # Import auth context helper to get authentication headers
+AUTH_CONTEXT_AVAILABLE = False
 try:
-    from mcp_composer.middleware.auth_context_middleware import get_auth_context
-
+    from mcp_composer.middleware.auth_context_middleware import (
+        AUTH_HEADER_ISV_TOKEN,
+        AUTH_HEADER_PLATFORM_COOKIE,
+        AUTH_HEADER_USER_INSTANCES,
+        AUTH_KEY_COOKIES,
+        AUTH_KEY_ISV_TOKEN,
+        AUTH_KEY_USER_INSTANCES,
+        get_auth_context,
+    )
     AUTH_CONTEXT_AVAILABLE = True
 except ImportError:
-    AUTH_CONTEXT_AVAILABLE = False
+    AUTH_HEADER_ISV_TOKEN = "X-ISV-Token"
+    AUTH_HEADER_PLATFORM_COOKIE = "X-Platform-Cookie"
+    AUTH_HEADER_USER_INSTANCES = "X-User-Instances"
+    AUTH_KEY_COOKIES = "cookies"
+    AUTH_KEY_ISV_TOKEN = "isv_token"
+    AUTH_KEY_USER_INSTANCES = "user_instances"
+    get_auth_context = lambda: None  # type: ignore[assignment]
     logger.debug("AuthContextMiddleware not available - auth context forwarding disabled")
+
 
 
 class LayeredOpenAPIFactory(FastMCP):
@@ -627,16 +642,26 @@ All tools automatically resolve OpenAPI schema references and provide enhanced m
                     auth_context = get_auth_context()
                     if auth_context:
                         # Add ISV token as X-ISV-Token header
-                        if auth_context.get("isv_token"):
-                            auth_headers["X-ISV-Token"] = auth_context["isv_token"]
+                        if auth_context.get(AUTH_KEY_ISV_TOKEN):
+                            auth_headers[AUTH_HEADER_ISV_TOKEN] = auth_context[AUTH_KEY_ISV_TOKEN]
                             logger.debug("Adding ISV token to request for service: %s", service)
 
                         # Add platform cookies as X-Platform-Cookie header
-                        if auth_context.get("cookies"):
-                            cookie_str = "; ".join(f"{name}={value}" for name, value in auth_context["cookies"].items())
+                        if auth_context.get(AUTH_KEY_COOKIES):
+                            cookie_str = "; ".join(
+                                f"{name}={value}"
+                                for name, value in auth_context[AUTH_KEY_COOKIES].items()
+                            )
                             if cookie_str:
-                                auth_headers["X-Platform-Cookie"] = cookie_str
+                                auth_headers[AUTH_HEADER_PLATFORM_COOKIE] = cookie_str
                                 logger.debug("Adding platform cookies to request for service: %s", service)
+
+                        # Add user instances as X-User-Instances header (JSON)
+                        if auth_context.get(AUTH_KEY_USER_INSTANCES):
+                            auth_headers[AUTH_HEADER_USER_INSTANCES] = json.dumps(
+                                auth_context[AUTH_KEY_USER_INSTANCES]
+                            )
+                            logger.debug("Adding user instances to request for service: %s", service)
                 except Exception as e:
                     logger.warning("Failed to extract auth context for service %s: %s", service, e)
 

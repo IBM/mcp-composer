@@ -17,7 +17,10 @@ from mcp_composer.core.auth.jwt import ISVTokenVerifier
 from mcp_composer.core.tools.ibm_document_search_tool import IBMDocumentSearchTool
 from mcp_composer.middleware.tool.tool_filter import ListFilteredTool
 from mcp_composer.middleware import TracingMiddleware
-from mcp_composer.middleware.auth_context_middleware import AuthContextMiddleware
+from mcp_composer.middleware.auth_context_middleware import (
+    AuthContextMiddleware,
+    REQUEST_CONTEXT_KEY,
+)
 from mcp_composer import MCPComposer
 from mcp_composer.core.utils import LoggerFactory
 from mcp_composer.middleware.error_sanitization_middleware import ErrorSanitizationMiddleware
@@ -27,6 +30,17 @@ logger = LoggerFactory.get_logger()
 
 # Load ISV authentication configuration
 environment = os.getenv("ISV_ENVIRONMENT", "test")
+
+# Environment-specific cookie name for ISV authentication
+_COOKIE_BY_ENV = {
+    "test": "mcsp-glb-iam-test",
+    "dev": "mcsp-glb-iam-dev",
+    "prod": "mcsp-glb-iam",
+}
+FORWARD_COOKIES = [
+    _COOKIE_BY_ENV.get(environment, "mcsp-glb-iam-test"),
+    REQUEST_CONTEXT_KEY,
+]
 cache_enabled = os.getenv("ISV_CACHE_ENABLED", "true").lower() == "true"
 cache_ttl = int(os.getenv("ISV_CACHE_TTL", "7200"))
 timeout = float(os.getenv("ISV_REQUEST_TIMEOUT", "30"))
@@ -57,7 +71,7 @@ def setup_middleware(composer: MCPComposer) -> None:
     # This extracts ISV token and cookies from incoming requests
     gw.add_middleware(
         AuthContextMiddleware(
-            forward_cookies=["mcsp-glb-iam-test", "mcsp-glb-iam-dev", "mcsp-glb-iam", "instance_id"],
+            forward_cookies=FORWARD_COOKIES,
             add_isv_token=True,
             add_cookie_header=True,
         )

@@ -7,15 +7,41 @@ ISV tokens and platform cookies to downstream API calls without modifying tool a
 """
 
 import contextvars
-from typing import Any, Dict, Optional
+import json
+import logging
+from typing import Any, Dict, List, Optional
 from fastmcp.server.middleware import Middleware, MiddlewareContext, CallNext
 from mcp_composer.core.utils import LoggerFactory
 
 logger = LoggerFactory.get_logger()
 
+AUTHORIZATION_PREFIX = "ibm-platform"
+
+# Auth context dict keys
+AUTH_KEY_ISV_TOKEN = "isv_token"
+AUTH_KEY_COOKIES = "cookies"
+AUTH_KEY_AUTHENTICATED = "authenticated"
+AUTH_KEY_USER_IDENTITY = "user_identity"
+AUTH_KEY_USER_INSTANCES = "user_instances"
+
+# HTTP header names for auth forwarding
+AUTH_HEADER_ISV_TOKEN = "X-ISV-Token"
+AUTH_HEADER_PLATFORM_COOKIE = "X-Platform-Cookie"
+AUTH_HEADER_USER_INSTANCES = "X-User-Instances"
+
+# Request header names we read from
+HEADER_COOKIE = "cookie"
+HEADER_AUTHORIZATION = "authorization"
+HEADER_USER_INSTANCES = "x-user-instances"
+
+# Cookie key for request context (derived from dashboard URL when not provided)
+REQUEST_CONTEXT_KEY = "x-request-context"
+
 # Module-level context variable to store authentication context
 # This is thread-safe and async-safe via contextvars
-auth_context_var = contextvars.ContextVar("auth_context", default=None)
+auth_context_var: contextvars.ContextVar[Optional[Dict[str, Any]]] = contextvars.ContextVar(
+    "auth_context", default=None
+)
 
 
 class AuthContextMiddleware(Middleware):
@@ -48,19 +74,128 @@ class AuthContextMiddleware(Middleware):
         self.add_isv_token = add_isv_token
         self.add_cookie_header = add_cookie_header
 
+        logger.info(
+            "AuthContextMiddleware initialized (forward_cookies=%s, add_isv_token=%s, add_cookie_header=%s)",
+            self.forward_cookies or "none",
+            self.add_isv_token,
+            self.add_cookie_header,
+        )
+
+    def _get_request(self, context: MiddlewareContext) -> Any:
+        """Get the HTTP request from context, or None if unavailable."""
+        fastmcp_ctx = getattr(context, "fastmcp_context", None)
+        if fastmcp_ctx is None:
+            return None
+        request_context = getattr(fastmcp_ctx, "request_context", None)
+        return getattr(request_context, "request", None) if request_context else None
+
+    def _extract_from_user(self, request: Any, auth_context: Dict[str, Any]) -> None:
+        """Extract ISV token and identity from request.state.user."""
+        request_state = getattr(request, "state", None)
+        if request_state is None or not hasattr(request_state, "user"):
+            return
+        user = request_state.user
+        if hasattr(user, "access_token") and user.access_token:
+            auth_context[AUTH_KEY_ISV_TOKEN] = user.access_token
+            auth_context[AUTH_KEY_AUTHENTICATED] = True
+            logger.debug("Extracted ISV token from authenticated user")
+        if hasattr(user, "identity"):
+            auth_context[AUTH_KEY_USER_IDENTITY] = user.identity
+
+    def _extract_user_instances(
+        self, request: Any, auth_context: Dict[str, Any]
+    ) -> List[Dict[str, Any]]:
+        """Extract user instances from user.identity or X-User-Instances header."""
+        instances: List[Dict[str, Any]] = []
+
+        request_state = getattr(request, "state", None)
+        if request_state and hasattr(request_state, "user"):
+            user = request_state.user
+            if hasattr(user, "identity") and user.identity:
+                identity = user.identity
+                if isinstance(identity, dict):
+                    raw = identity.get("userInstances", identity.get("user_instances"))
+                elif hasattr(identity, "userInstances"):
+                    raw = identity.userInstances
+                elif hasattr(identity, "user_instances"):
+                    raw = identity.user_instances
+                else:
+                    raw = None
+                if isinstance(raw, list):
+                    instances = raw
+
+        if not instances:
+            request_headers = getattr(request, "headers", None)
+            if request_headers and (raw_header := request_headers.get(HEADER_USER_INSTANCES, "")):
+                try:
+                    raw = json.loads(raw_header)
+                    if isinstance(raw, list):
+                        instances = raw
+                except json.JSONDecodeError:
+                    pass
+
+        return instances
+
+    def _update_x_request_context_from_instances(
+        self,
+        auth_context: Dict[str, Any],
+        instances: List[Dict[str, Any]],
+    ) -> None:
+        """
+        Update x-request-context from dashboard URL (host part before ?) when
+        not already provided by the client and x-request-context is in forward_cookies.
+        """
+        if REQUEST_CONTEXT_KEY not in self.forward_cookies:
+            return
+        if auth_context[AUTH_KEY_COOKIES].get(REQUEST_CONTEXT_KEY):
+            return
+        if not instances:
+            return
+
+        first = instances[0]
+        dashboard_url = first.get("dashboardURL") or ""
+        if dashboard_url:
+            host = dashboard_url.split("?")[0].rstrip("/")
+            if host:
+                auth_context[AUTH_KEY_COOKIES][REQUEST_CONTEXT_KEY] = host
+                logger.debug("Set x-request-context from dashboard URL: %s", host[:60])
+
+    def _extract_cookies_and_auth_header(
+        self, request: Any, auth_context: Dict[str, Any]
+    ) -> None:
+        """Extract cookies and fallback ISV token from request headers."""
+        request_headers = getattr(request, "headers", None)
+        if request_headers is None:
+            return
+
         if self.forward_cookies:
-            logger.info(
-                "AuthContextMiddleware initialized (forward_cookies=%s, add_isv_token=%s, add_cookie_header=%s)",
-                self.forward_cookies,
-                self.add_isv_token,
-                self.add_cookie_header,
-            )
-        else:
-            logger.info(
-                "AuthContextMiddleware initialized with NO cookie forwarding (add_isv_token=%s, add_cookie_header=%s)",
-                self.add_isv_token,
-                self.add_cookie_header,
-            )
+            # Parse standard Cookie header
+            cookie_header = request_headers.get(HEADER_COOKIE, "")
+            if cookie_header:
+                for cookie in cookie_header.split(";"):
+                    cookie = cookie.strip()
+                    if "=" in cookie:
+                        name, value = cookie.split("=", 1)
+                        if any(fn in name for fn in self.forward_cookies):
+                            auth_context[AUTH_KEY_COOKIES][name] = value
+                            logger.debug("Extracted cookie from Cookie header: %s", name)
+
+            # Extract from custom headers
+            for cookie_name in self.forward_cookies:
+                if header_value := request_headers.get(cookie_name, ""):
+                    auth_context[AUTH_KEY_COOKIES][cookie_name] = header_value
+                    logger.debug("Extracted cookie from custom header: %s", cookie_name)
+
+        # Fallback: ISV token from Authorization header
+        if auth_context.get(AUTH_KEY_ISV_TOKEN):
+            return
+        auth_header = request_headers.get(HEADER_AUTHORIZATION, "")
+        if auth_header.startswith(AUTHORIZATION_PREFIX):
+            potential_token = auth_header[len(AUTHORIZATION_PREFIX) :].strip()
+            if len(potential_token) > 20:
+                auth_context[AUTH_KEY_ISV_TOKEN] = potential_token
+                auth_context[AUTH_KEY_AUTHENTICATED] = True
+                logger.debug("Extracted ISV token from Authorization header")
 
     def _extract_auth_context(self, context: MiddlewareContext) -> Dict[str, Any]:
         """
@@ -72,63 +207,33 @@ class AuthContextMiddleware(Middleware):
             - cookies: Dict of cookie name -> value for forwarding
             - authenticated: Boolean indicating if user is authenticated
         """
-        auth_context = {"isv_token": None, "cookies": {}, "authenticated": False}
+        auth_context: Dict[str, Any] = {
+            AUTH_KEY_ISV_TOKEN: None,
+            AUTH_KEY_COOKIES: {},
+            AUTH_KEY_AUTHENTICATED: False,
+            AUTH_KEY_USER_INSTANCES: [],
+        }
 
         try:
-            # Navigate to request object
-            if hasattr(context, "fastmcp_context"):
-                fastmcp_ctx = context.fastmcp_context
-                if hasattr(fastmcp_ctx, "request_context"):
-                    request = fastmcp_ctx.request_context.request
+            request = self._get_request(context)
+            if request is None:
+                return auth_context
 
-                    # Extract ISV token from authenticated user
-                    if hasattr(request, "state") and hasattr(request.state, "user"):
-                        user = request.state.user
+            self._extract_from_user(request, auth_context)
+            self._extract_cookies_and_auth_header(request, auth_context)
 
-                        # ISVUser has access_token attribute
-                        if hasattr(user, "access_token") and user.access_token:
-                            auth_context["isv_token"] = user.access_token
-                            auth_context["authenticated"] = True
-                            logger.debug("Extracted ISV token from authenticated user")
-
-                        # Also check for user identity
-                        if hasattr(user, "identity"):
-                            auth_context["user_identity"] = user.identity
-
-                    # Extract cookies from request headers
-                    if hasattr(request, "headers"):
-                        # Method 1: Extract from standard Cookie header
-                        cookie_header = request.headers.get("cookie", "")
-                        if cookie_header:
-                            # Parse cookies
-                            for cookie in cookie_header.split(";"):
-                                cookie = cookie.strip()
-                                if "=" in cookie:
-                                    name, value = cookie.split("=", 1)
-                                    # Check if this is a cookie we want to forward
-                                    if any(forward_name in name for forward_name in self.forward_cookies):
-                                        auth_context["cookies"][name] = value
-                                        logger.debug("Extracted cookie from Cookie header: %s", name)
-
-                        # Method 2: Extract from custom headers (e.g., mcsp-glb-iam-test: value)
-                        # Some clients send cookies as individual headers instead of Cookie header
-                        for cookie_name in self.forward_cookies:
-                            header_value = request.headers.get(cookie_name, "")
-                            if header_value:
-                                auth_context["cookies"][cookie_name] = header_value
-                                logger.debug("Extracted cookie from custom header: %s", cookie_name)
-
-                        # Method 3: Extract ISV token from Authorization header if present
-                        # This handles cases where ISV token is sent directly
-                        auth_header = request.headers.get("authorization", "")
-                        if auth_header.startswith("Bearer ") and not auth_context.get("isv_token"):
-                            # Only use if we don't already have ISV token from user object
-                            potential_token = auth_header[7:]  # Remove "Bearer " prefix
-                            # ISV tokens typically start with specific patterns
-                            if potential_token and len(potential_token) > 20:
-                                auth_context["isv_token"] = potential_token
-                                auth_context["authenticated"] = True
-                                logger.debug("Extracted ISV token from Authorization header")
+            instances = self._extract_user_instances(request, auth_context)
+            if instances:
+                auth_context[AUTH_KEY_USER_INSTANCES] = [
+                    {
+                        "instance_id": i.get("id", ""),
+                        "subscriptionName": (i.get("subscription") or {}).get("subscriptionName", ""),
+                        "productId": (i.get("subscription") or {}).get("productId", ""),
+                        "host": (i.get("dashboardURL") or "").split("?")[0].rstrip("/"),
+                    }
+                    for i in instances
+                ]
+                self._update_x_request_context_from_instances(auth_context, instances)
 
         except Exception as e:
             logger.warning("Failed to extract authentication context: %s", e)
@@ -140,48 +245,39 @@ class AuthContextMiddleware(Middleware):
         Extract authentication context and store in context variable before tool execution.
         """
         tool_name = getattr(context.message, "name", "unknown")
-
-        # Extract authentication context
         auth_context = self._extract_auth_context(context)
-
-        # Store in context variable for access by tools
         auth_context_var.set(auth_context)
 
-        # Log detailed authentication context for debugging
-        logger.info("=" * 80)
-        logger.info("AUTH CONTEXT MIDDLEWARE - EXTRACTED CONTEXT")
-        logger.info("=" * 80)
-        logger.info("Tool: %s", tool_name)
-        logger.info("Authenticated: %s", auth_context["authenticated"])
-        logger.info("ISV Token Present: %s", "isv_token" in auth_context and auth_context["isv_token"] is not None)
-        if "isv_token" in auth_context and auth_context["isv_token"]:
-            token_preview = (
-                auth_context["isv_token"][:20] + "..."
-                if len(auth_context["isv_token"]) > 20
-                else auth_context["isv_token"]
-            )
-            logger.info("ISV Token Preview: %s", token_preview)
-        logger.info("Cookies Count: %d", len(auth_context.get("cookies", {})))
-        for cookie_name, cookie_value in auth_context.get("cookies", {}).items():
-            value_preview = cookie_value[:20] + "..." if len(cookie_value) > 20 else cookie_value
-            logger.info("  Cookie: %s = %s", cookie_name, value_preview)
-        logger.info("=" * 80)
-
-        if auth_context["authenticated"]:
+        # Log at appropriate level: info when authenticated, debug otherwise
+        cookies = auth_context.get(AUTH_KEY_COOKIES, {})
+        if auth_context[AUTH_KEY_AUTHENTICATED]:
+            token_status = "present" if auth_context.get(AUTH_KEY_ISV_TOKEN) else "absent"
             logger.info(
-                "✓ Tool '%s' will execute with authentication context",
+                "Tool '%s' executing with auth (token=%s, cookies=%d)",
                 tool_name,
-                "present" if auth_context["isv_token"] else "absent",
-                len(auth_context["cookies"]),
+                token_status,
+                len(cookies),
             )
         else:
             logger.debug("Tool '%s' executing without authentication context", tool_name)
 
-        # Continue to next middleware/tool
+        if logger.isEnabledFor(logging.DEBUG):
+            token = auth_context.get(AUTH_KEY_ISV_TOKEN)
+            token_preview = f"{token[:20]}..." if token and len(token) > 20 else token
+            cookie_preview = ", ".join(
+                f"{k}={v[:20]}..." if len(v) > 20 else f"{k}={v}"
+                for k, v in cookies.items()
+            )
+            logger.debug(
+                "Auth context: tool=%s, token=%s, cookies=[%s]",
+                tool_name,
+                token_preview,
+                cookie_preview,
+            )
+
         try:
             return await call_next(context)
         finally:
-            # Clean up context variable after tool execution
             auth_context_var.set(None)
 
 
@@ -205,18 +301,16 @@ def get_auth_headers() -> Dict[str, str]:
     Returns:
         Dict of headers to add to HTTP requests
     """
-    headers = {}
     auth_context = get_auth_context()
+    if not auth_context:
+        return {}
 
-    if auth_context:
-        # Add ISV token as X-ISV-Token header
-        if auth_context.get("isv_token"):
-            headers["X-ISV-Token"] = auth_context["isv_token"]
-
-        # Add cookies as X-Platform-Cookie header
-        if auth_context.get("cookies"):
-            cookie_str = "; ".join(f"{name}={value}" for name, value in auth_context["cookies"].items())
-            if cookie_str:
-                headers["X-Platform-Cookie"] = cookie_str
-
+    headers: Dict[str, str] = {}
+    if token := auth_context.get(AUTH_KEY_ISV_TOKEN):
+        headers[AUTH_HEADER_ISV_TOKEN] = token
+    if cookies := auth_context.get(AUTH_KEY_COOKIES):
+        if cookie_str := "; ".join(f"{k}={v}" for k, v in cookies.items()):
+            headers[AUTH_HEADER_PLATFORM_COOKIE] = cookie_str
+    if instances := auth_context.get(AUTH_KEY_USER_INSTANCES):
+        headers[AUTH_HEADER_USER_INSTANCES] = json.dumps(instances)
     return headers

@@ -9,7 +9,8 @@ Tests the enhanced OpenAPI processing capabilities including:
 - Enhanced service information
 """
 
-from unittest.mock import AsyncMock, Mock
+import json
+from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 from fastmcp.server.openapi import MCPType, RouteMap
@@ -300,6 +301,75 @@ class TestLayeredOpenAPIFactory:
         result = await layered_factory.make_tool_call("get_test_data")
         assert result["success"] is False
         assert "error" in result
+
+    @pytest.mark.asyncio
+    async def test_make_tool_call_client_headers_added_to_mcp_request(
+        self, layered_factory, mock_client
+    ):
+        """
+        Test that headers from MCP client (e.g. Inspector) and request headers
+        are merged and added to outgoing MCP requests to member servers.
+        """
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {"result": "success"}
+
+        mock_client.request = AsyncMock(return_value=mock_response)
+
+        # Auth context simulates headers extracted from client (Inspector) request
+        auth_context = {
+            "isv_token": "client-isv-token-from-inspector",
+            "cookies": {"mcsp-glb-iam-test": "session-xyz"},
+            "authenticated": True,
+            "user_instances": [
+                {
+                    "instance_id": "20251128-1445-2831-7084-4a9a364b8b6b",
+                    "subscriptionName": "watsonx.data",
+                    "productId": "lakehouse",
+                    "host": "https://console-aws-cacentral1.lakehouse.dev.saas.ibm.com/v1/ams/iam/sso",
+                },
+            ],
+        }
+
+        # Request includes headers passed in tool call (e.g. X-Request-Id from client)
+        request = {
+            "path_params": {},
+            "query_params": {},
+            "headers": {
+                "X-Request-Id": "inspector-request-123",
+                "X-Custom-Client-Header": "client-value",
+            },
+            "body": None,
+        }
+
+        with patch(
+            "mcp_composer.core.member_servers.layered_factory_oa.get_auth_context",
+            return_value=auth_context,
+        ):
+            result = await layered_factory.make_tool_call("get_test_data", request)
+
+        assert result["success"] is True
+
+        # Verify client.request was called with merged headers
+        call_kwargs = mock_client.request.call_args.kwargs
+        headers = call_kwargs.get("headers", {})
+
+        # Auth headers from client (Inspector) should be present
+        assert headers.get("X-ISV-Token") == "client-isv-token-from-inspector"
+        assert "mcsp-glb-iam-test=session-xyz" in headers.get("X-Platform-Cookie", "")
+
+        # Request headers from tool call should be present
+        assert headers.get("X-Request-Id") == "inspector-request-123"
+        assert headers.get("X-Custom-Client-Header") == "client-value"
+
+        # User instances from auth context should be present
+        user_instances_json = headers.get("X-User-Instances")
+        assert user_instances_json
+        user_instances = json.loads(user_instances_json)
+        assert len(user_instances) == 1
+        assert user_instances[0]["instance_id"] == "20251128-1445-2831-7084-4a9a364b8b6b"
+        assert user_instances[0]["subscriptionName"] == "watsonx.data"
+        assert user_instances[0]["productId"] == "lakehouse"
 
     def test_layered_factory_with_custom_routes(self, mock_openapi_spec, mock_client):
         """Test LayeredOpenAPIFactory with custom routes."""

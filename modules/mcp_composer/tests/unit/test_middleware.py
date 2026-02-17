@@ -4,6 +4,10 @@ from unittest.mock import AsyncMock, Mock
 import pytest
 from fastmcp.exceptions import ToolError
 
+from mcp_composer.middleware.auth_context_middleware import (
+    AuthContextMiddleware,
+    get_auth_headers,
+)
 from mcp_composer.middleware.circuit_breaker import CircuitBreakerMiddleware
 from mcp_composer.middleware.error_sanitization_middleware import (
     ErrorSanitizationMiddleware,
@@ -564,6 +568,175 @@ async def test_error_sanitization_statistics():
 
     middleware.reset_statistics()
     assert middleware.get_error_statistics() == {}
+
+
+# ============================================================================
+# Auth Context Middleware - Client Headers to MCP Headers
+# ============================================================================
+
+
+@pytest.mark.asyncio
+async def test_auth_context_client_headers_added_to_mcp_headers():
+    """
+    Test that headers from MCP client (e.g. Inspector) are extracted and
+    added to MCP headers for downstream requests.
+    """
+    middleware = AuthContextMiddleware(
+        forward_cookies=["mcsp-glb-iam-test", "x-request-context"],
+    )
+
+    # Simulate client (Inspector) sending Cookie and Authorization headers
+    mock_request = Mock()
+    mock_request.headers = {
+        "cookie": "mcsp-glb-iam-test=session-abc-123; other=ignored",
+        "authorization": "ibm-platform eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.dozjgNryP4J3jVmNHl0w5N_XgL0n3I9PlFUP0THsR8U",
+    }
+    mock_request.state = Mock()
+    mock_request.state.user = None
+
+    mock_request_context = Mock()
+    mock_request_context.request = mock_request
+
+    mock_fastmcp_ctx = Mock()
+    mock_fastmcp_ctx.request_context = mock_request_context
+
+    context = Mock()
+    context.fastmcp_context = mock_fastmcp_ctx
+    context.message = Mock()
+    context.message.name = "make_tool_call"
+
+    captured_headers = {}
+
+    async def capture_headers(_context):
+        captured_headers.update(get_auth_headers())
+        return {"success": True}
+
+    call_next = AsyncMock(side_effect=capture_headers)
+
+    result = await middleware.on_call_tool(context, call_next)
+
+    # Verify get_auth_headers (called during tool execution) returns headers for MCP
+    assert "X-ISV-Token" in captured_headers
+    assert captured_headers["X-ISV-Token"].startswith("eyJ")
+    assert "X-Platform-Cookie" in captured_headers
+    assert "mcsp-glb-iam-test=session-abc-123" in captured_headers["X-Platform-Cookie"]
+
+    assert result == {"success": True}
+
+
+@pytest.mark.asyncio
+async def test_auth_context_client_cookie_forwarded_to_mcp():
+    """Test that Cookie header from client is forwarded as X-Platform-Cookie."""
+    middleware = AuthContextMiddleware(
+        forward_cookies=["mcsp-glb-iam-test"],
+    )
+
+    mock_request = Mock()
+    mock_request.headers = {
+        "cookie": "mcsp-glb-iam-test=inspector-session-xyz",
+    }
+    mock_request.state = Mock()
+    mock_request.state.user = None
+
+    context = Mock()
+    context.fastmcp_context = Mock()
+    context.fastmcp_context.request_context = Mock()
+    context.fastmcp_context.request_context.request = mock_request
+    context.message = Mock()
+    context.message.name = "test_tool"
+
+    captured = {}
+
+    async def capture(_context):
+        captured.update(get_auth_headers())
+        return "ok"
+
+    await middleware.on_call_tool(context, AsyncMock(side_effect=capture))
+
+    assert captured.get("X-Platform-Cookie") == "mcsp-glb-iam-test=inspector-session-xyz"
+
+
+@pytest.mark.asyncio
+async def test_auth_context_client_custom_header_forwarded():
+    """Test that custom header (e.g. mcsp-glb-iam-test as header) from client is forwarded."""
+    middleware = AuthContextMiddleware(
+        forward_cookies=["mcsp-glb-iam-test"],
+    )
+
+    mock_request = Mock()
+    mock_request.headers = {
+        "mcsp-glb-iam-test": "header-based-session-value",
+    }
+    mock_request.state = Mock()
+    mock_request.state.user = None
+
+    context = Mock()
+    context.fastmcp_context = Mock()
+    context.fastmcp_context.request_context = Mock()
+    context.fastmcp_context.request_context.request = mock_request
+    context.message = Mock()
+    context.message.name = "test_tool"
+
+    captured = {}
+
+    async def capture(_context):
+        captured.update(get_auth_headers())
+        return "ok"
+
+    await middleware.on_call_tool(context, AsyncMock(side_effect=capture))
+
+    assert captured.get("X-Platform-Cookie") == "mcsp-glb-iam-test=header-based-session-value"
+
+
+@pytest.mark.asyncio
+async def test_auth_context_user_instances_extracted_and_forwarded():
+    """Test that userInstances from header are normalized and forwarded as X-User-Instances."""
+    import json
+
+    middleware = AuthContextMiddleware(forward_cookies=[])
+
+    raw_instances = [
+        {
+            "id": "20251128-1445-2831-7084-4a9a364b8b6b",
+            "subscriptionId": "20240430-2249-3023-2003-c61c1ea9c579",
+            "name": "solisams",
+            "dashboardURL": "https://console-aws-cacentral1.lakehouse.dev.saas.ibm.com/v1/ams/iam/sso?crn=crn:v1:aws-staging:public:lakehouse:ca-central-1:sub/20240430-2249-3023-2003-c61c1ea9c579:20251128-1445-2831-7084-4a9a364b8b6b::&mcsp_metadata=eyJjcm4iOiJjcm46djE6YXdzLXN0YWdpbmc6cHVibGljOmxha2Vob3VzZTpjYS1jZW50cmFsLTE6c3ViLzIwMjQwNDMwLTIyNDktMzAyMy0yMDAzLWM2MWMxZWE5YzU3OToyMDI1MTEyOC0xNDQ1LTI4MzEtNzA4NC00YTlhMzY0YjhiNmI6OiIsIm9wX2FjY291bnRfaWQiOiIyMDI0MDQzMC0yMjQxLTI2NjgtNjBlMS1mMzQ3MzM2NDM0ZjEifQ",
+            "subscription": {
+                "subscriptionName": "watsonx.data",
+                "productId": "lakehouse",
+            },
+        },
+    ]
+
+    mock_request = Mock()
+    mock_request.headers = {
+        "x-user-instances": json.dumps(raw_instances),
+    }
+    mock_request.state = Mock()
+    mock_request.state.user = None
+
+    context = Mock()
+    context.fastmcp_context = Mock()
+    context.fastmcp_context.request_context = Mock()
+    context.fastmcp_context.request_context.request = mock_request
+    context.message = Mock()
+    context.message.name = "test_tool"
+
+    captured = {}
+
+    async def capture(_context):
+        captured.update(get_auth_headers())
+        return "ok"
+
+    await middleware.on_call_tool(context, AsyncMock(side_effect=capture))
+
+    assert "X-User-Instances" in captured
+    parsed = json.loads(captured["X-User-Instances"])
+    assert len(parsed) == 1
+    assert parsed[0]["instance_id"] == "20251128-1445-2831-7084-4a9a364b8b6b"
+    assert parsed[0]["subscriptionName"] == "watsonx.data"
+    assert parsed[0]["productId"] == "lakehouse"
+    assert parsed[0]["host"] == "https://console-aws-cacentral1.lakehouse.dev.saas.ibm.com/v1/ams/iam/sso"
 
 
 # ============================================================================
