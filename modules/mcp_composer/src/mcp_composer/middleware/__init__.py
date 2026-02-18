@@ -8,6 +8,7 @@ This module provides various middleware implementations including:
 - Rate limiting
 - PII and secrets handling
 - XML to JSON conversion
+- Tracing and logging
 """
 
 from .prompt_injection import PromptInjectionMiddleware
@@ -19,6 +20,7 @@ from .xml2json import FormatXml2Json
 from .json_extraction_middleware import JSONExtractionMiddleware
 from .error_sanitization_middleware import ErrorSanitizationMiddleware
 
+from .tracing_middleware import TracingMiddleware
 
 __all__ = [
     "PromptInjectionMiddleware",
@@ -29,6 +31,6 @@ __all__ = [
     "RedactionStrategy",
     "FormatXml2Json",
     "JSONExtractionMiddleware",
-    "ErrorSanitizationMiddleware"
-
+    "ErrorSanitizationMiddleware",
+    "TracingMiddleware",
 ]

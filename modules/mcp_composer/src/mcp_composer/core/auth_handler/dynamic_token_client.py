@@ -150,7 +150,20 @@ class DynamicTokenClient(httpx.AsyncClient):
                 response = await super().post(token_url, headers=headers, data=data)
 
             # Check if we got a valid token even with a 401 status (some APIs do this)
-            token_data = response.json()
+            try:
+                token_data = response.json()
+            except Exception as json_error:
+                logger.error(
+                    "Failed to parse token response as JSON. Status: %s, Content-Type: %s, Body: %s",
+                    response.status_code,
+                    response.headers.get("content-type", "unknown"),
+                    response.text[:500] if response.text else "(empty)"
+                )
+                raise ValueError(
+                    f"Token endpoint returned invalid JSON (status {response.status_code}). "
+                    f"Content-Type: {response.headers.get('content-type', 'unknown')}. "
+                    f"Body preview: {response.text[:200] if response.text else '(empty)'}"
+                ) from json_error
 
             self._access_token = token_data.get("access_token") or token_data.get(
                 "token"
