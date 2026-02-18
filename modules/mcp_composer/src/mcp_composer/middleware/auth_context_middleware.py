@@ -273,8 +273,13 @@ class AuthContextMiddleware(Middleware):
     async def on_call_tool(self, context: MiddlewareContext, call_next: CallNext):
         """
         Extract authentication context and store in context variable before tool execution.
+        Only runs when the tool name contains "gurdium init".
         """
         tool_name = getattr(context.message, "name", "unknown")
+        logger.info("Tool name: %s", tool_name)
+        if "gurdium" not in tool_name.lower():
+            return await call_next(context)
+
         auth_context = self._extract_auth_context(context)
         auth_context_var.set(auth_context)
 
