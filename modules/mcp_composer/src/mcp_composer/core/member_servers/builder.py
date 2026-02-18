@@ -369,6 +369,7 @@ class MCPServerBuilder:
             mcp = LayeredOpenAPIFactory(
                 openapi_spec=spec,
                 client=http_client,
+                server_id=self.mcp_id,  # Pass server_id for authorization
                 custom_routes=custom_mappings,
                 custom_routes_exclude_all=exclude_all_route,
                 tool_descriptions=tool_descriptions,

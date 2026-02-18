@@ -38,22 +38,26 @@ try:
         AUTH_HEADER_ISV_TOKEN,
         AUTH_HEADER_PLATFORM_COOKIE,
         AUTH_HEADER_USER_INSTANCES,
+        AUTH_KEY_AUTH_TOKEN,
         AUTH_KEY_COOKIES,
         AUTH_KEY_ISV_TOKEN,
         AUTH_KEY_USER_INSTANCES,
+        AUTH_KEY_USER_INSTANCES_FULL,
         get_auth_context,
     )
+
     AUTH_CONTEXT_AVAILABLE = True
 except ImportError:
     AUTH_HEADER_ISV_TOKEN = "X-ISV-Token"
     AUTH_HEADER_PLATFORM_COOKIE = "X-Platform-Cookie"
     AUTH_HEADER_USER_INSTANCES = "X-User-Instances"
+    AUTH_KEY_AUTH_TOKEN = "auth_token"
     AUTH_KEY_COOKIES = "cookies"
     AUTH_KEY_ISV_TOKEN = "isv_token"
     AUTH_KEY_USER_INSTANCES = "user_instances"
+    AUTH_KEY_USER_INSTANCES_FULL = "user_instances_full"
     get_auth_context = lambda: None  # type: ignore[assignment]
     logger.debug("AuthContextMiddleware not available - auth context forwarding disabled")
-
 
 
 class LayeredOpenAPIFactory(FastMCP):
@@ -61,6 +65,7 @@ class LayeredOpenAPIFactory(FastMCP):
         self,
         openapi_spec: dict[str, Any],
         client: httpx.AsyncClient,
+        server_id: str = "unknown",  # NEW: Server ID for authorization
         custom_routes: list[RouteMap] | None = None,
         custom_routes_exclude_all: (list[RouteMap] | None) = None,  # pylint: disable=unused-argument
         tool_descriptions: dict[str, str] | None = None,
@@ -119,9 +124,12 @@ All tools automatically resolve OpenAPI schema references and provide enhanced m
 
         self.openapi_spec = openapi_spec
         self.client = client
+        self.server_id = server_id  # Store server_id for authorization
         self.custom_routes = custom_routes or []
         self.service_info = self._build_service_metadata()
         self._tool_descriptions = tool_descriptions or {}
+
+        logger.info("LayeredOpenAPIFactory initialized with server_id: %s", self.server_id)
 
         # Create the underlying FastMCP server with custom routes
         # self._mcp_server = FastMCP.from_openapi(self.openapi_spec,
@@ -176,6 +184,177 @@ All tools automatically resolve OpenAPI schema references and provide enhanced m
         if not isinstance(value, str):
             value = ""
         return value.strip() or fallback
+
+    def _authorize_and_select_instance(
+        self,
+        instances: List[Dict[str, Any]],
+        server_id: str,
+    ) -> Optional[Dict[str, Any]]:
+        """
+        Authorize user access by matching server_id with subscriptionName.
+        Returns the first matching active instance or None if unauthorized.
+        
+        Matching Strategy:
+        1. Exact match: server_id == subscriptionName (case-insensitive)
+        2. Fuzzy match: Extract key after "mcp-" prefix and check if it's contained
+           in subscriptionName (case-insensitive substring search)
+           Example: "mcp-gurdium" matches "Guardium Data Security Center SaaS"
+
+        Args:
+            instances: List of user instances from x-user-instances
+            server_id: The MCP server ID (e.g., "mcp-gurdium", "watsonx.data")
+
+        Returns:
+            Matched instance dict or None if no authorization match found
+        """
+        if not instances:
+            logger.warning("No user instances available for authorization")
+            return None
+
+        # Find all instances matching the server_id (subscriptionName)
+        matching_instances = [
+            inst
+            for inst in instances
+            if (inst.get("subscription") or {}).get("subscriptionName") == server_id
+            and inst.get("state") == "active"  # Only active instances
+        ]
+
+        if matching_instances:
+            # Exact match found
+            selected = matching_instances[0]
+            logger.info(
+                "✓ Authorization successful (exact match): server_id '%s' matched subscription '%s'",
+                server_id,
+                (selected.get("subscription") or {}).get("subscriptionName"),
+            )
+            return selected
+        
+        # Try fuzzy match: extract key from server_id and check if it's contained in subscriptionName
+        # Normalize by replacing hyphens, dots, and spaces to handle variations like:
+        # 'mcp-watsonx-data' -> 'watsonxdata' matches 'watsonx.data' -> 'watsonxdata'
+        # 'mcp-gurdium' -> 'gurdium' matches 'Guardium Data Security Center SaaS' -> 'guardiumdatasecuritycentersaas'
+        search_key = server_id.lower()
+        if search_key.startswith("mcp-"):
+            search_key = search_key[4:]  # Remove 'mcp-' prefix
+        
+        # Normalize: remove hyphens, dots, spaces for flexible matching
+        search_key_normalized = search_key.replace("-", "").replace(".", "").replace(" ", "")
+        
+        logger.info("DEBUG: Trying fuzzy match with search_key='%s' (normalized='%s', from server_id='%s')",
+                   search_key, search_key_normalized, server_id)
+        
+        # Debug: Log all subscription names being checked
+        for inst in instances:
+            sub_name = (inst.get("subscription") or {}).get("subscriptionName", "")
+            sub_name_normalized = sub_name.lower().replace("-", "").replace(".", "").replace(" ", "")
+            is_match = search_key_normalized in sub_name_normalized
+            logger.info(
+                "DEBUG:   Checking instance: subscription='%s' (normalized='%s'), search_key_normalized='%s' in subscription=%s, state='%s'",
+                sub_name,
+                sub_name_normalized,
+                search_key_normalized,
+                is_match,
+                inst.get("state"),
+            )
+        
+        fuzzy_matches = [
+            inst
+            for inst in instances
+            if search_key_normalized in ((inst.get("subscription") or {}).get("subscriptionName", "")).lower().replace("-", "").replace(".", "").replace(" ", "")
+            and inst.get("state") == "active"
+        ]
+        
+        if fuzzy_matches:
+            selected = fuzzy_matches[0]
+            subscription_name = (selected.get("subscription") or {}).get("subscriptionName")
+            logger.info(
+                "✓ Authorization successful (fuzzy match): server_id '%s' (key='%s') matched subscription '%s'",
+                server_id,
+                search_key,
+                subscription_name,
+            )
+            logger.info(
+                "  Instance: id='%s', name='%s'",
+                selected.get("id"),
+                selected.get("name"),
+            )
+            return selected
+        
+        # No match found - user is not authorized
+        available_subscriptions = list(set([
+            (inst.get("subscription") or {}).get("subscriptionName", "unknown") for inst in instances
+        ]))
+        logger.warning(
+            "Authorization failed: server_id '%s' (search_key='%s') not found in user subscriptions. Available: %s",
+            server_id,
+            search_key,
+            available_subscriptions,
+        )
+        return None
+
+    def _extract_host_from_instance(self, instance: Dict[str, Any]) -> Optional[str]:
+        """
+        Extract the base host URL from an instance's dashboardURL.
+
+        Args:
+            instance: Instance dictionary containing dashboardURL
+
+        Returns:
+            Base URL (e.g., "https://console-aws-cacentral1.lakehouse.dev.saas.ibm.com")
+            or None if not available
+        """
+        dashboard_url = instance.get("dashboardURL", "")
+        if not dashboard_url:
+            logger.warning("No dashboardURL found in instance")
+            return None
+
+        # Extract host part (everything before the query string)
+        host = dashboard_url.split("?")[0].rstrip("/")
+
+        # Extract base URL (protocol + domain, without path)
+        try:
+            from urllib.parse import urlparse
+
+            parsed = urlparse(host)
+            if parsed.scheme and parsed.netloc:
+                base_url = f"{parsed.scheme}://{parsed.netloc}"
+                logger.debug("Extracted host from dashboardURL: %s", base_url)
+                return base_url
+        except Exception as e:
+            logger.warning("Failed to parse dashboardURL '%s': %s", dashboard_url, e)
+
+        return None
+
+    def _build_instance_headers(self, instance: Dict[str, Any]) -> Dict[str, str]:
+        """
+        Build instance-specific headers from instance data.
+
+        Args:
+            instance: Instance dictionary
+
+        Returns:
+            Dict of headers to add to the request
+        """
+        headers: Dict[str, str] = {}
+
+        if instance_id := instance.get("id"):
+            headers["X-Request-Context"] = instance_id
+
+        if instance_name := instance.get("name"):
+            headers["X-Instance-Name"] = instance_name
+
+        if subscription_id := instance.get("subscriptionId"):
+            headers["X-Subscription-Id"] = subscription_id
+
+        if subscription := instance.get("subscription"):
+            if product_id := subscription.get("productId"):
+                headers["X-Product-Id"] = product_id
+
+        if region := instance.get("deploymentRegion"):
+            headers["X-Deployment-Region"] = region
+
+        logger.debug("Built instance headers: %s", list(headers.keys()))
+        return headers
 
     def _resolve_schema_reference(self, ref: str) -> Dict[str, Any]:
         """
@@ -637,10 +816,100 @@ All tools automatically resolve OpenAPI schema references and provide enhanced m
 
             # Get authentication context and build auth headers
             auth_headers = {}
+            selected_instance = None
+            instance_host = None
+
             if AUTH_CONTEXT_AVAILABLE:
                 try:
                     auth_context = get_auth_context()
+                    logger.debug("Auth context retrieved: %s", auth_context)
                     if auth_context:
+                        # AUTHORIZATION CHECK: Get full instance data
+                        instances_full = auth_context.get(AUTH_KEY_USER_INSTANCES_FULL, [])
+                        
+                        logger.info("DEBUG: instances_full type=%s, length=%d", type(instances_full).__name__, len(instances_full))
+                        if instances_full:
+                            logger.info("DEBUG: First instance keys: %s", list(instances_full[0].keys()) if instances_full else "N/A")
+                            logger.info("DEBUG: First instance subscription: %s",
+                                       (instances_full[0].get("subscription") or {}) if instances_full else "N/A")
+
+                        if not instances_full:
+                            logger.warning("No user instances found in auth context for service: %s", service)
+                            return {
+                                "error": "Unauthorized",
+                                "message": "No user instances available for authorization",
+                                "status_code": 401,
+                                "service": service,
+                                "server_id": self.server_id,
+                            }
+
+                        # AUTHORIZATION: Match server_id with subscriptionName
+                        logger.info("DEBUG: Calling _authorize_and_select_instance with server_id='%s'", self.server_id)
+                        selected_instance = self._authorize_and_select_instance(
+                            instances_full,
+                            self.server_id,
+                        )
+                        logger.info("DEBUG: _authorize_and_select_instance returned: %s",
+                                   "instance found" if selected_instance else "None")
+
+                        if not selected_instance:
+                            # User is not authorized for this server
+                            available_subs = list(
+                                set(
+                                    [
+                                        (i.get("subscription") or {}).get("subscriptionName", "unknown")
+                                        for i in instances_full
+                                    ]
+                                )
+                            )
+                            logger.error(
+                                "Authorization failed for service '%s': server_id '%s' not in user subscriptions %s",
+                                service,
+                                self.server_id,
+                                available_subs,
+                            )
+                            return {
+                                "error": "Unauthorized",
+                                "message": f"Access denied: You don't have access to '{self.server_id}'. "
+                                f"Available subscriptions: {', '.join(available_subs)}",
+                                "status_code": 401,
+                                "service": service,
+                                "server_id": self.server_id,
+                                "available_subscriptions": available_subs,
+                            }
+
+                        # ROUTING: Extract host for dynamic routing
+                        instance_host = self._extract_host_from_instance(selected_instance)
+                        if instance_host:
+                            logger.info("✓ Using instance-specific host: %s", instance_host)
+
+                        # HEADERS: Build instance-specific headers
+                        instance_headers = self._build_instance_headers(selected_instance)
+                        auth_headers.update(instance_headers)
+
+                        logger.info(
+                            "✓ Authorized and routed: server_id='%s', instance='%s' (name=%s), host=%s",
+                            self.server_id,
+                            selected_instance.get("id"),
+                            selected_instance.get("name"),
+                            instance_host or "default",
+                        )
+
+                        # Check for auth_token (cookie-based authorization)
+                        # If present, use it as Authorization header with "ibm-platform" prefix
+                        auth_token_value = auth_context.get(AUTH_KEY_AUTH_TOKEN)
+                        logger.debug("AUTH_KEY_AUTH_TOKEN value: %s", auth_token_value)
+                        if auth_token_value:
+                            # Format: "ibm-platform {cookie_value}"
+                            auth_headers["Authorization"] = f"ibm-platform {auth_token_value}"
+                            logger.info(
+                                "✓ Using cookie-based authorization (ibm-platform %s) for service: %s",
+                                auth_token_value[:20] + "..." if len(auth_token_value) > 20 else auth_token_value,
+                                service,
+                            )
+                        else:
+                            logger.debug("No auth_token found in context, will use OAuth2 Bearer token")
+
                         # Add ISV token as X-ISV-Token header
                         if auth_context.get(AUTH_KEY_ISV_TOKEN):
                             auth_headers[AUTH_HEADER_ISV_TOKEN] = auth_context[AUTH_KEY_ISV_TOKEN]
@@ -649,8 +918,7 @@ All tools automatically resolve OpenAPI schema references and provide enhanced m
                         # Add platform cookies as X-Platform-Cookie header
                         if auth_context.get(AUTH_KEY_COOKIES):
                             cookie_str = "; ".join(
-                                f"{name}={value}"
-                                for name, value in auth_context[AUTH_KEY_COOKIES].items()
+                                f"{name}={value}" for name, value in auth_context[AUTH_KEY_COOKIES].items()
                             )
                             if cookie_str:
                                 auth_headers[AUTH_HEADER_PLATFORM_COOKIE] = cookie_str
@@ -658,18 +926,31 @@ All tools automatically resolve OpenAPI schema references and provide enhanced m
 
                         # Add user instances as X-User-Instances header (JSON)
                         if auth_context.get(AUTH_KEY_USER_INSTANCES):
-                            auth_headers[AUTH_HEADER_USER_INSTANCES] = json.dumps(
-                                auth_context[AUTH_KEY_USER_INSTANCES]
-                            )
+                            auth_headers[AUTH_HEADER_USER_INSTANCES] = json.dumps(auth_context[AUTH_KEY_USER_INSTANCES])
                             logger.debug("Adding user instances to request for service: %s", service)
                 except Exception as e:
-                    logger.warning("Failed to extract auth context for service %s: %s", service, e)
+                    logger.error("Failed to process auth context for service %s: %s", service, e)
+                    return {
+                        "error": "Authorization Error",
+                        "message": f"Failed to process authorization: {str(e)}",
+                        "status_code": 500,
+                        "service": service,
+                    }
 
             # Merge request headers with auth headers (auth headers take precedence)
             final_headers = {**request_headers, **auth_headers}
 
-            # Build full URL
-            base_url = str(self.client.base_url) if self.client.base_url else ""
+            # Build full URL with instance host override
+            if instance_host:
+                # Use instance-specific host from authorized instance
+                base_url = instance_host
+                logger.info("Using instance-specific host: %s", base_url)
+            else:
+                # Fallback to default client base_url
+                base_url = str(self.client.base_url) if self.client.base_url else ""
+                if not instance_host and AUTH_CONTEXT_AVAILABLE:
+                    logger.warning("No instance host found, using default: %s", base_url)
+
             full_url = f"{base_url}{url_path}"
 
             # Log outgoing HTTP request details
@@ -737,22 +1018,50 @@ All tools automatically resolve OpenAPI schema references and provide enhanced m
             logger.info("=" * 80)
 
             # Make the actual HTTP request with merged headers
-            response = await self.client.request(
-                method=http_method,
-                url=url_path,
-                params=query_params,
-                headers=final_headers,  # Use merged headers (request + auth)
-                json=request_body,
-            )
+            # If we have cookie-based auth, use a plain httpx client to avoid OAuth2 override
+            if auth_headers.get("Authorization"):
+                logger.info("✓ Using plain HTTP client with cookie-based authorization")
+                # Create a plain httpx client without OAuth2 auth
+                async with httpx.AsyncClient(
+                    base_url=self.client.base_url,
+                    timeout=self.client.timeout if hasattr(self.client, "timeout") else 30.0,
+                ) as plain_client:
+                    response = await plain_client.request(
+                        method=http_method,
+                        url=url_path,
+                        params=query_params,
+                        headers=final_headers,
+                        json=request_body,
+                    )
+            else:
+                logger.debug("Using OAuth2 client for authentication")
+                # Use the OAuth2 client
+                response = await self.client.request(
+                    method=http_method,
+                    url=url_path,
+                    params=query_params,
+                    headers=final_headers,
+                    json=request_body,
+                )
 
             # Log the actual headers that were sent (including auth headers added by httpx)
             logger.info("-" * 80)
             logger.info("ACTUAL HEADERS SENT (including httpx-added headers):")
-            if hasattr(response, "request") and hasattr(response.request, "headers") and hasattr(response.request.headers, "items"):
+            if (
+                hasattr(response, "request")
+                and hasattr(response.request, "headers")
+                and hasattr(response.request.headers, "items")
+            ):
                 try:
                     for header_name, header_value in response.request.headers.items():
                         # Redact sensitive headers
-                        if header_name.lower() in ["authorization", "api-key", "x-api-key", "client-id", "client-secret"]:
+                        if header_name.lower() in [
+                            "authorization",
+                            "api-key",
+                            "x-api-key",
+                            "client-id",
+                            "client-secret",
+                        ]:
                             if len(str(header_value)) > 20:
                                 redacted = f"{str(header_value)[:10]}...{str(header_value)[-10:]}"
                             else:

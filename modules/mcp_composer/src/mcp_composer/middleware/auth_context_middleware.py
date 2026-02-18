@@ -22,7 +22,9 @@ AUTH_KEY_ISV_TOKEN = "isv_token"
 AUTH_KEY_COOKIES = "cookies"
 AUTH_KEY_AUTHENTICATED = "authenticated"
 AUTH_KEY_USER_IDENTITY = "user_identity"
-AUTH_KEY_USER_INSTANCES = "user_instances"
+AUTH_KEY_USER_INSTANCES = "user_instances"  # Simplified instance data (backward compatibility)
+AUTH_KEY_USER_INSTANCES_FULL = "user_instances_full"  # Full instance data for authorization
+AUTH_KEY_AUTH_TOKEN = "auth_token"  # Cookie value to use as Authorization header
 
 # HTTP header names for auth forwarding
 AUTH_HEADER_ISV_TOKEN = "X-ISV-Token"
@@ -66,6 +68,8 @@ class AuthContextMiddleware(Middleware):
         forward_cookies: Optional[list[str]] = None,
         add_isv_token: bool = True,
         add_cookie_header: bool = True,
+        use_cookie_as_auth: bool = False,
+        auth_cookie_name: str = "mcsp-glb-iam-test",
         **kwargs,
     ):
         super().__init__(**kwargs)
@@ -73,12 +77,16 @@ class AuthContextMiddleware(Middleware):
         self.forward_cookies = forward_cookies if forward_cookies is not None else []
         self.add_isv_token = add_isv_token
         self.add_cookie_header = add_cookie_header
+        self.use_cookie_as_auth = use_cookie_as_auth
+        self.auth_cookie_name = auth_cookie_name
 
         logger.info(
-            "AuthContextMiddleware initialized (forward_cookies=%s, add_isv_token=%s, add_cookie_header=%s)",
+            "AuthContextMiddleware initialized (forward_cookies=%s, add_isv_token=%s, add_cookie_header=%s, use_cookie_as_auth=%s, auth_cookie_name=%s)",
             self.forward_cookies or "none",
             self.add_isv_token,
             self.add_cookie_header,
+            self.use_cookie_as_auth,
+            self.auth_cookie_name,
         )
 
     def _get_request(self, context: MiddlewareContext) -> Any:
@@ -211,7 +219,9 @@ class AuthContextMiddleware(Middleware):
             AUTH_KEY_ISV_TOKEN: None,
             AUTH_KEY_COOKIES: {},
             AUTH_KEY_AUTHENTICATED: False,
-            AUTH_KEY_USER_INSTANCES: [],
+            AUTH_KEY_USER_INSTANCES: [],  # Simplified format (backward compatibility)
+            AUTH_KEY_USER_INSTANCES_FULL: [],  # Full instance data for authorization
+            AUTH_KEY_AUTH_TOKEN: None,  # Cookie value for Authorization header
         }
 
         try:
@@ -221,9 +231,29 @@ class AuthContextMiddleware(Middleware):
 
             self._extract_from_user(request, auth_context)
             self._extract_cookies_and_auth_header(request, auth_context)
+            
+            # If use_cookie_as_auth is enabled, extract the auth cookie value
+            if self.use_cookie_as_auth:
+                logger.debug("use_cookie_as_auth is enabled, auth_cookie_name: %s", self.auth_cookie_name)
+                logger.debug("Available cookies: %s", list(auth_context[AUTH_KEY_COOKIES].keys()))
+                if self.auth_cookie_name in auth_context[AUTH_KEY_COOKIES]:
+                    cookie_value = auth_context[AUTH_KEY_COOKIES][self.auth_cookie_name]
+                    auth_context[AUTH_KEY_AUTH_TOKEN] = cookie_value
+                    logger.info("✓ Extracted auth token from cookie '%s': %s",
+                               self.auth_cookie_name,
+                               cookie_value[:20] + "..." if len(cookie_value) > 20 else cookie_value)
+                else:
+                    logger.warning("✗ Cookie '%s' not found in request cookies", self.auth_cookie_name)
+            else:
+                logger.debug("use_cookie_as_auth is disabled")
 
             instances = self._extract_user_instances(request, auth_context)
             if instances:
+                # Store full instance data for authorization and routing
+                auth_context[AUTH_KEY_USER_INSTANCES_FULL] = instances
+                logger.debug("Stored %d full user instances for authorization", len(instances))
+                
+                # Keep simplified format for backward compatibility
                 auth_context[AUTH_KEY_USER_INSTANCES] = [
                     {
                         "instance_id": i.get("id", ""),

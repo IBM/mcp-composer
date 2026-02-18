@@ -69,14 +69,19 @@ def setup_middleware(composer: MCPComposer) -> None:
     """Configure and register middleware components."""
     # Add AuthContextMiddleware FIRST (highest priority)
     # This extracts ISV token and cookies from incoming requests
+    # Cookie-based authorization: Uses platform session cookie value as Authorization header
+    auth_cookie_name = _COOKIE_BY_ENV.get(environment, "mcsp-glb-iam-test")
     gw.add_middleware(
         AuthContextMiddleware(
             forward_cookies=FORWARD_COOKIES,
             add_isv_token=True,
             add_cookie_header=True,
+            use_cookie_as_auth=True,
+            auth_cookie_name=auth_cookie_name,
         )
     )
     logger.info("Added AuthContextMiddleware for automatic header forwarding")
+    logger.info("Cookie-based authorization enabled using: %s", auth_cookie_name)
 
     # Add TracingMiddleware for detailed logging
     gw.add_middleware(
