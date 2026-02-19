@@ -46,28 +46,45 @@ cache_ttl = int(os.getenv("ISV_CACHE_TTL", "7200"))
 timeout = float(os.getenv("ISV_REQUEST_TIMEOUT", "30"))
 
 logger.info("=" * 70)
-logger.info("Solis Composer - ISV Token Authentication")
+logger.info("Solis Composer - Tool-Level ISV Token Authentication")
 logger.info("=" * 70)
 logger.info("ISV Environment: %s", environment)
 logger.info("Cache Enabled: %s", cache_enabled)
 if cache_enabled:
     logger.info("Cache TTL: %d seconds", cache_ttl)
 logger.info("Request Timeout: %.1f seconds", timeout)
+logger.info("Authentication Mode: Tool-level (enforced on tool calls)")
 logger.info("=" * 70)
 
-# Initialize ISV token verifier
-isv_verifier = ISVTokenVerifier(
-    environment=environment, cache_enabled=cache_enabled, cache_ttl=cache_ttl, timeout=timeout
+# Initialize ISV token validator for tool-level authentication
+from mcp_composer.core.auth.jwt.isv_token_validator import ISVTokenValidator
+isv_validator = ISVTokenValidator(
+    environment=environment,
+    cache_enabled=cache_enabled,
+    cache_ttl=cache_ttl,
+    timeout=timeout
 )
 
-# Initialize composer with ISV authentication
-# Note: ISVTokenVerifier is callable and compatible with FastMCP's auth interface
-gw = MCPComposer(name="solis-composer", auth=isv_verifier)  # pyright: ignore[reportArgumentType]
+# Initialize composer WITHOUT connection-level authentication
+# Authentication will be enforced by ToolAuthenticationMiddleware at tool execution time
+gw = MCPComposer(name="solis-composer", auth=None)
+logger.info("Composer initialized - connections allowed without authentication")
+logger.info("Authentication enforced by ToolAuthenticationMiddleware on tool calls")
 
 
 def setup_middleware(composer: MCPComposer) -> None:
     """Configure and register middleware components."""
-    # Add AuthContextMiddleware FIRST (highest priority)
+    
+    # Add ToolAuthenticationMiddleware FIRST (highest priority)
+    # This enforces ISV token authentication at tool execution time
+    from mcp_composer.middleware.tool_auth_middleware import ToolAuthenticationMiddleware
+    
+    composer.add_middleware(
+        ToolAuthenticationMiddleware(validator=isv_validator)
+    )
+    logger.info("✓ Added ToolAuthenticationMiddleware (tool-level authentication)")
+    
+    # Add AuthContextMiddleware SECOND
     # This extracts ISV token and cookies from incoming requests
     # Cookie-based authorization: Uses platform session cookie value as Authorization header
     auth_cookie_name = _COOKIE_BY_ENV.get(environment, "mcsp-glb-iam-test")
@@ -76,7 +93,7 @@ def setup_middleware(composer: MCPComposer) -> None:
     # Add tool name patterns here (case-insensitive substring matching)
     enabled_tool_patterns = ["guardium"]  # Can add more patterns like ["gurdium", "watsonx", "lakehouse"]
 
-    gw.add_middleware(
+    composer.add_middleware(
         AuthContextMiddleware(
             forward_cookies=FORWARD_COOKIES,
             add_isv_token=True,
@@ -86,7 +103,7 @@ def setup_middleware(composer: MCPComposer) -> None:
             enabled_tool_patterns=enabled_tool_patterns,
         )
     )
-    logger.info("Added AuthContextMiddleware for automatic header forwarding")
+    logger.info("✓ Added AuthContextMiddleware for automatic header forwarding")
     logger.info("Cookie-based authorization enabled using: %s", auth_cookie_name)
     logger.info("Auth context enabled for tool patterns: %s", enabled_tool_patterns)
 

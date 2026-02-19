@@ -493,6 +493,10 @@ class ISVTokenVerifier:
     ):
         """
         Initialize ISV token verifier.
+        
+        NOTE: This class is maintained for backward compatibility but is deprecated
+        for new implementations. For tool-level authentication, use ISVTokenValidator
+        directly with ToolAuthenticationMiddleware.
 
         Args:
             environment: Deployment environment ('test', 'dev', 'prod')
@@ -518,6 +522,10 @@ class ISVTokenVerifier:
         This method is required by FastMCP to integrate authentication
         into the HTTP application. We use our custom ISVAuthBackend
         instead of the default BearerAuthBackend.
+        
+        NOTE: This returns connection-level authentication middleware.
+        For tool-level authentication, use ToolAuthenticationMiddleware instead
+        and pass auth=None to MCPComposer.
 
         Returns:
             List of Starlette Middleware instances
