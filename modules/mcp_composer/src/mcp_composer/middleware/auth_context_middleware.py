@@ -70,6 +70,7 @@ class AuthContextMiddleware(Middleware):
         add_cookie_header: bool = True,
         use_cookie_as_auth: bool = False,
         auth_cookie_name: str = "mcsp-glb-iam-test",
+        enabled_tool_patterns: Optional[list[str]] = None,
         **kwargs,
     ):
         super().__init__(**kwargs)
@@ -79,14 +80,17 @@ class AuthContextMiddleware(Middleware):
         self.add_cookie_header = add_cookie_header
         self.use_cookie_as_auth = use_cookie_as_auth
         self.auth_cookie_name = auth_cookie_name
+        # Tool patterns that should have auth context enabled (case-insensitive matching)
+        self.enabled_tool_patterns = enabled_tool_patterns if enabled_tool_patterns is not None else []
 
         logger.info(
-            "AuthContextMiddleware initialized (forward_cookies=%s, add_isv_token=%s, add_cookie_header=%s, use_cookie_as_auth=%s, auth_cookie_name=%s)",
+            "AuthContextMiddleware initialized (forward_cookies=%s, add_isv_token=%s, add_cookie_header=%s, use_cookie_as_auth=%s, auth_cookie_name=%s, enabled_tool_patterns=%s)",
             self.forward_cookies or "none",
             self.add_isv_token,
             self.add_cookie_header,
             self.use_cookie_as_auth,
             self.auth_cookie_name,
+            self.enabled_tool_patterns or "all tools",
         )
 
     def _get_request(self, context: MiddlewareContext) -> Any:
@@ -273,12 +277,19 @@ class AuthContextMiddleware(Middleware):
     async def on_call_tool(self, context: MiddlewareContext, call_next: CallNext):
         """
         Extract authentication context and store in context variable before tool execution.
-        Only runs when the tool name contains "gurdium init".
+        Only runs when the tool name matches one of the enabled_tool_patterns.
+        If no patterns are configured, runs for all tools.
         """
         tool_name = getattr(context.message, "name", "unknown")
         logger.info("Tool name: %s", tool_name)
-        if "gurdium" not in tool_name.lower():
-            return await call_next(context)
+        
+        # If patterns are configured, check if tool name matches any pattern
+        if self.enabled_tool_patterns:
+            tool_name_lower = tool_name.lower()
+            if not any(pattern.lower() in tool_name_lower for pattern in self.enabled_tool_patterns):
+                logger.debug("Tool '%s' does not match enabled patterns %s, skipping auth context",
+                           tool_name, self.enabled_tool_patterns)
+                return await call_next(context)
 
         auth_context = self._extract_auth_context(context)
         auth_context_var.set(auth_context)

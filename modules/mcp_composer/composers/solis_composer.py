@@ -71,6 +71,11 @@ def setup_middleware(composer: MCPComposer) -> None:
     # This extracts ISV token and cookies from incoming requests
     # Cookie-based authorization: Uses platform session cookie value as Authorization header
     auth_cookie_name = _COOKIE_BY_ENV.get(environment, "mcsp-glb-iam-test")
+
+    # Configure which tools should have auth context enabled
+    # Add tool name patterns here (case-insensitive substring matching)
+    enabled_tool_patterns = ["guardium"]  # Can add more patterns like ["gurdium", "watsonx", "lakehouse"]
+
     gw.add_middleware(
         AuthContextMiddleware(
             forward_cookies=FORWARD_COOKIES,
@@ -78,10 +83,12 @@ def setup_middleware(composer: MCPComposer) -> None:
             add_cookie_header=True,
             use_cookie_as_auth=True,
             auth_cookie_name=auth_cookie_name,
+            enabled_tool_patterns=enabled_tool_patterns,
         )
     )
     logger.info("Added AuthContextMiddleware for automatic header forwarding")
     logger.info("Cookie-based authorization enabled using: %s", auth_cookie_name)
+    logger.info("Auth context enabled for tool patterns: %s", enabled_tool_patterns)
 
     # Add TracingMiddleware for detailed logging
     gw.add_middleware(

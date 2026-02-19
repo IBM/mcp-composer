@@ -65,7 +65,8 @@ class LayeredOpenAPIFactory(FastMCP):
         self,
         openapi_spec: dict[str, Any],
         client: httpx.AsyncClient,
-        server_id: str = "unknown",  # NEW: Server ID for authorization
+        server_id: str = "unknown",  # Server ID for authorization (legacy)
+        product_id: str | None = None,  # NEW: Product ID for authorization matching
         custom_routes: list[RouteMap] | None = None,
         custom_routes_exclude_all: (list[RouteMap] | None) = None,  # pylint: disable=unused-argument
         tool_descriptions: dict[str, str] | None = None,
@@ -124,12 +125,14 @@ All tools automatically resolve OpenAPI schema references and provide enhanced m
 
         self.openapi_spec = openapi_spec
         self.client = client
-        self.server_id = server_id  # Store server_id for authorization
+        self.server_id = server_id  # Store server_id for authorization (legacy)
+        self.product_id = product_id  # Store product_id for authorization matching
         self.custom_routes = custom_routes or []
         self.service_info = self._build_service_metadata()
         self._tool_descriptions = tool_descriptions or {}
 
-        logger.info("LayeredOpenAPIFactory initialized with server_id: %s", self.server_id)
+        logger.info("LayeredOpenAPIFactory initialized with server_id: %s, product_id: %s",
+                   self.server_id, self.product_id)
 
         # Create the underlying FastMCP server with custom routes
         # self._mcp_server = FastMCP.from_openapi(self.openapi_spec,
@@ -191,18 +194,15 @@ All tools automatically resolve OpenAPI schema references and provide enhanced m
         server_id: str,
     ) -> Optional[Dict[str, Any]]:
         """
-        Authorize user access by matching server_id with subscriptionName.
+        Authorize user access by matching productId with instance.subscription.productId.
         Returns the first matching active instance or None if unauthorized.
         
         Matching Strategy:
-        1. Exact match: server_id == subscriptionName (case-insensitive)
-        2. Fuzzy match: Extract key after "mcp-" prefix and check if it's contained
-           in subscriptionName (case-insensitive substring search)
-           Example: "mcp-gurdium" matches "Guardium Data Security Center SaaS"
+        Match product_id with instance.subscription.productId (exact match, case-sensitive)
 
         Args:
             instances: List of user instances from x-user-instances
-            server_id: The MCP server ID (e.g., "mcp-gurdium", "watsonx.data")
+            server_id: The MCP server ID (unused, kept for compatibility)
 
         Returns:
             Matched instance dict or None if no authorization match found
@@ -211,66 +211,25 @@ All tools automatically resolve OpenAPI schema references and provide enhanced m
             logger.warning("No user instances available for authorization")
             return None
 
-        # Find all instances matching the server_id (subscriptionName)
+        if not self.product_id:
+            logger.error("productId not configured in server config. Authorization cannot proceed.")
+            return None
+
+        logger.info("Using productId-based authorization: productId='%s'", self.product_id)
+        
         matching_instances = [
             inst
             for inst in instances
-            if (inst.get("subscription") or {}).get("subscriptionName") == server_id
-            and inst.get("state") == "active"  # Only active instances
-        ]
-
-        if matching_instances:
-            # Exact match found
-            selected = matching_instances[0]
-            logger.info(
-                "✓ Authorization successful (exact match): server_id '%s' matched subscription '%s'",
-                server_id,
-                (selected.get("subscription") or {}).get("subscriptionName"),
-            )
-            return selected
-        
-        # Try fuzzy match: extract key from server_id and check if it's contained in subscriptionName
-        # Normalize by replacing hyphens, dots, and spaces to handle variations like:
-        # 'mcp-watsonx-data' -> 'watsonxdata' matches 'watsonx.data' -> 'watsonxdata'
-        # 'mcp-gurdium' -> 'gurdium' matches 'Guardium Data Security Center SaaS' -> 'guardiumdatasecuritycentersaas'
-        search_key = server_id.lower()
-        if search_key.startswith("mcp-"):
-            search_key = search_key[4:]  # Remove 'mcp-' prefix
-        
-        # Normalize: remove hyphens, dots, spaces for flexible matching
-        search_key_normalized = search_key.replace("-", "").replace(".", "").replace(" ", "")
-        
-        logger.info("DEBUG: Trying fuzzy match with search_key='%s' (normalized='%s', from server_id='%s')",
-                   search_key, search_key_normalized, server_id)
-        
-        # Debug: Log all subscription names being checked
-        for inst in instances:
-            sub_name = (inst.get("subscription") or {}).get("subscriptionName", "")
-            sub_name_normalized = sub_name.lower().replace("-", "").replace(".", "").replace(" ", "")
-            is_match = search_key_normalized in sub_name_normalized
-            logger.info(
-                "DEBUG:   Checking instance: subscription='%s' (normalized='%s'), search_key_normalized='%s' in subscription=%s, state='%s'",
-                sub_name,
-                sub_name_normalized,
-                search_key_normalized,
-                is_match,
-                inst.get("state"),
-            )
-        
-        fuzzy_matches = [
-            inst
-            for inst in instances
-            if search_key_normalized in ((inst.get("subscription") or {}).get("subscriptionName", "")).lower().replace("-", "").replace(".", "").replace(" ", "")
+            if (inst.get("subscription") or {}).get("productId") == self.product_id
             and inst.get("state") == "active"
         ]
         
-        if fuzzy_matches:
-            selected = fuzzy_matches[0]
-            subscription_name = (selected.get("subscription") or {}).get("subscriptionName")
+        if matching_instances:
+            selected = matching_instances[0]
+            subscription_name = (selected.get("subscription") or {}).get("subscriptionName", "unknown")
             logger.info(
-                "✓ Authorization successful (fuzzy match): server_id '%s' (key='%s') matched subscription '%s'",
-                server_id,
-                search_key,
+                "✓ Authorization successful: productId '%s' matched instance subscription '%s'",
+                self.product_id,
                 subscription_name,
             )
             logger.info(
@@ -280,15 +239,14 @@ All tools automatically resolve OpenAPI schema references and provide enhanced m
             )
             return selected
         
-        # No match found - user is not authorized
-        available_subscriptions = list(set([
-            (inst.get("subscription") or {}).get("subscriptionName", "unknown") for inst in instances
+        # No match found with productId
+        available_products = list(set([
+            (inst.get("subscription") or {}).get("productId", "unknown") for inst in instances
         ]))
         logger.warning(
-            "Authorization failed: server_id '%s' (search_key='%s') not found in user subscriptions. Available: %s",
-            server_id,
-            search_key,
-            available_subscriptions,
+            "Authorization failed: productId '%s' not found in user instances. Available productIds: %s",
+            self.product_id,
+            available_products,
         )
         return None
 
@@ -340,18 +298,6 @@ All tools automatically resolve OpenAPI schema references and provide enhanced m
         if instance_id := instance.get("id"):
             headers["X-Request-Context"] = instance_id
 
-        if instance_name := instance.get("name"):
-            headers["X-Instance-Name"] = instance_name
-
-        if subscription_id := instance.get("subscriptionId"):
-            headers["X-Subscription-Id"] = subscription_id
-
-        if subscription := instance.get("subscription"):
-            if product_id := subscription.get("productId"):
-                headers["X-Product-Id"] = product_id
-
-        if region := instance.get("deploymentRegion"):
-            headers["X-Deployment-Region"] = region
 
         logger.debug("Built instance headers: %s", list(headers.keys()))
         return headers
