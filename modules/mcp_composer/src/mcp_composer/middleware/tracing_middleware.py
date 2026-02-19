@@ -423,9 +423,6 @@ class TracingMiddleware(Middleware):
                     span.set_status(Status(StatusCode.OK))
 
                 if self.log_tools:
-                    # Enhanced result logging
-                    logger.debug("-" * 80)
-                    logger.debug("TOOL RESPONSE:")
 
                     if self.log_results:
                         try:

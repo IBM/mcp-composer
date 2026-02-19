@@ -192,9 +192,14 @@ class ToolAuthenticationMiddleware(Middleware):
         """
         tool_name = getattr(context.message, "name", "unknown")
 
-        # Gate: run auth only when the tool's server has solis_config.isIamEnabled (if resolver provided)
-        if self.is_iam_enabled_for_tool is not None and not self.is_iam_enabled_for_tool(tool_name):
-            logger.debug("Tool '%s' server has IAM disabled, skipping authentication", tool_name)
+        # Skip auth when IAM is disabled for the tool's server or when tool is a discovery tool (no backend call)
+        iam_disabled = self.is_iam_enabled_for_tool is not None and not self.is_iam_enabled_for_tool(tool_name)
+        is_discovery_tool = tool_name.endswith("_get_service_info") or tool_name.endswith("_get_type_info")
+        if iam_disabled or is_discovery_tool:
+            logger.debug(
+                "Tool '%s' skipping authentication (IAM disabled=%s, discovery tool=%s)",
+                tool_name, iam_disabled, is_discovery_tool,
+            )
             return await call_next(context)
 
         # Check if tool is exempt from authentication

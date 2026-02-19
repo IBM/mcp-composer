@@ -366,9 +366,10 @@ class MCPServerBuilder:
             # Optional per-tool descriptions for layered tools
             tool_descriptions = openapi_config.get("tool_description", {}) or {}
 
-            # Get productId from config for authorization matching
-            product_id = self.config.get("productId", None)
-            
+            # Get product_id from solis_config (member_servers.json) or top-level productId for authorization matching
+            solis_config = self.config.get("solis_config") or {}
+            product_id = solis_config.get("product_id") or self.config.get("productId", None)
+
             mcp = LayeredOpenAPIFactory(
                 openapi_spec=spec,
                 client=http_client,

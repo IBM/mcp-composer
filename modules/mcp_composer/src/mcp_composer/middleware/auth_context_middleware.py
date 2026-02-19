@@ -117,39 +117,48 @@ class AuthContextMiddleware(Middleware):
         if hasattr(user, "identity"):
             auth_context[AUTH_KEY_USER_IDENTITY] = user.identity
 
+    def _normalize_to_instance_list(self, raw: Any) -> List[Dict[str, Any]]:
+        """Turn identity/header value into a list of instance dicts. Handles list, wrapper dict, single instance."""
+        if raw is None:
+            return []
+        if isinstance(raw, list):
+            if len(raw) == 1 and isinstance(raw[0], dict):
+                inner = raw[0].get("userInstances") or raw[0].get("user_instances")
+                if isinstance(inner, list):
+                    return inner
+            return raw
+        if isinstance(raw, dict):
+            if isinstance(raw.get("userInstances"), list):
+                return raw["userInstances"]
+            if isinstance(raw.get("user_instances"), list):
+                return raw["user_instances"]
+            return [raw]
+        return []
+
     def _extract_user_instances(
         self, request: Any, auth_context: Dict[str, Any]
     ) -> List[Dict[str, Any]]:
         """Extract user instances from user.identity or X-User-Instances header."""
-        instances: List[Dict[str, Any]] = []
-
+        raw: Any = None
         request_state = getattr(request, "state", None)
-        if request_state and hasattr(request_state, "user"):
-            user = request_state.user
-            if hasattr(user, "identity") and user.identity:
-                identity = user.identity
+        if request_state and getattr(request_state, "user", None):
+            identity = getattr(request_state.user, "identity", None)
+            if identity:
                 if isinstance(identity, dict):
-                    raw = identity.get("userInstances", identity.get("user_instances"))
-                elif hasattr(identity, "userInstances"):
-                    raw = identity.userInstances
-                elif hasattr(identity, "user_instances"):
-                    raw = identity.user_instances
+                    raw = identity.get("userInstances")
+                    if not isinstance(raw, list) and isinstance(identity.get("instances"), dict):
+                        raw = (identity["instances"] or {}).get("userInstances") or (identity["instances"] or {}).get("user_instances")
                 else:
-                    raw = None
-                if isinstance(raw, list):
-                    instances = raw
-
-        if not instances:
-            request_headers = getattr(request, "headers", None)
-            if request_headers and (raw_header := request_headers.get(HEADER_USER_INSTANCES, "")):
+                    raw = getattr(identity, "userInstances", None) or getattr(identity, "user_instances", None)
+        if raw is None:
+            headers = getattr(request, "headers", None) or {}
+            raw_header = headers.get(HEADER_USER_INSTANCES) or headers.get("X-User-Instances") or headers.get("x-User-Instances") or ""
+            if raw_header:
                 try:
                     raw = json.loads(raw_header)
-                    if isinstance(raw, list):
-                        instances = raw
-                except json.JSONDecodeError:
-                    pass
-
-        return instances
+                except json.JSONDecodeError as e:
+                    logger.warning("X-User-Instances header JSON invalid: %s", e)
+        return self._normalize_to_instance_list(raw)
 
     def _update_x_request_context_from_instances(
         self,
@@ -258,19 +267,28 @@ class AuthContextMiddleware(Middleware):
             if instances:
                 # Store full instance data for authorization and routing
                 auth_context[AUTH_KEY_USER_INSTANCES_FULL] = instances
-                logger.debug("Stored %d full user instances for authorization", len(instances))
+                logger.info("✓ Stored %d user instance(s) from X-User-Instances / identity", len(instances))
                 
                 # Keep simplified format for backward compatibility
                 auth_context[AUTH_KEY_USER_INSTANCES] = [
                     {
-                        "instance_id": i.get("id", ""),
+                        "instance_id": i.get("id") or i.get("instance_id", ""),
                         "subscriptionName": (i.get("subscription") or {}).get("subscriptionName", ""),
-                        "productId": (i.get("subscription") or {}).get("productId", ""),
+                        "productId": (i.get("subscription") or {}).get("productId") or i.get("productId", ""),
                         "host": (i.get("dashboardURL") or "").split("?")[0].rstrip("/"),
                     }
                     for i in instances
                 ]
                 self._update_x_request_context_from_instances(auth_context, instances)
+                # Debug: log instance_id and host per instance (from ISV / x-user-instances)
+                for idx, u in enumerate(auth_context[AUTH_KEY_USER_INSTANCES]):
+                    logger.debug(
+                        "ISV instances[%d]: instance_id=%s, productId=%s, host=%s",
+                        idx,
+                        u.get("instance_id", ""),
+                        u.get("productId", ""),
+                        u.get("host", ""),
+                    )
 
         except Exception as e:
             logger.warning("Failed to extract authentication context: %s", e)

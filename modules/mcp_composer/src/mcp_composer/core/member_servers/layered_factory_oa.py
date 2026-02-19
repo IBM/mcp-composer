@@ -17,6 +17,7 @@ from mcp_composer.core.member_servers.layered_constants import (
     DEFAULT_PATTERN,
     DEFAULT_VALUES,
     ERROR_MESSAGES,
+    FALLBACK_UNKNOWN,
     HTTP_METHODS,
     OPENAPI_KEYS,
     OPERATION_KEYS,
@@ -188,24 +189,29 @@ All tools automatically resolve OpenAPI schema references and provide enhanced m
             value = ""
         return value.strip() or fallback
 
+    def _get_instance_product_id(self, instance: Dict[str, Any]) -> Optional[str]:
+        """
+        Get productId from an instance. Supports full shape (subscription.productId/product_id),
+        normalized shape (top-level productId/product_id), and snake_case keys.
+        """
+        sub = instance.get("subscription")
+        if isinstance(sub, dict):
+            val = sub.get("productId") or sub.get("product_id")
+            if val:
+                return val
+        val = instance.get("productId") or instance.get("product_id")
+        return val if val else None
+
     def _authorize_and_select_instance(
         self,
         instances: List[Dict[str, Any]],
         server_id: str,
     ) -> Optional[Dict[str, Any]]:
         """
-        Authorize user access by matching productId with instance.subscription.productId.
+        Authorize user access by matching productId with instance productId.
         Returns the first matching active instance or None if unauthorized.
-        
-        Matching Strategy:
-        Match product_id with instance.subscription.productId (exact match, case-sensitive)
 
-        Args:
-            instances: List of user instances from x-user-instances
-            server_id: The MCP server ID (unused, kept for compatibility)
-
-        Returns:
-            Matched instance dict or None if no authorization match found
+        Supports both full instance shape (subscription.productId) and normalized shape (top-level productId).
         """
         if not instances:
             logger.warning("No user instances available for authorization")
@@ -216,17 +222,17 @@ All tools automatically resolve OpenAPI schema references and provide enhanced m
             return None
 
         logger.info("Using productId-based authorization: productId='%s'", self.product_id)
-        
+
         matching_instances = [
             inst
             for inst in instances
-            if (inst.get("subscription") or {}).get("productId") == self.product_id
+            if self._get_instance_product_id(inst) == self.product_id
             and inst.get("state") == "active"
         ]
-        
+
         if matching_instances:
             selected = matching_instances[0]
-            subscription_name = (selected.get("subscription") or {}).get("subscriptionName", "unknown")
+            subscription_name = (selected.get("subscription") or {}).get("subscriptionName", FALLBACK_UNKNOWN)
             logger.info(
                 "✓ Authorization successful: productId '%s' matched instance subscription '%s'",
                 self.product_id,
@@ -238,11 +244,11 @@ All tools automatically resolve OpenAPI schema references and provide enhanced m
                 selected.get("name"),
             )
             return selected
-        
+
         # No match found with productId
-        available_products = list(set([
-            (inst.get("subscription") or {}).get("productId", "unknown") for inst in instances
-        ]))
+        available_products = list(
+            set(self._get_instance_product_id(inst) or FALLBACK_UNKNOWN for inst in instances)
+        )
         logger.warning(
             "Authorization failed: productId '%s' not found in user instances. Available productIds: %s",
             self.product_id,
@@ -258,7 +264,7 @@ All tools automatically resolve OpenAPI schema references and provide enhanced m
             instance: Instance dictionary containing dashboardURL
 
         Returns:
-            Base URL (e.g., "https://console-aws-cacentral1.lakehouse.dev.saas.ibm.com")
+            Base URL (e.g., "https://example.com")
             or None if not available
         """
         dashboard_url = instance.get("dashboardURL", "")
@@ -789,39 +795,38 @@ All tools automatically resolve OpenAPI schema references and provide enhanced m
                                 "server_id": self.server_id,
                             }
 
-                        # AUTHORIZATION: Match server_id with subscriptionName
-                        logger.info("DEBUG: Calling _authorize_and_select_instance with server_id='%s'", self.server_id)
+                        # AUTHORIZATION: Match solis_config.product_id with instance.subscription.productId
+                        logger.debug("DEBUG: Calling _authorize_and_select_instance (product_id='%s')", self.product_id)
                         selected_instance = self._authorize_and_select_instance(
                             instances_full,
                             self.server_id,
                         )
-                        logger.info("DEBUG: _authorize_and_select_instance returned: %s",
+                        logger.debug("DEBUG: _authorize_and_select_instance returned: %s",
                                    "instance found" if selected_instance else "None")
 
                         if not selected_instance:
-                            # User is not authorized for this server
-                            available_subs = list(
+                            # No user instance had productId matching server's solis_config.product_id
+                            available_product_ids = list(
                                 set(
-                                    [
-                                        (i.get("subscription") or {}).get("subscriptionName", "unknown")
-                                        for i in instances_full
-                                    ]
+                                    self._get_instance_product_id(i) or FALLBACK_UNKNOWN
+                                    for i in instances_full
                                 )
                             )
                             logger.error(
-                                "Authorization failed for service '%s': server_id '%s' not in user subscriptions %s",
+                                "Authorization failed for service '%s': product_id '%s' (from solis_config) not in user instances' productIds %s",
                                 service,
-                                self.server_id,
-                                available_subs,
+                                self.product_id,
+                                available_product_ids,
                             )
                             return {
                                 "error": "Unauthorized",
-                                "message": f"Access denied: You don't have access to '{self.server_id}'. "
-                                f"Available subscriptions: {', '.join(available_subs)}",
+                                "message": f"Access denied: No instance with productId '{self.product_id}'. "
+                                f"User instances have productIds: {', '.join(available_product_ids)}",
                                 "status_code": 401,
                                 "service": service,
                                 "server_id": self.server_id,
-                                "available_subscriptions": available_subs,
+                                "product_id": self.product_id,
+                                "available_product_ids": available_product_ids,
                             }
 
                         # ROUTING: Extract host for dynamic routing
@@ -833,6 +838,16 @@ All tools automatically resolve OpenAPI schema references and provide enhanced m
                         instance_headers = self._build_instance_headers(selected_instance)
                         auth_headers.update(instance_headers)
 
+                        # Debug: confirm instance_id and host resolved from ISV for this request
+                        resolved_instance_id = selected_instance.get("id") or selected_instance.get("instance_id", "")
+                        resolved_product_id = self._get_instance_product_id(selected_instance) or ""
+                        logger.debug(
+                            "ISV auth resolved for service '%s': instance_id=%s, productId=%s, host=%s",
+                            service,
+                            resolved_instance_id,
+                            resolved_product_id,
+                            instance_host or "default",
+                        )
                         logger.info(
                             "✓ Authorized and routed: server_id='%s', instance='%s' (name=%s), host=%s",
                             self.server_id,

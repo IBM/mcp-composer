@@ -5,7 +5,9 @@ import pytest
 from fastmcp.exceptions import ToolError
 
 from mcp_composer.middleware.auth_context_middleware import (
+    AUTH_KEY_USER_INSTANCES_FULL,
     AuthContextMiddleware,
+    get_auth_context,
     get_auth_headers,
 )
 from mcp_composer.middleware.circuit_breaker import CircuitBreakerMiddleware
@@ -700,7 +702,7 @@ async def test_auth_context_user_instances_extracted_and_forwarded():
             "id": "20251128-1445-2831-7084-4a9a364b8b6b",
             "subscriptionId": "20240430-2249-3023-2003-c61c1ea9c579",
             "name": "solisams",
-            "dashboardURL": "https://console-aws-cacentral1.lakehouse.dev.saas.ibm.com/v1/ams/iam/sso?crn=crn:v1:aws-staging:public:lakehouse:ca-central-1:sub/20240430-2249-3023-2003-c61c1ea9c579:20251128-1445-2831-7084-4a9a364b8b6b::&mcsp_metadata=eyJjcm4iOiJjcm46djE6YXdzLXN0YWdpbmc6cHVibGljOmxha2Vob3VzZTpjYS1jZW50cmFsLTE6c3ViLzIwMjQwNDMwLTIyNDktMzAyMy0yMDAzLWM2MWMxZWE5YzU3OToyMDI1MTEyOC0xNDQ1LTI4MzEtNzA4NC00YTlhMzY0YjhiNmI6OiIsIm9wX2FjY291bnRfaWQiOiIyMDI0MDQzMC0yMjQxLTI2NjgtNjBlMS1mMzQ3MzM2NDM0ZjEifQ",
+            "dashboardURL": "https://example.com/dashboard?crn=crn:v1:example:public:product:region:sub/id::&mcsp_metadata=eyJleGFtcGxlIjp0cnVlfQ",
             "subscription": {
                 "subscriptionName": "watsonx.data",
                 "productId": "lakehouse",
@@ -736,7 +738,112 @@ async def test_auth_context_user_instances_extracted_and_forwarded():
     assert parsed[0]["instance_id"] == "20251128-1445-2831-7084-4a9a364b8b6b"
     assert parsed[0]["subscriptionName"] == "watsonx.data"
     assert parsed[0]["productId"] == "lakehouse"
-    assert parsed[0]["host"] == "https://console-aws-cacentral1.lakehouse.dev.saas.ibm.com/v1/ams/iam/sso"
+    assert parsed[0]["host"] == "https://example.com/dashboard"
+
+
+@pytest.mark.asyncio
+async def test_x_user_instances_header_populates_auth_context_full():
+    """X-User-Instances header (any casing) populates AUTH_KEY_USER_INSTANCES_FULL correctly."""
+    import json
+
+    middleware = AuthContextMiddleware(forward_cookies=[])
+
+    raw_instances = [
+        {
+            "id": "inst-001",
+            "name": "my-instance",
+            "dashboardURL": "https://example.com/dash",
+            "subscription": {"subscriptionName": "mcp-gurdium", "productId": "guardium"},
+            "state": "active",
+        },
+    ]
+
+    # Use mixed-case header to assert case-insensitive read
+    mock_request = Mock()
+    mock_request.headers = {"x-User-Instances": json.dumps(raw_instances)}
+    mock_request.state = Mock()
+    mock_request.state.user = None
+
+    context = Mock()
+    context.fastmcp_context = Mock()
+    context.fastmcp_context.request_context = Mock()
+    context.fastmcp_context.request_context.request = mock_request
+    context.message = Mock()
+    context.message.name = "mcp-gurdium_make_tool_call"
+
+    captured_context = {}
+    captured_headers = {}
+
+    async def capture(_context):
+        ctx = get_auth_context()
+        if ctx:
+            captured_context["auth_context"] = ctx
+            captured_headers["headers"] = get_auth_headers()
+        return "ok"
+
+    await middleware.on_call_tool(context, AsyncMock(side_effect=capture))
+
+    assert "auth_context" in captured_context
+    auth_ctx = captured_context["auth_context"]
+    assert AUTH_KEY_USER_INSTANCES_FULL in auth_ctx
+    full_instances = auth_ctx[AUTH_KEY_USER_INSTANCES_FULL]
+    assert len(full_instances) == 1
+    assert full_instances[0]["id"] == "inst-001"
+    assert full_instances[0]["subscription"]["subscriptionName"] == "mcp-gurdium"
+    assert full_instances[0]["subscription"]["productId"] == "guardium"
+    assert full_instances[0]["dashboardURL"] == "https://example.com/dash"
+
+    # Forwarded headers should include normalized X-User-Instances
+    assert "headers" in captured_headers
+    headers = captured_headers["headers"]
+    assert "X-User-Instances" in headers
+    forwarded = json.loads(headers["X-User-Instances"])
+    assert len(forwarded) == 1
+    assert forwarded[0]["instance_id"] == "inst-001"
+    assert forwarded[0]["subscriptionName"] == "mcp-gurdium"
+    assert forwarded[0]["productId"] == "guardium"
+
+
+@pytest.mark.asyncio
+async def test_x_user_instances_single_object_normalized_to_list():
+    """X-User-Instances header with a single JSON object is normalized to a list of one."""
+    import json
+
+    middleware = AuthContextMiddleware(forward_cookies=[])
+
+    single_instance = {
+        "id": "single-001",
+        "name": "solo",
+        "subscription": {"subscriptionName": "mcp-gurdium", "productId": "guardium"},
+    }
+
+    mock_request = Mock()
+    mock_request.headers = {"x-user-instances": json.dumps(single_instance)}
+    mock_request.state = Mock()
+    mock_request.state.user = None
+
+    context = Mock()
+    context.fastmcp_context = Mock()
+    context.fastmcp_context.request_context = Mock()
+    context.fastmcp_context.request_context.request = mock_request
+    context.message = Mock()
+    context.message.name = "some_tool"
+
+    captured_context = {}
+
+    async def capture(_context):
+        ctx = get_auth_context()
+        if ctx:
+            captured_context["auth_context"] = ctx
+        return "ok"
+
+    await middleware.on_call_tool(context, AsyncMock(side_effect=capture))
+
+    assert "auth_context" in captured_context
+    full_instances = captured_context["auth_context"].get(AUTH_KEY_USER_INSTANCES_FULL, [])
+    assert len(full_instances) == 1
+    assert full_instances[0]["id"] == "single-001"
+    assert full_instances[0]["subscription"]["productId"] == "guardium"
 
 
 # ============================================================================
@@ -928,6 +1035,31 @@ async def test_tool_auth_runs_when_iam_resolver_returns_true():
 
     assert result == "ok"
     mock_validator.validate_request.assert_awaited_once_with(mock_request)
+
+
+@pytest.mark.asyncio
+async def test_tool_auth_skips_discovery_tools_even_when_iam_enabled():
+    """Discovery tools (get_service_info, get_type_info) skip auth even for IAM-enabled servers."""
+    from mcp_composer.middleware.tool_auth_middleware import ToolAuthenticationMiddleware
+
+    mock_validator = AsyncMock()
+    is_iam_enabled_for_tool = lambda name: name.startswith("mcp-gurdium_")
+
+    middleware = ToolAuthenticationMiddleware(
+        validator=mock_validator,
+        is_iam_enabled_for_tool=is_iam_enabled_for_tool,
+    )
+
+    call_next = AsyncMock(return_value="ok")
+    for tool_name in ("mcp-gurdium_get_service_info", "mcp-gurdium_get_type_info"):
+        context = Mock()
+        context.message = Mock()
+        context.message.name = tool_name
+        context.fastmcp_context = None
+        result = await middleware.on_call_tool(context, call_next)
+        assert result == "ok"
+    call_next.assert_awaited()
+    mock_validator.validate_request.assert_not_called()
 
 
 @pytest.mark.asyncio
