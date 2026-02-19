@@ -740,6 +740,228 @@ async def test_auth_context_user_instances_extracted_and_forwarded():
 
 
 # ============================================================================
+# Auth Context Middleware - IAM gate (is_iam_enabled_for_tool)
+# ============================================================================
+
+
+@pytest.mark.asyncio
+async def test_auth_context_skips_when_iam_resolver_returns_false():
+    """When is_iam_enabled_for_tool(tool_name) is False, skip auth context and call_next."""
+    # Resolver: only "mcp-gurdium_*" is IAM-enabled
+    def is_iam_enabled_for_tool(name: str) -> bool:
+        return name.startswith("mcp-gurdium_")
+
+    middleware = AuthContextMiddleware(
+        forward_cookies=["mcsp-glb-iam-test"],
+        is_iam_enabled_for_tool=is_iam_enabled_for_tool,
+    )
+
+    context = Mock()
+    context.fastmcp_context = Mock()
+    context.fastmcp_context.request_context = Mock()
+    context.fastmcp_context.request_context.request = Mock()
+    context.fastmcp_context.request_context.request.headers = {}
+    context.fastmcp_context.request_context.request.state = Mock()
+    context.fastmcp_context.request_context.request.state.user = None
+    context.message = Mock()
+    context.message.name = "mcp-wx-data_list_tools"  # IAM disabled for this server
+
+    call_next = AsyncMock(return_value="ok")
+    result = await middleware.on_call_tool(context, call_next)
+
+    assert result == "ok"
+    call_next.assert_awaited_once()
+    # Auth context was not set (we skipped); get_auth_headers was not run in our chain
+
+
+@pytest.mark.asyncio
+async def test_auth_context_runs_when_iam_resolver_returns_true():
+    """When is_iam_enabled_for_tool(tool_name) is True, run auth context as usual."""
+    def is_iam_enabled_for_tool(name: str) -> bool:
+        return name.startswith("mcp-gurdium_")
+
+    middleware = AuthContextMiddleware(
+        forward_cookies=["mcsp-glb-iam-test"],
+        is_iam_enabled_for_tool=is_iam_enabled_for_tool,
+    )
+
+    mock_request = Mock()
+    mock_request.headers = {"cookie": "mcsp-glb-iam-test=session-xyz"}
+    mock_request.state = Mock()
+    mock_request.state.user = None
+
+    context = Mock()
+    context.fastmcp_context = Mock()
+    context.fastmcp_context.request_context = Mock()
+    context.fastmcp_context.request_context.request = mock_request
+    context.message = Mock()
+    context.message.name = "mcp-gurdium_make_tool_call"  # IAM enabled
+
+    captured = {}
+
+    async def capture(_context):
+        captured.update(get_auth_headers())
+        return "ok"
+
+    result = await middleware.on_call_tool(context, AsyncMock(side_effect=capture))
+    assert result == "ok"
+    assert captured.get("X-Platform-Cookie") == "mcsp-glb-iam-test=session-xyz"
+
+
+@pytest.mark.asyncio
+async def test_auth_context_composer_tool_no_prefix_skips_when_resolver_used():
+    """Tool with no underscore (composer-owned) and resolver returns False -> skip."""
+    # Resolver uses prefix: no prefix -> False
+    def is_iam_enabled_for_tool(name: str) -> bool:
+        if "_" not in name:
+            return False
+        return name.startswith("mcp-gurdium_")
+
+    middleware = AuthContextMiddleware(
+        forward_cookies=[],
+        is_iam_enabled_for_tool=is_iam_enabled_for_tool,
+    )
+
+    context = Mock()
+    context.fastmcp_context = Mock()
+    context.fastmcp_context.request_context = Mock()
+    context.fastmcp_context.request_context.request = Mock()
+    context.fastmcp_context.request_context.request.headers = {}
+    context.fastmcp_context.request_context.request.state = Mock()
+    context.fastmcp_context.request_context.request.state.user = None
+    context.message = Mock()
+    context.message.name = "healthcheck"  # no underscore
+
+    call_next = AsyncMock(return_value="ok")
+    result = await middleware.on_call_tool(context, call_next)
+    assert result == "ok"
+    call_next.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_auth_context_backward_compat_when_resolver_none():
+    """When is_iam_enabled_for_tool is not passed (None), run for all tools (backward compat)."""
+    middleware = AuthContextMiddleware(forward_cookies=["mcsp-glb-iam-test"])
+
+    mock_request = Mock()
+    mock_request.headers = {"cookie": "mcsp-glb-iam-test=session-abc"}
+    mock_request.state = Mock()
+    mock_request.state.user = None
+
+    context = Mock()
+    context.fastmcp_context = Mock()
+    context.fastmcp_context.request_context = Mock()
+    context.fastmcp_context.request_context.request = mock_request
+    context.message = Mock()
+    context.message.name = "any_tool_name"
+
+    captured = {}
+
+    async def capture(_context):
+        captured.update(get_auth_headers())
+        return "ok"
+
+    await middleware.on_call_tool(context, AsyncMock(side_effect=capture))
+    assert captured.get("X-Platform-Cookie") == "mcsp-glb-iam-test=session-abc"
+
+
+# ============================================================================
+# Tool Authentication Middleware - IAM gate (is_iam_enabled_for_tool)
+# ============================================================================
+
+
+@pytest.mark.asyncio
+async def test_tool_auth_skips_when_iam_resolver_returns_false():
+    """When is_iam_enabled_for_tool(tool_name) is False, skip validation and call_next."""
+    from mcp_composer.middleware.tool_auth_middleware import ToolAuthenticationMiddleware
+
+    mock_validator = AsyncMock()
+    is_iam_enabled_for_tool = lambda name: name.startswith("mcp-gurdium_")
+
+    middleware = ToolAuthenticationMiddleware(
+        validator=mock_validator,
+        is_iam_enabled_for_tool=is_iam_enabled_for_tool,
+    )
+
+    context = Mock()
+    context.message = Mock()
+    context.message.name = "mcp-wx-data_list_tools"
+    context.fastmcp_context = None
+
+    call_next = AsyncMock(return_value="ok")
+    result = await middleware.on_call_tool(context, call_next)
+
+    assert result == "ok"
+    call_next.assert_awaited_once()
+    mock_validator.validate_request.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_tool_auth_runs_when_iam_resolver_returns_true():
+    """When is_iam_enabled_for_tool(tool_name) is True, run validation (validator called)."""
+    from mcp_composer.middleware.tool_auth_middleware import ToolAuthenticationMiddleware
+
+    mock_validator = AsyncMock()
+    mock_validator.validate_request.return_value = {
+        "access_token": "token123",
+        "cached": False,
+        "identity": None,
+    }
+    is_iam_enabled_for_tool = lambda name: name.startswith("mcp-gurdium_")
+
+    middleware = ToolAuthenticationMiddleware(
+        validator=mock_validator,
+        is_iam_enabled_for_tool=is_iam_enabled_for_tool,
+    )
+
+    mock_request = Mock()
+    mock_request.headers = {}
+    context = Mock()
+    context.message = Mock()
+    context.message.name = "mcp-gurdium_make_tool_call"
+    context.fastmcp_context = Mock()
+    context.fastmcp_context.request_context = Mock()
+    context.fastmcp_context.request_context.request = mock_request
+
+    call_next = AsyncMock(return_value="ok")
+    result = await middleware.on_call_tool(context, call_next)
+
+    assert result == "ok"
+    mock_validator.validate_request.assert_awaited_once_with(mock_request)
+
+
+@pytest.mark.asyncio
+async def test_tool_auth_backward_compat_when_resolver_none():
+    """When is_iam_enabled_for_tool is not passed (None), run validation for non-exempt tools."""
+    from mcp_composer.middleware.tool_auth_middleware import ToolAuthenticationMiddleware
+
+    mock_validator = AsyncMock()
+    mock_validator.validate_request.return_value = {
+        "access_token": "token123",
+        "cached": False,
+        "identity": None,
+    }
+
+    middleware = ToolAuthenticationMiddleware(validator=mock_validator)
+    assert middleware.is_iam_enabled_for_tool is None
+
+    mock_request = Mock()
+    mock_request.headers = {}
+    context = Mock()
+    context.message = Mock()
+    context.message.name = "some_tool"
+    context.fastmcp_context = Mock()
+    context.fastmcp_context.request_context = Mock()
+    context.fastmcp_context.request_context.request = mock_request
+
+    call_next = AsyncMock(return_value="ok")
+    result = await middleware.on_call_tool(context, call_next)
+
+    assert result == "ok"
+    mock_validator.validate_request.assert_awaited_once()
+
+
+# ============================================================================
 # Error Handling Tests
 # ============================================================================
 

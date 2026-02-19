@@ -17,6 +17,7 @@ from mcp_composer.core.auth.jwt import ISVTokenVerifier
 from mcp_composer.core.tools.ibm_document_search_tool import IBMDocumentSearchTool
 from mcp_composer.middleware.tool.tool_filter import ListFilteredTool
 from mcp_composer.middleware import TracingMiddleware
+from mcp_composer.middleware.auth_utils import tool_name_to_server_id
 from mcp_composer.middleware.auth_context_middleware import (
     AuthContextMiddleware,
     REQUEST_CONTEXT_KEY,
@@ -24,7 +25,8 @@ from mcp_composer.middleware.auth_context_middleware import (
 from mcp_composer import MCPComposer
 from mcp_composer.core.utils import LoggerFactory
 from mcp_composer.middleware.error_sanitization_middleware import ErrorSanitizationMiddleware
-
+from mcp_composer.middleware.tool_auth_middleware import ToolAuthenticationMiddleware
+from mcp_composer.core.auth.jwt.isv_token_validator import ISVTokenValidator
 
 logger = LoggerFactory.get_logger()
 
@@ -57,7 +59,7 @@ logger.info("Authentication Mode: Tool-level (enforced on tool calls)")
 logger.info("=" * 70)
 
 # Initialize ISV token validator for tool-level authentication
-from mcp_composer.core.auth.jwt.isv_token_validator import ISVTokenValidator
+
 isv_validator = ISVTokenValidator(
     environment=environment,
     cache_enabled=cache_enabled,
@@ -74,16 +76,25 @@ logger.info("Authentication enforced by ToolAuthenticationMiddleware on tool cal
 
 def setup_middleware(composer: MCPComposer) -> None:
     """Configure and register middleware components."""
-    
+    server_manager = composer._server_manager
+
+    def is_iam_enabled_for_tool(tool_name: str) -> bool:
+        """True if the tool's member server has solis_config.isIamEnabled; composer-owned tools return False."""
+        server_id = tool_name_to_server_id(tool_name)
+        if server_id is None:
+            return False
+        return server_manager.is_iam_enabled_for_server(server_id)
+
     # Add ToolAuthenticationMiddleware FIRST (highest priority)
     # This enforces ISV token authentication at tool execution time
-    from mcp_composer.middleware.tool_auth_middleware import ToolAuthenticationMiddleware
-    
     composer.add_middleware(
-        ToolAuthenticationMiddleware(validator=isv_validator)
+        ToolAuthenticationMiddleware(
+            validator=isv_validator,
+            is_iam_enabled_for_tool=is_iam_enabled_for_tool,
+        )
     )
-    logger.info("✓ Added ToolAuthenticationMiddleware (tool-level authentication)")
-    
+    logger.info("✓ Added ToolAuthenticationMiddleware (tool-level authentication, IAM gate from solis_config)")
+
     # Add AuthContextMiddleware SECOND
     # This extracts ISV token and cookies from incoming requests
     # Cookie-based authorization: Uses platform session cookie value as Authorization header
@@ -101,6 +112,7 @@ def setup_middleware(composer: MCPComposer) -> None:
             use_cookie_as_auth=True,
             auth_cookie_name=auth_cookie_name,
             enabled_tool_patterns=enabled_tool_patterns,
+            is_iam_enabled_for_tool=is_iam_enabled_for_tool,
         )
     )
     logger.info("✓ Added AuthContextMiddleware for automatic header forwarding")
@@ -108,7 +120,7 @@ def setup_middleware(composer: MCPComposer) -> None:
     logger.info("Auth context enabled for tool patterns: %s", enabled_tool_patterns)
 
     # Add TracingMiddleware for detailed logging
-    gw.add_middleware(
+    composer.add_middleware(
         TracingMiddleware(
             log_tools=True,
             log_resources=False,

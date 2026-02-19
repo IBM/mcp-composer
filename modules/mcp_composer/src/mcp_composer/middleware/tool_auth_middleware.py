@@ -13,7 +13,7 @@ Key Features:
 - Supports token caching via ISVTokenValidator
 """
 
-from typing import TYPE_CHECKING, Any, Dict, Optional
+from typing import TYPE_CHECKING, Any, Callable, Dict, Optional
 from fastmcp.server.middleware import Middleware, MiddlewareContext, CallNext
 from starlette.exceptions import HTTPException
 from mcp_composer.core.utils import LoggerFactory
@@ -57,30 +57,37 @@ class ToolAuthenticationMiddleware(Middleware):
         self,
         validator: "ISVTokenValidator",
         exempt_tools: Optional[list[str]] = None,
+        is_iam_enabled_for_tool: Optional[Callable[[str], bool]] = None,
         **kwargs
     ):
         """
         Initialize tool authentication middleware.
-        
+
         Args:
             validator: ISVTokenValidator instance for token validation
             exempt_tools: Optional list of tool names that don't require authentication
                          (e.g., ['health_check', 'list_tools'])
+            is_iam_enabled_for_tool: Optional callable(tool_name) -> bool. If set, auth runs only
+                         when it returns True (e.g. when the tool's server has solis_config.isIamEnabled).
+                         If None, auth runs for all tools (backward compatible).
             **kwargs: Additional middleware configuration
         """
         super().__init__(**kwargs)
         self.validator = validator
         self.exempt_tools = set(exempt_tools or [])
+        self.is_iam_enabled_for_tool = is_iam_enabled_for_tool
         
         logger.info("=" * 70)
         logger.info("ToolAuthenticationMiddleware Initialized")
         logger.info("=" * 70)
         logger.info("Authentication enforcement: Tool execution time")
         logger.info("Token validator: ISVTokenValidator")
+        if self.is_iam_enabled_for_tool is not None:
+            logger.info("IAM gate: enabled (auth only for tools whose server has solis_config.isIamEnabled)")
         if self.exempt_tools:
             logger.info("Exempt tools: %s", ", ".join(self.exempt_tools))
         else:
-            logger.info("Exempt tools: None (all tools require authentication)")
+            logger.info("Exempt tools: None")
         logger.info("=" * 70)
     
     def _get_request(self, context: MiddlewareContext) -> Any:
@@ -184,7 +191,12 @@ class ToolAuthenticationMiddleware(Middleware):
             HTTPException: 401 if authentication fails
         """
         tool_name = getattr(context.message, "name", "unknown")
-        
+
+        # Gate: run auth only when the tool's server has solis_config.isIamEnabled (if resolver provided)
+        if self.is_iam_enabled_for_tool is not None and not self.is_iam_enabled_for_tool(tool_name):
+            logger.debug("Tool '%s' server has IAM disabled, skipping authentication", tool_name)
+            return await call_next(context)
+
         # Check if tool is exempt from authentication
         if self._is_tool_exempt(tool_name):
             logger.info("Tool '%s' is exempt from authentication, skipping validation", tool_name)

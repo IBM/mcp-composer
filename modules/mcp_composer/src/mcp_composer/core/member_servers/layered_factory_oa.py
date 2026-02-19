@@ -746,7 +746,7 @@ All tools automatically resolve OpenAPI schema references and provide enhanced m
         request_dict = request if request is not None else DEFAULT_VALUES["EMPTY_DICT"]
 
         service_data = self.service_info[service]
-
+        logger.debug("DEBUG: service_data: %s", service_data)
         try:
             # Manual request execution using the httpx client
             url_path = service_data[SERVICE_KEYS["PATH"]]

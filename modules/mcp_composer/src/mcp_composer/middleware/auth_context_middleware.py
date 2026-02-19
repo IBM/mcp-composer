@@ -9,7 +9,7 @@ ISV tokens and platform cookies to downstream API calls without modifying tool a
 import contextvars
 import json
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional
 from fastmcp.server.middleware import Middleware, MiddlewareContext, CallNext
 from mcp_composer.core.utils import LoggerFactory
 
@@ -71,6 +71,7 @@ class AuthContextMiddleware(Middleware):
         use_cookie_as_auth: bool = False,
         auth_cookie_name: str = "mcsp-glb-iam-test",
         enabled_tool_patterns: Optional[list[str]] = None,
+        is_iam_enabled_for_tool: Optional[Callable[[str], bool]] = None,
         **kwargs,
     ):
         super().__init__(**kwargs)
@@ -82,15 +83,17 @@ class AuthContextMiddleware(Middleware):
         self.auth_cookie_name = auth_cookie_name
         # Tool patterns that should have auth context enabled (case-insensitive matching)
         self.enabled_tool_patterns = enabled_tool_patterns if enabled_tool_patterns is not None else []
+        self.is_iam_enabled_for_tool = is_iam_enabled_for_tool
 
         logger.info(
-            "AuthContextMiddleware initialized (forward_cookies=%s, add_isv_token=%s, add_cookie_header=%s, use_cookie_as_auth=%s, auth_cookie_name=%s, enabled_tool_patterns=%s)",
+            "AuthContextMiddleware initialized (forward_cookies=%s, add_isv_token=%s, add_cookie_header=%s, use_cookie_as_auth=%s, auth_cookie_name=%s, enabled_tool_patterns=%s, is_iam_gate=%s)",
             self.forward_cookies or "none",
             self.add_isv_token,
             self.add_cookie_header,
             self.use_cookie_as_auth,
             self.auth_cookie_name,
             self.enabled_tool_patterns or "all tools",
+            "enabled" if is_iam_enabled_for_tool else "disabled",
         )
 
     def _get_request(self, context: MiddlewareContext) -> Any:
@@ -282,7 +285,12 @@ class AuthContextMiddleware(Middleware):
         """
         tool_name = getattr(context.message, "name", "unknown")
         logger.info("Tool name: %s", tool_name)
-        
+
+        # Gate: run auth context only when the tool's server has solis_config.isIamEnabled (if resolver provided)
+        if self.is_iam_enabled_for_tool is not None and not self.is_iam_enabled_for_tool(tool_name):
+            logger.debug("Tool '%s' server has IAM disabled, skipping auth context", tool_name)
+            return await call_next(context)
+
         # If patterns are configured, check if tool name matches any pattern
         if self.enabled_tool_patterns:
             tool_name_lower = tool_name.lower()
