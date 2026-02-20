@@ -304,7 +304,7 @@ class TestLayeredOpenAPIFactory:
 
     @pytest.mark.asyncio
     async def test_make_tool_call_client_headers_added_to_mcp_request(
-        self, layered_factory, mock_client
+        self, mock_openapi_spec, mock_client
     ):
         """
         Test that headers from MCP client (e.g. Inspector) and request headers
@@ -313,25 +313,41 @@ class TestLayeredOpenAPIFactory:
         mock_response = Mock()
         mock_response.status_code = 200
         mock_response.json.return_value = {"result": "success"}
-
         mock_client.request = AsyncMock(return_value=mock_response)
 
-        # Auth context simulates headers extracted from client (Inspector) request
+        # Factory needs product_id for IAM auth path (authorize by productId match)
+        custom_routes = [RouteMap(methods=["GET"], pattern=".*", mcp_type=MCPType.TOOL)]
+        factory = LayeredOpenAPIFactory(
+            mock_openapi_spec,
+            mock_client,
+            server_id="unknown",
+            product_id="lakehouse",
+            custom_routes=custom_routes,
+        )
+
+        # Auth context: user_instances_full required; instance must have state "active" to be selected
+        full_instance = {
+            "id": "20251128-1445-2831-7084-4a9a364b8b6b",
+            "name": "test-instance",
+            "state": "active",
+            "dashboardURL": "https://example.com/dashboard",
+            "subscription": {"subscriptionName": "watsonx.data", "productId": "lakehouse"},
+        }
         auth_context = {
             "isv_token": "client-isv-token-from-inspector",
             "cookies": {"mcsp-glb-iam-test": "session-xyz"},
             "authenticated": True,
+            "user_instances_full": [full_instance],
             "user_instances": [
                 {
-                    "instance_id": "20251128-1445-2831-7084-4a9a364b8b6b",
+                    "instance_id": full_instance["id"],
                     "subscriptionName": "watsonx.data",
                     "productId": "lakehouse",
-                    "host": "https://console-aws-cacentral1.lakehouse.dev.saas.ibm.com/v1/ams/iam/sso",
+                    "host": full_instance["dashboardURL"].split("?")[0].rstrip("/"),
                 },
             ],
         }
 
-        # Request includes headers passed in tool call (e.g. X-Request-Id from client)
         request = {
             "path_params": {},
             "query_params": {},
@@ -346,7 +362,7 @@ class TestLayeredOpenAPIFactory:
             "mcp_composer.core.member_servers.layered_factory_oa.get_auth_context",
             return_value=auth_context,
         ):
-            result = await layered_factory.make_tool_call("get_test_data", request)
+            result = await factory.make_tool_call("get_test_data", request)
 
         assert result["success"] is True
 

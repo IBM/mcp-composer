@@ -76,6 +76,9 @@ ERROR_MESSAGES = {
 # Success messages
 SUCCESS_MESSAGES = {"API_CALL_SUCCESS": "API call successful"}
 
+# Fallback when productId / subscriptionName is missing from instance/subscription data
+FALLBACK_UNKNOWN = "unknown"
+
 # Default values
 DEFAULT_VALUES = {
     "REQUIRED": False,
