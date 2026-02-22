@@ -310,6 +310,70 @@ class ErrorSanitizationMiddleware(Middleware):
 
         return suggestions[:3]  # Limit to 3 suggestions
 
+    ERROR_STATUS_CODES = (401, 403, 404, 429, 500, 502, 503, 504)
+
+    def _is_error_result(self, result: Dict[str, Any]) -> bool:
+        """True if the tool result represents an error (should be sanitized and isError=True)."""
+        if result.get("error"):
+            return True
+        status = result.get("status_code")
+        if status is not None and status in self.ERROR_STATUS_CODES:
+            return True
+        data = result.get("data")
+        if isinstance(data, dict) and (data.get("error") or data.get("message")):
+            return True
+        return False
+
+    def _extract_raw_message(self, result: Dict[str, Any]) -> str:
+        """Get the raw error message from various result shapes (top-level or data.*)."""
+        msg = result.get("message") or result.get("error")
+        if msg:
+            return str(msg)
+        data = result.get("data")
+        if isinstance(data, dict):
+            msg = data.get("message") or data.get("error")
+            if msg:
+                return str(msg)
+        return str(result.get("error", ""))
+
+    def _sanitize_error_result(
+        self, result: Dict[str, Any], tool_name: str
+    ) -> Any:
+        """Sanitize a tool result that is an error; return CallToolResult with isError=True."""
+        status_code = result.get("status_code")
+        raw_message = self._extract_raw_message(result)
+        category, user_msg, suggestion = self._categorize_error(Exception(raw_message))
+
+        # Log raw details internally (do not expose to client)
+        logger.debug(
+            "Sanitizing tool error result (tool=%s, status_code=%s): %s",
+            tool_name,
+            status_code,
+            raw_message[:200] + "..." if len(raw_message) > 200 else raw_message,
+        )
+
+        # Short text for the agent (no long JWT/backend message)
+        error_text = user_msg
+        if suggestion:
+            error_text += f"\n\nSuggestion: {suggestion}"
+
+        structured = {
+            "success": False,
+            "service": result.get("service"),
+            "status_code": status_code,
+            "error": user_msg,
+            "message": user_msg,
+        }
+        if suggestion:
+            structured["suggestion"] = suggestion
+
+        # Return CallToolResult with isError=True so the client/agent treats it as an error
+        return CallToolResult(
+            content=[TextContent(type="text", text=error_text)],
+            structuredContent=structured,
+            isError=True,
+        )
+
     def _get_method_name(self, context: MiddlewareContext) -> str:
         """Extract method name from context."""
         # Try to get method from message
@@ -386,6 +450,9 @@ class ErrorSanitizationMiddleware(Middleware):
 
         try:
             result = await call_next(context)
+            # Sanitize tool results that are errors (top-level error, status_code 4xx/5xx, or data.error)
+            if self.enable_sanitization and isinstance(result, dict) and self._is_error_result(result):
+                result = self._sanitize_error_result(result, tool_name)
             return result
 
         except ToolError as e:

@@ -166,23 +166,12 @@ class AuthContextMiddleware(Middleware):
         instances: List[Dict[str, Any]],
     ) -> None:
         """
-        Update x-request-context from dashboard URL (host part before ?) when
-        not already provided by the client and x-request-context is in forward_cookies.
+        Do not derive x-request-context from dashboard URL here.
+        The client may send x-request-context (cookie/header); we keep it if present.
+        For member-server requests, the factory sets x-request-context to the selected
+        instance id when building X-Platform-Cookie, so the auth context must not be
+        filled with a dashboard URL (which would be wrong for the backend).
         """
-        if REQUEST_CONTEXT_KEY not in self.forward_cookies:
-            return
-        if auth_context[AUTH_KEY_COOKIES].get(REQUEST_CONTEXT_KEY):
-            return
-        if not instances:
-            return
-
-        first = instances[0]
-        dashboard_url = first.get("dashboardURL") or ""
-        if dashboard_url:
-            host = dashboard_url.split("?")[0].rstrip("/")
-            if host:
-                auth_context[AUTH_KEY_COOKIES][REQUEST_CONTEXT_KEY] = host
-                logger.debug("Set x-request-context from dashboard URL: %s", host[:60])
 
     def _extract_cookies_and_auth_header(
         self, request: Any, auth_context: Dict[str, Any]
