@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 import inspect
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
@@ -13,6 +13,7 @@ from fastmcp.settings import DuplicateBehavior
 
 
 from mcp_composer.core.member_servers.member_server import HealthStatus, MemberMCPServer
+from mcp_composer.middleware.auth_utils import tool_name_to_server_id
 from mcp_composer.core.utils.exceptions import ToolDisableError, ToolDuplicateError
 from mcp_composer.store.database import DatabaseInterface
 from mcp_composer.core.utils import LoggerFactory, get_server_doc_info
@@ -82,12 +83,27 @@ class MCPToolManager(ToolManager):
         tool_names = {tool.name for tool in tools.values()}
         return any(k in tool_names for k in key)
 
-    def filter_tools(self, tools: dict[str, Tool]) -> dict[str, Tool]:
+    def _get_instance_product_id(self, instance: dict[str, Any]) -> Optional[str]:
+        """Get productId from an instance (subscription.productId or product_id)."""
+        sub = instance.get("subscription")
+        if isinstance(sub, dict):
+            val = sub.get("productId") or sub.get("product_id")
+            if val:
+                return val
+        return instance.get("productId") or instance.get("product_id") or None
+
+    def filter_tools(
+        self,
+        tools: dict[str, Tool],
+        user_instances: Optional[list[dict[str, Any]]] = None,
+    ) -> dict[str, Tool]:
         """
         Filters and updates a dictionary of tools based on server configuration and
         locally disabled tools, performing the following actions for all member servers:
         1. Removes disabled tools.
         2. Updates tool descriptions.
+        3. When user_instances is provided, removes tools whose server's solis_config.product_id
+           is not present in any of the user's instances.
         """
         try:
 
@@ -128,6 +144,34 @@ class MCPToolManager(ToolManager):
 
                 if name in filtered_tools:
                     filtered_tools[name].description = description
+
+            # 4. Product-based filter: when user_instances is provided, keep only tools
+            # whose server's product_id is in the user's instances (or server has no product_id)
+            if user_instances:
+                allowed_product_ids = set()
+                for i in user_instances:
+                    pid = self._get_instance_product_id(i)
+                    if pid:
+                        allowed_product_ids.add(pid)
+
+                server_to_product: dict[str, Optional[str]] = {}
+                for member in server_config:
+                    solis = member.config.get("solis_config") or {}
+                    server_to_product[member.id] = solis.get("product_id")
+
+                result = {}
+                for tool_name, tool in filtered_tools.items():
+                    server_id = tool_name_to_server_id(tool.name)
+                    if server_id is None:
+                        result[tool_name] = tool
+                        continue
+                    product_id = server_to_product.get(server_id)
+                    if product_id is None:
+                        result[tool_name] = tool
+                        continue
+                    if product_id in allowed_product_ids:
+                        result[tool_name] = tool
+                filtered_tools = result
 
             return filtered_tools
 
