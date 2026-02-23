@@ -10,13 +10,12 @@ from mcp_composer.core.utils.exceptions import ToolFilterError
 from mcp_composer.core.utils.logger import LoggerFactory
 from mcp_composer.middleware.auth_context_middleware import (
     AUTH_KEY_USER_INSTANCES_FULL,
+    HEADER_USER_INSTANCES,
     get_auth_context,
 )
 from mcp_composer.middleware.auth_utils import tool_name_to_server_id
 
 logger = LoggerFactory.get_logger()
-
-HEADER_USER_INSTANCES = "x-user-instances"
 
 
 def _normalize_to_instance_list(raw: Any) -> List[dict]:
@@ -84,7 +83,7 @@ class ListFilteredTool(Middleware):
         try:
             raw = json.loads(raw_header)
         except json.JSONDecodeError as e:
-            logger.warning("x-user-instances header JSON invalid: %s", e)
+            logger.warning("%s header JSON invalid: %s", HEADER_USER_INSTANCES, e)
             return None
         instances = _normalize_to_instance_list(raw)
         return instances if instances else None

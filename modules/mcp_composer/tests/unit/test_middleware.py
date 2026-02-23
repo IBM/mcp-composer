@@ -7,6 +7,7 @@ from fastmcp.exceptions import ToolError
 from mcp_composer.middleware.auth_context_middleware import (
     AUTH_KEY_USER_INSTANCES_FULL,
     AuthContextMiddleware,
+    HEADER_USER_INSTANCES,
     get_auth_context,
     get_auth_headers,
 )
@@ -712,7 +713,7 @@ async def test_auth_context_user_instances_extracted_and_forwarded():
 
     mock_request = Mock()
     mock_request.headers = {
-        "x-user-instances": json.dumps(raw_instances),
+        HEADER_USER_INSTANCES: json.dumps(raw_instances),
     }
     mock_request.state = Mock()
     mock_request.state.user = None
@@ -818,7 +819,7 @@ async def test_x_user_instances_single_object_normalized_to_list():
     }
 
     mock_request = Mock()
-    mock_request.headers = {"x-user-instances": json.dumps(single_instance)}
+    mock_request.headers = {HEADER_USER_INSTANCES: json.dumps(single_instance)}
     mock_request.state = Mock()
     mock_request.state.user = None
 

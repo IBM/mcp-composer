@@ -8,6 +8,7 @@ from fastmcp.server.middleware import MiddlewareContext, Middleware
 from mcp.types import CallToolResult
 
 from mcp_composer.core.utils.exceptions import ToolFilterError
+from mcp_composer.middleware.auth_context_middleware import HEADER_USER_INSTANCES
 from mcp_composer.middleware.tool.tool_filter import ListFilteredTool
 
 # pylint: disable=protected-access,too-few-public-methods
@@ -259,7 +260,7 @@ class TestListFilteredTool:
         # Build context with request and x-user-instances header
         mock_request = Mock()
         mock_request.headers = {
-            "x-user-instances": json.dumps([
+            HEADER_USER_INSTANCES: json.dumps([
                 {"id": "inst1", "subscription": {"productId": "lakehouse"}}
             ]),
         }
