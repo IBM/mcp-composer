@@ -44,6 +44,7 @@ try:
         AUTH_KEY_ISV_TOKEN,
         AUTH_KEY_USER_INSTANCES,
         AUTH_KEY_USER_INSTANCES_FULL,
+        REQUEST_CONTEXT_KEY,
         get_auth_context,
     )
 
@@ -57,6 +58,7 @@ except ImportError:
     AUTH_KEY_ISV_TOKEN = "isv_token"
     AUTH_KEY_USER_INSTANCES = "user_instances"
     AUTH_KEY_USER_INSTANCES_FULL = "user_instances_full"
+    REQUEST_CONTEXT_KEY = "x-request-context"
     get_auth_context = lambda: None  # type: ignore[assignment]
     logger.debug("AuthContextMiddleware not available - auth context forwarding disabled")
 
@@ -302,7 +304,7 @@ All tools automatically resolve OpenAPI schema references and provide enhanced m
         headers: Dict[str, str] = {}
 
         if instance_id := instance.get("id"):
-            headers["X-Request-Context"] = instance_id
+            headers[REQUEST_CONTEXT_KEY] = instance_id
 
 
         logger.debug("Built instance headers: %s", list(headers.keys()))
@@ -876,14 +878,24 @@ All tools automatically resolve OpenAPI schema references and provide enhanced m
                             auth_headers[AUTH_HEADER_ISV_TOKEN] = auth_context[AUTH_KEY_ISV_TOKEN]
                             logger.debug("Adding ISV token to request for service: %s", service)
 
-                        # Add platform cookies as X-Platform-Cookie header
+                        # Add platform cookies as X-Platform-Cookie header.
+                        # Use selected instance id for x-request-context (backend expects instance id, not dashboard URL).
                         if auth_context.get(AUTH_KEY_COOKIES):
+                            cookies_for_request = dict(auth_context[AUTH_KEY_COOKIES])
+                            instance_id_for_context = selected_instance.get("id") or selected_instance.get("instance_id")
+                            if instance_id_for_context:
+                                cookies_for_request[REQUEST_CONTEXT_KEY] = instance_id_for_context
                             cookie_str = "; ".join(
-                                f"{name}={value}" for name, value in auth_context[AUTH_KEY_COOKIES].items()
+                                f"{name}={value}" for name, value in cookies_for_request.items()
                             )
                             if cookie_str:
                                 auth_headers[AUTH_HEADER_PLATFORM_COOKIE] = cookie_str
-                                logger.debug("Adding platform cookies to request for service: %s", service)
+                                logger.debug(
+                                    "Adding platform cookies (%s=%s) for service: %s",
+                                    REQUEST_CONTEXT_KEY,
+                                    instance_id_for_context or "(from context)",
+                                    service,
+                                )
 
                         # Add user instances as X-User-Instances header (JSON)
                         if auth_context.get(AUTH_KEY_USER_INSTANCES):
