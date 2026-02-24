@@ -101,6 +101,110 @@ def test_filter_tools_exception(tool_manager):  # pylint: disable=redefined-oute
         tool_manager.filter_tools({"a": MagicMock()})
 
 
+def test_filter_tools_user_instances_none_unchanged(
+    tool_manager,
+):  # pylint: disable=redefined-outer-name
+    """With user_instances=None, behavior is unchanged (no product-based filtering)."""
+    tool_manager._server_manager.list.return_value = []
+    tools = {"a": MagicMock()}
+    tools["a"].name = "a"
+
+    result = tool_manager.filter_tools(tools, user_instances=None)
+    assert result == tools
+
+
+def test_filter_tools_user_instances_empty_unchanged(
+    tool_manager,
+):  # pylint: disable=redefined-outer-name
+    """With user_instances=[], no product-based filtering applied."""
+    tool_manager._server_manager.list.return_value = []
+    tools = {"a": MagicMock()}
+    tools["a"].name = "a"
+
+    result = tool_manager.filter_tools(tools, user_instances=[])
+    assert result == tools
+
+
+def test_filter_tools_user_instances_filters_by_product(
+    tool_manager,
+):  # pylint: disable=redefined-outer-name
+    """With user_instances containing only lakehouse, tools for gi are removed."""
+    t_wx = MagicMock()
+    t_wx.name = "mcp-wx-data_get_service_info"
+    t_gi = MagicMock()
+    t_gi.name = "mcp-gurdium_get_type_info"
+    tools = {"mcp-wx-data_get_service_info": t_wx, "mcp-gurdium_get_type_info": t_gi}
+
+    member_wx = MagicMock()
+    member_wx.id = "mcp-wx-data"
+    member_wx.health_status = HealthStatus.healthy
+    member_wx.disabled_tools = []
+    member_wx.tools_description = {}
+    member_wx.config = {"solis_config": {"product_id": "lakehouse"}}
+
+    member_gi = MagicMock()
+    member_gi.id = "mcp-gurdium"
+    member_gi.health_status = HealthStatus.healthy
+    member_gi.disabled_tools = []
+    member_gi.tools_description = {}
+    member_gi.config = {"solis_config": {"product_id": "gi"}}
+
+    tool_manager._server_manager.list.return_value = [member_wx, member_gi]
+
+    user_instances = [{"subscription": {"productId": "lakehouse"}}]
+
+    result = tool_manager.filter_tools(tools, user_instances=user_instances)
+
+    assert "mcp-wx-data_get_service_info" in result
+    assert "mcp-gurdium_get_type_info" not in result
+
+
+def test_filter_tools_composer_tools_always_kept(
+    tool_manager,
+):  # pylint: disable=redefined-outer-name
+    """Composer-owned tools (no server_id prefix) are always kept."""
+    tool_no_prefix = MagicMock()
+    tool_no_prefix.name = "enable_all_tools"
+    tools = {"enable_all_tools": tool_no_prefix}
+
+    member = MagicMock()
+    member.id = "mcp-wx-data"
+    member.health_status = HealthStatus.healthy
+    member.disabled_tools = []
+    member.tools_description = {}
+    member.config = {"solis_config": {"product_id": "lakehouse"}}
+    tool_manager._server_manager.list.return_value = [member]
+
+    user_instances = [{"subscription": {"productId": "gi"}}]  # user has only gi
+
+    result = tool_manager.filter_tools(tools, user_instances=user_instances)
+
+    assert "enable_all_tools" in result
+
+
+def test_filter_tools_server_no_product_id_kept(
+    tool_manager,
+):  # pylint: disable=redefined-outer-name
+    """Server with no solis_config.product_id: tool always kept."""
+    t1 = MagicMock()
+    t1.name = "mcp-aspera_get_service_info"
+    tools = {"mcp-aspera_get_service_info": t1}
+
+    member = MagicMock()
+    member.id = "mcp-aspera"
+    member.health_status = HealthStatus.healthy
+    member.disabled_tools = []
+    member.tools_description = {}
+    member.config = {}  # no solis_config
+    tool_manager._server_manager.list.return_value = [member]
+
+    user_instances = [{"subscription": {"productId": "lakehouse"}}]
+
+    result = tool_manager.filter_tools(tools, user_instances=user_instances)
+
+    assert "mcp-aspera_get_service_info" in result
+
+
 # ---------- Async Tests ----------
 
 
