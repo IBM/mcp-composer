@@ -13,5 +13,12 @@
   "checkRunSettingsSAST": {
     "checkRunConclusionLevel": "failure",
     "severityThreshold": "high"
+  },
+  "remediateSettings": {
+    "enableRenovate": true,
+    "extends": ["local>ibm-saas-platform/mend-renovate-config:commonRenovateConfig"],
+    "workflowRules": {
+      "enabled": true
+    }
   }
 }
