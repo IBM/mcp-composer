@@ -9,7 +9,7 @@ resolution-markers = [
 
 [[package]]
 name = "a2a-sdk"
-version = "0.3.15"
+version = "0.3.24"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "google-api-core" },
@@ -18,9 +18,9 @@ dependencies = [
     { name = "protobuf" },
     { name = "pydantic" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/c0/73/7351f61a38ae0b9a0f0a24cd34c39cb564335b012897b274aa790241686a/a2a_sdk-0.3.15.tar.gz", hash = "sha256:df137fc3a18bb1d72c2018417aadd5d6263ded5c915b64d8a31719c098b968a5", size = 228712, upload-time = "2025-11-19T15:43:01.387Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/ad/76/cefa956fb2d3911cb91552a1da8ce2dbb339f1759cb475e2982f0ae2332b/a2a_sdk-0.3.24.tar.gz", hash = "sha256:3581e6e8a854cd725808f5732f90b7978e661b6d4e227a4755a8f063a3c1599d", size = 255550, upload-time = "2026-02-20T10:05:43.423Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/5f/95/8b6135cc307f81fe60c408132ea73f35e7b2533c25ad14867e7658ebe4b3/a2a_sdk-0.3.15-py3-none-any.whl", hash = "sha256:52e4f917346fbce6d809f38585184a8ddb4abe57b435a18a982340589cf9d4f5", size = 141380, upload-time = "2025-11-19T15:43:00.007Z" },
+    { url = "https://files.pythonhosted.org/packages/10/6e/cae5f0caea527b39c0abd7204d9416768764573c76649ca03cc345a372be/a2a_sdk-0.3.24-py3-none-any.whl", hash = "sha256:7b248767096bb55311f57deebf6b767349388d94c1b376c60cb8f6b715e053f6", size = 145752, upload-time = "2026-02-20T10:05:41.729Z" },
 ]
 
 [[package]]
@@ -2021,7 +2021,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "a2a-sdk", specifier = "==0.3.15" },
+    { name = "a2a-sdk", specifier = "==0.3.24" },
     { name = "aiohttp", specifier = "==3.13.3" },
     { name = "asyncpg", specifier = ">=0.29.0" },
     { name = "beautifulsoup4", specifier = ">=4.12.0" },
@@ -4185,7 +4185,9 @@ wheels = [
 
 [[package]]
 name = "virtualenv"
+
 version = "21.1.0"
+
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "distlib" },
@@ -4193,9 +4195,11 @@ dependencies = [
     { name = "platformdirs" },
     { name = "python-discovery" },
 ]
+
 sdist = { url = "https://files.pythonhosted.org/packages/2f/c9/18d4b36606d6091844daa3bd93cf7dc78e6f5da21d9f21d06c221104b684/virtualenv-21.1.0.tar.gz", hash = "sha256:1990a0188c8f16b6b9cf65c9183049007375b26aad415514d377ccacf1e4fb44", size = 5840471, upload-time = "2026-02-27T08:49:29.702Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/78/55/896b06bf93a49bec0f4ae2a6f1ed12bd05c8860744ac3a70eda041064e4d/virtualenv-21.1.0-py3-none-any.whl", hash = "sha256:164f5e14c5587d170cf98e60378eb91ea35bf037be313811905d3a24ea33cc07", size = 5825072, upload-time = "2026-02-27T08:49:27.516Z" },
+
 ]
 
 [[package]]
