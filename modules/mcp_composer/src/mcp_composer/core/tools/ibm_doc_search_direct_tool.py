@@ -57,7 +57,7 @@ class IBMDocSearchDirectTool(Tool):
 
     _products: List[str] = PrivateAttr(default_factory=list)
     _lang: str = PrivateAttr(default="en")
-    _timeout: int = PrivateAttr(default=30)
+    _timeout: int = PrivateAttr(default=50)
     _preferred_product_paths: List[str] = PrivateAttr(default_factory=list)
 
     def __init__(
@@ -67,7 +67,7 @@ class IBMDocSearchDirectTool(Tool):
         products: Optional[str] = None,
         max_results: int = 3,
         language: str = "en",
-        timeout: int = 30,
+        timeout: int = 50,
         preferred_product_paths: Optional[List[str]] = None,
     ):
         config = config or {}
@@ -84,9 +84,11 @@ class IBMDocSearchDirectTool(Tool):
             ),
             parameters=parameters,
         )
-        self._products = [p.strip().lower() for p in products_raw.split(",") if p.strip()]
+        self._products = [
+            p.strip().lower() for p in products_raw.split(",") if p.strip()
+        ]
         self._lang = config.get("language", language) or "en"
-        self._timeout = config.get("timeout", timeout) or 30
+        self._timeout = config.get("timeout", timeout) or 50
         raw = preferred_product_paths or config.get("preferred_product_paths")
         self._preferred_product_paths = (
             list(raw) if isinstance(raw, list) and raw else ["watsonx/w-and-w", "2.3"]
@@ -95,7 +97,9 @@ class IBMDocSearchDirectTool(Tool):
     def _score_url_version(self, url: str) -> Tuple[int, int, int]:
         """Return sort key (higher = preferred). Prefer newer versions and preferred product paths."""
         path = urlparse(url).path.lower()
-        has_preferred = 1 if any(p in path for p in self._preferred_product_paths) else 0
+        has_preferred = (
+            1 if any(p in path for p in self._preferred_product_paths) else 0
+        )
         match = re.search(r"(\d+)\.(\d+)(?:\.\w+)?", path)
         major, minor = (int(match.group(1)), int(match.group(2))) if match else (0, 0)
         return (has_preferred, major, minor)
@@ -143,7 +147,9 @@ class IBMDocSearchDirectTool(Tool):
             logger.warning("IBM docs search connection error: %s", e)
             raise
         except httpx.HTTPStatusError as e:
-            logger.warning("IBM docs search HTTP error: %s %s", e.response.status_code, e)
+            logger.warning(
+                "IBM docs search HTTP error: %s %s", e.response.status_code, e
+            )
             raise
         except ValueError as e:
             logger.warning("IBM docs search invalid JSON: %s", e)
@@ -177,8 +183,7 @@ class IBMDocSearchDirectTool(Tool):
             parsed = urlparse(url)
             path_parts = parsed.path.split("/")
             normalized = "/".join(
-                p for p in path_parts
-                if not any(c.isdigit() and "." in p for c in p)
+                p for p in path_parts if not any(c.isdigit() and "." in p for c in p)
             )
             if normalized not in seen:
                 seen.add(normalized)
@@ -188,7 +193,8 @@ class IBMDocSearchDirectTool(Tool):
         total_before = len(links)
         if self._products:
             links = [
-                link for link in links
+                link
+                for link in links
                 if any(p in link.get("product", "").lower() for p in self._products)
             ]
 
@@ -205,7 +211,9 @@ class IBMDocSearchDirectTool(Tool):
                 )
             return "No results found."
 
-        async def fetch_one(client: httpx.AsyncClient, link: Dict[str, Any]) -> tuple[str, str]:
+        async def fetch_one(
+            client: httpx.AsyncClient, link: Dict[str, Any]
+        ) -> tuple[str, str]:
             url = link.get("url", "")
             href = link.get("href", "")
             if not url:
@@ -251,7 +259,7 @@ class IBMDocSearchDirectTool(Tool):
         sources_list = "\n".join(f"- {link['url']}" for link in links)
         header = (
             f"**IBM Docs Search Results** — {len(pages)} page(s) returned "
-            f"for query: \"{query}\" ({elapsed:.1f}s).\n\n"
+            f'for query: "{query}" ({elapsed:.1f}s).\n\n'
             f"**Sources used:**\n{sources_list}\n\n"
             f"This response contains the full content of all matched pages. "
             f"Do not call this tool again for the same topic.\n\n"
@@ -275,16 +283,26 @@ class IBMDocSearchDirectTool(Tool):
             return ToolResult(content=[TextContent(type="text", text=result)])
         except httpx.TimeoutException:
             logger.warning("IBM doc search timeout for query: %s", validated.query)
-            return ToolResult(content=[TextContent(type="text", text=GENERIC_ERROR_MESSAGE)])
+            return ToolResult(
+                content=[TextContent(type="text", text=GENERIC_ERROR_MESSAGE)]
+            )
         except httpx.ConnectError:
-            logger.warning("IBM doc search connection error for query: %s", validated.query)
-            return ToolResult(content=[TextContent(type="text", text=GENERIC_ERROR_MESSAGE)])
+            logger.warning(
+                "IBM doc search connection error for query: %s", validated.query
+            )
+            return ToolResult(
+                content=[TextContent(type="text", text=GENERIC_ERROR_MESSAGE)]
+            )
         except httpx.HTTPStatusError as e:
             logger.warning("IBM doc search HTTP error: %s", e)
-            return ToolResult(content=[TextContent(type="text", text=GENERIC_ERROR_MESSAGE)])
+            return ToolResult(
+                content=[TextContent(type="text", text=GENERIC_ERROR_MESSAGE)]
+            )
         except ValueError as e:
             logger.warning("IBM doc search parse error: %s", e)
-            return ToolResult(content=[TextContent(type="text", text=GENERIC_ERROR_MESSAGE)])
+            return ToolResult(
+                content=[TextContent(type="text", text=GENERIC_ERROR_MESSAGE)]
+            )
         except Exception as e:
             logger.exception("IBM doc search failed: %s", e)
             return ToolResult(
