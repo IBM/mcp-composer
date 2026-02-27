@@ -5,7 +5,7 @@ Extends FastMCP with runtime composition, tool management, and database-backed c
 
 import os
 import sys
-from typing import Any, Dict, Optional, Union, Literal
+from typing import Any, Dict, Optional, Union, Literal, Sequence
 from dotenv import load_dotenv
 from fastmcp import FastMCP
 from fastmcp.server.auth.auth import OAuthProvider
@@ -22,7 +22,9 @@ from mcp_composer.core.member_servers import (
     MemberMCPServer,
     MCPServerBuilder,
 )
-from mcp_composer.core.config.server_configuration_manager import ServerConfigurationManager
+from mcp_composer.core.config.server_configuration_manager import (
+    ServerConfigurationManager,
+)
 from mcp_composer.core.utils.custom_tool import DynamicToolGenerator, OpenApiTool
 from mcp_composer.core.utils.utils import get_endpoint_from_config
 from mcp_composer.store.database import DatabaseInterface
@@ -68,12 +70,12 @@ class MCPComposer(FastMCP):
         auth: OAuthProvider | JWTVerifier | None = None,
     ):
         super().__init__(name=name, auth=auth)
-        
+
         # Initialize configuration manager
         self._server_config_manager = ServerConfigurationManager(
             version_adapter_config=version_adapter_config
         )
-        
+
         # Get database from configuration
         logger.info("looking for DB config MCP Composer with name: %s", name)
         database = self._server_config_manager.get_database_from_config(database_config)
@@ -95,7 +97,7 @@ class MCPComposer(FastMCP):
         self._prompt_manager.load_prompts_from_db()
 
         self._db_configs: list[dict] = self._server_manager.load_all_servers_db()
-        
+
         # Process server configuration
         self._server_config_manager.process_config(config, composer=self)
 
@@ -200,14 +202,13 @@ class MCPComposer(FastMCP):
         """Expose the resource manager for tool integration."""
         return self._resource_manager
 
-
     async def _load_custom_tools(self):
         """Load tools using saved OpenAPI, Curl, and Python script."""
         server_data = await self._tool_manager.load_custom_tools()
         for name, client in server_data.items():
             self.mount(
                 self.from_openapi(client[0], client[1]),  # type: ignore
-                prefix=name,
+                namespace=name,
             )
 
     async def _mount_member_server(self, config: dict) -> str:
@@ -218,8 +219,8 @@ class MCPComposer(FastMCP):
 
             server_id = config["id"]
             builder = MCPServerBuilder(config)
-            sub_mcp = await builder.build()
-            self.mount(sub_mcp, server_id)
+            external_mcp = await builder.build()
+            self.mount(external_mcp, server_id)
 
             member = MemberMCPServer(
                 id=server_id,
@@ -233,7 +234,7 @@ class MCPComposer(FastMCP):
                 disabled_prompts=config.get("disabled_prompts", []),
                 tools_description=config.get("tools_description", {}),
             )
-            member.set_server(sub_mcp)
+            member.set_server(external_mcp)
             self._server_manager.add_server_db(config)
             self._server_manager.add_member(server_id, member)
 
@@ -256,7 +257,10 @@ class MCPComposer(FastMCP):
         await self._load_custom_tools()
 
         # Apply unified configuration if loaded
-        if self._server_config_manager.unified_config_applied and self._server_config_manager.unified_config:
+        if (
+            self._server_config_manager.unified_config_applied
+            and self._server_config_manager.unified_config
+        ):
             await self._server_config_manager.apply_unified_config(self)
 
         all_configs = self._server_config_manager.config + self._db_configs
@@ -379,8 +383,8 @@ class MCPComposer(FastMCP):
         """Create a tool from OpenAPI Specification"""
         server_name, client = await tool_from_open_api(openapi_spec, auth_config)
         self.mount(
-            self.from_openapi(openapi_spec, client),  # type: ignore
-            prefix=server_name,
+            FastMCP.from_openapi(openapi_spec, client),
+            namespace=server_name,
         )
         return "Successfully added tools"
 
@@ -437,17 +441,17 @@ class MCPComposer(FastMCP):
     def delete_prompts(self, prompt_names: Union[str, list[str]]) -> dict:
         """
         Delete one or more prompts from the composer and database.
-        
+
         Args:
             prompt_names: Single prompt name or list of prompt names to delete
-            
+
         Returns:
             dict: Dictionary with prompt names as keys and status messages as values
-            
+
         Example:
             # Delete a single prompt
             result = composer.delete_prompts("my_prompt")
-            
+
             # Delete multiple prompts
             result = composer.delete_prompts(["prompt1", "prompt2"])
         """
@@ -461,12 +465,13 @@ class MCPComposer(FastMCP):
         """Create a resource in the composer."""
         return await self._resource_manager.create_resource(resource_config)
 
-    async def list_resource_templates(self) -> list[dict]:
+    async def list_resource_templates(  # type: ignore[override]
+        self, run_middleware: bool = True
+    ) -> Sequence[ResourceTemplate]:
         """List all available resource templates from composer and mounted servers."""
         templates = await self._resource_manager.list_resource_templates()
         result = []
         for template in templates:
-            text = getattr(template, "_composer_text", "")
             result.append(
                 {
                     "name": template.name,
@@ -474,17 +479,17 @@ class MCPComposer(FastMCP):
                     "uri_template": str(template.uri_template),
                     "mime_type": template.mime_type,
                     "tags": list(template.tags) if template.tags else [],
-                    "text": text,
                 }
             )
-        return result
+        return result  # type: ignore[return-value]
 
-    async def list_resources(self) -> list[dict]:
+    async def list_resources(  # type: ignore[override]
+        self, run_middleware: bool = True
+    ) -> Sequence[Resource]:
         """List all available resources from composer and mounted servers."""
         resources = await self._resource_manager.list_resources()
         result = []
         for resource in resources:
-            text = getattr(resource, "_composer_text", "")
             result.append(
                 {
                     "name": resource.name,
@@ -492,10 +497,9 @@ class MCPComposer(FastMCP):
                     "uri": str(resource.uri),
                     "mime_type": resource.mime_type,
                     "tags": list(resource.tags) if resource.tags else [],
-                    "text": text,
                 }
             )
-        return result
+        return result  # type: ignore[return-value]
 
     async def list_resources_per_server(self, server_id: str) -> list[dict]:
         """List all resources from a specific server."""
@@ -525,14 +529,17 @@ class MCPComposer(FastMCP):
         """
         return await self._resource_manager.delete_resources(resources, resource_type)
 
-    def disable_composer_tool(self, tools: Optional[list[str]] = None) -> str:
+    async def disable_composer_tool(self, tools: Optional[list[str]] = None) -> str:
         """
         Disable a tool or multiple tools in the composer server
         """
-        return self._tool_manager.disable_composer_tool(tools)
+        return await self._tool_manager.disable_composer_tool(tools)
 
     async def run_stdio_async(
-        self, show_banner: bool = True, log_level: str | None = None
+        self,
+        show_banner: bool = True,
+        log_level: str | None = None,
+        stateless: bool = False,
     ) -> None:
         """
         Override the default banner to display MCP Composer branding when using stdio.
@@ -542,7 +549,9 @@ class MCPComposer(FastMCP):
                 server_name=self.name or "mcp-composer",
                 transport="stdio",
             )
-        await super().run_stdio_async(show_banner=False, log_level=log_level)
+        await super().run_stdio_async(
+            show_banner=False, log_level=log_level, stateless=stateless
+        )
 
     async def run_http_async(
         self,
@@ -556,6 +565,7 @@ class MCPComposer(FastMCP):
         middleware: list[ASGIMiddleware] | None = None,
         json_response: bool | None = None,
         stateless_http: bool | None = None,
+        stateless: bool | None = None,
     ) -> None:
         """
         Override the default banner to display MCP Composer branding for HTTP transports.
@@ -579,4 +589,5 @@ class MCPComposer(FastMCP):
             middleware=middleware,
             json_response=json_response,
             stateless_http=stateless_http,
+            stateless=stateless,
         )

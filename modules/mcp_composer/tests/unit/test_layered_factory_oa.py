@@ -9,7 +9,8 @@ Tests the enhanced OpenAPI processing capabilities including:
 - Enhanced service information
 """
 
-from unittest.mock import AsyncMock, Mock
+import json
+from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 from fastmcp.server.openapi import MCPType, RouteMap
@@ -21,6 +22,13 @@ from mcp_composer.core.member_servers.layered_factory_oa import LayeredOpenAPIFa
 
 class TestLayeredOpenAPIFactory:
     """Test cases for LayeredOpenAPIFactory class."""
+
+    @staticmethod
+    async def _get_tools(layered_factory):
+        tools = await layered_factory.list_tools()
+        if isinstance(tools, dict):
+            return list(tools.values())
+        return list(tools)
 
     @pytest.fixture
     def mock_openapi_spec(self):
@@ -51,13 +59,23 @@ class TestLayeredOpenAPIFactory:
                             },
                         ],
                         "requestBody": {
-                            "content": {"application/json": {"schema": {"$ref": "#/components/schemas/TestRequest"}}}
+                            "content": {
+                                "application/json": {
+                                    "schema": {
+                                        "$ref": "#/components/schemas/TestRequest"
+                                    }
+                                }
+                            }
                         },
                         "responses": {
                             "200": {
                                 "description": "Success",
                                 "content": {
-                                    "application/json": {"schema": {"$ref": "#/components/schemas/TestResponse"}}
+                                    "application/json": {
+                                        "schema": {
+                                            "$ref": "#/components/schemas/TestResponse"
+                                        }
+                                    }
                                 },
                             },
                             "400": {"description": "Bad Request"},
@@ -96,7 +114,9 @@ class TestLayeredOpenAPIFactory:
     def layered_factory(self, mock_openapi_spec, mock_client):
         """Create a LayeredOpenAPIFactory instance for testing."""
         custom_routes = [RouteMap(methods=["GET"], pattern=".*", mcp_type=MCPType.TOOL)]
-        return LayeredOpenAPIFactory(mock_openapi_spec, mock_client, custom_routes=custom_routes)
+        return LayeredOpenAPIFactory(
+            mock_openapi_spec, mock_client, custom_routes=custom_routes
+        )
 
     @pytest.mark.asyncio
     async def test_layered_factory_initialization(self, layered_factory):
@@ -104,17 +124,14 @@ class TestLayeredOpenAPIFactory:
         assert layered_factory.name == "Layered OpenAPI FastMCP"
         assert layered_factory.openapi_spec is not None
         assert layered_factory.client is not None
-        # Check that tools are added by checking the tool manager
-        assert hasattr(layered_factory, "_tool_manager")
-        tools_dict = await layered_factory._tool_manager.get_tools()
-        tools = list(tools_dict.values())
+        # Check that tools are added
+        tools = await self._get_tools(layered_factory)
         assert len(tools) == 3
 
     @pytest.mark.asyncio
     async def test_layered_factory_tools(self, layered_factory):
         """Test that LayeredOpenAPIFactory has the correct tools."""
-        tools_dict = await layered_factory._tool_manager.get_tools()
-        tools = list(tools_dict.values())
+        tools = await self._get_tools(layered_factory)
         tool_names = [tool.name for tool in tools]
         assert "get_service_info" in tool_names
         assert "get_type_info" in tool_names
@@ -197,18 +214,24 @@ class TestLayeredOpenAPIFactory:
     def test_should_include_operation(self, layered_factory):
         """Test operation inclusion logic."""
         # Test with no custom routes (should include all)
-        assert layered_factory._should_include_operation("GET", "/test/endpoint") is True
+        assert (
+            layered_factory._should_include_operation("GET", "/test/endpoint") is True
+        )
 
     def test_matches_pattern(self, layered_factory):
         """Test pattern matching."""
         # Test exact match
-        assert layered_factory._matches_pattern("/test/endpoint", "/test/endpoint") is True
+        assert (
+            layered_factory._matches_pattern("/test/endpoint", "/test/endpoint") is True
+        )
 
         # Test regex pattern
         assert layered_factory._matches_pattern("/test/endpoint", ".*endpoint") is True
 
         # Test non-match
-        assert layered_factory._matches_pattern("/test/endpoint", "/other/path") is False
+        assert (
+            layered_factory._matches_pattern("/test/endpoint", "/other/path") is False
+        )
 
     def test_get_type_info(self, layered_factory):
         """Test get_type_info method."""
@@ -283,11 +306,98 @@ class TestLayeredOpenAPIFactory:
         assert result["success"] is False
         assert "error" in result
 
+    @pytest.mark.asyncio
+    async def test_make_tool_call_client_headers_added_to_mcp_request(
+        self, mock_openapi_spec, mock_client
+    ):
+        """
+        Test that headers from MCP client (e.g. Inspector) and request headers
+        are merged and added to outgoing MCP requests to member servers.
+        """
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {"result": "success"}
+        mock_client.request = AsyncMock(return_value=mock_response)
+
+        # Factory needs product_id for IAM auth path (authorize by productId match)
+        custom_routes = [RouteMap(methods=["GET"], pattern=".*", mcp_type=MCPType.TOOL)]
+        factory = LayeredOpenAPIFactory(
+            mock_openapi_spec,
+            mock_client,
+            server_id="unknown",
+            product_id="lakehouse",
+            custom_routes=custom_routes,
+        )
+
+        # Auth context: user_instances_full required; instance must have state "active" to be selected
+        full_instance = {
+            "id": "20251128-1445-2831-7084-4a9a364b8b6b",
+            "name": "test-instance",
+            "state": "active",
+            "dashboardURL": "https://example.com/dashboard",
+            "subscription": {"subscriptionName": "watsonx.data", "productId": "lakehouse"},
+        }
+        auth_context = {
+            "isv_token": "client-isv-token-from-inspector",
+            "cookies": {"mcsp-glb-iam-test": "session-xyz"},
+            "authenticated": True,
+            "user_instances_full": [full_instance],
+            "user_instances": [
+                {
+                    "instance_id": full_instance["id"],
+                    "subscriptionName": "watsonx.data",
+                    "productId": "lakehouse",
+                    "host": full_instance["dashboardURL"].split("?")[0].rstrip("/"),
+                },
+            ],
+        }
+
+        request = {
+            "path_params": {},
+            "query_params": {},
+            "headers": {
+                "X-Request-Id": "inspector-request-123",
+                "X-Custom-Client-Header": "client-value",
+            },
+            "body": None,
+        }
+
+        with patch(
+            "mcp_composer.core.member_servers.layered_factory_oa.get_auth_context",
+            return_value=auth_context,
+        ):
+            result = await factory.make_tool_call("get_test_data", request)
+
+        assert result["success"] is True
+
+        # Verify client.request was called with merged headers
+        call_kwargs = mock_client.request.call_args.kwargs
+        headers = call_kwargs.get("headers", {})
+
+        # Auth headers from client (Inspector) should be present
+        assert headers.get("X-ISV-Token") == "client-isv-token-from-inspector"
+        assert "mcsp-glb-iam-test=session-xyz" in headers.get("X-Platform-Cookie", "")
+
+        # Request headers from tool call should be present
+        assert headers.get("X-Request-Id") == "inspector-request-123"
+        assert headers.get("X-Custom-Client-Header") == "client-value"
+
+        # User instances from auth context should be present
+        user_instances_json = headers.get("X-User-Instances")
+        assert user_instances_json
+        user_instances = json.loads(user_instances_json)
+        assert len(user_instances) == 1
+        assert user_instances[0]["instance_id"] == "20251128-1445-2831-7084-4a9a364b8b6b"
+        assert user_instances[0]["subscriptionName"] == "watsonx.data"
+        assert user_instances[0]["productId"] == "lakehouse"
+
     def test_layered_factory_with_custom_routes(self, mock_openapi_spec, mock_client):
         """Test LayeredOpenAPIFactory with custom routes."""
         custom_routes = [RouteMap(methods=["GET"], pattern=".*", mcp_type=MCPType.TOOL)]
 
-        factory = LayeredOpenAPIFactory(mock_openapi_spec, mock_client, custom_routes=custom_routes)
+        factory = LayeredOpenAPIFactory(
+            mock_openapi_spec, mock_client, custom_routes=custom_routes
+        )
 
         assert factory.custom_routes == custom_routes
 
@@ -297,7 +407,11 @@ class TestLayeredOpenAPIFactory:
         assert "get_service_info" in instructions
         assert "get_type_info" in instructions
         assert "make_tool_call" in instructions
-        assert "Layered Tool Pattern" in instructions or "three main capabilities" in instructions
+        assert (
+            "Layered Tool Pattern" in instructions
+            or "three main capabilities" in instructions
+        )
+
     # -------------------
     # Additional description tests
     # -------------------
@@ -314,7 +428,9 @@ class TestLayeredOpenAPIFactory:
             desc = getattr(tool, "description")
         # dict-like
         elif isinstance(tool, dict):
-            desc = tool.get("description") or tool.get("metadata", {}).get("description")
+            desc = tool.get("description") or tool.get("metadata", {}).get(
+                "description"
+            )
         else:
             # try common attribute containers
             meta = getattr(tool, "metadata", None) or getattr(tool, "tool", None)
@@ -331,21 +447,23 @@ class TestLayeredOpenAPIFactory:
     @pytest.mark.asyncio
     async def test_all_tools_have_descriptions(self, layered_factory):
         """Ensure each registered tool has a non-empty description."""
-        tools_dict = await layered_factory._tool_manager.get_tools()
-        tools = list(tools_dict.values())
+        tools = await self._get_tools(layered_factory)
         for tool in tools:
             desc = self._get_tool_description(tool)
             assert isinstance(desc, str)
-            assert desc.strip() != "", f"Tool {getattr(tool, 'name', str(tool))} missing description"
+            assert (
+                desc.strip() != ""
+            ), f"Tool {getattr(tool, 'name', str(tool))} missing description"
 
     @pytest.mark.asyncio
     async def test_get_service_info_tool_description(self, layered_factory):
         """Check that get_service_info tool description refers to 'service' or 'services'."""
-        tools_dict = await layered_factory._tool_manager.get_tools()
-        tools = list(tools_dict.values())
+        tools = await self._get_tools(layered_factory)
 
         # find the tool object
-        svc_tool = next((t for t in tools if getattr(t, "name", None) == "get_service_info"), None)
+        svc_tool = next(
+            (t for t in tools if getattr(t, "name", None) == "get_service_info"), None
+        )
         assert svc_tool is not None, "get_service_info tool not registered"
 
         desc = self._get_tool_description(svc_tool).lower()
@@ -355,10 +473,11 @@ class TestLayeredOpenAPIFactory:
     @pytest.mark.asyncio
     async def test_get_type_info_tool_description(self, layered_factory):
         """Check that get_type_info tool description refers to 'type' or 'parameters' or 'schema'."""
-        tools_dict = await layered_factory._tool_manager.get_tools()
-        tools = list(tools_dict.values())
+        tools = await self._get_tools(layered_factory)
 
-        type_tool = next((t for t in tools if getattr(t, "name", None) == "get_type_info"), None)
+        type_tool = next(
+            (t for t in tools if getattr(t, "name", None) == "get_type_info"), None
+        )
         assert type_tool is not None, "get_type_info tool not registered"
 
         desc = self._get_tool_description(type_tool).lower()
@@ -367,10 +486,11 @@ class TestLayeredOpenAPIFactory:
     @pytest.mark.asyncio
     async def test_make_tool_call_tool_description(self, layered_factory):
         """Check that make_tool_call tool description refers to 'call', 'invoke' or 'request'."""
-        tools_dict = await layered_factory._tool_manager.get_tools()
-        tools = list(tools_dict.values())
+        tools = await self._get_tools(layered_factory)
 
-        call_tool = next((t for t in tools if getattr(t, "name", None) == "make_tool_call"), None)
+        call_tool = next(
+            (t for t in tools if getattr(t, "name", None) == "make_tool_call"), None
+        )
         assert call_tool is not None, "make_tool_call tool not registered"
 
         desc = self._get_tool_description(call_tool).lower()

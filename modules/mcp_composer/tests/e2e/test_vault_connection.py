@@ -32,7 +32,7 @@ def test_vault_connection():
         print("✓ hvac library is available")
 
         client = hvac.Client(url=vault_url, token=vault_token)
-        print(f"✓ Created hvac client")
+        print("✓ Created hvac client")
 
         # Test authentication
         if client.is_authenticated():
@@ -41,7 +41,7 @@ def test_vault_connection():
             # Test reading a simple secret
             try:
                 # Try to read a test secret
-                response = client.secrets.kv.v2.read_secret_version(
+                client.secrets.kv.v2.read_secret_version(
                     path="test", mount_point="secret"
                 )
                 print("✓ Successfully read from Vault KV store")

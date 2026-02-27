@@ -8,6 +8,7 @@ try:
 except Exception:  # pragma: no cover
     jsonpath_parse = None
 
+
 class Rule:
     def __init__(self, name: str, when: Dict[str, Any], then: Dict[str, Any]):
         self.name = name
@@ -17,7 +18,9 @@ class Rule:
     def _match_regex(self, pattern: str, text: str) -> bool:
         return re.search(pattern, text or "", flags=re.I) is not None
 
-    def _match_jsonpath(self, tool: Dict[str, Any], expr: str, pattern: Optional[str]) -> bool:
+    def _match_jsonpath(
+        self, tool: Dict[str, Any], expr: str, pattern: Optional[str]
+    ) -> bool:
         if not jsonpath_parse:
             return False
         values = [m.value for m in jsonpath_parse(expr).find(tool)]
@@ -32,11 +35,15 @@ class Rule:
         if "name_regex" in w:
             tests.append(self._match_regex(w["name_regex"], tool.get("name", "")))
         if "desc_regex" in w:
-            tests.append(self._match_regex(w["desc_regex"], tool.get("description", "")))
+            tests.append(
+                self._match_regex(w["desc_regex"], tool.get("description", ""))
+            )
         if "vendor_regex" in w:
             tests.append(self._match_regex(w["vendor_regex"], tool.get("vendor", "")))
         if "endpoint_regex" in w:
-            tests.append(self._match_regex(w["endpoint_regex"], tool.get("endpoint", "")))
+            tests.append(
+                self._match_regex(w["endpoint_regex"], tool.get("endpoint", ""))
+            )
         if "input_jsonpath" in w:
             expr = w["input_jsonpath"].get("expr")
             pat = w["input_jsonpath"].get("pattern")
@@ -55,5 +62,7 @@ class Rule:
         data = yaml.safe_load(open(path, encoding="utf-8")) or {}
         rules: List[Rule] = []
         for obj in data.get("rules", []):
-            rules.append(Rule(obj.get("name"), obj.get("when", {}), obj.get("then", {})))
+            rules.append(
+                Rule(obj.get("name"), obj.get("when", {}), obj.get("then", {}))
+            )
         return rules

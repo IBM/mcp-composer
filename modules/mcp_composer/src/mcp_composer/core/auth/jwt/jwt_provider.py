@@ -67,7 +67,9 @@ class JWTAuthProvider:
         self._verifier: Optional[JWTVerifier] = None
 
         logger.info(
-            "Initialized JWT auth provider with algorithm: %s, verify_exp: %s", config.algorithm, config.verify_exp
+            "Initialized JWT auth provider with algorithm: %s, verify_exp: %s",
+            config.algorithm,
+            config.verify_exp,
         )
 
     def get_verifier(self) -> JWTVerifier:
@@ -95,18 +97,18 @@ class JWTAuthProvider:
     def _sanitize_kwargs_for_logging(self, kwargs: Dict[str, Any]) -> Dict[str, Any]:
         """
         Sanitize kwargs by masking sensitive fields before logging.
-        
+
         Args:
             kwargs: Dictionary that may contain sensitive data
-            
+
         Returns:
             Sanitized copy of kwargs with sensitive fields masked
         """
-        sensitive_fields = {'secret', 'public_key', 'private_key', 'key'}
+        sensitive_fields = {"secret", "public_key", "private_key", "key"}
         sanitized = kwargs.copy()
         for field in sensitive_fields:
             if field in sanitized:
-                sanitized[field] = '***REDACTED***'
+                sanitized[field] = "***REDACTED***"
         return sanitized
 
     def _create_verifier(self) -> JWTVerifier:
@@ -129,7 +131,9 @@ class JWTAuthProvider:
             raise
 
     @classmethod
-    def from_secret(cls, secret: str, algorithm: str = "HS256", **kwargs: Any) -> "JWTAuthProvider":
+    def from_secret(
+        cls, secret: str, algorithm: str = "HS256", **kwargs: Any
+    ) -> "JWTAuthProvider":
         """
         Create JWT provider with a secret key (for HMAC algorithms).
 
@@ -162,7 +166,9 @@ class JWTAuthProvider:
         return cls(config=config)
 
     @classmethod
-    def from_public_key(cls, public_key: str, algorithm: str = "RS256", **kwargs: Any) -> "JWTAuthProvider":
+    def from_public_key(
+        cls, public_key: str, algorithm: str = "RS256", **kwargs: Any
+    ) -> "JWTAuthProvider":
         """
         Create JWT provider with a public key (for RSA/ECDSA algorithms).
 

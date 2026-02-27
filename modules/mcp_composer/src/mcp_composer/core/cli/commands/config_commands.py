@@ -30,8 +30,12 @@ app = typer.Typer(
 
 @app.command("validate")
 def validate_config(
-    configfilepath: str = Argument(..., help="Path to the configuration file to validate"),
-    ensure_imports: bool = Option(False, "--ensure-imports", help="Ensure all middleware classes can be imported")
+    configfilepath: str = Argument(
+        ..., help="Path to the configuration file to validate"
+    ),
+    ensure_imports: bool = Option(
+        False, "--ensure-imports", help="Ensure all middleware classes can be imported"
+    ),
 ) -> None:
     """Validate a configuration file for syntax and schema errors."""
     try:
@@ -57,8 +61,15 @@ def validate_config(
 @app.command("show")
 def show_config(
     configfilepath: str = Argument(..., help="Path to the configuration file to show"),
-    section: Optional[str] = Option(None, "--section", "-s", help="Show only a specific section (servers, middleware, prompts, tools)"),
-    config_format: str = Option("table", "--format", "-f", help="Output format (table, json)")
+    section: Optional[str] = Option(
+        None,
+        "--section",
+        "-s",
+        help="Show only a specific section (servers, middleware, prompts, tools)",
+    ),
+    config_format: str = Option(
+        "table", "--format", "-f", help="Output format (table, json)"
+    ),
 ) -> None:
     """Show configuration file contents in a formatted way."""
     try:
@@ -88,8 +99,15 @@ def show_config(
 @app.command("apply")
 def apply_config(
     configfilepath: str = Argument(..., help="Path to the configuration file to apply"),
-    config: str = Option("all", "--config", "-c", help="Which configuration sections to apply (servers, middleware, prompts, tools, all)"),
-    dry_run: bool = Option(False, "--dry-run", help="Show what would be applied without actually applying")
+    config: str = Option(
+        "all",
+        "--config",
+        "-c",
+        help="Which configuration sections to apply (servers, middleware, prompts, tools, all)",
+    ),
+    dry_run: bool = Option(
+        False, "--dry-run", help="Show what would be applied without actually applying"
+    ),
 ) -> None:
     """Apply configuration to MCP Composer."""
     try:
@@ -190,7 +208,7 @@ def _show_servers_table(servers: list) -> None:
             server.get("id", ""),
             server.get("type", ""),
             server.get("endpoint", "N/A"),
-            server.get("label", "")
+            server.get("label", ""),
         )
 
     console.print(table)
@@ -209,7 +227,7 @@ def _show_middleware_table(middleware: list) -> None:
             mw.get("name", ""),
             mw.get("kind", ""),
             mw.get("mode", ""),
-            str(mw.get("priority", ""))
+            str(mw.get("priority", "")),
         )
 
     console.print(table)
@@ -225,12 +243,16 @@ def _show_prompts_table(prompts: list) -> None:
 
     for prompt in prompts:
         args_count = len(prompt.get("arguments", []) or [])
-        template_preview = prompt.get("template", "")[:50] + "..." if len(prompt.get("template", "")) > 50 else prompt.get("template", "")
+        template_preview = (
+            prompt.get("template", "")[:50] + "..."
+            if len(prompt.get("template", "")) > 50
+            else prompt.get("template", "")
+        )
         table.add_row(
             prompt.get("name", ""),
             prompt.get("description", ""),
             template_preview,
-            str(args_count)
+            str(args_count),
         )
 
     console.print(table)
@@ -249,12 +271,7 @@ def _show_tools_table(tools: dict) -> None:
         openapi_version = tool_config.get("openapi", "N/A")
         paths_count = len(tool_config.get("paths", {}))
 
-        table.add_row(
-            tool_name,
-            tool_type,
-            str(openapi_version),
-            str(paths_count)
-        )
+        table.add_row(tool_name, tool_type, str(openapi_version), str(paths_count))
 
     console.print(table)
 
@@ -268,26 +285,39 @@ def _show_dry_run(configfilepath: str, sections: Optional[List[ConfigSection]]) 
         rprint(f"\n[bold]Configuration file:[/bold] {configfilepath}")
 
         if sections is None:
-            sections = [ConfigSection.SERVERS, ConfigSection.MIDDLEWARE, ConfigSection.PROMPTS, ConfigSection.TOOLS]
+            sections = [
+                ConfigSection.SERVERS,
+                ConfigSection.MIDDLEWARE,
+                ConfigSection.PROMPTS,
+                ConfigSection.TOOLS,
+            ]
 
         for section in sections:
             if section == ConfigSection.SERVERS and config.servers:
-                rprint(f"\n[bold green]Would apply {len(config.servers)} servers:[/bold green]")
+                rprint(
+                    f"\n[bold green]Would apply {len(config.servers)} servers:[/bold green]"
+                )
                 for server in config.servers:
                     rprint(f"  - {server.id} ({server.type})")
 
             elif section == ConfigSection.MIDDLEWARE and config.middleware:
-                rprint(f"\n[bold green]Would apply {len(config.middleware)} middleware:[/bold green]")
+                rprint(
+                    f"\n[bold green]Would apply {len(config.middleware)} middleware:[/bold green]"
+                )
                 for mw in config.middleware:
                     rprint(f"  - {mw.name} ({mw.kind})")
 
             elif section == ConfigSection.PROMPTS and config.prompts:
-                rprint(f"\n[bold green]Would apply {len(config.prompts)} prompts:[/bold green]")
+                rprint(
+                    f"\n[bold green]Would apply {len(config.prompts)} prompts:[/bold green]"
+                )
                 for prompt in config.prompts:
                     rprint(f"  - {prompt.name}")
 
             elif section == ConfigSection.TOOLS and config.tools:
-                rprint(f"\n[bold green]Would apply {len(config.tools)} tools:[/bold green]")
+                rprint(
+                    f"\n[bold green]Would apply {len(config.tools)} tools:[/bold green]"
+                )
                 for tool_name in config.tools.keys():
                     rprint(f"  - {tool_name}")
 
@@ -306,9 +336,9 @@ def _display_apply_results(results: dict) -> None:
         rprint(f"  Registered: {len(result.get('registered', []))}")
         rprint(f"  Failed: {len(result.get('failed', []))}")
 
-        if result.get('failed'):
+        if result.get("failed"):
             rprint("  [red]Failures:[/red]")
-            for failure in result['failed']:
+            for failure in result["failed"]:
                 rprint(f"    - {failure}")
 
 

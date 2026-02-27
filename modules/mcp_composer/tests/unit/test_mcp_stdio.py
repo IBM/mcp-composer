@@ -44,13 +44,17 @@ class TestMCPServerStdio:
 
     def test_mcp_server_stdio_creation_with_none_env(self):
         """Test creating MCPServerStdio with None env"""
-        server = MCPServerStdio(id="test-server", type="stdio", args=["server.py"], env=None)
+        server = MCPServerStdio(
+            id="test-server", type="stdio", args=["server.py"], env=None
+        )
 
         assert server.env is None
 
     def test_mcp_server_stdio_creation_with_none_cwd(self):
         """Test creating MCPServerStdio with None cwd"""
-        server = MCPServerStdio(id="test-server", type="stdio", args=["server.py"], cwd=None)
+        server = MCPServerStdio(
+            id="test-server", type="stdio", args=["server.py"], cwd=None
+        )
 
         assert server.cwd is None
 
@@ -138,7 +142,9 @@ class TestMCPServerStdio:
 
         server2 = MCPServerStdio(id="test-server", type="stdio", args=["server.py"])
 
-        server3 = MCPServerStdio(id="different-server", type="stdio", args=["server.py"])
+        server3 = MCPServerStdio(
+            id="different-server", type="stdio", args=["server.py"]
+        )
 
         assert server1 == server2
         assert server1 != server3

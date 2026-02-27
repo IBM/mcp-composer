@@ -1,9 +1,8 @@
 """Prompt management module for MCP Composer."""
 
 import logging
-from typing import Dict, List, Union
+from typing import Dict, List, Union, Optional
 
-from fastmcp.prompts import PromptManager
 from fastmcp.prompts.prompt import Prompt
 
 from mcp_composer.core.member_servers.member_server import HealthStatus
@@ -14,7 +13,7 @@ logger = logging.getLogger(__name__)
 # pylint: disable=W0718
 
 
-class MCPPromptManager(PromptManager):
+class MCPPromptManager:
     """Custom prompt manager that works with FastMCP's internal PromptManager."""
 
     def __init__(
@@ -22,33 +21,25 @@ class MCPPromptManager(PromptManager):
         server_manager: ServerManager,
         database=None,
     ):
-        super().__init__(duplicate_behavior=None)
         self._server_manager = server_manager
         self._database = database
         self._prompts: Dict[str, Prompt] = {}
+        self.warn_on_duplicate_prompts = True
 
-    def _get_mounted_servers(self):
-        """Safely access _mounted_servers, returning empty list if not initialized."""
-        # Check if the parent class has this attribute
-        if not hasattr(super(), '_mounted_servers'):
-            return []
-        return super()._mounted_servers
+    def get_prompt(self, name: str) -> Optional[Prompt]:
+        """Get prompt by name."""
+        return self._prompts.get(name)
 
-    def unmount(self, server_id):
-        """Unmount a member server."""
-        # First try to get from parent class
-        parent_mounted = self._get_mounted_servers()
-        # Also check if we have our own _mounted_servers (for tests)
-        if hasattr(self, '_mounted_servers'):
-            # Use our own list if it exists
-            parent_mounted = self._mounted_servers
-        if not parent_mounted:
-            return
-        # Access the parent class's _mounted_servers directly for deletion
-        for idx, mounted_server in enumerate(parent_mounted):
-            if hasattr(mounted_server, 'prefix') and mounted_server.prefix == server_id:
-                del parent_mounted[idx]
-                break
+    def add_prompt(self, prompt: Prompt) -> Prompt:
+        """Add a prompt to the manager."""
+        # Check for duplicates
+        existing = self._prompts.get(prompt.name)
+        if existing:
+            if self.warn_on_duplicate_prompts:
+                logger.warning("Prompt already exists: %s", prompt.name)
+            return existing
+        self._prompts[prompt.name] = prompt
+        return prompt
 
     def add_prompts(self, prompt_config: Union[dict, List[dict]]) -> List[str]:
         """
@@ -87,7 +78,7 @@ class MCPPromptManager(PromptManager):
                         logger.warning(
                             "Failed to save prompt '%s' to database: %s",
                             added_prompt.name,
-                            db_error
+                            db_error,
                         )
             except Exception as e:
                 error_msg = f"Failed to add prompt at index {i}: {str(e)}"
@@ -130,7 +121,9 @@ class MCPPromptManager(PromptManager):
                     logger.info("Loaded prompt '%s' from database", added_prompt.name)
                 except Exception as e:
                     logger.error(
-                        "Failed to load prompt '%s' from database: %s", prompt_config.get("name", "unknown"), e
+                        "Failed to load prompt '%s' from database: %s",
+                        prompt_config.get("name", "unknown"),
+                        e,
                     )
 
             return loaded
@@ -174,9 +167,15 @@ class MCPPromptManager(PromptManager):
                         results[prompt_name] = (
                             f"Deleted from memory but failed to delete from database: {str(db_error)}"
                         )
-                        logger.warning("Failed to delete prompt '%s' from database: %s", prompt_name, db_error)
+                        logger.warning(
+                            "Failed to delete prompt '%s' from database: %s",
+                            prompt_name,
+                            db_error,
+                        )
                 else:
-                    results[prompt_name] = "Successfully deleted from memory (no database configured)"
+                    results[prompt_name] = (
+                        "Successfully deleted from memory (no database configured)"
+                    )
 
             except Exception as e:
                 error_msg = f"Failed to delete prompt: {str(e)}"
@@ -258,8 +257,7 @@ class MCPPromptManager(PromptManager):
         """
         Gets the complete, unfiltered inventory of all prompts and applies filtering.
         """
-        prompts = await super().get_prompts()
-        return self._filter_disabled_prompts(prompts)
+        return self._filter_disabled_prompts(self._prompts)
 
     async def list_prompts(self) -> list[Prompt]:
         """

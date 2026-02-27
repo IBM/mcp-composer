@@ -51,105 +51,115 @@ def _get_cli_helpers():
 # pylint: disable=too-many-arguments,too-many-positional-arguments,too-many-locals
 def start_composer(
     # Mode and basic configuration
-    mode: Annotated[str, Option(
-        "--mode", "-m",
-        help="MCP mode to run (http, sse, or stdio)",
-        case_sensitive=False
-    )] = "stdio",
-
-    instance_id: Annotated[str, Option(
-        "--id", "-i",
-        help="Unique ID for this MCP instance"
-    )] = "mcp-local",
-
+    mode: Annotated[
+        str,
+        Option(
+            "--mode",
+            "-m",
+            help="MCP mode to run (http, sse, or stdio)",
+            case_sensitive=False,
+        ),
+    ] = "stdio",
+    instance_id: Annotated[
+        str, Option("--id", "-i", help="Unique ID for this MCP instance")
+    ] = "mcp-local",
     # Endpoint configuration
-    endpoint: Annotated[Optional[str], Option(
-        "--endpoint", "-e",
-        help="Endpoint for HTTP or SSE server running remotely"
-    )] = None,
-
+    endpoint: Annotated[
+        Optional[str],
+        Option(
+            "--endpoint", "-e", help="Endpoint for HTTP or SSE server running remotely"
+        ),
+    ] = None,
     # Script configuration
-    script_path: Annotated[Optional[str], Option(
-        "--script-path", "-s",
-        help="Path to the script to run in 'stdio' mode"
-    )] = None,
-
-    directory: Annotated[Optional[str], Option(
-        "--directory", "-d",
-        help="Working directory for the uvicorn process (optional)"
-    )] = None,
-
+    script_path: Annotated[
+        Optional[str],
+        Option("--script-path", "-s", help="Path to the script to run in 'stdio' mode"),
+    ] = None,
+    directory: Annotated[
+        Optional[str],
+        Option(
+            "--directory",
+            "-d",
+            help="Working directory for the uvicorn process (optional)",
+        ),
+    ] = None,
     # Server configuration
-    host: Annotated[str, Option(
-        "--host",
-        help="Host for SSE or HTTP server"
-    )] = "0.0.0.0",
-
-    port: Annotated[int, Option(
-        "--port", "-p",
-        help="Port for SSE or HTTP server"
-    )] = 9000,
-
+    host: Annotated[
+        str, Option("--host", help="Host for SSE or HTTP server")
+    ] = "0.0.0.0",
+    port: Annotated[
+        int, Option("--port", "-p", help="Port for SSE or HTTP server")
+    ] = 9000,
     # Authentication
-    auth_type: Annotated[Optional[str], Option(
-        "--auth-type",
-        help="Optional auth type. If 'oauth', uses OAuth authentication"
-    )] = None,
-
+    auth_type: Annotated[
+        Optional[str],
+        Option(
+            "--auth-type",
+            help="Optional auth type. If 'oauth', uses OAuth authentication",
+        ),
+    ] = None,
     # Remote server configuration
-    sse_url: Annotated[Optional[str], Option(
-        "--sse-url",
-        help="Langflow compatible URL for remote SSE / HTTP server to connect to"
-    )] = None,
-
-    remote_auth_type: Annotated[str, Option(
-        "--remote-auth-type",
-        help="Authentication type for remote server (oauth or none)"
-    )] = "none",
-
-    client_auth_type: Annotated[str, Option(
-        "--client-auth-type",
-        help="Authentication type for client (oauth or none)"
-    )] = "none",
-
+    sse_url: Annotated[
+        Optional[str],
+        Option(
+            "--sse-url",
+            help="Langflow compatible URL for remote SSE / HTTP server to connect to",
+        ),
+    ] = None,
+    remote_auth_type: Annotated[
+        str,
+        Option(
+            "--remote-auth-type",
+            help="Authentication type for remote server (oauth or none)",
+        ),
+    ] = "none",
+    client_auth_type: Annotated[
+        str,
+        Option(
+            "--client-auth-type", help="Authentication type for client (oauth or none)"
+        ),
+    ] = "none",
     # Configuration
-    config_path: Annotated[Optional[str], Option(
-        "--config-path", "-c",
-        help="Path to JSON config for MCP member servers"
-    )] = None,
-
+    config_path: Annotated[
+        Optional[str],
+        Option(
+            "--config-path", "-c", help="Path to JSON config for MCP member servers"
+        ),
+    ] = None,
     # Feature flags
-    disable_composer_tools: Annotated[bool, Option(
-        "--disable-composer-tools/--enable-composer-tools",
-        help="Disable composer tools (disabled by default)"
-    )] = False,
-
+    disable_composer_tools: Annotated[
+        bool,
+        Option(
+            "--disable-composer-tools/--enable-composer-tools",
+            help="Disable composer tools (disabled by default)",
+        ),
+    ] = False,
     # Environment variables
-    env: Annotated[Optional[List[str]], Option(
-        "--env", "-E",
-        help="Environment variables (format: KEY=VALUE). Can be used multiple times."
-    )] = None,
-
-    pass_environment: Annotated[bool, Option(
-        "--pass-environment/--no-pass-environment",
-        help="Pass through all environment variables when spawning all server processes"
-    )] = False,
-
+    env: Annotated[
+        Optional[List[str]],
+        Option(
+            "--env",
+            "-E",
+            help="Environment variables (format: KEY=VALUE). Can be used multiple times.",
+        ),
+    ] = None,
+    pass_environment: Annotated[
+        bool,
+        Option(
+            "--pass-environment/--no-pass-environment",
+            help="Pass through all environment variables when spawning all server processes",
+        ),
+    ] = False,
     # Process management
-    daemon: Annotated[bool, Option(
-        "--daemon", "-D",
-        help="Run as daemon process"
-    )] = False,
-
-    pid_file: Annotated[Optional[str], Option(
-        "--pid-file",
-        help="Path to PID file for daemon mode"
-    )] = None,
-
-    log_file: Annotated[Optional[str], Option(
-        "--log-file",
-        help="Path to log file for daemon mode"
-    )] = None,
+    daemon: Annotated[
+        bool, Option("--daemon", "-D", help="Run as daemon process")
+    ] = False,
+    pid_file: Annotated[
+        Optional[str], Option("--pid-file", help="Path to PID file for daemon mode")
+    ] = None,
+    log_file: Annotated[
+        Optional[str], Option("--log-file", help="Path to log file for daemon mode")
+    ] = None,
 ) -> None:
     """
     Start MCP Composer server.
@@ -180,7 +190,9 @@ def start_composer(
 
     # Validate mode
     if mode not in ["http", "sse", "stdio"]:
-        raise typer.BadParameter(f"Invalid mode '{mode}'. Must be one of: http, sse, stdio")
+        raise typer.BadParameter(
+            f"Invalid mode '{mode}'. Must be one of: http, sse, stdio"
+        )
 
     # Set SERVER_CONFIG_FILE_PATH if provided
     if config_path:
@@ -194,11 +206,15 @@ def start_composer(
     env_values = env or []
     for env_var in env_values:
         if "=" not in env_var:
-            raise typer.BadParameter(f"Environment variable must be in format KEY=VALUE, got: {env_var}")
+            raise typer.BadParameter(
+                f"Environment variable must be in format KEY=VALUE, got: {env_var}"
+            )
         key, value = env_var.split("=", 1)
         base_env[key] = value
         os.environ[key] = value
-        logger.info("Setting environment variable from --env: %s=%s", key, os.environ[key])
+        logger.info(
+            "Setting environment variable from --env: %s=%s", key, os.environ[key]
+        )
 
     # Pass through all environment variables if requested
     if pass_environment:
@@ -231,17 +247,19 @@ def start_composer(
             )
         else:
             # Run in foreground
-            asyncio.run(cli_helpers.run_dynamic_composer(
-                mode=mode,
-                config=config,
-                auth_type=auth_type,
-                sse_url=sse_url,
-                remote_auth_type=remote_auth_type,
-                client_auth_type=client_auth_type,
-                disable_composer_tools=disable_composer_tools,
-                host=host,
-                port=port,
-            ))
+            asyncio.run(
+                cli_helpers.run_dynamic_composer(
+                    mode=mode,
+                    config=config,
+                    auth_type=auth_type,
+                    sse_url=sse_url,
+                    remote_auth_type=remote_auth_type,
+                    client_auth_type=client_auth_type,
+                    disable_composer_tools=disable_composer_tools,
+                    host=host,
+                    port=port,
+                )
+            )
 
     except Exception as e:
         logger.error("Error to start MCP: %s", e)
@@ -280,17 +298,19 @@ def _run_as_daemon(
     def run_server():
         """Function to run inside daemon context."""
         cli_helpers = _get_cli_helpers()
-        asyncio.run(cli_helpers.run_dynamic_composer(
-            mode=mode,
-            config=config,
-            auth_type=auth_type,
-            sse_url=sse_url,
-            remote_auth_type=remote_auth_type,
-            client_auth_type=client_auth_type,
-            disable_composer_tools=disable_composer_tools,
-            host=host,
-            port=port,
-        ))
+        asyncio.run(
+            cli_helpers.run_dynamic_composer(
+                mode=mode,
+                config=config,
+                auth_type=auth_type,
+                sse_url=sse_url,
+                remote_auth_type=remote_auth_type,
+                client_auth_type=client_auth_type,
+                disable_composer_tools=disable_composer_tools,
+                host=host,
+                port=port,
+            )
+        )
 
     try:
         with open(log_file, "w", encoding="utf-8") as stdout_handle, open(
@@ -314,20 +334,16 @@ def _run_as_daemon(
 
 @app.command("stop")
 def stop_composer(
-    pid_file: Annotated[Optional[str], Option(
-        "--pid-file",
-        help="Path to PID file"
-    )] = None,
-
-    port: Annotated[Optional[int], Option(
-        "--port", "-p",
-        help="Port number to find PID file automatically"
-    )] = None,
-
-    force: Annotated[bool, Option(
-        "--force", "-f",
-        help="Force stop the process"
-    )] = False,
+    pid_file: Annotated[
+        Optional[str], Option("--pid-file", help="Path to PID file")
+    ] = None,
+    port: Annotated[
+        Optional[int],
+        Option("--port", "-p", help="Port number to find PID file automatically"),
+    ] = None,
+    force: Annotated[
+        bool, Option("--force", "-f", help="Force stop the process")
+    ] = False,
 ) -> None:
     """
     Stop MCP Composer daemon.
@@ -380,9 +396,7 @@ def stop_composer(
 
     # Stop the process
     try:
-        signal_to_send: signal.Signals = (
-            signal.SIGTERM if not force else signal.SIGKILL
-        )
+        signal_to_send: signal.Signals = signal.SIGTERM if not force else signal.SIGKILL
         os.kill(pid, signal_to_send)
         typer.echo(f"Sent {signal_to_send.name} to process {pid}")
 
@@ -409,21 +423,16 @@ def stop_composer(
 
 @app.command("status")
 def status_composer(
-    pid_file: Annotated[Optional[str], Option(
-        "--pid-file",
-        help="Path to PID file"
-    )] = None,
-
-    port: Annotated[Optional[int], Option(
-        "--port", "-p",
-        help="Port number to find PID file automatically"
-    )] = None,
-
-    output_format: Annotated[str, Option(
-        "--format", "-f",
-        help="Output format",
-        case_sensitive=False
-    )] = "text",
+    pid_file: Annotated[
+        Optional[str], Option("--pid-file", help="Path to PID file")
+    ] = None,
+    port: Annotated[
+        Optional[int],
+        Option("--port", "-p", help="Port number to find PID file automatically"),
+    ] = None,
+    output_format: Annotated[
+        str, Option("--format", "-f", help="Output format", case_sensitive=False)
+    ] = "text",
 ) -> None:
     """
     Check MCP Composer daemon status.
@@ -458,7 +467,7 @@ def status_composer(
             "status": "stopped",
             "pid": None,
             "pid_file": pid_file,
-            "message": "PID file not found"
+            "message": "PID file not found",
         }
     else:
         # Read PID
@@ -470,7 +479,7 @@ def status_composer(
                 "status": "error",
                 "pid": None,
                 "pid_file": pid_file,
-                "message": f"Error reading PID file: {e}"
+                "message": f"Error reading PID file: {e}",
             }
         else:
             # Check if process exists
@@ -480,14 +489,14 @@ def status_composer(
                     "status": "running",
                     "pid": pid,
                     "pid_file": pid_file,
-                    "message": "Process is running"
+                    "message": "Process is running",
                 }
             except OSError:
                 status_info = {
                     "status": "stopped",
                     "pid": pid,
                     "pid_file": pid_file,
-                    "message": "Process is not running (stale PID file)"
+                    "message": "Process is not running (stale PID file)",
                 }
 
     # Output status
@@ -502,25 +511,22 @@ def status_composer(
 
 @app.command("logs")
 def logs_composer(
-    log_file: Annotated[Optional[str], Option(
-        "--log-file",
-        help="Path to log file"
-    )] = None,
-
-    port: Annotated[Optional[int], Option(
-        "--port", "-p",
-        help="Port number to find log file automatically"
-    )] = None,
-
-    lines: Annotated[int, Option(
-        "--lines", "-n",
-        help="Number of lines to show from the end of the log file"
-    )] = 50,
-
-    follow: Annotated[bool, Option(
-        "--follow", "-f",
-        help="Follow log file (like tail -f)"
-    )] = False,
+    log_file: Annotated[
+        Optional[str], Option("--log-file", help="Path to log file")
+    ] = None,
+    port: Annotated[
+        Optional[int],
+        Option("--port", "-p", help="Port number to find log file automatically"),
+    ] = None,
+    lines: Annotated[
+        int,
+        Option(
+            "--lines", "-n", help="Number of lines to show from the end of the log file"
+        ),
+    ] = 50,
+    follow: Annotated[
+        bool, Option("--follow", "-f", help="Follow log file (like tail -f)")
+    ] = False,
 ) -> None:
     """
     View MCP Composer daemon logs.
@@ -594,86 +600,100 @@ def logs_composer(
 # pylint: disable=too-many-arguments,too-many-positional-arguments,too-many-locals
 def restart_composer(
     # All the same options as start command
-    mode: Annotated[str, Option(
-        "--mode", "-m",
-        help="MCP mode to run (http, sse, or stdio)",
-        case_sensitive=False
-    )] = "stdio",
-
-    instance_id: Annotated[str, Option(
-        "--id", "-i",
-        help="Unique ID for this MCP instance"
-    )] = "mcp-local",
-
-    endpoint: Annotated[Optional[str], Option(
-        "--endpoint", "-e",
-        help="Endpoint for HTTP or SSE server running remotely"
-    )] = None,
-
-    script_path: Annotated[Optional[str], Option(
-        "--script-path", "-s",
-        help="Path to the script to run in 'stdio' mode"
-    )] = None,
-
-    directory: Annotated[Optional[str], Option(
-        "--directory", "-d",
-        help="Working directory for the uvicorn process (optional)"
-    )] = None,
-
-    host: Annotated[str, Option(
-        "--host",
-        help="Host for SSE or HTTP server"
-    )] = "0.0.0.0",
-
-    port: Annotated[int, Option(
-        "--port", "-p",
-        help="Port for SSE or HTTP server"
-    )] = 9000,
-
-    auth_type: Annotated[Optional[str], Option(
-        "--auth-type",
-        help="Optional auth type. If 'oauth', uses OAuth authentication"
-    )] = None,
-
-    sse_url: Annotated[Optional[str], Option(
-        "--sse-url",
-        help="Langflow compatible URL for remote SSE / HTTP server to connect to"
-    )] = None,
-
-    remote_auth_type: Annotated[str, Option(
-        "--remote-auth-type",
-        help="Authentication type for remote server (oauth or none)"
-    )] = "none",
-
-    client_auth_type: Annotated[str, Option(
-        "--client-auth-type",
-        help="Authentication type for client (oauth or none)"
-    )] = "none",
-
-    config_path: Annotated[Optional[str], Option(
-        "--config-path", "-c",
-        help="Path to JSON config for MCP member servers"
-    )] = None,
-
-    disable_composer_tools: Annotated[bool, Option(
-        "--disable-composer-tools/--enable-composer-tools",
-        help="Disable composer tools (disabled by default)"
-    )] = False,
-
-    env: Annotated[Optional[List[str]], Option(
-        "--env", "-E",
-        help="Environment variables (format: KEY=VALUE). Can be used multiple times."
-    )] = None,
-
-    pass_environment: Annotated[bool, Option(
-        "--pass-environment/--no-pass-environment",
-        help="Pass through all environment variables when spawning all server processes"
-    )] = False,
-
-    force: Annotated[bool, Option(
-        "--force", "-f",
-        help="Force stop the process before restarting"
-    )] = False,
+    mode: Annotated[
+        str,
+        Option(
+            "--mode",
+            "-m",
+            help="MCP mode to run (http, sse, or stdio)",
+            case_sensitive=False,
+        ),
+    ] = "stdio",
+    instance_id: Annotated[
+        str, Option("--id", "-i", help="Unique ID for this MCP instance")
+    ] = "mcp-local",
+    endpoint: Annotated[
+        Optional[str],
+        Option(
+            "--endpoint", "-e", help="Endpoint for HTTP or SSE server running remotely"
+        ),
+    ] = None,
+    script_path: Annotated[
+        Optional[str],
+        Option("--script-path", "-s", help="Path to the script to run in 'stdio' mode"),
+    ] = None,
+    directory: Annotated[
+        Optional[str],
+        Option(
+            "--directory",
+            "-d",
+            help="Working directory for the uvicorn process (optional)",
+        ),
+    ] = None,
+    host: Annotated[
+        str, Option("--host", help="Host for SSE or HTTP server")
+    ] = "0.0.0.0",
+    port: Annotated[
+        int, Option("--port", "-p", help="Port for SSE or HTTP server")
+    ] = 9000,
+    auth_type: Annotated[
+        Optional[str],
+        Option(
+            "--auth-type",
+            help="Optional auth type. If 'oauth', uses OAuth authentication",
+        ),
+    ] = None,
+    sse_url: Annotated[
+        Optional[str],
+        Option(
+            "--sse-url",
+            help="Langflow compatible URL for remote SSE / HTTP server to connect to",
+        ),
+    ] = None,
+    remote_auth_type: Annotated[
+        str,
+        Option(
+            "--remote-auth-type",
+            help="Authentication type for remote server (oauth or none)",
+        ),
+    ] = "none",
+    client_auth_type: Annotated[
+        str,
+        Option(
+            "--client-auth-type", help="Authentication type for client (oauth or none)"
+        ),
+    ] = "none",
+    config_path: Annotated[
+        Optional[str],
+        Option(
+            "--config-path", "-c", help="Path to JSON config for MCP member servers"
+        ),
+    ] = None,
+    disable_composer_tools: Annotated[
+        bool,
+        Option(
+            "--disable-composer-tools/--enable-composer-tools",
+            help="Disable composer tools (disabled by default)",
+        ),
+    ] = False,
+    env: Annotated[
+        Optional[List[str]],
+        Option(
+            "--env",
+            "-E",
+            help="Environment variables (format: KEY=VALUE). Can be used multiple times.",
+        ),
+    ] = None,
+    pass_environment: Annotated[
+        bool,
+        Option(
+            "--pass-environment/--no-pass-environment",
+            help="Pass through all environment variables when spawning all server processes",
+        ),
+    ] = False,
+    force: Annotated[
+        bool, Option("--force", "-f", help="Force stop the process before restarting")
+    ] = False,
 ) -> None:
     """
     Restart MCP Composer daemon.

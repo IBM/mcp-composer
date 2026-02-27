@@ -11,7 +11,9 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
 
 # Import after path manipulation to ensure module can be found
-from mcp_composer.core.cli.cli_typer import main  # pylint: disable=wrong-import-position
+from mcp_composer.core.cli.cli_typer import (
+    main,
+)  # pylint: disable=wrong-import-position
 
 if __name__ == "__main__":
     main()

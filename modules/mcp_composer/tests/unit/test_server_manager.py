@@ -17,9 +17,13 @@ async def test_register_server_success():
     manager = ServerManager()
     config = {"id": "srv", "type": "stdio", "command": "uv", "args": ["run"]}
     with (
-        patch("mcp_composer.core.member_servers.server_manager.ServerConfigValidator") as mock_validator,
+        patch(
+            "mcp_composer.core.member_servers.server_manager.ServerConfigValidator"
+        ) as mock_validator,
         patch.object(manager, "has_member_server", return_value=False),
-        patch.object(manager, "_mount_and_register_server", new=AsyncMock(return_value="ok")),
+        patch.object(
+            manager, "_mount_and_register_server", new=AsyncMock(return_value="ok")
+        ),
     ):
         mock_validator.return_value.validate.return_value = None
         result = await manager.register_server(config, MagicMock())
@@ -31,7 +35,9 @@ async def test_register_server_already_mounted():
     manager = ServerManager()
     config = {"id": "srv", "type": "stdio", "command": "uv", "args": ["run"]}
     with (
-        patch("mcp_composer.core.member_servers.server_manager.ServerConfigValidator") as mock_validator,
+        patch(
+            "mcp_composer.core.member_servers.server_manager.ServerConfigValidator"
+        ) as mock_validator,
         patch.object(manager, "has_member_server", return_value=True),
     ):
         mock_validator.return_value.validate.return_value = None
@@ -43,7 +49,9 @@ async def test_register_server_already_mounted():
 async def test_register_server_validation_error():
     manager = ServerManager()
     config = {"id": "srv", "type": "stdio", "command": "uv", "args": ["run"]}
-    with patch("mcp_composer.core.member_servers.server_manager.ServerConfigValidator") as mock_validator:
+    with patch(
+        "mcp_composer.core.member_servers.server_manager.ServerConfigValidator"
+    ) as mock_validator:
         mock_validator.return_value.validate.side_effect = Exception("fail")
         with pytest.raises(ToolError):
             await manager.register_server(config, MagicMock())
@@ -54,14 +62,20 @@ async def test_update_server_config_success():
     manager = ServerManager()
     config = {"id": "srv", "type": "stdio", "command": "uv", "args": ["run"]}
     with (
-        patch("mcp_composer.core.member_servers.server_manager.ServerConfigValidator") as mock_validator,
+        patch(
+            "mcp_composer.core.member_servers.server_manager.ServerConfigValidator"
+        ) as mock_validator,
         patch.object(manager, "has_member_server", return_value=True),
         patch.object(manager, "remove_member"),
         patch.object(manager, "update_server_db"),
-        patch.object(manager, "_mount_and_register_server", new=AsyncMock(return_value="ok")),
+        patch.object(
+            manager, "_mount_and_register_server", new=AsyncMock(return_value="ok")
+        ),
     ):
         mock_validator.return_value.validate.return_value = None
-        manager._database = MagicMock(get_document=MagicMock(return_value={"foo": "bar"}))
+        manager._database = MagicMock(
+            get_document=MagicMock(return_value={"foo": "bar"})
+        )
         manager._config_manager = MagicMock(save_version=MagicMock(return_value="v1"))
         result = await manager.update_server_config("srv", config, MagicMock())
         assert result == "ok"
@@ -72,7 +86,9 @@ async def test_update_server_config_not_found():
     manager = ServerManager()
     config = {"id": "srv", "type": "stdio", "command": "uv", "args": ["run"]}
     with (
-        patch("mcp_composer.core.member_servers.server_manager.ServerConfigValidator") as mock_validator,
+        patch(
+            "mcp_composer.core.member_servers.server_manager.ServerConfigValidator"
+        ) as mock_validator,
         patch.object(manager, "has_member_server", return_value=False),
     ):
         mock_validator.return_value.validate.return_value = None
@@ -96,7 +112,9 @@ async def test_activate_server_success():
             },
         ),
         patch.object(manager, "has_member_server", return_value=False),
-        patch.object(manager, "_mount_and_register_server", new=AsyncMock(return_value="ok")),
+        patch.object(
+            manager, "_mount_and_register_server", new=AsyncMock(return_value="ok")
+        ),
     ):
         result = await manager.activate_server("srv", MagicMock())
         assert result == "Server 'srv' activated"
@@ -135,18 +153,17 @@ def test_deactivate_server_success():
 
 # Additional comprehensive tests from test_server_manager_extended.py
 def test_server_manager_initialization_with_duplicate_behavior():
-    """Test ServerManager initialization with duplicate behavior."""
-    from fastmcp.settings import DuplicateBehavior
-
-    manager = ServerManager(duplicate_behavior="replace")
-    assert manager.duplicate_behavior == "replace"
+    """Test ServerManager basic initialization."""
+    manager = ServerManager()
+    assert manager._member_servers == {}
+    assert manager._database is None
 
 
 def test_server_manager_initialization_invalid_duplicate_behavior():
-    """Test ServerManager initialization with invalid duplicate behavior."""
-    with pytest.raises(ValueError) as exc_info:
+    """ServerManager should reject unsupported constructor kwargs."""
+    with pytest.raises(TypeError) as exc_info:
         ServerManager(duplicate_behavior="invalid_behavior")
-    assert "Must be one of" in str(exc_info.value)
+    assert "unexpected keyword argument 'duplicate_behavior'" in str(exc_info.value)
 
 
 def test_default_serializer():
@@ -165,7 +182,9 @@ async def test_mount_and_register_server_no_db_save():
     """Test mounting and registration without database save."""
     manager = ServerManager()
 
-    with patch("mcp_composer.core.member_servers.server_manager.MCPServerBuilder") as mock_builder_class:
+    with patch(
+        "mcp_composer.core.member_servers.server_manager.MCPServerBuilder"
+    ) as mock_builder_class:
         mock_server = AsyncMock()
         # Mock get_tools to return a dictionary with tools that have descriptions
         mock_tool = MagicMock()
@@ -182,7 +201,9 @@ async def test_mount_and_register_server_no_db_save():
 
         config = {"id": "test_server", "type": "test_type"}
 
-        result = await manager._mount_and_register_server(config, mount_callback, save_to_db=False)
+        result = await manager._mount_and_register_server(
+            config, mount_callback, save_to_db=False
+        )
 
         assert "Server 'test_server' mounted successfully." in result
         # Should not call database save
@@ -194,7 +215,9 @@ async def test_register_server_with_validation():
     """Test server registration with validation."""
     manager = ServerManager()
 
-    with patch("mcp_composer.core.member_servers.server_manager.MCPServerBuilder") as mock_builder_class:
+    with patch(
+        "mcp_composer.core.member_servers.server_manager.MCPServerBuilder"
+    ) as mock_builder_class:
         mock_server = AsyncMock()
         # Mock get_tools to return a dictionary with tools that have descriptions
         mock_tool = MagicMock()
@@ -224,7 +247,9 @@ async def test_update_server_config_server_not_found():
     new_config = {"id": "test_server", "type": "updated_type"}
 
     with pytest.raises(ToolError) as exc_info:
-        await manager.update_server_config("nonexistent_server", new_config, mcp_composer)
+        await manager.update_server_config(
+            "nonexistent_server", new_config, mcp_composer
+        )
     assert "Server ID in config does not match" in str(exc_info.value)
 
 
@@ -256,7 +281,9 @@ async def test_member_health():
     mock_member_server = MagicMock()
     config = [mock_member_server]
 
-    with patch("mcp_composer.core.member_servers.server_manager.get_member_health") as mock_health:
+    with patch(
+        "mcp_composer.core.member_servers.server_manager.get_member_health"
+    ) as mock_health:
         mock_health.return_value = {"status": "healthy"}
 
         result = await manager.member_health(config)
@@ -275,7 +302,9 @@ def test_list_servers():
 
     # Mock the database to return a server config
     manager._database = MagicMock()
-    manager._database.load_all_servers.return_value = [{"id": "test_server", "type": "test_type"}]  # <-- FIXED HERE
+    manager._database.load_all_servers.return_value = [
+        {"id": "test_server", "type": "test_type"}
+    ]  # <-- FIXED HERE
 
     result = manager.list_servers()
 
@@ -620,6 +649,57 @@ def test_get_member_not_found():
     assert result is None
 
 
+def test_is_iam_enabled_for_server_not_found():
+    """Server not mounted -> False."""
+    manager = ServerManager()
+    assert manager.is_iam_enabled_for_server("nonexistent") is False
+
+
+def test_is_iam_enabled_for_server_no_solis_config():
+    """Member has no solis_config -> False."""
+    manager = ServerManager()
+    mock_member = MagicMock()
+    mock_member.config = {"id": "srv1"}
+    manager._member_servers["srv1"] = mock_member
+    assert manager.is_iam_enabled_for_server("srv1") is False
+
+
+def test_is_iam_enabled_for_server_solis_config_iam_false():
+    """Member has solis_config but isIamEnabled false -> False."""
+    manager = ServerManager()
+    mock_member = MagicMock()
+    mock_member.config = {"id": "srv1", "solis_config": {"product_id": "gi", "isIamEnabled": False}}
+    manager._member_servers["srv1"] = mock_member
+    assert manager.is_iam_enabled_for_server("srv1") is False
+
+
+def test_is_iam_enabled_for_server_solis_config_iam_true():
+    """Member has solis_config.isIamEnabled true -> True."""
+    manager = ServerManager()
+    mock_member = MagicMock()
+    mock_member.config = {"id": "srv1", "solis_config": {"product_id": "gi", "isIamEnabled": True}}
+    manager._member_servers["srv1"] = mock_member
+    assert manager.is_iam_enabled_for_server("srv1") is True
+
+
+def test_is_iam_enabled_for_server_solis_config_missing_is_iam_key():
+    """Member has solis_config but no isIamEnabled key -> False."""
+    manager = ServerManager()
+    mock_member = MagicMock()
+    mock_member.config = {"id": "srv1", "solis_config": {"product_id": "gi"}}
+    manager._member_servers["srv1"] = mock_member
+    assert manager.is_iam_enabled_for_server("srv1") is False
+
+
+def test_is_iam_enabled_for_server_solis_config_not_dict():
+    """Member has solis_config that is not a dict -> False."""
+    manager = ServerManager()
+    mock_member = MagicMock()
+    mock_member.config = {"id": "srv1", "solis_config": "invalid"}
+    manager._member_servers["srv1"] = mock_member
+    assert manager.is_iam_enabled_for_server("srv1") is False
+
+
 def test_prepare_activation_success():
     """Test preparing activation successfully."""
     manager = ServerManager()
@@ -632,7 +712,9 @@ def test_prepare_activation_success():
 
     # Mock the database to return server configs
     manager._database = MagicMock()
-    manager._database.load_all_servers.return_value = [{"id": "test_server", "status": "deactivated"}]
+    manager._database.load_all_servers.return_value = [
+        {"id": "test_server", "status": "deactivated"}
+    ]
 
     result = manager.prepare_activation("test_server")
 

@@ -47,7 +47,7 @@ async def test_list_member_servers_populated(fake_db, server_config):
     """After mounting a server, it must appear in list_servers()."""
     # Mock the MCP server to avoid network calls
     mock_server = MagicMock()
-    mock_server.get_tools = AsyncMock(return_value={})
+    mock_server.list_tools = AsyncMock(return_value=[])
 
     with patch(
         "mcp_composer.core.member_servers.server_manager.MCPServerBuilder"
@@ -90,11 +90,11 @@ async def test_update_server_config_saves_version(
     ):
         # Create a mock server that can be used by FastMCP.as_proxy()
         mock_server = MagicMock()
-        mock_server.get_tools = AsyncMock(return_value={})
+        mock_server.list_tools = AsyncMock(return_value=[])
 
         # Mock the as_proxy method to return a mock proxy
         mock_proxy = MagicMock()
-        mock_proxy.get_tools = AsyncMock(return_value={})
+        mock_proxy.list_tools = AsyncMock(return_value=[])
         mock_as_proxy.return_value = mock_proxy
 
         mock_builder.return_value.build = AsyncMock(return_value=mock_server)
@@ -132,11 +132,11 @@ async def test_multiple_updates_accumulate_versions(
     ):
         # Create a mock server that can be used by FastMCP.as_proxy()
         mock_server = MagicMock()
-        mock_server.get_tools = AsyncMock(return_value={})
+        mock_server.list_tools = AsyncMock(return_value=[])
 
         # Mock the as_proxy method to return a mock proxy
         mock_proxy = MagicMock()
-        mock_proxy.get_tools = AsyncMock(return_value={})
+        mock_proxy.list_tools = AsyncMock(return_value=[])
         mock_as_proxy.return_value = mock_proxy
 
         mock_builder.return_value.build = AsyncMock(return_value=mock_server)
@@ -181,11 +181,11 @@ async def test_rollback_restores_previous_version(
     ):
         # Create a mock server that can be used by FastMCP.as_proxy()
         mock_server = MagicMock()
-        mock_server.get_tools = AsyncMock(return_value={})
+        mock_server.list_tools = AsyncMock(return_value=[])
 
         # Mock the as_proxy method to return a mock proxy
         mock_proxy = MagicMock()
-        mock_proxy.get_tools = AsyncMock(return_value={})
+        mock_proxy.list_tools = AsyncMock(return_value=[])
         mock_as_proxy.return_value = mock_proxy
 
         mock_builder.return_value.build = AsyncMock(return_value=mock_server)
@@ -207,8 +207,10 @@ async def test_rollback_restores_previous_version(
         )
 
         # Rollback
-        versions = composer._config_manager.get_all_versions(server_config["id"])
-        rollback_config = composer._config_manager.rollback(
+        versions = composer._server_config_manager.config_manager.get_all_versions(
+            server_config["id"]
+        )
+        rollback_config = composer._server_config_manager.config_manager.rollback(
             server_config["id"], versions[0]["version_id"]
         )
 

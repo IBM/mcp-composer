@@ -249,7 +249,11 @@ class TestValidatorExtended:
 
     def test_validate_solis_jwt_handler_missing_email(self):
         """Test SOLIS_JWT_HANDLER auth strategy fails when email is missing."""
-        from mcp_composer.core.utils.validator import ServerConfigValidator, AuthStrategy, ConfigKey
+        from mcp_composer.core.utils.validator import (
+            ServerConfigValidator,
+            AuthStrategy,
+            ConfigKey,
+        )
 
         config = {
             "id": "mcp-dal",
@@ -279,7 +283,10 @@ class TestValidatorExtended:
 
     def test_validate_solis_jwt_handler_with_user_email(self):
         """Test SOLIS_JWT_HANDLER passes when user_email is provided."""
-        from mcp_composer.core.utils.validator import ServerConfigValidator, AuthStrategy
+        from mcp_composer.core.utils.validator import (
+            ServerConfigValidator,
+            AuthStrategy,
+        )
 
         config = {
             "id": "mcp-dal",
@@ -524,7 +531,9 @@ class TestValidatorExtended:
         config = {"id": "test-server", "type": "openapi"}
         validator = ServerConfigValidator(config)
 
-        with pytest.raises(ValueError, match="Missing required ConfigKey.OPEN_API section in config."):
+        with pytest.raises(
+            ValueError, match="Missing required ConfigKey.OPEN_API section in config."
+        ):
             validator._validate_openapi_requirements()
 
     def test_validate_client_requirements_with_endpoint(self):

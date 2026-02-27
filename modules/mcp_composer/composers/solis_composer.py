@@ -1,60 +1,151 @@
 """
-Solis Composer with JWT Authentication.
+Solis Composer with ISV Token Authentication.
 
-This composer integrates IBM Document Search tools with JWT-based authentication
-for secure access to Solis resources.
+This composer integrates IBM Document Search tools with ISV token-based authentication
+for secure access to Solis resources. It validates platform session cookies and exchanges
+them for ISV tokens via IBM's authentication service.
+
+Environment variables:
+- MCP_COMPOSER_ENV: local | test | dev | prod (drives ISV endpoint and cookie; local and test use same ISV config)
+- ISV_AUTH_COOKIE_NAME: override cookie name (optional)
+- ISV_FORWARD_COOKIES: comma-separated cookie names to forward (optional)
+- MCP_COMPOSER_LOG_LEVEL: DEBUG | INFO (optional)
 """
-import os
+
 import asyncio
-from mcp_composer.core.auth.jwt.jwt_utils import load_jwt_provider, log_jwt_configuration
-from mcp_composer.core.tools.ibm_document_search_tool import IBMDocumentSearchTool
-from mcp_composer.middleware.tool.tool_filter import ListFilteredTool
+import os
+
 from mcp_composer import MCPComposer
+from mcp_composer.core.auth.jwt.isv_token_validator import ISVTokenValidator
+from mcp_composer.core.tools import IBMDocSearchDirectTool
 from mcp_composer.core.utils import LoggerFactory
+from mcp_composer.middleware import TracingMiddleware
+from mcp_composer.middleware.auth_context_middleware import (
+    AuthContextMiddleware,
+    REQUEST_CONTEXT_KEY,
+)
+from mcp_composer.middleware.auth_utils import tool_name_to_server_id
+from mcp_composer.middleware.error_sanitization_middleware import ErrorSanitizationMiddleware
+from mcp_composer.middleware.tool.tool_filter import ListFilteredTool
+from mcp_composer.middleware.tool_auth_middleware import ToolAuthenticationMiddleware
 
-logger = LoggerFactory.get_logger()
 
-# Load JWT provider from utility function with SOLIS-specific prefix
-jwt_provider = load_jwt_provider(prefix="SOLIS_JWT_")
+# -----------------------------------------------------------------------------
+# Configuration (from env)
+# -----------------------------------------------------------------------------
 
-# Option 3: Explicit configuration (uncomment to use)
-# jwt_provider = JWTAuthProvider.from_secret(
-#     secret=os.getenv("SOLIS_JWT_SECRET", "dev-secret-change-in-production"),
-#     algorithm="HS256",
-#     issuer="https://solis.ibm.com",
-#     audience="solis-api",
-#     verify_exp=True,
-#     verify_iss=True,
-#     verify_aud=True,
-#     required_claims=["sub", "role", "tenant"]
-# )
+_log_level = (os.getenv("MCP_COMPOSER_LOG_LEVEL") or "DEBUG").strip().upper()
+logger = LoggerFactory.get_logger(level=_log_level)
 
-# Initialize composer with JWT authentication
-gw = MCPComposer(name="solis-composer", auth=jwt_provider.get_verifier() if jwt_provider else None)
+_env_raw = (os.getenv("MCP_COMPOSER_ENV") or "test").strip().lower()
+environment = "test" if _env_raw == "local" else _env_raw
+
+auth_cookie_name = os.getenv("ISV_AUTH_COOKIE_NAME", "mcsp-glb-iam-test").strip()
+_forward_cookies_env = os.getenv("ISV_FORWARD_COOKIES", "").strip()
+FORWARD_COOKIES = (
+    [c.strip() for c in _forward_cookies_env.split(",") if c.strip()]
+    if _forward_cookies_env
+    else [auth_cookie_name, REQUEST_CONTEXT_KEY]
+)
+
+cache_enabled = os.getenv("ISV_CACHE_ENABLED", "true").lower() == "true"
+cache_ttl = int(os.getenv("ISV_CACHE_TTL", "7200"))
+timeout = float(os.getenv("ISV_REQUEST_TIMEOUT", "30"))
+
+logger.info(
+    "Solis Composer ready | env=%s | auth_cookie=%s | forward_cookies=%s | cache=%s | timeout=%ss | log_level=%s",
+    environment,
+    auth_cookie_name,
+    FORWARD_COOKIES,
+    cache_enabled,
+    timeout,
+    _log_level,
+)
+
+
+# -----------------------------------------------------------------------------
+# Composer and ISV validator
+# -----------------------------------------------------------------------------
+
+isv_validator = ISVTokenValidator(
+    environment=environment,
+    cache_enabled=cache_enabled,
+    cache_ttl=cache_ttl,
+    timeout=timeout,
+)
+
+gw = MCPComposer(name="solis-composer", auth=None)
+
+
+# -----------------------------------------------------------------------------
+# Middleware setup
+# -----------------------------------------------------------------------------
+
 
 def setup_middleware(composer: MCPComposer) -> None:
-    """Configure and register middleware components."""
+    """Register middleware: auth (tool + context), optional tracing, filter, error sanitization."""
+    server_manager = composer._server_manager
+
+    def is_iam_enabled_for_tool(tool_name: str) -> bool:
+        server_id = tool_name_to_server_id(tool_name)
+        return server_manager.is_iam_enabled_for_server(server_id) if server_id else False
+
+    composer.add_middleware(
+        ToolAuthenticationMiddleware(
+            validator=isv_validator,
+            is_iam_enabled_for_tool=is_iam_enabled_for_tool,
+        )
+    )
+    logger.info("✓ Added ToolAuthenticationMiddleware (IAM gate from solis_config)")
+
+    composer.add_middleware(
+        AuthContextMiddleware(
+            forward_cookies=FORWARD_COOKIES,
+            add_isv_token=True,
+            add_cookie_header=True,
+            use_cookie_as_auth=True,
+            auth_cookie_name=auth_cookie_name,
+            enabled_tool_patterns=None,
+            is_iam_enabled_for_tool=is_iam_enabled_for_tool,
+        )
+    )
+    logger.info("✓ Added AuthContextMiddleware (IAM gate from solis_config only)")
+
+    if environment != "prod":
+        tracing_log_level = (os.getenv("MCP_COMPOSER_LOG_LEVEL") or "DEBUG").strip().upper()
+        composer.add_middleware(
+            TracingMiddleware(
+                log_tools=True,
+                log_resources=False,
+                log_prompts=False,
+                log_args=True,
+                log_results=True,
+                log_level=tracing_log_level,
+                max_payload_length=2000,
+            )
+        )
+        logger.info("Added TracingMiddleware (log_level=%s)", tracing_log_level)
+    else:
+        logger.info("Skipped TracingMiddleware (prod)")
+
     composer.add_middleware(middleware=ListFilteredTool(composer))
-    logger.info("Added ListFilteredTool middleware")
+    composer.add_middleware(ErrorSanitizationMiddleware())
+    logger.info("Added middleware: ListFilteredTool, ErrorSanitizationMiddleware")
+
+
+# -----------------------------------------------------------------------------
+# Tools and run modes
+# -----------------------------------------------------------------------------
 
 
 def setup_tools(composer: MCPComposer) -> None:
-    """Configure and register tools."""
-    deep_research_tool = IBMDocumentSearchTool(
-        {
-            "name": "ibm_document_search",
-            "resource_manager": composer.resource_manager,
-        }
-    )
-    composer.add_tool(deep_research_tool)
-    logger.info("Added IBM Document Search tool")
+    """Register composer tools."""
+    composer.add_tool(IBMDocSearchDirectTool())
+    logger.info("Added IBM Doc Search Direct Tool")
 
 
 async def run_http_mode(composer: MCPComposer) -> None:
-    """Run composer in HTTP mode."""
-    await composer.run_http_async(
-        host="0.0.0.0", port=9000, log_level="debug", path="/mcp"
-    )
+    await composer.run_http_async(host="0.0.0.0", port=9000, log_level="debug", path="/mcp")
 
 
 async def run_stdio_mode(composer: MCPComposer) -> None:
@@ -65,12 +156,9 @@ async def run_stdio_mode(composer: MCPComposer) -> None:
 
 async def run_sse_mode(composer: MCPComposer) -> None:
     """Run composer in SSE mode."""
-    await composer.run_async(
-        transport="sse", host="0.0.0.0", port=9000, log_level="debug"
-    )
+    await composer.run_async(transport="sse", host="0.0.0.0", port=9000, log_level="debug")
 
 
-# Mode dispatch table
 MODE_HANDLERS = {
     "http": run_http_mode,
     "stdio": run_stdio_mode,
@@ -79,56 +167,27 @@ MODE_HANDLERS = {
 
 
 async def run_composer_mode(composer: MCPComposer, mode: str) -> None:
-    """Execute composer in specified mode."""
     handler = MODE_HANDLERS.get(mode)
     if not handler:
-        raise ValueError(
-            f"Unsupported MCP_MODE: {mode}. Use 'http', 'sse', or 'stdio'"
-        )
+        raise ValueError(f"Unsupported MCP_MODE: {mode}. Use 'http', 'sse', or 'stdio'")
     await handler(composer)
 
 
-async def main():
-    """
-    Initialize and run the Solis composer with JWT authentication.
+# -----------------------------------------------------------------------------
+# Entry point
+# -----------------------------------------------------------------------------
 
-    Environment Variables:
-        MCP_MODE: Server mode (http, sse, stdio) - default: sse
 
-        JWT Configuration (prefix: SOLIS_JWT_):
-        - SOLIS_JWT_SECRET: Secret key for HS256 algorithm
-        - SOLIS_JWT_PUBLIC_KEY: Public key for RS256 algorithm
-        - SOLIS_JWT_ALGORITHM: JWT algorithm (default: HS256)
-        - SOLIS_JWT_ISSUER: Expected token issuer
-        - SOLIS_JWT_AUDIENCE: Expected token audience
-        - SOLIS_JWT_VERIFY_EXP: Verify expiration (default: true)
-        - SOLIS_JWT_VERIFY_ISS: Verify issuer (default: false)
-        - SOLIS_JWT_VERIFY_AUD: Verify audience (default: false)
-
-    Example:
-        # Set environment variables
-        export SOLIS_JWT_SECRET="your-secret-key"
-        export SOLIS_JWT_ALGORITHM="HS256"
-        export SOLIS_JWT_ISSUER="https://solis.ibm.com"
-        export SOLIS_JWT_VERIFY_EXP="true"
-        export MCP_MODE="sse"
-
-        # Run composer
-        python solis_composer.py
-    """
+async def main() -> None:
     mode = os.getenv("MCP_MODE", "sse").lower()
-
     logger.info("Starting Solis Composer in %s mode", mode)
-    log_jwt_configuration(jwt_provider)
+    logger.info("ISV Token Authentication is ACTIVE")
 
     setup_middleware(gw)
     setup_tools(gw)
-
-    # Setup member servers (if configured)
     await gw.setup_member_servers()
     logger.info("Member servers setup complete")
 
-    # Run composer based on mode
     await run_composer_mode(gw, mode)
 
 

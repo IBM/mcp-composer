@@ -1,5 +1,5 @@
 from typing import Dict, Any, Optional, List
-import jwt # type: ignore
+import jwt  # type: ignore
 from mcp_composer.middleware.acl.policy.base_policy_enforcer import BasePolicyEnforcer
 from mcp_composer.middleware.acl.acl_utils import extract_context_info
 from mcp_composer.core.utils.logger import LoggerFactory
@@ -95,7 +95,9 @@ class JWEJWTPolicyEnforcer(BasePolicyEnforcer):
                 # Decode without verification (for development/testing)
                 claims = jwt.decode(token, options={"verify_signature": False})
 
-            logger.debug("Successfully decoded JWT with claims: %s", list(claims.keys()))
+            logger.debug(
+                "Successfully decoded JWT with claims: %s", list(claims.keys())
+            )
             return claims
 
         except jwt.ExpiredSignatureError:
@@ -152,7 +154,9 @@ class JWEJWTPolicyEnforcer(BasePolicyEnforcer):
 
         logger.debug(
             "JWT policy check - Tool: %s, Allowed: %s, Context: %s",
-            tool_name, is_allowed, context_info
+            tool_name,
+            is_allowed,
+            context_info,
         )
 
         return is_allowed

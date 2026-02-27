@@ -86,7 +86,9 @@ def cmd_validate(args: argparse.Namespace) -> int:
             print("\nEnabled middlewares (in execution order):")
             for info in mgr.describe():
                 hooks = ", ".join(info.get("applied_hooks", []))
-                print(f" - {info['name']}  (priority={info['priority']}, hooks=[{hooks}])")
+                print(
+                    f" - {info['name']}  (priority={info['priority']}, hooks=[{hooks}])"
+                )
         else:
             print("\n(Manager not available; cannot compute execution order)")
 
@@ -174,10 +176,14 @@ def cmd_list(args: argparse.Namespace) -> int:
             hooks = ", ".join(it.get("applied_hooks", []))
             mode = it.get("mode", "enabled")
             attached = it.get("attached")
-            flag = "✓" if (attached or (attached is None and mode == "enabled")) else " "
+            flag = (
+                "✓" if (attached or (attached is None and mode == "enabled")) else " "
+            )
             print(f"[{flag}] {it['name']}  prio={it['priority']}  mode={mode}")
             print(f"     kind={it.get('kind', '')}")
             print(f"     hooks=[{hooks}]")
+
+
 # pylint: disable=too-many-statements,too-many-return-statements,too-many-branches,too-many-locals
 def cmd_add_middleware(args: argparse.Namespace) -> int:
     # Load existing or init new
@@ -243,7 +249,9 @@ def cmd_add_middleware(args: argparse.Namespace) -> int:
     names = [m.name for m in items]
     if entry.name in names:
         if not args.update:
-            _print_error(f"Middleware with name '{entry.name}' already exists. Use --update to overwrite.")
+            _print_error(
+                f"Middleware with name '{entry.name}' already exists. Use --update to overwrite."
+            )
             return 1
         idx = names.index(entry.name)
         items[idx] = entry
@@ -251,7 +259,9 @@ def cmd_add_middleware(args: argparse.Namespace) -> int:
         items.append(entry)
 
     # Revalidate whole config & ensure imports (optional)
-    new_cfg = MiddlewareConfig(middleware=items, middleware_settings=cfg.middleware_settings)
+    new_cfg = MiddlewareConfig(
+        middleware=items, middleware_settings=cfg.middleware_settings
+    )
 
     if args.ensure_imports:
         try:

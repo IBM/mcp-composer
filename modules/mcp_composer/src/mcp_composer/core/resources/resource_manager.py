@@ -2,9 +2,9 @@
 
 import asyncio
 import logging
-from typing import Dict, List, Any
+from typing import Dict, List, Any, Optional
 
-from fastmcp.resources import Resource, ResourceManager, ResourceTemplate
+from fastmcp.resources import Resource, ResourceTemplate
 
 from mcp_composer.core.member_servers.member_server import HealthStatus
 from mcp_composer.core.member_servers.server_manager import ServerManager
@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 # pylint: disable=W0718
 
 
-class MCPResourceManager(ResourceManager):
+class MCPResourceManager:
     """Custom resource manager that works with FastMCP's internal ResourceManager."""
 
     RESOURCE_KIND = "resource"
@@ -24,19 +24,19 @@ class MCPResourceManager(ResourceManager):
         server_manager: ServerManager,
         database=None,
     ):
-        super().__init__(duplicate_behavior=None)
         self._server_manager = server_manager
         self._database = database
         # Store references to parent's dicts before we shadow them
         # Access parent's _resources and _templates from instance dict before shadowing
-        instance_dict = object.__getattribute__(self, '__dict__')
-        self._parent_resources = instance_dict.get('_resources', {})
-        self._parent_templates = instance_dict.get('_templates', {})
+        instance_dict = object.__getattribute__(self, "__dict__")
+        self._parent_resources = instance_dict.get("_resources", {})
+        self._parent_templates = instance_dict.get("_templates", {})
         # self._fastmcp_resource_manager = fastmcp_resource_manager
         self._resource_templates: Dict[str, ResourceTemplate] = {}
         self._resources: Dict[str, Resource] = {}
         self._storage_enabled = database is not None
         self._restore_task = None
+        self.warn_on_duplicate_resources = True
 
     def schedule_persisted_restore(self) -> None:
         """Schedule restoration of persisted resources/templates."""
@@ -124,29 +124,33 @@ class MCPResourceManager(ResourceManager):
             record["uri_template"] = uri
         return record
 
-    def _get_mounted_servers(self):
-        """Safely access _mounted_servers, returning empty list if not initialized."""
-        # Check if the parent class has this attribute
-        if not hasattr(super(), '_mounted_servers'):
-            return []
-        return super()._mounted_servers
+    def add_resource(self, resource: Resource) -> Resource:
+        """Add a resource to the manager."""
+        existing = self._resources.get(resource.name)
+        if existing:
+            if self.warn_on_duplicate_resources:
+                logger.warning("Resource already exists: %s", resource.name)
+            return existing
+        self._resources[resource.name] = resource
+        return resource
 
-    def unmount(self, server_id):
-        """Unmount a member server"""
-        # Find the matching mounted server and get its tools
-        # First try to get from parent class
-        parent_mounted = self._get_mounted_servers()
-        # Also check if we have our own _mounted_servers (for tests)
-        if hasattr(self, '_mounted_servers'):
-            # Use our own list if it exists
-            parent_mounted = self._mounted_servers
-        if not parent_mounted:
-            return
-        # Access the parent class's _mounted_servers directly for deletion
-        for idx, mounted_server in enumerate(parent_mounted):
-            if hasattr(mounted_server, 'prefix') and mounted_server.prefix == server_id:
-                del parent_mounted[idx]
-                break
+    def add_template(self, template: ResourceTemplate) -> ResourceTemplate:
+        """Add a resource template to the manager."""
+        existing = self._resource_templates.get(template.name)
+        if existing:
+            if self.warn_on_duplicate_resources:
+                logger.warning("Resource template already exists: %s", template.name)
+            return existing
+        self._resource_templates[template.name] = template
+        return template
+
+    def get_resource(self, name: str) -> Optional[Resource]:
+        """Get resource by name."""
+        return self._resources.get(name)
+
+    def get_template(self, name: str) -> Optional[ResourceTemplate]:
+        """Get resource template by name."""
+        return self._resource_templates.get(name)
 
     def _filter_disabled_resources(
         self, resources: dict[str, Resource]
@@ -282,15 +286,13 @@ class MCPResourceManager(ResourceManager):
         """
         Gets the complete, unfiltered inventory of all resources and applies filtering.
         """
-        resources = await super().get_resources()
-        return self._filter_disabled_resources(resources)
+        return self._filter_disabled_resources(self._resources)
 
     async def get_resource_templates(self) -> dict[str, ResourceTemplate]:
         """
         Gets the complete, unfiltered inventory of all resource templates and applies filtering.
         """
-        templates = await super().get_resource_templates()
-        return self._filter_disabled_templates(templates)
+        return self._filter_disabled_templates(self._resource_templates)
 
     async def list_resources(self) -> list[Resource]:
         """
@@ -376,9 +378,9 @@ class MCPResourceManager(ResourceManager):
         try:
             self._server_manager.check_server_exist(server_id)
 
-            # Get all resources and templates using the parent class methods (unfiltered)
-            all_resources = await super().get_resources()
-            all_templates = await super().get_resource_templates()
+            # Get all resources and templates (unfiltered)
+            all_resources = self._resources
+            all_templates = self._resource_templates
 
             # Find resources to enable by matching names
             resources_to_enable = []
@@ -448,7 +450,6 @@ class MCPResourceManager(ResourceManager):
                     description=description,
                     mime_type=mime_type,
                     tags=tags,
-                    enabled=enabled,
                 )
             else:
                 # If 'template' is provided as a string, create a function that returns it
@@ -470,7 +471,6 @@ class MCPResourceManager(ResourceManager):
                         description=description,
                         mime_type=mime_type,
                         tags=tags,
-                        enabled=enabled,
                     )
                 else:
                     template = ResourceTemplate(
@@ -480,7 +480,6 @@ class MCPResourceManager(ResourceManager):
                         mime_type=mime_type,
                         parameters=parameters,
                         tags=tags,
-                        enabled=enabled,
                     )
 
             if template_text is not None:
@@ -507,9 +506,7 @@ class MCPResourceManager(ResourceManager):
             logger.error("Error adding resource template: %s", e)
             return f"Failed to add resource template: {str(e)}"
 
-    async def create_resource(
-        self, resource_config: dict, persist: bool = True
-    ) -> str:
+    async def create_resource(self, resource_config: dict, persist: bool = True) -> str:
         """
         Create a resource in the composer using FastMCP's built-in add_resource.
         """
@@ -538,7 +535,6 @@ class MCPResourceManager(ResourceManager):
                     description=description,
                     mime_type=mime_type,
                     tags=tags,
-                    enabled=enabled,
                 )
             else:
                 # Create a simple resource with a static read method
@@ -556,7 +552,6 @@ class MCPResourceManager(ResourceManager):
                     uri=uri,
                     mime_type=mime_type,
                     tags=tags,
-                    enabled=enabled,
                     text=content,
                 )
 
@@ -589,44 +584,22 @@ class MCPResourceManager(ResourceManager):
         targets = {name.lower() for name in resource_names}
         removed: list[str] = []
 
-        # Delete from our shadowed _resources dict
-        # The parent's add_resource() actually modifies self._resources (our shadowed version)
-        # because Python's attribute lookup finds our shadowed attribute first
+        # Delete from _resources dict
         if resource_type in (None, self.RESOURCE_KIND):
-            # Iterate through our _resources dict and match by name
             for key, resource in list(self._resources.items()):
-                if hasattr(resource, 'name') and resource.name.lower() in targets:
+                if hasattr(resource, "name") and resource.name.lower() in targets:
                     removed.append(resource.name)
                     del self._resources[key]
                     self._remove_persisted_record(
                         self._storage_id(self.RESOURCE_KIND, resource.name)
                     )
-            # Also check parent's dict in case resources were stored there
-            for key, resource in list(self._parent_resources.items()):
-                if hasattr(resource, 'name') and resource.name.lower() in targets:
-                    if resource.name not in removed:  # Avoid duplicate removal messages
-                        removed.append(resource.name)
-                    del self._parent_resources[key]
-                    self._remove_persisted_record(
-                        self._storage_id(self.RESOURCE_KIND, resource.name)
-                    )
 
-        # Delete from our shadowed _resource_templates dict
+        # Delete from _resource_templates dict
         if resource_type in (None, self.TEMPLATE_KIND):
-            # Iterate through our _resource_templates dict and match by name
             for key, template in list(self._resource_templates.items()):
-                if hasattr(template, 'name') and template.name.lower() in targets:
+                if hasattr(template, "name") and template.name.lower() in targets:
                     removed.append(template.name)
                     del self._resource_templates[key]
-                    self._remove_persisted_record(
-                        self._storage_id(self.TEMPLATE_KIND, template.name)
-                    )
-            # Also check parent's dict in case templates were stored there
-            for key, template in list(self._parent_templates.items()):
-                if hasattr(template, 'name') and template.name.lower() in targets:
-                    if template.name not in removed:  # Avoid duplicate removal messages
-                        removed.append(template.name)
-                    del self._parent_templates[key]
                     self._remove_persisted_record(
                         self._storage_id(self.TEMPLATE_KIND, template.name)
                     )
@@ -649,57 +622,63 @@ class MCPResourceManager(ResourceManager):
             if server and hasattr(server, "server") and server.server:
                 result = []
                 try:
-                    resources = await server.server.get_resources()
-                    for key, resource in resources.items():
-                        if hasattr(resource, "name"):
-                            result.append(
-                                {
-                                    "name": resource.name,
-                                    "description": getattr(resource, "description", ""),
-                                    "uri": str(getattr(resource, "uri", "")),
-                                    "type": "resource",
-                                    "server_id": server_id,
-                                }
-                            )
-                        else:
-                            result.append(
-                                {
-                                    "name": key,
-                                    "description": "",
-                                    "uri": str(resource),
-                                    "type": "resource",
-                                    "server_id": server_id,
-                                }
-                            )
+                    # Get resources from our internal dict that belong to this server
+                    for key, resource in self._resources.items():
+                        if key.startswith(f"{server_id}_"):
+                            if hasattr(resource, "name"):
+                                result.append(
+                                    {
+                                        "name": resource.name,
+                                        "description": getattr(
+                                            resource, "description", ""
+                                        ),
+                                        "uri": str(getattr(resource, "uri", "")),
+                                        "type": "resource",
+                                        "server_id": server_id,
+                                    }
+                                )
+                            else:
+                                result.append(
+                                    {
+                                        "name": key,
+                                        "description": "",
+                                        "uri": str(resource),
+                                        "type": "resource",
+                                        "server_id": server_id,
+                                    }
+                                )
                 except Exception as e:
                     logger.warning(
                         "Error getting resources from server %s: %s", server_id, e
                     )
                 try:
-                    templates = await server.server.get_resource_templates()
-                    for key, template in templates.items():
-                        if hasattr(template, "name"):
-                            result.append(
-                                {
-                                    "name": template.name,
-                                    "description": getattr(template, "description", ""),
-                                    "uri_template": str(
-                                        getattr(template, "uri_template", "")
-                                    ),
-                                    "type": "template",
-                                    "server_id": server_id,
-                                }
-                            )
-                        else:
-                            result.append(
-                                {
-                                    "name": key,
-                                    "description": "",
-                                    "uri_template": str(template),
-                                    "type": "template",
-                                    "server_id": server_id,
-                                }
-                            )
+                    # Get templates from our internal dict that belong to this server
+                    for key, template in self._resource_templates.items():
+                        if key.startswith(f"{server_id}_"):
+                            if hasattr(template, "name"):
+                                result.append(
+                                    {
+                                        "name": template.name,
+                                        "description": getattr(
+                                            template, "description", ""
+                                        ),
+                                        "uri_template": str(
+                                            getattr(template, "uri_template", "")
+                                        ),
+                                        "type": "template",
+                                        "server_id": server_id,
+                                    }
+                                )
+                            else:
+                                result.append(
+                                    {
+                                        "name": key,
+                                        "description": "",
+                                        "uri_template": str(template),
+                                        "type": "template",
+                                        "server_id": server_id,
+                                    }
+                                )
                 except Exception as e:
                     logger.warning(
                         "Error getting resource templates from server %s: %s",

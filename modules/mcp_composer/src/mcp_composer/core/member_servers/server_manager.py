@@ -73,13 +73,15 @@ class ServerManager:
             sub_mcp = await builder.build()
 
             # Handle both cases: mcp_composer as object or as callback function
-            if hasattr(mcp_composer, 'mount'):
+            if hasattr(mcp_composer, "mount"):
                 mcp_composer.mount(sub_mcp, server_id)
             else:
                 mcp_composer(sub_mcp, server_id)
             # get_tools() exists in FastMCP 3.0 and returns a list (per upgrade guide)
             # Type checker doesn't recognize it, but it exists at runtime
-            tools = await sub_mcp.get_tools()  # pyright: ignore[reportAttributeAccessIssue]
+            tools = (
+                await sub_mcp.list_tools()
+            )  # pyright: ignore[reportAttributeAccessIssue]
             missing_description_tools = [
                 tool.name if hasattr(tool, "name") else str(tool)
                 for tool in tools
@@ -510,6 +512,19 @@ class ServerManager:
     def get_member(self, server_id: str) -> MemberMCPServer | None:
         """Get a member server details from in-memory"""
         return self._member_servers.get(server_id)
+
+    def is_iam_enabled_for_server(self, server_id: str) -> bool:
+        """
+        Return True only if the server config has solis_config.isIamEnabled === true.
+        Both solis_config and isIamEnabled may be absent; treat missing as False.
+        """
+        member = self.get_member(server_id)
+        if member is None:
+            return False
+        solis_config = member.config.get("solis_config")
+        if not solis_config or not isinstance(solis_config, dict):
+            return False
+        return solis_config.get("isIamEnabled", False) is True
 
     def prepare_activation(self, server_id: str) -> dict:
         """

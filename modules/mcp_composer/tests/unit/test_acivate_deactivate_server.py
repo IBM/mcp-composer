@@ -34,7 +34,9 @@ async def test_activate_mcp_server_success(fake_db, server_config):
 
     assert f"Server '{server_config['id']}' activated" in result
     reloaded = composer._server_manager.load_all_servers_db()
-    assert any(s["id"] == server_config["id"] and s["status"] == "active" for s in reloaded)
+    assert any(
+        s["id"] == server_config["id"] and s["status"] == "active" for s in reloaded
+    )
 
 
 @pytest.mark.asyncio

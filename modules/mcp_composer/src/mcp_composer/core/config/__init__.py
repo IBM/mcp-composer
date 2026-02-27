@@ -8,13 +8,13 @@ from .unified_config import (
     PromptConfig,
     ToolConfig,
     ConfigValidationError,
-    UnifiedConfigValidator
+    UnifiedConfigValidator,
 )
 from .config_loader import ConfigLoader, ConfigManager
 from .cli_commands import (
     add_config_commands,
     handle_config_commands,
-    create_config_parser
+    create_config_parser,
 )
 
 __all__ = [
@@ -30,5 +30,5 @@ __all__ = [
     "ConfigManager",
     "add_config_commands",
     "handle_config_commands",
-    "create_config_parser"
+    "create_config_parser",
 ]

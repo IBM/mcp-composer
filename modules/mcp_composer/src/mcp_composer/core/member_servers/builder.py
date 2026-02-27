@@ -7,9 +7,9 @@ import os
 from typing import Dict
 import jsonref
 import httpx
-import mcp_composer.core.utils.patch_openapi_tool
 from fastmcp import FastMCP, Client
 from fastmcp.client.auth import OAuth
+from fastmcp.server import create_proxy
 from fastmcp.client.transports import (
     StreamableHttpTransport,
     SSETransport,
@@ -127,7 +127,7 @@ class MCPServerBuilder:
             logger.debug("the headers are >>> %s", headers)
             # Set up authentication if provided
             client = Client(transport, auth=auth)
-            return FastMCP.as_proxy(client, name=self.mcp_id)
+            return create_proxy(client)
 
         if transport_type == MemberServerType.STDIO:
             # For stdio, we need to pass the command and args
@@ -138,7 +138,7 @@ class MCPServerBuilder:
             transport = StdioTransport(command=command, args=args, env=env, cwd=cwd)
             # Set up authentication if provided
             client = Client(transport)
-            return FastMCP.as_proxy(client, name=self.mcp_id)
+            return create_proxy(client)
 
         raise ValueError(f"Unsupported transport type: {transport_type}")
 
@@ -366,9 +366,17 @@ class MCPServerBuilder:
             # Optional per-tool descriptions for layered tools
             tool_descriptions = openapi_config.get("tool_description", {}) or {}
 
+            # Get product_id from solis_config (member_servers.json) or top-level productId for authorization matching
+            solis_config = self.config.get("solis_config") or {}
+            product_id = solis_config.get("product_id") or self.config.get(
+                "productId", None
+            )
+
             mcp = LayeredOpenAPIFactory(
                 openapi_spec=spec,
                 client=http_client,
+                server_id=self.mcp_id,  # Pass server_id for authorization
+                product_id=product_id,  # Pass productId for authorization matching
                 custom_routes=custom_mappings,
                 custom_routes_exclude_all=exclude_all_route,
                 tool_descriptions=tool_descriptions,

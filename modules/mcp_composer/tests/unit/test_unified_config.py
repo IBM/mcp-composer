@@ -267,13 +267,18 @@ class TestConfigLoader:
             {"id": "server2", "type": "sse", "endpoint": "http://test2"},
         ]
 
-        result = self.loader._validate_and_convert_list(data_list, ServerConfig, "servers")
+        result = self.loader._validate_and_convert_list(
+            data_list, ServerConfig, "servers"
+        )
         assert len(result) == 2
         assert all(isinstance(item, ServerConfig) for item in result)
 
     def test_validate_and_convert_list_invalid_item(self):
         """Test validating list with invalid item raises error."""
-        data_list = [{"id": "server1", "type": "http", "endpoint": "http://test1"}, "invalid string"]
+        data_list = [
+            {"id": "server1", "type": "http", "endpoint": "http://test1"},
+            "invalid string",
+        ]
 
         with pytest.raises(ConfigValidationError) as exc_info:
             self.loader._validate_and_convert_list(data_list, ServerConfig, "servers")
@@ -295,7 +300,10 @@ class TestConfigLoader:
 
     def test_validate_and_convert_dict_invalid_tool(self):
         """Test tools dict validation with invalid tool raises error."""
-        data_dict = {"tool1": {"openapi": "3.0.3", "info": {"title": "Test"}}, "invalid_tool": "not a dict"}
+        data_dict = {
+            "tool1": {"openapi": "3.0.3", "info": {"title": "Test"}},
+            "invalid_tool": "not a dict",
+        }
 
         # For tools config, non-tool entries are skipped, so this should not raise an error
         result = self.loader._validate_and_convert_dict(data_dict, ToolConfig, "tools")
@@ -311,7 +319,11 @@ class TestConfigLoader:
             "type": "http",
             "endpoint": "http://test",
             "auth_strategy": "oauth2",
-            "auth": {"clientId": "test_client", "clientSecret": "test_secret", "refreshToken": "test_token"},
+            "auth": {
+                "clientId": "test_client",
+                "clientSecret": "test_secret",
+                "refreshToken": "test_token",
+            },
         }
 
         result = self.loader._prepare_server_config(server_config)
@@ -327,7 +339,11 @@ class TestConfigLoader:
     def test_prepare_server_config_no_oauth2(self):
         """Test server config without OAuth2 remains unchanged."""
         server_config = Mock()
-        server_config.model_dump.return_value = {"id": "test", "type": "http", "endpoint": "http://test"}
+        server_config.model_dump.return_value = {
+            "id": "test",
+            "type": "http",
+            "endpoint": "http://test",
+        }
 
         result = self.loader._prepare_server_config(server_config)
         assert result == server_config.model_dump.return_value
@@ -351,7 +367,9 @@ class TestConfigLoader:
         """Test server application with failures."""
         servers = [Mock(id="server1", type="http"), Mock(id="server2", type="sse")]
 
-        self.composer._mount_member_server = AsyncMock(side_effect=[Exception("Error"), "success"])
+        self.composer._mount_member_server = AsyncMock(
+            side_effect=[Exception("Error"), "success"]
+        )
 
         result = await self.loader._apply_servers(servers)
 
@@ -365,7 +383,9 @@ class TestConfigLoader:
         """Test successful tools application."""
         tools = {
             "tool1": Mock(model_dump=Mock(return_value={"openapi": "3.0.3"})),
-            "tool2": Mock(model_dump=Mock(return_value={"tool_type": "curl", "name": "test"})),
+            "tool2": Mock(
+                model_dump=Mock(return_value={"tool_type": "curl", "name": "test"})
+            ),
         }
 
         self.composer.add_tools_from_openapi = AsyncMock()
@@ -384,7 +404,15 @@ class TestConfigLoader:
         """Test tools application skips non-tool entries."""
         tools = {
             "tool1": Mock(model_dump=Mock(return_value={"openapi": "3.0.3"})),
-            "server1": Mock(model_dump=Mock(return_value={"id": "test", "type": "http", "endpoint": "http://test"})),
+            "server1": Mock(
+                model_dump=Mock(
+                    return_value={
+                        "id": "test",
+                        "type": "http",
+                        "endpoint": "http://test",
+                    }
+                )
+            ),
         }
 
         self.composer.add_tools_from_openapi = AsyncMock()
@@ -399,7 +427,11 @@ class TestConfigLoader:
     @pytest.mark.asyncio
     async def test_apply_tools_unknown_type(self):
         """Test tools application with unknown tool type."""
-        tools = {"tool1": Mock(model_dump=Mock(return_value={"tool_type": "unknown", "name": "test"}))}
+        tools = {
+            "tool1": Mock(
+                model_dump=Mock(return_value={"tool_type": "unknown", "name": "test"})
+            )
+        }
 
         result = await self.loader._apply_tools(tools)
 
@@ -411,11 +443,17 @@ class TestConfigLoader:
     async def test_apply_prompts_success(self):
         """Test successful prompts application."""
         prompts = [
-            Mock(name="prompt1", description="test1", template="template1", arguments=[]),
-            Mock(name="prompt2", description="test2", template="template2", arguments=[]),
+            Mock(
+                name="prompt1", description="test1", template="template1", arguments=[]
+            ),
+            Mock(
+                name="prompt2", description="test2", template="template2", arguments=[]
+            ),
         ]
 
-        self.composer._prompt_manager.add_prompts = Mock(return_value=["prompt1", "prompt2"])
+        self.composer._prompt_manager.add_prompts = Mock(
+            return_value=["prompt1", "prompt2"]
+        )
 
         result = await self.loader._apply_prompts(prompts)
 
@@ -519,6 +557,7 @@ class TestConfigLoader:
         assert result.resources[0].uri == "resource://test1"
         assert result.resources[1].name == "resource2"
         assert result.resources[1].uri_template == "resource://test/{id}"
+
     def test_load_single_section_resources_default_enabled(self):
         """Test that resources without 'enabled' field default to enabled=True."""
         config_data = [
@@ -537,18 +576,17 @@ class TestConfigLoader:
         assert result.resources[0].name == "resource_no_enabled"
         assert result.resources[0].enabled is True  # Verify default is True
 
-
     def _create_mock_resource(self, name, enabled, uri=None, uri_template=None):
         """Helper method to create mock resources with model_dump."""
         resource = Mock()
         resource.name = name
         resource.enabled = enabled
-        
+
         model_data = {
             "name": name,
             "enabled": enabled,
         }
-        
+
         if uri:
             model_data["uri"] = uri
             model_data["text"] = "Test content"
@@ -557,22 +595,30 @@ class TestConfigLoader:
         elif uri_template:
             model_data["uri_template"] = uri_template
             model_data["mime_type"] = "application/json"
-        
+
         resource.model_dump.return_value = model_data
         return resource
 
     @pytest.mark.asyncio
     async def test_apply_resources_success(self):
         """Test successful resources application."""
-        resource1 = self._create_mock_resource("resource1", True, uri="resource://test1")
-        resource2 = self._create_mock_resource("resource2", True, uri_template="resource://test/{id}")
+        resource1 = self._create_mock_resource(
+            "resource1", True, uri="resource://test1"
+        )
+        resource2 = self._create_mock_resource(
+            "resource2", True, uri_template="resource://test/{id}"
+        )
 
         resources = [resource1, resource2]
 
         # Mock the resource manager
         self.composer._resource_manager = Mock()
-        self.composer._resource_manager.create_resource = AsyncMock(return_value="resource1")
-        self.composer._resource_manager.create_resource_template = AsyncMock(return_value="resource2")
+        self.composer._resource_manager.create_resource = AsyncMock(
+            return_value="resource1"
+        )
+        self.composer._resource_manager.create_resource_template = AsyncMock(
+            return_value="resource2"
+        )
 
         result = await self.loader._apply_resources(resources)
 
@@ -585,15 +631,23 @@ class TestConfigLoader:
     @pytest.mark.asyncio
     async def test_apply_resources_failure(self):
         """Test resources application with failures."""
-        resource1 = self._create_mock_resource("resource1", True, uri="resource://test1")
-        resource2 = self._create_mock_resource("resource2", True, uri_template="resource://test/{id}")
+        resource1 = self._create_mock_resource(
+            "resource1", True, uri="resource://test1"
+        )
+        resource2 = self._create_mock_resource(
+            "resource2", True, uri_template="resource://test/{id}"
+        )
 
         resources = [resource1, resource2]
 
         # Mock the resource manager with one failure
         self.composer._resource_manager = Mock()
-        self.composer._resource_manager.create_resource = AsyncMock(side_effect=Exception("Resource creation failed"))
-        self.composer._resource_manager.create_resource_template = AsyncMock(return_value="resource2")
+        self.composer._resource_manager.create_resource = AsyncMock(
+            side_effect=Exception("Resource creation failed")
+        )
+        self.composer._resource_manager.create_resource_template = AsyncMock(
+            return_value="resource2"
+        )
 
         result = await self.loader._apply_resources(resources)
 
@@ -605,15 +659,21 @@ class TestConfigLoader:
     @pytest.mark.asyncio
     async def test_apply_resources_disabled(self):
         """Test resources application skips disabled resources."""
-        resource1 = self._create_mock_resource("resource1", False, uri="resource://test1")
-        resource2 = self._create_mock_resource("resource2", True, uri_template="resource://test/{id}")
+        resource1 = self._create_mock_resource(
+            "resource1", False, uri="resource://test1"
+        )
+        resource2 = self._create_mock_resource(
+            "resource2", True, uri_template="resource://test/{id}"
+        )
 
         resources = [resource1, resource2]
 
         # Mock the resource manager
         self.composer._resource_manager = Mock()
         self.composer._resource_manager.create_resource = AsyncMock()
-        self.composer._resource_manager.create_resource_template = AsyncMock(return_value="resource2")
+        self.composer._resource_manager.create_resource_template = AsyncMock(
+            return_value="resource2"
+        )
 
         result = await self.loader._apply_resources(resources)
 
@@ -666,11 +726,20 @@ class TestConfigManager:
     async def test_load_and_apply_success(self):
         """Test successful load and apply."""
         with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
-            json.dump({"servers": [{"id": "test", "type": "http", "endpoint": "http://test"}]}, f)
+            json.dump(
+                {
+                    "servers": [
+                        {"id": "test", "type": "http", "endpoint": "http://test"}
+                    ]
+                },
+                f,
+            )
             temp_path = f.name
 
         try:
-            with patch.object(self.manager.loader, "apply_config", new_callable=AsyncMock) as mock_apply:
+            with patch.object(
+                self.manager.loader, "apply_config", new_callable=AsyncMock
+            ) as mock_apply:
                 mock_apply.return_value = {"servers": {"registered": 1, "failed": 0}}
 
                 result = await self.manager.load_and_apply(temp_path, config_type="all")
@@ -689,7 +758,14 @@ class TestConfigManager:
     def test_validate_config_file_valid(self):
         """Test validating valid configuration file."""
         with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
-            json.dump({"servers": [{"id": "test", "type": "http", "endpoint": "http://test"}]}, f)
+            json.dump(
+                {
+                    "servers": [
+                        {"id": "test", "type": "http", "endpoint": "http://test"}
+                    ]
+                },
+                f,
+            )
             temp_path = f.name
 
         try:
@@ -735,12 +811,21 @@ class TestUnifiedConfigIntegration:
                     "applied_hooks": ["on_call_tool"],
                 }
             ],
-            "prompts": [{"name": "prompt1", "description": "test1", "template": "template1"}],
+            "prompts": [
+                {"name": "prompt1", "description": "test1", "template": "template1"}
+            ],
             "tools": {
                 "tool1": {
                     "openapi": "3.0.3",
                     "info": {"title": "Test"},
-                    "paths": {"/test": {"get": {"summary": "Test endpoint", "operationId": "test_operation"}}},
+                    "paths": {
+                        "/test": {
+                            "get": {
+                                "summary": "Test endpoint",
+                                "operationId": "test_operation",
+                            }
+                        }
+                    },
                 }
             },
         }
@@ -776,12 +861,21 @@ class TestUnifiedConfigIntegration:
                     "applied_hooks": ["on_call_tool"],
                 }
             ],
-            "prompts": [{"name": "prompt1", "description": "test1", "template": "template1"}],
+            "prompts": [
+                {"name": "prompt1", "description": "test1", "template": "template1"}
+            ],
             "tools": {
                 "tool1": {
                     "openapi": "3.0.3",
                     "info": {"title": "Test"},
-                    "paths": {"/test": {"get": {"summary": "Test endpoint", "operationId": "test_operation"}}},
+                    "paths": {
+                        "/test": {
+                            "get": {
+                                "summary": "Test endpoint",
+                                "operationId": "test_operation",
+                            }
+                        }
+                    },
                 }
             },
         }
@@ -854,7 +948,9 @@ class TestUnifiedConfigIntegration:
 
     def test_file_caching(self):
         """Test file caching functionality."""
-        config_data = {"servers": [{"id": "server1", "type": "http", "endpoint": "http://test1"}]}
+        config_data = {
+            "servers": [{"id": "server1", "type": "http", "endpoint": "http://test1"}]
+        }
 
         with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
             json.dump(config_data, f)
@@ -888,12 +984,21 @@ class TestUnifiedConfigIntegration:
                     "applied_hooks": ["on_call_tool"],
                 }
             ],
-            "prompts": [{"name": "prompt1", "description": "test1", "template": "template1"}],
+            "prompts": [
+                {"name": "prompt1", "description": "test1", "template": "template1"}
+            ],
             "tools": {
                 "tool1": {
                     "openapi": "3.0.3",
                     "info": {"title": "Test"},
-                    "paths": {"/test": {"get": {"summary": "Test endpoint", "operationId": "test_operation"}}},
+                    "paths": {
+                        "/test": {
+                            "get": {
+                                "summary": "Test endpoint",
+                                "operationId": "test_operation",
+                            }
+                        }
+                    },
                 }
             },
             "resources": [
@@ -947,12 +1052,21 @@ class TestUnifiedConfigIntegration:
                     "applied_hooks": ["on_call_tool"],
                 }
             ],
-            "prompts": [{"name": "prompt1", "description": "test1", "template": "template1"}],
+            "prompts": [
+                {"name": "prompt1", "description": "test1", "template": "template1"}
+            ],
             "tools": {
                 "tool1": {
                     "openapi": "3.0.3",
                     "info": {"title": "Test"},
-                    "paths": {"/test": {"get": {"summary": "Test endpoint", "operationId": "test_operation"}}},
+                    "paths": {
+                        "/test": {
+                            "get": {
+                                "summary": "Test endpoint",
+                                "operationId": "test_operation",
+                            }
+                        }
+                    },
                 }
             },
             "resources": [

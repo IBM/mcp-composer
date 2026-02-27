@@ -10,10 +10,11 @@ class TestMainModule:
 
     @patch("mcp_composer.core.cli.cli_typer.run_dynamic_composer")
     @patch("mcp_composer.core.cli.cli_typer.build_config_from_args")
-    @patch("sys.argv", ["mcp-composer", "run", "--mode", "http", "--endpoint", "test-endpoint"])
-    def test_main_module_execution(
-        self, mock_build_config, mock_run_composer
-    ):
+    @patch(
+        "sys.argv",
+        ["mcp-composer", "run", "--mode", "http", "--endpoint", "test-endpoint"],
+    )
+    def test_main_module_execution(self, mock_build_config, mock_run_composer):
         """Test that main function is called when module is executed"""
         # Mock the config building
         mock_build_config.return_value = []
@@ -34,10 +35,11 @@ class TestMainModule:
 
     @patch("mcp_composer.core.cli.cli_typer.run_dynamic_composer")
     @patch("mcp_composer.core.cli.cli_typer.build_config_from_args")
-    @patch("sys.argv", ["mcp-composer", "run", "--mode", "http", "--endpoint", "test-endpoint"])
-    def test_main_module_as_script(
-        self, mock_build_config, mock_run_composer
-    ):
+    @patch(
+        "sys.argv",
+        ["mcp-composer", "run", "--mode", "http", "--endpoint", "test-endpoint"],
+    )
+    def test_main_module_as_script(self, mock_build_config, mock_run_composer):
         """Test that main function is called when module is run as script"""
         # Mock the config building
         mock_build_config.return_value = []

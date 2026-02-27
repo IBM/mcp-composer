@@ -539,7 +539,7 @@ class CloudantAdapter(DatabaseInterface):
                 db=self._resources_db_name, include_docs=True
             ).get_result()
             return [row["doc"] for row in result.get("rows", []) if "doc" in row]
-        except Exception as exc: # pylint: disable=broad-exception-caught
+        except Exception as exc:  # pylint: disable=broad-exception-caught
             logger.error("Cloudant resource read failed: %s", exc)
             return []
 

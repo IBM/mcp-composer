@@ -16,6 +16,8 @@ from mcp_composer.core.middleware.middleware_config import (
     load_and_validate_config,
 )
 from mcp_composer.core.middleware.middleware_manager import MiddlewareManager
+
+
 def _print_error(msg: str) -> None:
     print(f"ERROR: {msg}", file=sys.stderr)
 
@@ -60,6 +62,7 @@ def _save_json_file(path: str, obj: Any) -> None:
 # Commands
 # ---------------------------
 
+
 def cmd_validate(args: argparse.Namespace) -> int:
     try:
         load_and_validate_config(args.path, ensure_imports=args.ensure_imports)
@@ -88,7 +91,9 @@ def cmd_validate(args: argparse.Namespace) -> int:
             print("\nEnabled middlewares (in execution order):")
             for info in mgr.describe():
                 hooks = ", ".join(info.get("applied_hooks", []))
-                print(f" - {info['name']}  (priority={info['priority']}, hooks=[{hooks}])")
+                print(
+                    f" - {info['name']}  (priority={info['priority']}, hooks=[{hooks}])"
+                )
         else:
             print("\n(Manager not available; cannot compute execution order)")
 
@@ -136,24 +141,28 @@ def cmd_list(args: argparse.Namespace) -> int:
             for d in mgr.describe():  # already ordered
                 # find original entry to enrich with mode/kind
                 mm = next((m for m in cfg.middleware if m.name == d["name"]), None)
-                items_out.append({
-                    **d,
-                    "mode": getattr(mm, "mode", "enabled"),
-                    "kind": getattr(mm, "kind", "<unknown>"),
-                })
+                items_out.append(
+                    {
+                        **d,
+                        "mode": getattr(mm, "mode", "enabled"),
+                        "kind": getattr(mm, "kind", "<unknown>"),
+                    }
+                )
     else:
         # Fallback: list by priority from config (no runtime wrapping)
         for m in sorted(cfg.middleware, key=lambda x: x.priority):
             if not include_disabled and m.mode != "enabled":
                 continue
-            items_out.append({
-                "name": m.name,
-                "mode": m.mode,
-                "priority": m.priority,
-                "applied_hooks": [getattr(h, "value", h) for h in m.applied_hooks],
-                "kind": m.kind,
-                "attached": None,
-            })
+            items_out.append(
+                {
+                    "name": m.name,
+                    "mode": m.mode,
+                    "priority": m.priority,
+                    "applied_hooks": [getattr(h, "value", h) for h in m.applied_hooks],
+                    "kind": m.kind,
+                    "attached": None,
+                }
+            )
 
     if args.format == "json":
         print(json.dumps({"middlewares": items_out}, indent=2))
@@ -166,7 +175,9 @@ def cmd_list(args: argparse.Namespace) -> int:
             hooks = ", ".join(it.get("applied_hooks", []))
             mode = it.get("mode", "enabled")
             attached = it.get("attached")
-            flag = "✓" if (attached or (attached is None and mode == "enabled")) else " "
+            flag = (
+                "✓" if (attached or (attached is None and mode == "enabled")) else " "
+            )
             print(f"[{flag}] {it['name']}  prio={it['priority']}  mode={mode}")
             print(f"     kind={it.get('kind','')}")
             print(f"     hooks=[{hooks}]")
@@ -248,7 +259,9 @@ def cmd_add_middleware(args: argparse.Namespace) -> int:
         items.append(entry)
 
     # Revalidate whole config & ensure imports (optional)
-    new_cfg = MiddlewareConfig(middleware=items, middleware_settings=cfg.middleware_settings)
+    new_cfg = MiddlewareConfig(
+        middleware=items, middleware_settings=cfg.middleware_settings
+    )
 
     if args.ensure_imports:
         try:
