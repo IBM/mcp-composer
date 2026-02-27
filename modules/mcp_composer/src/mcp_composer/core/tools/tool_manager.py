@@ -163,7 +163,7 @@ class MCPToolManager(ToolManager):
                         result[tool_name] = tool
                         continue
                     product_id = server_to_product.get(server_id)
-                    if product_id and product_id in allowed_product_ids:
+                    if product_id is None or product_id in allowed_product_ids:
                         result[tool_name] = tool
 
                 logger.debug("TOOL FILTER : result in filter tools: %s", result)

@@ -5,7 +5,6 @@ from fastmcp.server.middleware import CallNext, Middleware, MiddlewareContext
 from mcp_composer.core.utils.context_request import ctx_get, extract_user_instances
 from mcp_composer.core.utils.exceptions import ToolFilterError
 from mcp_composer.core.utils.logger import LoggerFactory
-from mcp_composer.middleware.tracing_middleware import ctx_get
 logger = LoggerFactory.get_logger()
 
 CONTEXT_REQUEST_KEY = "fastmcp_context.request_context.request"

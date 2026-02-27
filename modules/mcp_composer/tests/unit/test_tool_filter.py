@@ -10,7 +10,7 @@ from mcp_composer.middleware.tool.tool_filter import ListFilteredTool
 
 # pylint: disable=protected-access,too-few-public-methods
 
-_EXTRACT = "mcp_composer.middleware.tool.tool_filter._extract_user_instances"
+_EXTRACT = "mcp_composer.middleware.tool.tool_filter.extract_user_instances"
 
 
 class TestListFilteredTool:
@@ -21,6 +21,8 @@ class TestListFilteredTool:
         mock = Mock()
         mock.get_tools = AsyncMock()
         mock._tool_manager = Mock()
+        mock._tool_manager.enable_tools = AsyncMock()
+        mock.disable_composer_tool = Mock()
         return mock
 
     @pytest.fixture
@@ -51,7 +53,7 @@ class TestListFilteredTool:
         self, list_filtered_tool, mock_context, mock_call_next, monkeypatch
     ):
         """Successful filtering when x-user-instances header is absent."""
-        monkeypatch.setattr(_EXTRACT, lambda ctx: None)
+        monkeypatch.setattr(_EXTRACT, lambda req: None)
 
         mock_tools = [
             {"name": "tool1", "description": "Tool 1"},
@@ -80,7 +82,7 @@ class TestListFilteredTool:
         self, list_filtered_tool, mock_context, mock_call_next, monkeypatch
     ):
         """Empty tool list returns empty list."""
-        monkeypatch.setattr(_EXTRACT, lambda ctx: None)
+        monkeypatch.setattr(_EXTRACT, lambda req: None)
 
         list_filtered_tool.gw.get_tools.return_value = []
         list_filtered_tool.gw._tool_manager.filter_tools.return_value = {}
@@ -95,7 +97,7 @@ class TestListFilteredTool:
         self, list_filtered_tool, mock_context, mock_call_next, monkeypatch
     ):
         """Complex tool objects pass through correctly."""
-        monkeypatch.setattr(_EXTRACT, lambda ctx: None)
+        monkeypatch.setattr(_EXTRACT, lambda req: None)
 
         mock_tools = [
             {
@@ -131,7 +133,7 @@ class TestListFilteredTool:
     ):
         """user instances extracted from x-user-instances header are forwarded to filter_tools."""
         instances = [{"subscription": {"productId": "lakehouse"}}]
-        monkeypatch.setattr(_EXTRACT, lambda ctx: instances)
+        monkeypatch.setattr(_EXTRACT, lambda req: instances)
 
         mock_tools = {"mcp-wx-data_get_service_info": Mock()}
         mock_filtered = {"mcp-wx-data_get_service_info": mock_tools["mcp-wx-data_get_service_info"]}
@@ -154,7 +156,7 @@ class TestListFilteredTool:
         self, list_filtered_tool, mock_context, mock_call_next, monkeypatch
     ):
         """ToolFilterError from get_tools is re-raised with middleware message."""
-        monkeypatch.setattr(_EXTRACT, lambda ctx: None)
+        monkeypatch.setattr(_EXTRACT, lambda req: None)
         list_filtered_tool.gw.get_tools.side_effect = ToolFilterError("Filter error")
 
         with pytest.raises(ToolFilterError, match="Tools filtering failed in middleware"):
@@ -168,7 +170,7 @@ class TestListFilteredTool:
         self, list_filtered_tool, mock_context, mock_call_next, monkeypatch
     ):
         """ToolFilterError from filter_tools is re-raised with middleware message."""
-        monkeypatch.setattr(_EXTRACT, lambda ctx: None)
+        monkeypatch.setattr(_EXTRACT, lambda req: None)
         mock_tools = [{"name": "tool1", "description": "Tool 1"}]
         list_filtered_tool.gw.get_tools.return_value = mock_tools
         list_filtered_tool.gw._tool_manager.filter_tools.side_effect = ToolFilterError(
@@ -188,7 +190,7 @@ class TestListFilteredTool:
         self, list_filtered_tool, mock_context, mock_call_next, monkeypatch
     ):
         """Generic error from get_tools propagates unchanged."""
-        monkeypatch.setattr(_EXTRACT, lambda ctx: None)
+        monkeypatch.setattr(_EXTRACT, lambda req: None)
         list_filtered_tool.gw.get_tools.side_effect = Exception("Get tools error")
 
         with pytest.raises(Exception, match="Get tools error"):
@@ -201,7 +203,7 @@ class TestListFilteredTool:
         self, list_filtered_tool, mock_context, mock_call_next, monkeypatch
     ):
         """Error raised by call_next propagates after filter_tools succeeds."""
-        monkeypatch.setattr(_EXTRACT, lambda ctx: None)
+        monkeypatch.setattr(_EXTRACT, lambda req: None)
         mock_tools = [{"name": "tool1", "description": "Tool 1"}]
         mock_filtered_tools = {
             "tool1": {"name": "tool1", "description": "Filtered Tool 1"}
