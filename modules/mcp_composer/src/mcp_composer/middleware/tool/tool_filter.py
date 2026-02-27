@@ -1,5 +1,6 @@
 """Tools filter middleware"""
 
+import os
 from fastmcp.server.middleware import CallNext, Middleware, MiddlewareContext
 from mcp_composer.core.utils.context_request import get_http_request, extract_user_instances
 from mcp_composer.core.utils.exceptions import ToolFilterError
@@ -20,15 +21,23 @@ class ListFilteredTool(Middleware):
     async def on_list_tools(self, context: MiddlewareContext, call_next: CallNext):
         try:
             tools = await self.gw.get_tools()
+            env = os.getenv("MCP_COMPOSER_ENV", "").lower()
+
+            # Skip filtering in local mode
+            if env == "local":
+                logger.info("Local mode - returning all tools without filtering")
+                await call_next(context)
+                return [tool for _, tool in tools.items()]
+
+            # Apply product-based filtering in dev/prod
             self.gw.disable_composer_tool()
-            self.gw.enable_tools(["ibm_doc_search_direct"])
+            await self.gw._tool_manager.enable_tools(["ibm_doc_search_direct"])
+
             request = get_http_request(context)
             logger.debug("TOOL FILTER :request in list tools: %s", context)
             user_instances = extract_user_instances(request)
             logger.debug("TOOL FILTER :user_instances in list tools: %s", user_instances)
-            filtered_tools = self.gw._tool_manager.filter_tools(
-                tools, user_instances=user_instances
-            )
+            filtered_tools = self.gw._tool_manager.filter_tools(tools, user_instances=user_instances)
             await call_next(context)
             return [tool for _, tool in filtered_tools.items()]
         except ToolFilterError as e:
