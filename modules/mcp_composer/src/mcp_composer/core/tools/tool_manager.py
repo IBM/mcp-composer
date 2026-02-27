@@ -148,12 +148,13 @@ class MCPToolManager(ToolManager):
             # 4. Product-based filter: when user_instances is provided, keep only tools
             # whose server's product_id is in the user's instances (or server has no product_id)
             if user_instances:
+                logger.debug("TOOL FILTER :user_instances in filter tools: %s", user_instances)
                 allowed_product_ids = set()
                 for i in user_instances:
                     pid = self._get_instance_product_id(i)
                     if pid:
                         allowed_product_ids.add(pid)
-
+                logger.debug("TOOL FILTER :allowed_product_ids in filter tools: %s", allowed_product_ids)
                 server_to_product: dict[str, Optional[str]] = {}
                 for member in server_config:
                     solis = member.config.get("solis_config") or {}
@@ -162,6 +163,7 @@ class MCPToolManager(ToolManager):
                 result = {}
                 for tool_name, tool in filtered_tools.items():
                     server_id = tool_name_to_server_id(tool.name)
+                    logger.debug("TOOL FILTER :server_id in filter tools: %s", server_id)
                     if server_id is None:
                         result[tool_name] = tool
                         continue
@@ -171,6 +173,7 @@ class MCPToolManager(ToolManager):
                         continue
                     if product_id in allowed_product_ids:
                         result[tool_name] = tool
+                logger.debug("TOOL FILTER : result in filter tools: %s", result)
                 filtered_tools = result
 
             return filtered_tools

@@ -1,7 +1,7 @@
 """Tools filter middleware"""
 
 from fastmcp.server.middleware import CallNext, Middleware, MiddlewareContext
-
+from mcp_composer.core.utils.context_request import get_http_request, extract_user_instances
 from mcp_composer.core.utils.exceptions import ToolFilterError
 from mcp_composer.core.utils.logger import LoggerFactory
 
@@ -20,8 +20,11 @@ class ListFilteredTool(Middleware):
     async def on_list_tools(self, context: MiddlewareContext, call_next: CallNext):
         try:
             tools = await self.gw.get_tools()
+            request = get_http_request(context)
+            user_instances = extract_user_instances(request)
+            logger.debug("TOOL FILTER :user_instances in list tools: %s", user_instances)
             filtered_tools = self.gw._tool_manager.filter_tools(
-                tools
+                tools, user_instances=user_instances
             )
             await call_next(context)
             return [tool for _, tool in filtered_tools.items()]
