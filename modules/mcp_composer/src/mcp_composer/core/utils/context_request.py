@@ -1,18 +1,59 @@
-from fastmcp.server.middleware import  MiddlewareContext
+import ast
+import json
+
+from fastmcp.server.middleware import MiddlewareContext
 from typing import Any, Dict, List
 from mcp_composer.core.utils import LoggerFactory
 from mcp_composer.middleware.auth_context_middleware import HEADER_USER_INSTANCES
-import json
-logger = LoggerFactory.get_logger()
 
-def get_http_request(context: MiddlewareContext) -> Any:
-        """Get the HTTP request from context, or None if unavailable."""
-        fastmcp_ctx = getattr(context, "fastmcp_context", None)
-        if fastmcp_ctx is None:
-            logger.debug("get_request: no fastmcp_context")
+logger = LoggerFactory.get_logger()
+_ALLOWED = (bool, str, bytes, int, float)
+def _attr(span, key: str, value: Any):
+    try:
+        if value is None:
+            return
+        if isinstance(value, (list, tuple)):
+            cleaned = [v for v in value if isinstance(v, _ALLOWED)]
+            if cleaned:
+                span.set_attribute(key, cleaned)
+            return
+        if isinstance(value, _ALLOWED):
+            span.set_attribute(key, value)
+            return
+        span.set_attribute(key, str(value))
+    except Exception:
+        pass
+
+
+def _get_nested(obj: Any, dotted: str) -> Any:
+    """Get nested attr or dict key via dotted path, e.g. 'fastmcp_context.fastmcp.name'."""
+    cur = obj
+    for part in dotted.split("."):
+        if cur is None:
             return None
-        request_context = getattr(fastmcp_ctx, "request_context", None)
-        return getattr(request_context, "request", None) if request_context else None
+        if isinstance(cur, dict):
+            cur = cur.get(part)
+        else:
+            cur = getattr(cur, part, None)
+    return cur
+
+
+def ctx_get(context: MiddlewareContext, *names, default=None):
+    """Try dotted names on context, then on context.message."""
+    for name in names:
+        val = _get_nested(context, name)
+        if val is not None:
+            return val
+        msg = getattr(context, "message", None)
+        if msg is not None:
+            val = _get_nested(msg, name)
+            if val is not None:
+                return val
+    return default
+
+
+
+
 
 def _normalize_to_instance_list(raw: Any) -> List[Dict]:
     """Turn raw header/identity value into a list of instance dicts."""
@@ -34,24 +75,30 @@ def _normalize_to_instance_list(raw: Any) -> List[Dict]:
 
 
 def extract_user_instances(request: Any) -> List[Dict]:
-    """Extract user instances from user.identity or X-User-Instances header."""
+    """Extract user instances from x-user-instances header."""
+    if request is None:
+        return []
+    headers = getattr(request, "headers", None) or {}
+    raw_header = (
+        headers.get(HEADER_USER_INSTANCES)
+    )
     raw: Any = None
-    request_state = getattr(request, "state", None)
-    if request_state and getattr(request_state, "user", None):
-        identity = getattr(request_state.user, "identity", None)
-        if identity:
-            if isinstance(identity, dict):
-                raw = identity.get("userInstances")
-                if not isinstance(raw, list) and isinstance(identity.get("instances"), dict):
-                    raw = (identity["instances"] or {}).get("userInstances") or (identity["instances"] or {}).get("user_instances")
-            else:
-                raw = getattr(identity, "userInstances", None) or getattr(identity, "user_instances", None)
-    if raw is None:
-        headers = getattr(request, "headers", None) or {}
-        raw_header = headers.get(HEADER_USER_INSTANCES) or headers.get("X-User-Instances") or headers.get("x-User-Instances") or ""
-        if raw_header:
+    if raw_header:
+        raw_header = raw_header.strip()
+        try:
+            raw = json.loads(raw_header)
+            if isinstance(raw, str):
+                raw = json.loads(raw)
+        except json.JSONDecodeError:
             try:
-                raw = json.loads(raw_header)
-            except json.JSONDecodeError as e:
-                logger.warning("X-User-Instances header JSON invalid: %s", e)
+                # Handle escaped quotes (e.g. "[{\"id\":\"...\"}]" with outer quotes stripped)
+                unescaped = raw_header.replace('\\"', '"')
+                raw = json.loads(unescaped)
+                if isinstance(raw, str):
+                    raw = json.loads(raw)
+            except json.JSONDecodeError:
+                try:
+                    raw = ast.literal_eval(raw_header)
+                except (ValueError, SyntaxError) as e:
+                    logger.warning("X-User-Instances header invalid (not JSON or Python literal): %s", e)
     return _normalize_to_instance_list(raw)

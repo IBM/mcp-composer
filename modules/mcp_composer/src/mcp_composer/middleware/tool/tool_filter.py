@@ -2,11 +2,13 @@
 
 import os
 from fastmcp.server.middleware import CallNext, Middleware, MiddlewareContext
-from mcp_composer.core.utils.context_request import get_http_request, extract_user_instances
+from mcp_composer.core.utils.context_request import ctx_get, extract_user_instances
 from mcp_composer.core.utils.exceptions import ToolFilterError
 from mcp_composer.core.utils.logger import LoggerFactory
-
+from mcp_composer.middleware.tracing_middleware import ctx_get
 logger = LoggerFactory.get_logger()
+
+CONTEXT_REQUEST_KEY = "fastmcp_context.request_context.request"
 
 
 class ListFilteredTool(Middleware):
@@ -33,10 +35,10 @@ class ListFilteredTool(Middleware):
             self.gw.disable_composer_tool()
             await self.gw._tool_manager.enable_tools(["ibm_doc_search_direct"])
 
-            request = get_http_request(context)
-            logger.debug("TOOL FILTER :request in list tools: %s", context)
+            request = ctx_get(context, CONTEXT_REQUEST_KEY)
+           
             user_instances = extract_user_instances(request)
-            logger.debug("TOOL FILTER :user_instances in list tools: %s", user_instances)
+
             filtered_tools = self.gw._tool_manager.filter_tools(tools, user_instances=user_instances)
             await call_next(context)
             return [tool for _, tool in filtered_tools.items()]
