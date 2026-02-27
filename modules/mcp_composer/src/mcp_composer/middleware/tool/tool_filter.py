@@ -21,6 +21,7 @@ class ListFilteredTool(Middleware):
         try:
             tools = await self.gw.get_tools()
             request = get_http_request(context)
+            logger.debug("TOOL FILTER :request in list tools: %s", context)
             user_instances = extract_user_instances(request)
             logger.debug("TOOL FILTER :user_instances in list tools: %s", user_instances)
             filtered_tools = self.gw._tool_manager.filter_tools(
