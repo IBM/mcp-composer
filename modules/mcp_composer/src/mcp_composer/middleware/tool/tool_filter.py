@@ -20,6 +20,8 @@ class ListFilteredTool(Middleware):
     async def on_list_tools(self, context: MiddlewareContext, call_next: CallNext):
         try:
             tools = await self.gw.get_tools()
+            self.gw.disable_composer_tool()
+            self.gw.enable_tools(["ibm_doc_search_direct"])
             request = get_http_request(context)
             logger.debug("TOOL FILTER :request in list tools: %s", context)
             user_instances = extract_user_instances(request)
