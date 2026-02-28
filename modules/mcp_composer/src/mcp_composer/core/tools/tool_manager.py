@@ -134,26 +134,22 @@ class MCPToolManager(ToolManager):
                         description_updates[f"{member.id}_{name}"] = desc
 
             # 3. Filter and update the tools dictionary
-            filtered_tools = {
-                tool_name: tool
-                for tool_name, tool in tools.items()
-                if tool_name not in remove_set
-            }
+            filtered_tools = {tool_name: tool for tool_name, tool in tools.items() if tool_name not in remove_set}
             # Update descriptions for the remaining tools
             for name, description in description_updates.items():
-
                 if name in filtered_tools:
                     filtered_tools[name].description = description
 
             # 4. Product-based filter: when user_instances is provided, keep only tools
             # whose server's product_id is in the user's instances (or server has no product_id)
             if user_instances:
+                logger.debug("TOOL FILTER :user_instances in filter tools: %s", user_instances)
                 allowed_product_ids = set()
                 for i in user_instances:
                     pid = self._get_instance_product_id(i)
                     if pid:
                         allowed_product_ids.add(pid)
-
+                logger.debug("TOOL FILTER :allowed_product_ids in filter tools: %s", allowed_product_ids)
                 server_to_product: dict[str, Optional[str]] = {}
                 for member in server_config:
                     solis = member.config.get("solis_config") or {}
@@ -161,16 +157,16 @@ class MCPToolManager(ToolManager):
 
                 result = {}
                 for tool_name, tool in filtered_tools.items():
-                    server_id = tool_name_to_server_id(tool.name)
-                    if server_id is None:
+                    server_id = tool_name_to_server_id(tool_name)
+                    logger.debug("TOOL FILTER :server_id in filter tools: %s", server_id)
+                    if server_id is None or server_id not in server_to_product:
                         result[tool_name] = tool
                         continue
                     product_id = server_to_product.get(server_id)
-                    if product_id is None:
+                    if product_id is None or product_id in allowed_product_ids:
                         result[tool_name] = tool
-                        continue
-                    if product_id in allowed_product_ids:
-                        result[tool_name] = tool
+
+                logger.debug("TOOL FILTER : result in filter tools: %s", result)
                 filtered_tools = result
 
             return filtered_tools
@@ -214,11 +210,7 @@ class MCPToolManager(ToolManager):
                 tools = await mounted_server.server.get_tools()
 
                 server_tools = {k: v for k, v in tools.items()}
-                result = {
-                    k: v
-                    for k, v in server_tools.items()
-                    if not remove or k not in remove
-                }
+                result = {k: v for k, v in server_tools.items() if not remove or k not in remove}
                 break  # Stop after finding the matching server
 
         # Update tool descriptions if provided
@@ -330,14 +322,10 @@ class MCPToolManager(ToolManager):
         if not tools_to_remove:
             raise ValueError("Tool is not disabled")
         # Remove matching tools from disabled_tools
-        self._disabled_tools = [
-            tool for tool in disabled_tools if tool not in tools_to_remove
-        ]
+        self._disabled_tools = [tool for tool in disabled_tools if tool not in tools_to_remove]
 
         if self._database:
-            self._database.enable_tools(
-                self._disabled_tools, server_id=self._composer.name
-            )
+            self._database.enable_tools(self._disabled_tools, server_id=self._composer.name)
 
         logger.info("Enabled %s tools from composer", tools)
         return f"Enabled {tools} tools from composer"
@@ -350,16 +338,12 @@ class MCPToolManager(ToolManager):
             self._disabled_tools = []
 
         if self._database:
-            self._database.enable_tools(
-                self._disabled_tools, server_id=self._composer.name
-            )
+            self._database.enable_tools(self._disabled_tools, server_id=self._composer.name)
 
         logger.info("Enabled all tools from composer")
         return "Enabled all tools from composer"
 
-    async def update_tool_description(
-        self, tool: str, description: str, server_id: str
-    ) -> str:
+    async def update_tool_description(self, tool: str, description: str, server_id: str) -> str:
         """
         Update tool description of member servers
         """
@@ -381,9 +365,7 @@ class MCPToolManager(ToolManager):
         Returns tools sorted by similarity score (highest first).
         """
         logger.info("Filter tools by using keyword: %s", keyword)
-        tools = self.filter_tools(
-            await self.get_tools()
-        )  # Get dict of tools: {name: tool}
+        tools = self.filter_tools(await self.get_tools())  # Get dict of tools: {name: tool}
         tool_names = list(tools.keys())
 
         # Create corpus: keyword + all tool names
@@ -399,20 +381,12 @@ class MCPToolManager(ToolManager):
         similarities = cosine_similarity(keyword_vector, tool_vectors).flatten()
 
         # Pair tool names with similarity scores
-        scored_tools = sorted(
-            zip(tool_names, similarities), key=lambda x: x[1], reverse=True
-        )
+        scored_tools = sorted(zip(tool_names, similarities), key=lambda x: x[1], reverse=True)
         # You can apply a threshold to filter out very dissimilar tools if needed
         # Lower threshold for better matching of prefixed tool names
         similarity_threshold = 0.01
-        filtered_tools = {
-            name: tools[name]
-            for name, score in scored_tools
-            if score >= similarity_threshold
-        }
-        logger.info(
-            "Filtered tools list by using keyword '%s': %s", keyword, filtered_tools
-        )
+        filtered_tools = {name: tools[name] for name, score in scored_tools if score >= similarity_threshold}
+        logger.info("Filtered tools list by using keyword '%s': %s", keyword, filtered_tools)
         return filtered_tools
 
     async def list_tools(self):
@@ -433,16 +407,12 @@ class MCPToolManager(ToolManager):
             non_existent_tools = [tool for tool in tools if tool not in self._tools]
             if non_existent_tools:
                 # Raise an error if any specified tool doesn't exist
-                raise ToolDisableError(
-                    f"One or more tools do not exist: {', '.join(non_existent_tools)}"
-                )
+                raise ToolDisableError(f"One or more tools do not exist: {', '.join(non_existent_tools)}")
             tools_to_disable = tools
 
         # 2. Update the local set of disabled tools
         existing_disabled_tools = set(self._disabled_tools)
-        newly_disabled_tools = [
-            tool for tool in tools_to_disable if tool not in existing_disabled_tools
-        ]
+        newly_disabled_tools = [tool for tool in tools_to_disable if tool not in existing_disabled_tools]
         self._disabled_tools.extend(newly_disabled_tools)
 
         # 4. Logging and return value

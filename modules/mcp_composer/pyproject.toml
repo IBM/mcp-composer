@@ -9,7 +9,7 @@ keywords = [
     "ibm", "model context protocol", "llm", "agent",
 ]
 dependencies = [
-    "fastmcp==2.14.2",
+    "fastmcp==2.14.5",
     "requests==2.32.5",
     "httpx==0.28.1",
     "beautifulsoup4>=4.12.0",
@@ -19,7 +19,7 @@ dependencies = [
     "aiohttp==3.13.3",
     "jsonschema>=4.24.0",
     "uncurl==0.0.11",
-    "ibm-secrets-manager-sdk==2.1.10",
+    "ibm-secrets-manager-sdk==2.1.13",
     "pydantic==2.11.7",
     "pydantic-settings==2.10.1",
     "hvac==2.3.0",
