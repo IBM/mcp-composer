@@ -53,7 +53,7 @@ Repository = "https://github.com/ibm/mcp-composer"
 
 [dependency-groups]
 dev = [
-    "dirty-equals==0.9.0",
+    "dirty-equals==0.11",
     "pylint>=3.3.7",
     "pytest==8.3.3",
     "pytest-asyncio==0.23.5",
