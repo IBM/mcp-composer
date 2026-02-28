@@ -716,11 +716,11 @@ wheels = [
 
 [[package]]
 name = "dirty-equals"
-version = "0.9.0"
+version = "0.11"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/b0/99/133892f401ced5a27e641a473c547d5fbdb39af8f85dac8a9d633ea3e7a7/dirty_equals-0.9.0.tar.gz", hash = "sha256:17f515970b04ed7900b733c95fd8091f4f85e52f1fb5f268757f25c858eb1f7b", size = 50412, upload-time = "2025-01-11T23:23:40.491Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/30/1d/c5913ac9d6615515a00f4bdc71356d302437cb74ff2e9aaccd3c14493b78/dirty_equals-0.11.tar.gz", hash = "sha256:f4ac74ee88f2d11e2fa0f65eb30ee4f07105c5f86f4dc92b09eb1138775027c3", size = 128067, upload-time = "2025-11-17T01:51:24.451Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/77/0c/03cc99bf3b6328604b10829de3460f2b2ad3373200c45665c38508e550c6/dirty_equals-0.9.0-py3-none-any.whl", hash = "sha256:ff4d027f5cfa1b69573af00f7ba9043ea652dbdce3fe5cbe828e478c7346db9c", size = 28226, upload-time = "2025-01-11T23:23:37.489Z" },
+    { url = "https://files.pythonhosted.org/packages/bb/8d/dbff05239043271dbeace563a7686212a3dd517864a35623fe4d4a64ca19/dirty_equals-0.11-py3-none-any.whl", hash = "sha256:b1d7093273fc2f9be12f443a8ead954ef6daaf6746fd42ef3a5616433ee85286", size = 28051, upload-time = "2025-11-17T01:51:22.849Z" },
 ]
 
 [[package]]
@@ -2045,7 +2045,7 @@ dev = [
     { name = "coverage", specifier = "==7.5" },
     { name = "debugpy", specifier = ">=1.8.16" },
     { name = "detect-secrets", specifier = ">=1.5.0" },
-    { name = "dirty-equals", specifier = "==0.9.0" },
+    { name = "dirty-equals", specifier = "==0.11" },
     { name = "mypy", specifier = "==1.10.0" },
     { name = "pre-commit" },
     { name = "pylint", specifier = ">=3.3.7" },
@@ -4151,9 +4151,7 @@ wheels = [
 
 [[package]]
 name = "virtualenv"
-
 version = "21.1.0"
-
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "distlib" },
@@ -4161,11 +4159,9 @@ dependencies = [
     { name = "platformdirs" },
     { name = "python-discovery" },
 ]
-
 sdist = { url = "https://files.pythonhosted.org/packages/2f/c9/18d4b36606d6091844daa3bd93cf7dc78e6f5da21d9f21d06c221104b684/virtualenv-21.1.0.tar.gz", hash = "sha256:1990a0188c8f16b6b9cf65c9183049007375b26aad415514d377ccacf1e4fb44", size = 5840471, upload-time = "2026-02-27T08:49:29.702Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/78/55/896b06bf93a49bec0f4ae2a6f1ed12bd05c8860744ac3a70eda041064e4d/virtualenv-21.1.0-py3-none-any.whl", hash = "sha256:164f5e14c5587d170cf98e60378eb91ea35bf037be313811905d3a24ea33cc07", size = 5825072, upload-time = "2026-02-27T08:49:27.516Z" },
-
 ]
 
 [[package]]
