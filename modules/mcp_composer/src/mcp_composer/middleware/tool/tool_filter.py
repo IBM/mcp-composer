@@ -30,11 +30,6 @@ class ListFilteredTool(Middleware):
                 await call_next(context)
                 return [tool for _, tool in tools.items()]
 
-            # Apply product-based filtering in dev/prod
-            ##self.gw.disable_composer_tool()
-            await self.gw._tool_manager.disable_tools(["register_mcp_server", "delete_mcp_server", "member_health", "activate_mcp_server", "deactivate_mcp_server", "get_tool_config_by_name", "get_tool_config_by_server", "disable_tools", "enable_tools", "update_tool_description", "add_prompts",   "disable_prompts", "enable_prompts", "delete_prompts", "create_resource", "create_resource_template",  "disable_resources", "enable_resources", "delete_resources"])
-            await self.gw._tool_manager.enable_tools(["ibm_doc_search_direct"])
-
             request = ctx_get(context, CONTEXT_REQUEST_KEY)
            
             user_instances = extract_user_instances(request)
