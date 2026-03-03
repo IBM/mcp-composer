@@ -153,21 +153,24 @@ class TestListFilteredTool:
         mock_call_next.assert_not_called()
 
     @pytest.mark.asyncio
-    async def test_on_list_tools_ibm_doc_search_direct_enabled(
+    async def test_on_list_tools_dev_prod_calls_filter_tools(
         self, list_filtered_tool, mock_context, mock_call_next, monkeypatch
     ):
-        """In dev/prod path, ibm_doc_search_direct is enabled via enable_tools."""
+        """In dev/prod path (env != local), filter_tools is called and filtered list returned."""
         monkeypatch.setattr(_EXTRACT, lambda req: None)
         mock_tools = {"tool1": Mock()}
         mock_filtered = {"tool1": mock_tools["tool1"]}
         list_filtered_tool.gw.get_tools.return_value = mock_tools
         list_filtered_tool.gw._tool_manager.filter_tools.return_value = mock_filtered
 
-        await list_filtered_tool.on_list_tools(mock_context, mock_call_next)
+        result = await list_filtered_tool.on_list_tools(mock_context, mock_call_next)
 
-        list_filtered_tool.gw._tool_manager.enable_tools.assert_called_once_with(
-            ["ibm_doc_search_direct"]
+        list_filtered_tool.gw._tool_manager.filter_tools.assert_called_once_with(
+            mock_tools, user_instances=None
         )
+        mock_call_next.assert_called_once()
+        assert len(result) == 1
+        assert result[0] == mock_tools["tool1"]
 
     @pytest.mark.asyncio
     async def test_on_list_tools_get_tools_generic_error(

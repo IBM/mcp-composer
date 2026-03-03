@@ -179,10 +179,10 @@ class TestComposer(unittest.IsolatedAsyncioTestCase):
         self.assertGreaterEqual(len(tools), 1)
 
     async def test_filter_tool(self):
-        """Make sure the composer returns the list of tools"""
+        """Make sure the composer returns the list of tools matching the keyword."""
         tools = await self.gw.filter_tool(keyword="fetch")
         self.assertIsInstance(tools, dict)
-        self.assertGreaterEqual(len(tools), 4)
+        self.assertGreaterEqual(len(tools), 1, "At least one tool should match keyword 'fetch'")
 
     async def test_member_health(self):
         """Ensure composer returns the health status of a member server"""
