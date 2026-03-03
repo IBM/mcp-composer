@@ -182,10 +182,10 @@ def test_filter_tools_composer_tools_always_kept(
     assert "enable_all_tools" in result
 
 
-def test_filter_tools_server_no_product_id_kept(
+def test_filter_tools_server_no_product_id_filtered_out(
     tool_manager,
 ):  # pylint: disable=redefined-outer-name
-    """Server with no solis_config.product_id: tool always kept."""
+    """Server with no solis_config.product_id: tool is filtered out when user_instances provided."""
     t1 = MagicMock()
     t1.name = "mcp-aspera_get_service_info"
     tools = {"mcp-aspera_get_service_info": t1}
@@ -202,7 +202,8 @@ def test_filter_tools_server_no_product_id_kept(
 
     result = tool_manager.filter_tools(tools, user_instances=user_instances)
 
-    assert "mcp-aspera_get_service_info" in result
+    # Tool should be filtered out because server has no product_id and doesn't match user's instances
+    assert "mcp-aspera_get_service_info" not in result
 
 
 # ---------- Async Tests ----------
