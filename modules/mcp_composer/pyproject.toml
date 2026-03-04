@@ -65,7 +65,7 @@ dev = [
     "ruff",
     "pre-commit",
     "black==24.10.0",
-    "mypy==1.10.0",
+    "mypy==1.19.1",
     "coverage==7.13.4",
     "bandit==1.9.4",
     "twine==6.1.0",
