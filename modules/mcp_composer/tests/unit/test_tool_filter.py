@@ -166,7 +166,7 @@ class TestListFilteredTool:
         result = await list_filtered_tool.on_list_tools(mock_context, mock_call_next)
 
         list_filtered_tool.gw._tool_manager.filter_tools.assert_called_once_with(
-            mock_tools, user_instances=None
+            mock_tools, user_instances=[]
         )
         mock_call_next.assert_called_once()
         assert len(result) == 1
@@ -201,6 +201,6 @@ class TestListFilteredTool:
             await list_filtered_tool.on_list_tools(mock_context, mock_call_next)
 
         list_filtered_tool.gw._tool_manager.filter_tools.assert_called_once_with(
-            mock_tools, user_instances=None
+            mock_tools, user_instances=[]
         )
         mock_call_next.assert_called_once_with(mock_context)

@@ -8,7 +8,7 @@ requests and exchanges them for ISV tokens via IBM's authentication service.
 Environment-based configuration:
 - test: Cookie 'mcsp-glb-iam-test', URL 'https://aws.login.test.saas.ibm.com/...'
 - dev: Cookie 'mcsp-glb-iam-dev', URL 'https://aws.login.dev.saas.ibm.com/...'
-- prod: Cookie 'mcsp-glb-iam', URL 'https://aws.login.prod.saas.ibm.com/...'
+- prod: Cookie 'mcsp-glb-iam', URL 'https://aws.login.saas.ibm.com/...'
 """
 
 import os
@@ -129,8 +129,8 @@ class ISVEnvironmentConfig:
     If custom values are not provided, defaults are determined by environment.
     """
 
-    BASE_URL_TEMPLATE = "https://aws.login.test.saas.ibm.com/security/auth/isv/token"
-    PROD_URL = "https://aws.login.prod.saas.ibm.com/security/auth/isv/token"
+    BASE_URL_TEMPLATE = "https://aws.login.{env}.saas.ibm.com/security/auth/isv/token"
+    PROD_URL = "https://aws.login.saas.ibm.com/security/auth/isv/token"
 
     def __init__(
         self, environment: str = "test", cookie_name: Optional[str] = None, endpoint_url: Optional[str] = None
@@ -327,22 +327,75 @@ class ISVTokenValidator:
         self.timeout = timeout
         self.fetch_instances = fetch_instances
 
-        # User Instance API URL - allow override via environment variable
-        self.instance_api_url = os.getenv("ISV_INSTANCE_API_URL", f"https://api.solis.test.saas.ibm.com/api/graphql")
+        # TEMPORARY: Use stable test Instance API for dev and stage environments
+        # TODO: Remove this workaround once dev and stage Instance APIs are stable
+        # Currently dev/stage Instance APIs return GraphQL errors, so we default to test
+        if environment.lower() in ["dev", "stage"]:
+            default_instance_url = "https://api.solis.test.saas.ibm.com/api/graphql"
+            logger.warning(
+                "TEMPORARY: Using test Instance API for %s environment due to instability. "
+                "This should be removed once %s Instance API is stable.",
+                environment,
+                environment
+            )
+        else:
+            # For test and prod, use their respective Instance APIs
+            default_instance_url = f"https://api.solis.{environment.lower()}.saas.ibm.com/api/graphql" if environment.lower() == "test" else "https://api.solis.saas.ibm.com/api/graphql"
+        
+        self.instance_api_url = os.getenv("ISV_INSTANCE_API_URL", default_instance_url)
+
+        # Derive the correct cookie name for the Instance API environment
+        # This is critical: the cookie name must match the API environment, not the ISV token environment
+        self.instance_cookie_name = self._derive_cookie_name_from_url(self.instance_api_url)
 
         logger.info("=" * 60)
         logger.info("ISV Token Validator Initialized")
         logger.info("=" * 60)
         logger.info("Environment: %s", environment)
-        logger.info("Cookie name: %s", self.config.cookie_name)
-        logger.info("Endpoint URL: %s", self.config.endpoint_url)
+        logger.info("ISV Token Cookie name: %s", self.config.cookie_name)
+        logger.info("ISV Token Endpoint URL: %s", self.config.endpoint_url)
         logger.info("Instance API URL: %s", self.instance_api_url)
+        logger.info("Instance API Cookie name: %s", self.instance_cookie_name)
         logger.info("Cache enabled: %s", cache_enabled)
         if cache_enabled:
             logger.info("Cache TTL: %d seconds", cache_ttl)
         logger.info("Fetch instances: %s", fetch_instances)
         logger.info("Request timeout: %.1f seconds", timeout)
         logger.info("=" * 60)
+
+    def _derive_cookie_name_from_url(self, api_url: str) -> str:
+        """
+        Derive the correct cookie name from the Instance API URL.
+
+        This is critical for cross-environment scenarios where:
+        - ISV token endpoint is in one environment (e.g., dev)
+        - Instance API is in another environment (e.g., test for stability)
+
+        Args:
+            api_url: The Instance API URL
+
+        Returns:
+            Cookie name matching the API environment
+
+        Examples:
+            >>> validator._derive_cookie_name_from_url("https://api.solis.test.saas.ibm.com/api/graphql")
+            'mcsp-glb-iam-test'
+            >>> validator._derive_cookie_name_from_url("https://api.solis.dev.saas.ibm.com/api/graphql")
+            'mcsp-glb-iam-dev'
+            >>> validator._derive_cookie_name_from_url("https://api.solis.prod.saas.ibm.com/api/graphql")
+            'mcsp-glb-iam'
+        """
+        # Extract environment from URL
+        if ".test.saas.ibm.com" in api_url:
+            return "mcsp-glb-iam-test"
+        elif ".dev.saas.ibm.com" in api_url:
+            return "mcsp-glb-iam-dev"
+        elif ".prod.saas.ibm.com" in api_url or "api.solis.saas.ibm.com" in api_url:
+            return "mcsp-glb-iam"
+        else:
+            # Default to test for unknown URLs
+            logger.warning("Could not determine environment from URL: %s, defaulting to test", api_url)
+            return "mcsp-glb-iam-test"
 
     def extract_session_cookie(self, cookie_header: str) -> Optional[str]:
         """
@@ -461,6 +514,8 @@ class ISVTokenValidator:
             logger.error("ISV endpoint request error: %s", e)
             from starlette.exceptions import HTTPException
 
+            raise HTTPException(status_code=503, detail="Authentication service unavailable")
+
     async def fetch_user_instances(
         self, session_cookie: str, filter_by_product_id: Optional[List[str]] = None
     ) -> List[Dict[str, Any]]:
@@ -506,6 +561,11 @@ class ISVTokenValidator:
                 }
             ]
         """
+        # Validate session cookie
+        if not session_cookie:
+            logger.warning("Empty session cookie provided")
+            return []
+
         # GraphQL query - products is a JSON field, not an object
         query = """
         query GetInstances($filterByProductId: [String!]) {
@@ -523,6 +583,7 @@ class ISVTokenValidator:
 
         logger.info("Fetching user instances from Solis API")
         logger.debug("Instance API URL: %s", self.instance_api_url)
+        logger.debug("Instance API Cookie name: %s", self.instance_cookie_name)
         logger.debug("Filter by product IDs: %s", filter_by_product_id)
 
         try:
@@ -533,7 +594,8 @@ class ISVTokenValidator:
                     headers={
                         "Content-Type": "application/json",
                         "Accept": "application/json",
-                        "Cookie": f"{self.config.cookie_name}={session_cookie}",
+                        # CRITICAL: Use the cookie name that matches the Instance API environment
+                        "Cookie": f"{self.instance_cookie_name}={session_cookie}",
                     },
                 )
 

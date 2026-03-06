@@ -53,6 +53,10 @@ class ListFilteredTool(Middleware):
                 # Fallback: extract from existing context or header
                 user_instances = extract_user_instances(request)
 
+            # Ensure user_instances is always a list (handle None case)
+            if user_instances is None:
+                user_instances = []
+
             logger.info("Filtering tools based on %d user instances", len(user_instances))
             if user_instances:
                 logger.debug(
@@ -84,8 +88,25 @@ class ListFilteredTool(Middleware):
             request: HTTP request object
 
         Returns:
-            List of user instances, or empty list if authentication fails
+            List of user instances
+
+        Raises:
+            HTTPException: If authentication cookie is present but validation fails
         """
+        from starlette.exceptions import HTTPException
+
+        # Check if authentication cookie is present
+        cookie_name = self.isv_validator.config.cookie_name if self.isv_validator else "mcsp-glb-iam-test"
+        headers = getattr(request, "headers", {})
+        cookie_header = headers.get("cookie", "")
+        has_auth_cookie = cookie_name in cookie_header or cookie_name in headers
+
+        if not has_auth_cookie:
+            # No authentication cookie present - skip authentication
+            logger.debug("No authentication cookie '%s' found, skipping ISV authentication", cookie_name)
+            return []
+
+        # Cookie is present - authentication is REQUIRED
         try:
             logger.debug("Authenticating request to fetch user instances for tool filtering")
 
@@ -103,11 +124,18 @@ class ListFilteredTool(Middleware):
             request.state.user = ISVUser(token_data)
 
             user_instances = token_data.get("user_instances", [])
-            logger.info("✓ Authentication successful for list_tools (found %d instances)", len(user_instances))
 
+            if not user_instances:
+                logger.error("Authentication succeeded but failed to fetch user instances - this is a security error")
+                raise HTTPException(status_code=403, detail="Failed to fetch user instances")
+
+            logger.info("✓ Authentication successful for list_tools (found %d instances)", len(user_instances))
             return user_instances
 
+        except HTTPException:
+            # Re-raise HTTP exceptions (401, 403, etc.)
+            raise
         except Exception as e:
-            # Authentication failed - log and return empty list (backward compatible)
-            logger.warning("Authentication failed for list_tools, returning unfiltered tools: %s", str(e))
-            return []
+            # Authentication cookie present but validation failed - this is an error
+            logger.error("Authentication failed with cookie present: %s", str(e))
+            raise HTTPException(status_code=403, detail=f"Authentication failed: {str(e)}")
