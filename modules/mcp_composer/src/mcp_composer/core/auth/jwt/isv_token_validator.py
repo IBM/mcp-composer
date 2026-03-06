@@ -11,6 +11,7 @@ Environment-based configuration:
 - prod: Cookie 'mcsp-glb-iam', URL 'https://aws.login.prod.saas.ibm.com/...'
 """
 
+import os
 import time
 import httpx
 from typing import Optional, Dict, Any, Tuple, List
@@ -62,26 +63,30 @@ class ISVAuthBackend(AuthenticationBackend):
         logger.info("=" * 80)
         logger.info("INCOMING REQUEST")
         logger.info("=" * 80)
-        
+
         # Access request properties through conn.scope
         scope = conn.scope
-        logger.info("Method: %s", scope.get('method', 'N/A'))
-        logger.info("Path: %s", scope.get('path', 'N/A'))
-        logger.info("Query String: %s", scope.get('query_string', b'').decode('utf-8'))
-        logger.info("Client: %s", scope.get('client', 'N/A'))
-        logger.info("Server: %s", scope.get('server', 'N/A'))
-        
+        logger.info("Method: %s", scope.get("method", "N/A"))
+        logger.info("Path: %s", scope.get("path", "N/A"))
+        logger.info("Query String: %s", scope.get("query_string", b"").decode("utf-8"))
+        logger.info("Client: %s", scope.get("client", "N/A"))
+        logger.info("Server: %s", scope.get("server", "N/A"))
+
         # Log all headers
         logger.info("-" * 80)
         logger.info("REQUEST HEADERS:")
         logger.info("-" * 80)
-        headers = dict(scope.get('headers', []))
+        headers = dict(scope.get("headers", []))
         for header_name_bytes, header_value_bytes in headers.items():
-            header_name = header_name_bytes.decode('utf-8') if isinstance(header_name_bytes, bytes) else str(header_name_bytes)
-            header_value = header_value_bytes.decode('utf-8') if isinstance(header_value_bytes, bytes) else str(header_value_bytes)
-            
+            header_name = (
+                header_name_bytes.decode("utf-8") if isinstance(header_name_bytes, bytes) else str(header_name_bytes)
+            )
+            header_value = (
+                header_value_bytes.decode("utf-8") if isinstance(header_value_bytes, bytes) else str(header_value_bytes)
+            )
+
             # Redact sensitive headers
-            if header_name.lower() in ['authorization', 'cookie']:
+            if header_name.lower() in ["authorization", "cookie"]:
                 # Show only first/last few characters
                 if len(header_value) > 20:
                     redacted = f"{header_value[:10]}...{header_value[-10:]}"
@@ -90,9 +95,9 @@ class ISVAuthBackend(AuthenticationBackend):
                 logger.info("%s: %s", header_name, redacted)
             else:
                 logger.info("%s: %s", header_name, header_value)
-        
+
         logger.info("=" * 80)
-        
+
         try:
             # Validate request and get token
             token_data = await self.validator.validate_request(conn)
@@ -124,7 +129,7 @@ class ISVEnvironmentConfig:
     If custom values are not provided, defaults are determined by environment.
     """
 
-    BASE_URL_TEMPLATE = "https://aws.login.{env}.saas.ibm.com/security/auth/isv/token"
+    BASE_URL_TEMPLATE = "https://aws.login.test.saas.ibm.com/security/auth/isv/token"
     PROD_URL = "https://aws.login.prod.saas.ibm.com/security/auth/isv/token"
 
     def __init__(
@@ -138,7 +143,6 @@ class ISVEnvironmentConfig:
             cookie_name: Override cookie name (uses environment variable ISV_COOKIE_NAME or auto-determined)
             endpoint_url: Override endpoint URL (uses environment variable ISV_ENDPOINT_URL or auto-determined)
         """
-        import os
 
         self.environment = environment.lower()
 
@@ -181,7 +185,7 @@ class ISVTokenCache:
     """
     Thread-safe token cache with TTL-based expiration.
 
-    Caches ISV tokens to reduce API calls to the authentication service.
+    Caches ISV tokens and user instances to reduce API calls to the authentication service.
     Tokens are stored with their expiration time and automatically
     invalidated when expired.
     """
@@ -194,6 +198,7 @@ class ISVTokenCache:
             ttl: Time-to-live in seconds (default: 7200 = 2 hours)
         """
         self._cache: Dict[str, Tuple[str, float]] = {}
+        self._instance_cache: Dict[str, Tuple[List[Dict[str, Any]], float]] = {}
         self.ttl = ttl
         logger.debug("ISV Token Cache initialized with TTL: %d seconds", ttl)
 
@@ -238,11 +243,54 @@ class ISVTokenCache:
         self._cache[session_id] = (token, expiry)
         logger.debug("Cached ISV token (TTL: %d seconds, expires at: %.0f)", effective_ttl, expiry)
 
+    def get_instances(self, session_id: str) -> Optional[List[Dict[str, Any]]]:
+        """
+        Get cached user instances if valid.
+
+        Args:
+            session_id: Platform session ID (cache key)
+
+        Returns:
+            Cached user instances list or None if not found/expired
+        """
+        if session_id in self._instance_cache:
+            instances, expiry = self._instance_cache[session_id]
+            current_time = time.time()
+
+            if current_time < expiry:
+                remaining = int(expiry - current_time)
+                logger.debug("Using cached user instances (expires in %d seconds)", remaining)
+                return instances
+
+            # Instances expired, remove from cache
+            del self._instance_cache[session_id]
+            logger.debug("Cached instances expired, removed from cache")
+
+        return None
+
+    def set_instances(self, session_id: str, instances: List[Dict[str, Any]], expires_in: int):
+        """
+        Cache user instances with expiration.
+
+        Args:
+            session_id: Platform session ID (cache key)
+            instances: User instances data (list of instance dicts)
+            expires_in: Cache lifetime in seconds
+        """
+        # Use the minimum of provided expires_in and configured TTL
+        effective_ttl = min(expires_in, self.ttl)
+        expiry = time.time() + effective_ttl
+
+        self._instance_cache[session_id] = (instances, expiry)
+        logger.debug("Cached user instances (TTL: %d seconds, expires at: %.0f)", effective_ttl, expiry)
+
     def clear(self):
-        """Clear all cached tokens."""
-        count = len(self._cache)
+        """Clear all cached tokens and instances."""
+        token_count = len(self._cache)
+        instance_count = len(self._instance_cache)
         self._cache.clear()
-        logger.debug("Cleared %d cached tokens", count)
+        self._instance_cache.clear()
+        logger.debug("Cleared %d cached tokens and %d cached instances", token_count, instance_count)
 
 
 class ISVTokenValidator:
@@ -257,7 +305,12 @@ class ISVTokenValidator:
     """
 
     def __init__(
-        self, environment: str = "test", cache_enabled: bool = True, cache_ttl: int = 7200, timeout: float = 30.0
+        self,
+        environment: str = "test",
+        cache_enabled: bool = True,
+        cache_ttl: int = 7200,
+        timeout: float = 30.0,
+        fetch_instances: bool = True,
     ):
         """
         Initialize ISV token validator.
@@ -267,10 +320,15 @@ class ISVTokenValidator:
             cache_enabled: Enable token caching
             cache_ttl: Cache time-to-live in seconds
             timeout: HTTP request timeout in seconds
+            fetch_instances: Enable automatic user instance fetching during authentication
         """
         self.config = ISVEnvironmentConfig(environment)
         self.cache = ISVTokenCache(cache_ttl) if cache_enabled else None
         self.timeout = timeout
+        self.fetch_instances = fetch_instances
+
+        # User Instance API URL - allow override via environment variable
+        self.instance_api_url = os.getenv("ISV_INSTANCE_API_URL", f"https://api.solis.test.saas.ibm.com/api/graphql")
 
         logger.info("=" * 60)
         logger.info("ISV Token Validator Initialized")
@@ -278,9 +336,11 @@ class ISVTokenValidator:
         logger.info("Environment: %s", environment)
         logger.info("Cookie name: %s", self.config.cookie_name)
         logger.info("Endpoint URL: %s", self.config.endpoint_url)
+        logger.info("Instance API URL: %s", self.instance_api_url)
         logger.info("Cache enabled: %s", cache_enabled)
         if cache_enabled:
             logger.info("Cache TTL: %d seconds", cache_ttl)
+        logger.info("Fetch instances: %s", fetch_instances)
         logger.info("Request timeout: %.1f seconds", timeout)
         logger.info("=" * 60)
 
@@ -401,32 +461,174 @@ class ISVTokenValidator:
             logger.error("ISV endpoint request error: %s", e)
             from starlette.exceptions import HTTPException
 
-            raise HTTPException(status_code=503, detail="Unable to reach authentication service")
+    async def fetch_user_instances(
+        self, session_cookie: str, filter_by_product_id: Optional[List[str]] = None
+    ) -> List[Dict[str, Any]]:
+        """
+        Fetch user instances using the platform session cookie via GraphQL API.
+
+        Fetches only essential fields and returns a flattened list of instances.
+        Each instance contains:
+        - id: Instance identifier
+        - subscriptionId: Subscription identifier
+        - name: Instance name
+        - dashboardURL: URL to access the instance dashboard
+        - subscription: Nested object with subscriptionName and productId
+
+        Args:
+            session_cookie: Platform session cookie value
+            filter_by_product_id: Optional list of product IDs to filter
+
+        Returns:
+            Flattened list of user instances with essential fields only
+
+        Example Response:
+            [
+                {
+                    "id": "20251128-1445-2831-7084-4a9a364b8b6b",
+                    "subscriptionId": "20240430-2249-3023-2003-c61c1ea9c579",
+                    "name": "solisams",
+                    "dashboardURL": "https://console-aws-cacentral1.lakehouse.dev.saas.ibm.com/...",
+                    "subscription": {
+                        "subscriptionName": "watsonx.data",
+                        "productId": "lakehouse"
+                    }
+                },
+                {
+                    "id": "20260116-2134-3895-9036-5d9421c3f567",
+                    "subscriptionId": "20260116-2133-4804-900c-3c7949c207e6",
+                    "name": "SolisDemo",
+                    "dashboardURL": "https://rel03.rel.guardium.security.ibm.com?...",
+                    "subscription": {
+                        "subscriptionName": "Guardium Data Security Center SaaS",
+                        "productId": "gi"
+                    }
+                }
+            ]
+        """
+        # GraphQL query - products is a JSON field, not an object
+        query = """
+        query GetInstances($filterByProductId: [String!]) {
+            getInstances(filterByProductId: $filterByProductId) {
+                cohort
+                products
+            }
+        }
+        """
+
+        # Variables (empty if no filter)
+        variables: Dict[str, Any] = {}
+        if filter_by_product_id:
+            variables["filterByProductId"] = filter_by_product_id
+
+        logger.info("Fetching user instances from Solis API")
+        logger.debug("Instance API URL: %s", self.instance_api_url)
+        logger.debug("Filter by product IDs: %s", filter_by_product_id)
+
+        try:
+            async with httpx.AsyncClient(timeout=self.timeout) as client:
+                response = await client.post(
+                    self.instance_api_url,
+                    json={"query": query, "variables": variables},
+                    headers={
+                        "Content-Type": "application/json",
+                        "Accept": "application/json",
+                        "Cookie": f"{self.config.cookie_name}={session_cookie}",
+                    },
+                )
+
+                logger.debug("Instance API response status: %d", response.status_code)
+
+                if response.status_code == 200:
+                    data = response.json()
+
+                    # Check for GraphQL errors
+                    if "errors" in data:
+                        logger.error("GraphQL errors in response: %s", data["errors"])
+                        return []
+
+                    # Extract instances from response
+                    get_instances = data.get("data", {}).get("getInstances", [])
+
+                    if not get_instances:
+                        logger.warning("No instances returned from API")
+                        return []
+
+                    # Flatten the nested structure into a simple array
+                    # Response structure: [{"cohort": "...", "products": {"productId": [instances]}}]
+                    flattened_instances = []
+
+                    for cohort_group in get_instances:
+                        products_by_id = cohort_group.get("products", {})
+
+                        # Iterate through each product type (lakehouse, gi, etc.)
+                        for product_id, instances_list in products_by_id.items():
+                            if isinstance(instances_list, list):
+                                for instance in instances_list:
+                                    # Extract essential fields with nested subscription
+                                    subscription_data = instance.get("subscription", {})
+                                    flattened_instance = {
+                                        "id": instance.get("id"),
+                                        "state": instance.get(
+                                            "state", "active"
+                                        ),  # Include state field, default to "active"
+                                        "subscriptionId": instance.get("subscriptionId"),
+                                        "name": instance.get("name"),
+                                        "dashboardURL": instance.get("dashboardURL"),
+                                        "subscription": {
+                                            "subscriptionName": subscription_data.get("subscriptionName"),
+                                            "productId": subscription_data.get("productId", product_id),
+                                        },
+                                    }
+                                    flattened_instances.append(flattened_instance)
+
+                    logger.info("Successfully fetched and flattened %d user instances", len(flattened_instances))
+                    logger.debug(
+                        "Flattened instances: %s",
+                        flattened_instances[:2] if len(flattened_instances) > 2 else flattened_instances,
+                    )
+
+                    return flattened_instances
+                else:
+                    logger.error("Failed to fetch instances: status=%d", response.status_code)
+                    logger.debug("Response: %s", response.text[:500])
+                    return []
+
+        except httpx.TimeoutException:
+            logger.error("Instance API timeout after %.1f seconds", self.timeout)
+            return []
+        except httpx.RequestError as e:
+            logger.error("Instance API request error: %s", e)
+            return []
+        except Exception as e:
+            logger.error("Failed to fetch user instances: %s", e)
+            return []
 
     async def validate_request(self, request) -> Dict[str, Any]:
         """
-        Validate incoming request and return ISV token.
+        Validate incoming request and return ISV token with user instances.
 
         Complete validation flow:
         1. Extract Cookie header from request
         2. Parse and find platform session cookie
-        3. Check cache for valid token
+        3. Check cache for valid token and instances
         4. Exchange cookie for ISV token if needed
-        5. Cache the token
-        6. Return token data
+        5. Fetch user instances if enabled
+        6. Cache the token and instances
+        7. Return combined token and instance data
 
         Args:
             request: Incoming HTTP request object
 
         Returns:
-            Dict with 'access_token', 'token_type', 'expires_in', and optionally 'cached'
+            Dict with 'access_token', 'token_type', 'expires_in', 'user_instances', and optionally 'cached'
 
         Raises:
             HTTPException(401): Missing or invalid cookie
             HTTPException(403): Authentication failed
             HTTPException(503): Service unavailable
         """
-        logger.debug("Validating ISV token request")
+        logger.debug("Validating ISV token request with instance fetching: %s", self.fetch_instances)
 
         # Extract Cookie header or check for custom header
         cookie_header = request.headers.get("cookie", "")
@@ -452,21 +654,61 @@ class ISVTokenValidator:
 
             raise HTTPException(status_code=401, detail=f"Missing platform session cookie: {self.config.cookie_name}")
 
-        # Check cache
+        # Check cache for token
+        token_cached = False
         if self.cache:
             cached_token = self.cache.get(session_id)
             if cached_token:
                 logger.debug("Using cached ISV token")
-                return {"access_token": cached_token, "token_type": "Bearer", "cached": True}
+                token_response = {"access_token": cached_token, "token_type": "Bearer", "cached": True}
+                token_cached = True
+            else:
+                # Exchange cookie for ISV token
+                token_response = await self.exchange_cookie_for_token(session_id)
+                # Cache the token
+                if "expires_in" in token_response:
+                    self.cache.set(session_id, token_response["access_token"], token_response["expires_in"])
+                token_response["cached"] = False
+        else:
+            # No cache, exchange directly
+            token_response = await self.exchange_cookie_for_token(session_id)
+            token_response["cached"] = False
 
-        # Exchange cookie for ISV token
-        token_response = await self.exchange_cookie_for_token(session_id)
+        # Fetch user instances if enabled
+        user_instances: List[Dict[str, Any]] = []
+        if self.fetch_instances:
+            # Check cache for instances
+            if self.cache:
+                cached_instances = self.cache.get_instances(session_id)
+                if cached_instances:
+                    logger.debug("Using cached user instances")
+                    user_instances = cached_instances  # type: ignore
+                else:
+                    # Fetch fresh instances
+                    user_instances = await self.fetch_user_instances(session_id)
 
-        # Cache the token
-        if self.cache and "expires_in" in token_response:
-            self.cache.set(session_id, token_response["access_token"], token_response["expires_in"])
+                    # Cache instances (same TTL as token)
+                    if user_instances and "expires_in" in token_response:
+                        expires_in = token_response.get("expires_in", 7200)
+                        # Ensure expires_in is an integer
+                        if isinstance(expires_in, (int, float)):
+                            self.cache.set_instances(
+                                session_id,
+                                user_instances,  # type: ignore
+                                int(expires_in),
+                            )
+            else:
+                # No cache, fetch directly
+                user_instances = await self.fetch_user_instances(session_id)
 
-        token_response["cached"] = False
+        # Add instances to response
+        token_response["user_instances"] = user_instances  # type: ignore
+
+        if user_instances:
+            logger.info("Authentication complete with %d user instances", len(user_instances))
+        else:
+            logger.info("Authentication complete (no instances fetched)")
+
         return token_response
 
 
@@ -490,10 +732,11 @@ class ISVTokenVerifier:
         cache_ttl: int = 7200,
         timeout: float = 30.0,
         required_scopes: Optional[List[str]] = None,
+        fetch_instances: bool = True,
     ):
         """
         Initialize ISV token verifier.
-        
+
         NOTE: This class is maintained for backward compatibility but is deprecated
         for new implementations. For tool-level authentication, use ISVTokenValidator
         directly with ToolAuthenticationMiddleware.
@@ -504,9 +747,14 @@ class ISVTokenVerifier:
             cache_ttl: Cache time-to-live in seconds
             timeout: HTTP request timeout in seconds
             required_scopes: List of OAuth scopes required for requests (optional)
+            fetch_instances: Enable automatic user instance fetching during authentication
         """
         self.validator = ISVTokenValidator(
-            environment=environment, cache_enabled=cache_enabled, cache_ttl=cache_ttl, timeout=timeout
+            environment=environment,
+            cache_enabled=cache_enabled,
+            cache_ttl=cache_ttl,
+            timeout=timeout,
+            fetch_instances=fetch_instances,
         )
 
         # Required by FastMCP's AuthProvider interface
@@ -522,7 +770,7 @@ class ISVTokenVerifier:
         This method is required by FastMCP to integrate authentication
         into the HTTP application. We use our custom ISVAuthBackend
         instead of the default BearerAuthBackend.
-        
+
         NOTE: This returns connection-level authentication middleware.
         For tool-level authentication, use ToolAuthenticationMiddleware instead
         and pass auth=None to MCPComposer.

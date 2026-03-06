@@ -135,24 +135,36 @@ class AuthContextMiddleware(Middleware):
             return [raw]
         return []
 
-    def _extract_user_instances(
-        self, request: Any, auth_context: Dict[str, Any]
-    ) -> List[Dict[str, Any]]:
-        """Extract user instances from user.identity or X-User-Instances header."""
+    def _extract_user_instances(self, request: Any, auth_context: Dict[str, Any]) -> List[Dict[str, Any]]:
+        """Extract user instances from user.token_data, user.identity, or X-User-Instances header."""
         raw: Any = None
         request_state = getattr(request, "state", None)
         if request_state and getattr(request_state, "user", None):
-            identity = getattr(request_state.user, "identity", None)
-            if identity:
-                if isinstance(identity, dict):
-                    raw = identity.get("userInstances")
-                    if not isinstance(raw, list) and isinstance(identity.get("instances"), dict):
-                        raw = (identity["instances"] or {}).get("userInstances") or (identity["instances"] or {}).get("user_instances")
-                else:
-                    raw = getattr(identity, "userInstances", None) or getattr(identity, "user_instances", None)
+            # First check token_data (for ISV authentication)
+            token_data = getattr(request_state.user, "token_data", None)
+            if token_data and isinstance(token_data, dict):
+                raw = token_data.get("user_instances")
+
+            # Fallback to identity (for other auth methods)
+            if raw is None:
+                identity = getattr(request_state.user, "identity", None)
+                if identity:
+                    if isinstance(identity, dict):
+                        raw = identity.get("userInstances")
+                        if not isinstance(raw, list) and isinstance(identity.get("instances"), dict):
+                            raw = (identity["instances"] or {}).get("userInstances") or (
+                                identity["instances"] or {}
+                            ).get("user_instances")
+                    else:
+                        raw = getattr(identity, "userInstances", None) or getattr(identity, "user_instances", None)
         if raw is None:
             headers = getattr(request, "headers", None) or {}
-            raw_header = headers.get(HEADER_USER_INSTANCES) or headers.get("X-User-Instances") or headers.get("x-User-Instances") or ""
+            raw_header = (
+                headers.get(HEADER_USER_INSTANCES)
+                or headers.get("X-User-Instances")
+                or headers.get("x-User-Instances")
+                or ""
+            )
             if raw_header:
                 try:
                     raw = json.loads(raw_header)
@@ -173,9 +185,7 @@ class AuthContextMiddleware(Middleware):
         filled with a dashboard URL (which would be wrong for the backend).
         """
 
-    def _extract_cookies_and_auth_header(
-        self, request: Any, auth_context: Dict[str, Any]
-    ) -> None:
+    def _extract_cookies_and_auth_header(self, request: Any, auth_context: Dict[str, Any]) -> None:
         """Extract cookies and fallback ISV token from request headers."""
         request_headers = getattr(request, "headers", None)
         if request_headers is None:
@@ -236,7 +246,7 @@ class AuthContextMiddleware(Middleware):
 
             self._extract_from_user(request, auth_context)
             self._extract_cookies_and_auth_header(request, auth_context)
-            
+
             # If use_cookie_as_auth is enabled, extract the auth cookie value
             if self.use_cookie_as_auth:
                 logger.debug("use_cookie_as_auth is enabled, auth_cookie_name: %s", self.auth_cookie_name)
@@ -244,9 +254,11 @@ class AuthContextMiddleware(Middleware):
                 if self.auth_cookie_name in auth_context[AUTH_KEY_COOKIES]:
                     cookie_value = auth_context[AUTH_KEY_COOKIES][self.auth_cookie_name]
                     auth_context[AUTH_KEY_AUTH_TOKEN] = cookie_value
-                    logger.info("✓ Extracted auth token from cookie '%s': %s",
-                               self.auth_cookie_name,
-                               cookie_value[:20] + "..." if len(cookie_value) > 20 else cookie_value)
+                    logger.info(
+                        "✓ Extracted auth token from cookie '%s': %s",
+                        self.auth_cookie_name,
+                        cookie_value[:20] + "..." if len(cookie_value) > 20 else cookie_value,
+                    )
                 else:
                     logger.warning("✗ Cookie '%s' not found in request cookies", self.auth_cookie_name)
             else:
@@ -257,7 +269,7 @@ class AuthContextMiddleware(Middleware):
                 # Store full instance data for authorization and routing
                 auth_context[AUTH_KEY_USER_INSTANCES_FULL] = instances
                 logger.info("✓ Stored %d user instance(s) from X-User-Instances / identity", len(instances))
-                
+
                 # Keep simplified format for backward compatibility
                 auth_context[AUTH_KEY_USER_INSTANCES] = [
                     {
@@ -289,6 +301,9 @@ class AuthContextMiddleware(Middleware):
         Extract authentication context and store in context variable before tool execution.
         Only runs when the tool name matches one of the enabled_tool_patterns.
         If no patterns are configured, runs for all tools.
+
+        IMPORTANT: This middleware merges with existing auth context set by ToolAuthenticationMiddleware
+        to preserve user instances fetched during ISV authentication.
         """
         tool_name = getattr(context.message, "name", "unknown")
         logger.info("Tool name: %s", tool_name)
@@ -302,11 +317,40 @@ class AuthContextMiddleware(Middleware):
         if self.enabled_tool_patterns:
             tool_name_lower = tool_name.lower()
             if not any(pattern.lower() in tool_name_lower for pattern in self.enabled_tool_patterns):
-                logger.debug("Tool '%s' does not match enabled patterns %s, skipping auth context",
-                           tool_name, self.enabled_tool_patterns)
+                logger.debug(
+                    "Tool '%s' does not match enabled patterns %s, skipping auth context",
+                    tool_name,
+                    self.enabled_tool_patterns,
+                )
                 return await call_next(context)
 
+        # Get existing auth context (may have been set by ToolAuthenticationMiddleware)
+        existing_context = auth_context_var.get(None)
+
+        # Extract new auth context from request
         auth_context = self._extract_auth_context(context)
+
+        # Merge: preserve user_instances from existing context if present and not empty
+        if existing_context and isinstance(existing_context, dict):
+            if existing_context.get(AUTH_KEY_USER_INSTANCES):
+                auth_context[AUTH_KEY_USER_INSTANCES] = existing_context[AUTH_KEY_USER_INSTANCES]
+                logger.debug(
+                    "Preserved %d user_instances from existing auth context",
+                    len(existing_context[AUTH_KEY_USER_INSTANCES]),
+                )
+
+            if existing_context.get(AUTH_KEY_USER_INSTANCES_FULL):
+                auth_context[AUTH_KEY_USER_INSTANCES_FULL] = existing_context[AUTH_KEY_USER_INSTANCES_FULL]
+                logger.debug(
+                    "Preserved %d user_instances_full from existing auth context",
+                    len(existing_context[AUTH_KEY_USER_INSTANCES_FULL]),
+                )
+
+            # Preserve authenticated status if it was True
+            if existing_context.get(AUTH_KEY_AUTHENTICATED):
+                auth_context[AUTH_KEY_AUTHENTICATED] = True
+
+        # Set the merged auth context
         auth_context_var.set(auth_context)
 
         # Log at appropriate level: info when authenticated, debug otherwise
@@ -325,10 +369,7 @@ class AuthContextMiddleware(Middleware):
         if logger.isEnabledFor(logging.DEBUG):
             token = auth_context.get(AUTH_KEY_ISV_TOKEN)
             token_preview = f"{token[:20]}..." if token and len(token) > 20 else token
-            cookie_preview = ", ".join(
-                f"{k}={v[:20]}..." if len(v) > 20 else f"{k}={v}"
-                for k, v in cookies.items()
-            )
+            cookie_preview = ", ".join(f"{k}={v[:20]}..." if len(v) > 20 else f"{k}={v}" for k, v in cookies.items())
             logger.debug(
                 "Auth context: tool=%s, token=%s, cookies=[%s]",
                 tool_name,

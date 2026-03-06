@@ -8,6 +8,8 @@ from mcp_composer.middleware.auth_context_middleware import HEADER_USER_INSTANCE
 
 logger = LoggerFactory.get_logger()
 _ALLOWED = (bool, str, bytes, int, float)
+
+
 def _attr(span, key: str, value: Any):
     try:
         if value is None:
@@ -52,9 +54,6 @@ def ctx_get(context: MiddlewareContext, *names, default=None):
     return default
 
 
-
-
-
 def _normalize_to_instance_list(raw: Any) -> List[Dict]:
     """Turn raw header/identity value into a list of instance dicts."""
     if raw is None:
@@ -75,14 +74,32 @@ def _normalize_to_instance_list(raw: Any) -> List[Dict]:
 
 
 def extract_user_instances(request: Any) -> List[Dict]:
-    """Extract user instances from x-user-instances header."""
+    """
+    Extract user instances from request.
+
+    Checks in order:
+    1. request.state.user.token_data['user_instances'] (ISV authentication)
+    2. X-User-Instances header (legacy/fallback)
+    """
     if request is None:
         return []
-    headers = getattr(request, "headers", None) or {}
-    raw_header = (
-        headers.get(HEADER_USER_INSTANCES)
-    )
+
     raw: Any = None
+
+    # First check request.state.user.token_data (ISV authentication)
+    request_state = getattr(request, "state", None)
+    if request_state and getattr(request_state, "user", None):
+        token_data = getattr(request_state.user, "token_data", None)
+        if token_data and isinstance(token_data, dict):
+            raw = token_data.get("user_instances")
+            if raw:
+                logger.debug("Extracted %d user instances from token_data", len(raw) if isinstance(raw, list) else 0)
+                return _normalize_to_instance_list(raw)
+
+    # Fallback to X-User-Instances header
+    headers = getattr(request, "headers", None) or {}
+    raw_header = headers.get(HEADER_USER_INSTANCES)
+
     if raw_header:
         raw_header = raw_header.strip()
         try:
@@ -101,4 +118,8 @@ def extract_user_instances(request: Any) -> List[Dict]:
                     raw = ast.literal_eval(raw_header)
                 except (ValueError, SyntaxError) as e:
                     logger.warning("X-User-Instances header invalid (not JSON or Python literal): %s", e)
+
+        if raw:
+            logger.debug("Extracted %d user instances from header", len(raw) if isinstance(raw, list) else 0)
+
     return _normalize_to_instance_list(raw)
