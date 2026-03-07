@@ -128,9 +128,9 @@ def setup_middleware(composer: MCPComposer) -> None:
     else:
         logger.info("Skipped TracingMiddleware (prod)")
 
-    composer.add_middleware(middleware=ListFilteredTool(composer))
+    composer.add_middleware(middleware=ListFilteredTool(composer, isv_validator=isv_validator))
     composer.add_middleware(ErrorSanitizationMiddleware())
-    logger.info("Added middleware: ListFilteredTool, ErrorSanitizationMiddleware")
+    logger.info("Added middleware: ListFilteredTool (with ISV auth), ErrorSanitizationMiddleware")
 
 
 # -----------------------------------------------------------------------------
