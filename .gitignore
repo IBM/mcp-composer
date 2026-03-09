@@ -44,3 +44,7 @@ docs/release/pypirelease.md
 composer_resources.json
 member_server_masked.json
 chroes_output/ruff_output.txt
+.cursor/*
+.bob/*
+benchmark/*
+specs/*

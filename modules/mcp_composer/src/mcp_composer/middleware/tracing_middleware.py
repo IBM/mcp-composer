@@ -2,11 +2,13 @@
 from __future__ import annotations
 
 import hashlib
+from contextlib import nullcontext
 import json
 import time
 from typing import Any, Dict, Optional
-
+from mcp_composer.core.utils.context_request import ctx_get, _attr
 from fastmcp.server.middleware import Middleware, MiddlewareContext, CallNext
+from fastmcp.tools.tool import ToolResult
 from mcp_composer.features.opentelemetry_metrics_registry import (
     tool_calls,
     tool_errors,
@@ -23,7 +25,7 @@ _BASE_LOGGER = LoggerFactory.get_logger()
 # --- OpenTelemetry (optional, no-op if not installed) ---
 try:
     from opentelemetry import trace
-    from opentelemetry.trace import Status, StatusCode
+    from opentelemetry.trace import Status, StatusCode  # type: ignore[assignment]
 
     _OTEL_AVAILABLE = True
 except Exception:  # pragma: no cover
@@ -93,48 +95,6 @@ def _json_sha256(obj: Any) -> str:
     return hashlib.sha256(b).hexdigest()
 
 
-def _attr(span, key: str, value: Any):
-    try:
-        if value is None:
-            return
-        if isinstance(value, (list, tuple)):
-            cleaned = [v for v in value if isinstance(v, _ALLOWED)]
-            if cleaned:
-                span.set_attribute(key, cleaned)
-            return
-        if isinstance(value, _ALLOWED):
-            span.set_attribute(key, value)
-            return
-        span.set_attribute(key, str(value))
-    except Exception:
-        pass
-
-
-def _get_nested(obj: Any, dotted: str) -> Any:
-    """Get nested attr or dict key via dotted path, e.g. 'fastmcp_context.fastmcp.name'."""
-    cur = obj
-    for part in dotted.split("."):
-        if cur is None:
-            return None
-        if isinstance(cur, dict):
-            cur = cur.get(part)
-        else:
-            cur = getattr(cur, part, None)
-    return cur
-
-
-def _ctx_get(context: MiddlewareContext, *names, default=None):
-    """Try dotted names on context, then on context.message."""
-    for name in names:
-        val = _get_nested(context, name)
-        if val is not None:
-            return val
-        msg = getattr(context, "message", None)
-        if msg is not None:
-            val = _get_nested(msg, name)
-            if val is not None:
-                return val
-    return default
 
 
 def _split_tool_fullname(tool_name: str) -> tuple[str | None, str]:
@@ -221,10 +181,10 @@ class TracingMiddleware(Middleware):
         server_name, stripped = _split_tool_fullname(name)
 
         # Prefer FastMCP-provided values if present
-        composer_name = _ctx_get(context, "fastmcp_context.fastmcp.name", "composer_name")
-        server_ver = _ctx_get(context, "server_version")
-        session_id = _ctx_get(context, "fastmcp_context.session_id", "session_id")
-        tenant_id = _ctx_get(context, "tenant_id")
+        composer_name = ctx_get(context, "fastmcp_context.fastmcp.name", "composer_name")
+        server_ver = ctx_get(context, "server_version")
+        session_id = ctx_get(context, "fastmcp_context.session_id", "session_id")
+        tenant_id = ctx_get(context, "tenant_id")
 
         _attr(span, "mcp.composer.name", composer_name or "unknown")
         _attr(span, "mcp.servername", server_name or "unknown")
@@ -234,9 +194,12 @@ class TracingMiddleware(Middleware):
 
     # ---- hooks ----
 
-    async def on_call_tool(self, context: MiddlewareContext, call_next: CallNext):
+    async def on_call_tool(
+        self, context: MiddlewareContext, call_next: CallNext
+    ) -> ToolResult:  # type: ignore[return-value]
         tool = getattr(context.message, "name", "unknown")
         args = getattr(context.message, "arguments", {})
+        fastmcp_ctx = getattr(context, "fastmcp_context", None)
         start = time.time()
         logger = _get_logger(context)
 
@@ -256,9 +219,9 @@ class TracingMiddleware(Middleware):
             logger.debug("Tool Name: %s", tool)
 
             # Log session and context info
-            session_id = _ctx_get(context, "fastmcp_context.session_id", "session_id")
-            composer_name = _ctx_get(context, "fastmcp_context.fastmcp.name", "composer_name")
-            tenant_id = _ctx_get(context, "tenant_id")
+            session_id = ctx_get(context, "fastmcp_context.session_id", "session_id")
+            composer_name = ctx_get(context, "fastmcp_context.fastmcp.name", "composer_name")
+            tenant_id = ctx_get(context, "tenant_id")
 
             logger.debug("Session ID: %s", session_id or "N/A")
             logger.debug("Composer: %s", composer_name or "N/A")
@@ -268,8 +231,6 @@ class TracingMiddleware(Middleware):
             logger.debug("-" * 80)
             logger.debug("AUTHENTICATION CONTEXT:")
             try:
-                # Try to get request from fastmcp_context
-                fastmcp_ctx = getattr(context, "fastmcp_context", None)
                 if fastmcp_ctx:
                     request_ctx = getattr(fastmcp_ctx, "request_context", None)
                     if request_ctx:
@@ -383,10 +344,11 @@ class TracingMiddleware(Middleware):
         span_cm = (
             _TRACER.start_as_current_span(self._span_name("agent.tool", tool)) if self.enable_tracing else nullcontext()
         )
+        span = None
 
         try:
             with span_cm as span:
-                if self.enable_tracing:
+                if self.enable_tracing and span is not None:
                     _attr(span, "tool.name", tool)
                     _attr(
                         span,
@@ -410,7 +372,7 @@ class TracingMiddleware(Middleware):
 
                 result = await call_next(context)
 
-                if self.enable_tracing and self.trace_results_digest:
+                if self.enable_tracing and self.trace_results_digest and span is not None:
                     span.add_event(
                         "tool.output",
                         {
@@ -420,7 +382,7 @@ class TracingMiddleware(Middleware):
                             ),
                         },
                     )
-                    span.set_status(Status(StatusCode.OK))
+                    span.set_status(Status(StatusCode.OK))  # type: ignore[arg-type]
 
                 if self.log_tools:
 
@@ -483,10 +445,10 @@ class TracingMiddleware(Middleware):
                 return result
 
         except Exception as e:
-            if self.enable_tracing:
+            if self.enable_tracing and span is not None:
                 try:
                     span.record_exception(e)  # type: ignore[attr-defined]
-                    span.set_status(Status(StatusCode.ERROR, description=type(e).__name__))  # type: ignore[attr-defined]
+                    span.set_status(Status(StatusCode.ERROR, description=type(e).__name__))  # type: ignore[attr-defined,arg-type]
                 except Exception:
                     pass
                 if tool_errors:
@@ -494,7 +456,7 @@ class TracingMiddleware(Middleware):
                 self._log(context, f" {tool} error: {e}", level="ERROR")
                 raise
         finally:
-            if self.enable_tracing:
+            if self.enable_tracing and span is not None:
                 duration_ms = int((time.time() - start) * 1000)
                 try:
                     _attr(span, "mcp.duration_ms", duration_ms)  # type: ignore[name-defined]
@@ -510,10 +472,12 @@ class TracingMiddleware(Middleware):
             logger.debug("=" * 80)
 
             # Log context information
-            session_id = _ctx_get(context, "fastmcp_context.session_id", "session_id")
-            composer_name = _ctx_get(context, "fastmcp_context.fastmcp.name", "composer_name")
-            tenant_id = _ctx_get(context, "tenant_id")
-
+            session_id = ctx_get(context, "fastmcp_context.session_id", "session_id")
+            composer_name = ctx_get(context, "fastmcp_context.fastmcp.name", "composer_name")
+            tenant_id = ctx_get(context, "tenant_id")
+            
+            logger.debug("Request: %s", ctx_get(context, "fastmcp_context.request_context.request"))
+            logger.debug("Request headers: %s", ctx_get(context, "fastmcp_context.request_context.request.headers"))
             logger.debug("Session ID: %s", session_id or "N/A")
             logger.debug("Composer: %s", composer_name or "N/A")
             logger.debug("Tenant ID: %s", tenant_id or "N/A")
@@ -612,7 +576,7 @@ class TracingMiddleware(Middleware):
         )
 
         with span_cm as span:
-            if self.enable_tracing:
+            if self.enable_tracing and span is not None:
                 self._decorate_common_attrs(span, context, "tools.list", "tools")
             result = await call_next(context)
 
@@ -639,9 +603,9 @@ class TracingMiddleware(Middleware):
 
                 logger.debug("=" * 80)
 
-            if self.enable_tracing:
+            if self.enable_tracing and span is not None:
                 _attr(span, "mcp.tools.count", n)
-                span.set_status(Status(StatusCode.OK))
+                span.set_status(Status(StatusCode.OK))  # type: ignore[arg-type]
             if self.log_tools:
                 self._log(context, f"listed {n} tools")
             return result
@@ -658,14 +622,14 @@ class TracingMiddleware(Middleware):
         )
 
         with span_cm as span:
-            if self.enable_tracing:
+            if self.enable_tracing and span is not None:
                 self._decorate_common_attrs(span, context, "resource.read", uri)
                 _attr(span, "mcp.resource.uri", uri)
 
             result = await call_next(context)
 
-            if self.enable_tracing:
-                span.set_status(Status(StatusCode.OK))
+            if self.enable_tracing and span is not None:
+                span.set_status(Status(StatusCode.OK))  # type: ignore[arg-type]
             if self.log_resources:
                 self._log(context, f"read ok: {uri}")
             return result
@@ -679,26 +643,13 @@ class TracingMiddleware(Middleware):
         )
 
         with span_cm as span:
-            if self.enable_tracing:
+            if self.enable_tracing and span is not None:
                 self._decorate_common_attrs(span, context, "prompts.list", "prompts")
 
             result = await call_next(context)
 
-            if self.enable_tracing:
-                span.set_status(Status(StatusCode.OK))
+            if self.enable_tracing and span is not None:
+                span.set_status(Status(StatusCode.OK))  # type: ignore[arg-type]
             if self.log_prompts:
                 self._log(context, "list prompts ok")
             return result
-
-
-# --- Small stdlib nullcontext for when tracing is disabled ---
-try:
-    from contextlib import nullcontext  # py3.7+
-except Exception:  # pragma: no cover
-
-    class nullcontext:
-        def __enter__(self):
-            return self
-
-        def __exit__(self, *exc):
-            return False

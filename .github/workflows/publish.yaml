@@ -11,7 +11,7 @@ jobs:
       - uses: 'actions/checkout@v4'
       - uses: 'actions/setup-python@v5'
         with:
-          python-version: '3.8'
+          python-version: '3.14'
       - name: build
         run: |
           # this SDK is intended for general use so should run on as many python versions as possible.

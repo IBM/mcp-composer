@@ -37,28 +37,28 @@ if TYPE_CHECKING:
 class ToolAuthenticationMiddleware(Middleware):
     """
     Enforces ISV token authentication at tool execution time.
-    
+
     This middleware runs during tool calls and validates the ISV token before
     allowing tool execution. It integrates with the existing ISVTokenValidator
     to maintain consistent token validation logic.
-    
+
     Configuration:
         validator: ISVTokenValidator instance for token validation
         exempt_tools: Optional list of tool names that don't require authentication
-        
+
     Example:
         >>> from mcp_composer.core.auth.jwt import ISVTokenValidator
         >>> validator = ISVTokenValidator(environment='test')
         >>> middleware = ToolAuthenticationMiddleware(validator=validator)
         >>> composer.add_middleware(middleware)
     """
-    
+
     def __init__(
         self,
         validator: "ISVTokenValidator",
         exempt_tools: Optional[list[str]] = None,
         is_iam_enabled_for_tool: Optional[Callable[[str], bool]] = None,
-        **kwargs
+        **kwargs,
     ):
         """
         Initialize tool authentication middleware.
@@ -76,7 +76,7 @@ class ToolAuthenticationMiddleware(Middleware):
         self.validator = validator
         self.exempt_tools = set(exempt_tools or [])
         self.is_iam_enabled_for_tool = is_iam_enabled_for_tool
-        
+
         logger.info("=" * 70)
         logger.info("ToolAuthenticationMiddleware Initialized")
         logger.info("=" * 70)
@@ -89,14 +89,14 @@ class ToolAuthenticationMiddleware(Middleware):
         else:
             logger.info("Exempt tools: None")
         logger.info("=" * 70)
-    
+
     def _get_request(self, context: MiddlewareContext) -> Any:
         """
         Get the HTTP request from middleware context.
-        
+
         Args:
             context: FastMCP middleware context
-            
+
         Returns:
             HTTP request object or None if unavailable
         """
@@ -105,57 +105,60 @@ class ToolAuthenticationMiddleware(Middleware):
             return None
         request_context = getattr(fastmcp_ctx, "request_context", None)
         return getattr(request_context, "request", None) if request_context else None
-    
+
     def _is_tool_exempt(self, tool_name: str) -> bool:
         """
         Check if a tool is exempt from authentication.
-        
+
         Args:
             tool_name: Name of the tool being called
-            
+
         Returns:
             True if tool is exempt, False otherwise
         """
         return tool_name in self.exempt_tools
-    
+
     def _extract_user_identity(self, token_data: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         """
         Extract user identity from token data if available.
-        
+
         Args:
             token_data: Token response from ISVTokenValidator
-            
+
         Returns:
             User identity dict or None
         """
         # ISV token response may contain user identity information
         # This can be extended based on actual token structure
         return token_data.get("identity") or token_data.get("user_identity")
-    
+
     def _build_auth_context(self, token_data: Dict[str, Any], request: Any) -> Dict[str, Any]:
         """
         Build authentication context from validated token data.
-        
+
         Args:
             token_data: Validated token response from ISVTokenValidator
             request: HTTP request object
-            
+
         Returns:
             Authentication context dict
         """
+        # Extract user instances from token_data
+        user_instances = token_data.get("user_instances", [])
+
         auth_context: Dict[str, Any] = {
             AUTH_KEY_ISV_TOKEN: token_data.get("access_token"),
             AUTH_KEY_AUTHENTICATED: True,
             AUTH_KEY_COOKIES: {},
-            AUTH_KEY_USER_INSTANCES: [],
-            AUTH_KEY_USER_INSTANCES_FULL: [],
+            AUTH_KEY_USER_INSTANCES: user_instances,  # Simplified format
+            AUTH_KEY_USER_INSTANCES_FULL: user_instances,  # Full format (same for ISV)
             AUTH_KEY_AUTH_TOKEN: None,
         }
-        
+
         # Extract user identity if available
         if user_identity := self._extract_user_identity(token_data):
             auth_context[AUTH_KEY_USER_IDENTITY] = user_identity
-        
+
         # Extract cookies from request if available
         if request:
             request_headers = getattr(request, "headers", None)
@@ -169,24 +172,24 @@ class ToolAuthenticationMiddleware(Middleware):
                             name, value = cookie.split("=", 1)
                             cookies[name.strip()] = value.strip()
                     auth_context[AUTH_KEY_COOKIES] = cookies
-        
+
         return auth_context
-    
+
     async def on_call_tool(self, context: MiddlewareContext, call_next: CallNext):
         """
         Validate authentication before tool execution.
-        
+
         This method is called by FastMCP before each tool invocation.
         It validates the ISV token and stores the authentication context
         for downstream use.
-        
+
         Args:
             context: FastMCP middleware context
             call_next: Callback to continue middleware chain
-            
+
         Returns:
             Result from next middleware or tool execution
-            
+
         Raises:
             HTTPException: 401 if authentication fails
         """
@@ -198,7 +201,9 @@ class ToolAuthenticationMiddleware(Middleware):
         if iam_disabled or is_discovery_tool:
             logger.debug(
                 "Tool '%s' skipping authentication (IAM disabled=%s, discovery tool=%s)",
-                tool_name, iam_disabled, is_discovery_tool,
+                tool_name,
+                iam_disabled,
+                is_discovery_tool,
             )
             return await call_next(context)
 
@@ -206,61 +211,39 @@ class ToolAuthenticationMiddleware(Middleware):
         if self._is_tool_exempt(tool_name):
             logger.info("Tool '%s' is exempt from authentication, skipping validation", tool_name)
             return await call_next(context)
-        
+
         # Get HTTP request
         request = self._get_request(context)
         if request is None:
             logger.warning("Unable to extract HTTP request from context for tool '%s'", tool_name)
-            raise HTTPException(
-                status_code=500,
-                detail="Internal error: Unable to access request context"
-            )
-        
+            raise HTTPException(status_code=500, detail="Internal error: Unable to access request context")
+
         # Validate token
         logger.info("Validating authentication for tool '%s'", tool_name)
         try:
             # Use existing ISVTokenValidator to validate the request
             token_data = await self.validator.validate_request(request)
-            
+
             # Build and store authentication context
             auth_context = self._build_auth_context(token_data, request)
             auth_context_var.set(auth_context)
-            
+
             # Log success
             token_status = "cached" if token_data.get("cached") else "fresh"
-            logger.info(
-                "✓ Tool '%s' authentication successful (token: %s)",
-                tool_name,
-                token_status
-            )
-            
+            logger.info("✓ Tool '%s' authentication successful (token: %s)", tool_name, token_status)
+
             # Continue to next middleware/tool
             try:
                 return await call_next(context)
             finally:
                 # Clean up auth context after tool execution
                 auth_context_var.set(None)
-                
+
         except HTTPException as e:
             # Authentication failed - log and re-raise
-            logger.warning(
-                "✗ Tool '%s' authentication failed: %s (status: %d)",
-                tool_name,
-                e.detail,
-                e.status_code
-            )
+            logger.warning("✗ Tool '%s' authentication failed: %s (status: %d)", tool_name, e.detail, e.status_code)
             raise
         except Exception as e:
             # Unexpected error during authentication
-            logger.error(
-                "✗ Tool '%s' authentication error: %s",
-                tool_name,
-                str(e),
-                exc_info=True
-            )
-            raise HTTPException(
-                status_code=500,
-                detail=f"Authentication error: {str(e)}"
-            )
-
-# Made with Bob
+            logger.error("✗ Tool '%s' authentication error: %s", tool_name, str(e), exc_info=True)
+            raise HTTPException(status_code=500, detail=f"Authentication error: {str(e)}")
