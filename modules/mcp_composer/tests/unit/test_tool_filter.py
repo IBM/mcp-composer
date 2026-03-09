@@ -63,9 +63,9 @@ class TestListFilteredTool:
         result = await list_filtered_tool.on_list_tools(mock_context, mock_call_next)
 
         assert mock_call_next.call_count == 2
-        assert isinstance(result, list)
+        assert isinstance(result, dict)
         assert len(result) == 1
-        assert result[0]["name"] == "tool1"
+        assert result["tool1"]["name"] == "tool1"
 
     @pytest.mark.asyncio
     async def test_on_list_tools_empty_tools(
@@ -78,7 +78,7 @@ class TestListFilteredTool:
 
         result = await list_filtered_tool.on_list_tools(mock_context, mock_call_next)
 
-        assert isinstance(result, list)
+        assert isinstance(result, dict)
         assert len(result) == 0
 
     @pytest.mark.asyncio
@@ -101,9 +101,9 @@ class TestListFilteredTool:
 
         result = await list_filtered_tool.on_list_tools(mock_context, mock_call_next)
 
-        assert isinstance(result, list)
+        assert isinstance(result, dict)
         assert len(result) == 1
-        assert result[0]["name"] == "complex_tool"
+        assert result["complex_tool"]["name"] == "complex_tool"
 
     # ------------------------------------------------------------------
     # on_list_tools — user instances present in header
@@ -171,7 +171,7 @@ class TestListFilteredTool:
         )
         assert mock_call_next.call_count == 2
         assert len(result) == 1
-        assert result[0] == mock_tools["tool1"]
+        assert result["tool1"] == mock_tools["tool1"]
 
     @pytest.mark.asyncio
     async def test_on_list_tools_filter_tools_generic_error(
