@@ -1,6 +1,6 @@
 """Tools util functions"""
 
-from typing import Optional, List, Dict, Any, Callable, Tuple
+from typing import Optional, List, Dict, Any, Callable, Tuple, Sequence
 from fastmcp.tools.tool import Tool
 from fastmcp.exceptions import NotFoundError
 from pydantic import ValidationError
@@ -127,25 +127,26 @@ async def tool_from_open_api(
         raise ToolGenerateError(f"Failed to generate tool from openapi:{e}") from e
 
 
-async def tool_exist(tools: list[str] | str, all_tools: dict[str, Tool]) -> None:
+async def tool_exist(tools: list[str] | str, all_tools: Sequence[Tool]) -> None:
     """Check tool exist or not"""
     tools_to_check = [tools] if isinstance(tools, str) else tools
-    unknown_tools = [tool for tool in tools_to_check if tool not in all_tools.keys()]
+    tool_names = {tool.name for tool in all_tools}
+    unknown_tools = [tool for tool in tools_to_check if tool not in tool_names]
     if unknown_tools:
         raise NotFoundError(f"Unknown tool(s):{unknown_tools}")
 
 
-def tool_config(server_tools: dict[str, Tool], key: Optional[str] = None) -> list[dict]:
+def tool_config(server_tools: Sequence[Tool], key: Optional[str] = None) -> list[dict]:
     """
     Get tool configuration details by tool name or server
     """
     if key:
-        tools = {tool.name: tool for tool in server_tools.values()}
+        tools = {tool.name: tool for tool in server_tools}
         if key not in tools:
             raise NotFoundError(f"Unknown tool: {key}")
         return [format_tool(tools[key])]
 
-    return [format_tool(tool) for tool in server_tools.values()]
+    return [format_tool(tool) for tool in server_tools]
 
 
 def check_duplicate_tool(existing_tools: list[str], tools: list[str]) -> set:

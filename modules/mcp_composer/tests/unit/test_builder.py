@@ -81,9 +81,11 @@ async def test_build_from_transport_http():
             "mcp_composer.core.member_servers.builder.StreamableHttpTransport"
         ) as _mock_transport,
         patch("mcp_composer.core.member_servers.builder.Client") as _mock_client,
-        patch("mcp_composer.core.member_servers.builder.FastMCP") as mock_fastmcp,
+        patch(
+            "mcp_composer.core.member_servers.builder.create_proxy"
+        ) as mock_create_proxy,
     ):
-        mock_fastmcp.as_proxy.return_value = "proxy"
+        mock_create_proxy.return_value = "proxy"
         result = await builder._build_from_transport(MemberServerType.HTTP)
         assert result == "proxy"
 
@@ -101,9 +103,11 @@ async def test_build_from_transport_sse():
             "mcp_composer.core.member_servers.builder.SSETransport"
         ) as _mock_transport,
         patch("mcp_composer.core.member_servers.builder.Client") as _mock_client,
-        patch("mcp_composer.core.member_servers.builder.FastMCP") as mock_fastmcp,
+        patch(
+            "mcp_composer.core.member_servers.builder.create_proxy"
+        ) as mock_create_proxy,
     ):
-        mock_fastmcp.as_proxy.return_value = "proxy"
+        mock_create_proxy.return_value = "proxy"
         result = await builder._build_from_transport(MemberServerType.SSE)
         assert result == "proxy"
 
@@ -124,9 +128,11 @@ async def test_build_from_transport_stdio():
             "mcp_composer.core.member_servers.builder.StdioTransport"
         ) as _mock_transport,
         patch("mcp_composer.core.member_servers.builder.Client") as _mock_client,
-        patch("mcp_composer.core.member_servers.builder.FastMCP") as mock_fastmcp,
+        patch(
+            "mcp_composer.core.member_servers.builder.create_proxy"
+        ) as mock_create_proxy,
     ):
-        mock_fastmcp.as_proxy.return_value = "proxy"
+        mock_create_proxy.return_value = "proxy"
         result = await builder._build_from_transport(MemberServerType.STDIO)
         assert result == "proxy"
 
@@ -146,10 +152,12 @@ async def test_build_from_transport_http_with_oauth():
             "mcp_composer.core.member_servers.builder.StreamableHttpTransport"
         ) as _mock_transport,
         patch("mcp_composer.core.member_servers.builder.Client") as _mock_client,
-        patch("mcp_composer.core.member_servers.builder.FastMCP") as mock_fastmcp,
+        patch(
+            "mcp_composer.core.member_servers.builder.create_proxy"
+        ) as mock_create_proxy,
         patch("mcp_composer.core.member_servers.builder.OAuth") as _mock_oauth,
     ):
-        mock_fastmcp.as_proxy.return_value = "proxy"
+        mock_create_proxy.return_value = "proxy"
         result = await builder._build_from_transport(MemberServerType.HTTP)
         assert result == "proxy"
 
@@ -181,7 +189,9 @@ async def test_build_from_transport_http_with_solis_jwt_handler():
             "mcp_composer.core.member_servers.builder.StreamableHttpTransport"
         ) as mock_transport,
         patch("mcp_composer.core.member_servers.builder.Client") as mock_client_cls,
-        patch("mcp_composer.core.member_servers.builder.FastMCP") as mock_fastmcp,
+        patch(
+            "mcp_composer.core.member_servers.builder.create_proxy"
+        ) as mock_create_proxy,
         patch(
             "mcp_composer.core.member_servers.builder.SolisJWTTokenGenerator"
         ) as mock_token_gen_cls,
@@ -193,7 +203,7 @@ async def test_build_from_transport_http_with_solis_jwt_handler():
         mock_client = MagicMock()
         mock_client_cls.return_value = mock_client
 
-        mock_fastmcp.as_proxy.return_value = "proxy-server"
+        mock_create_proxy.return_value = "proxy-server"
 
         result = await builder._build_from_transport(MemberServerType.HTTP)
 
@@ -211,9 +221,9 @@ async def test_build_from_transport_http_with_solis_jwt_handler():
         headers = kwargs.get("headers", {})
         assert headers.get(ConfigKey.AUTH_HEADER.value) == "Bearer mock-jwt-token"
 
-        # Client should be created with the transport, and FastMCP.as_proxy called with it
+        # Client should be created with the transport, and create_proxy called with it
         mock_client_cls.assert_called_once_with(mock_transport.return_value, auth=None)
-        mock_fastmcp.as_proxy.assert_called_once_with(mock_client, name="mcp-dal")
+        mock_create_proxy.assert_called_once_with(mock_client)
 
 
 @pytest.mark.asyncio
@@ -1032,9 +1042,7 @@ async def test_layered_enabled_returns_only_three_tools():
         ), "Should use LayeredOpenAPIFactory when layered=True"
 
         # Verify the server has exactly 3 tools
-        # Since LayeredOpenAPIFactory inherits from FastMCP, it should have _tool_manager
-        tools_dict = await mcp_server._tool_manager.get_tools()
-        tools = list(tools_dict.values())
+        tools = await mcp_server.list_tools()
         assert len(tools) == 3, f"Expected exactly 3 tools, but got {len(tools)}"
 
         # Verify the expected tool names

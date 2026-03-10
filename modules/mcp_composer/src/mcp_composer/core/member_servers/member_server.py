@@ -66,7 +66,6 @@ class MemberMCPServer(BaseModel):
 
     def set_server(self, mcp: FastMCP):
         self.server = mcp
-        # self.tool_count = len(mcp.get_tools()) if hasattr(mcp, "list_tools") else None
 
     def get_server(self) -> FastMCP:
         if not self.server:
