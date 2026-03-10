@@ -234,11 +234,11 @@ class BaseSpecializedTool(Tool):
                 # Get all available tools
                 if hasattr(self._composer, "_tool_manager"):
                     all_tools = self._composer._tool_manager.filter_tools(
-                        await self._composer._tool_manager.get_tools()
+                        await self._composer._tool_manager.get_all_tools()
                     )
                     return [
                         {"name": tool.name, "description": tool.description or ""}
-                        for tool in all_tools.values()
+                        for tool in all_tools
                     ]
         except Exception as e:
             logger.warning("Failed to get possible tools: %s", e)

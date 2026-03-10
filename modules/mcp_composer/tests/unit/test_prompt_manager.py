@@ -5,6 +5,7 @@ import pytest
 from mcp_composer.core.composer import MCPComposer
 from mcp_composer.core.member_servers.member_server import HealthStatus
 from mcp_composer.core.prompts.prompt_manager import MCPPromptManager
+from mcp_composer.store.fake_database import FakeDatabase
 
 # pylint: disable=protected-access,too-many-lines
 
@@ -12,32 +13,30 @@ from mcp_composer.core.prompts.prompt_manager import MCPPromptManager
 @pytest.mark.asyncio
 async def test_prompts():
     """Test basic prompt functionality through composer interface."""
-    # Mock the database to prevent loading prompts during initialization
-    with patch("mcp_composer.core.composer.LocalFileAdapter") as mock_db_class:
-        mock_db_instance = MagicMock()
-        mock_db_instance.load_all_prompts.return_value = []
-        mock_db_class.return_value = mock_db_instance
-
-        composer = MCPComposer("composer")
-        config = [
-            {
-                "name": "promo_http_avg_response",
-                "description": "Average response time of promo HTTP calls handled by a cluster",
-                "template": "What is the average response time of promo HTTP calls handled by Kubernetes cluster {{ cluster }}?",
-                "arguments": [
-                    {
-                        "name": "cluster",
-                        "type": "string",
-                        "required": "true",
-                        "description": "The name of the Kubernetes cluster",
-                    }
-                ],
-            }
-        ]
-        composer.add_prompts(config)
-        prompts = await composer.get_all_prompts()
-        assert len(prompts) == 1
-        assert "promo_http_avg_response" in prompts[0]
+    with patch(
+        "mcp_composer.core.config.server_configuration_manager.ServerConfigurationManager.get_database_config_from_env",
+        return_value=None,
+    ):
+        composer = MCPComposer("composer", database_config=FakeDatabase())
+    config = [
+        {
+            "name": "promo_http_avg_response",
+            "description": "Average response time of promo HTTP calls handled by a cluster",
+            "template": "What is the average response time of promo HTTP calls handled by Kubernetes cluster {{ cluster }}?",
+            "arguments": [
+                {
+                    "name": "cluster",
+                    "type": "string",
+                    "required": "true",
+                    "description": "The name of the Kubernetes cluster",
+                }
+            ],
+        }
+    ]
+    composer.add_prompts(config)
+    prompts = await composer.get_all_prompts()
+    assert len(prompts) == 1
+    assert "promo_http_avg_response" in prompts[0]
 
 
 @pytest.mark.asyncio
@@ -100,32 +99,28 @@ async def test_get_all_prompts_returns_list():
             "template": "Hello, this is a test prompt.",
         }
     ]
-    # Mock the database to prevent loading prompts during initialization
-    with patch("mcp_composer.core.composer.LocalFileAdapter") as mock_db:
-        mock_db_instance = MagicMock()
-        mock_db_instance.load_all_prompts.return_value = []
-        mock_db.return_value = mock_db_instance
-
-        composer = MCPComposer("composer")
-        added = composer.add_prompts(prompt_config)
-        assert len(added) == 1
-        assert added[0] == "test_prompt"
-        prompts = await composer.get_all_prompts()
-        assert len(prompts) == 1
+    with patch(
+        "mcp_composer.core.config.server_configuration_manager.ServerConfigurationManager.get_database_config_from_env",
+        return_value=None,
+    ):
+        composer = MCPComposer("composer", database_config=FakeDatabase())
+    added = composer.add_prompts(prompt_config)
+    assert len(added) == 1
+    assert added[0] == "test_prompt"
+    prompts = await composer.get_all_prompts()
+    assert len(prompts) == 1
 
 
 @pytest.mark.asyncio
 async def test_get_all_prompts_empty():
     """Test get_all_prompts returns empty list when no prompts are added."""
-    # Mock the database to prevent loading prompts during initialization
-    with patch("mcp_composer.core.composer.LocalFileAdapter") as mock_db:
-        mock_db_instance = MagicMock()
-        mock_db_instance.load_all_prompts.return_value = []
-        mock_db.return_value = mock_db_instance
-
-        composer = MCPComposer("composer")
-        prompts = await composer.get_all_prompts()
-        assert len(prompts) == 0
+    with patch(
+        "mcp_composer.core.config.server_configuration_manager.ServerConfigurationManager.get_database_config_from_env",
+        return_value=None,
+    ):
+        composer = MCPComposer("composer", database_config=FakeDatabase())
+    prompts = await composer.get_all_prompts()
+    assert len(prompts) == 0
 
 
 @pytest.mark.asyncio
@@ -478,36 +473,35 @@ async def test_list_prompts_per_server_filters_disabled_with_mounted_server():
 @pytest.mark.asyncio
 async def test_list_prompts_filters_disabled_prompts():
     """Test that list_prompts filters out disabled prompts."""
-    # Mock the database to prevent loading prompts during initialization
-    with patch("mcp_composer.core.composer.LocalFileAdapter") as mock_db:
-        mock_db_instance = MagicMock()
-        mock_db_instance.load_all_prompts.return_value = []
-        mock_db.return_value = mock_db_instance
+    with patch(
+        "mcp_composer.core.config.server_configuration_manager.ServerConfigurationManager.get_database_config_from_env",
+        return_value=None,
+    ):
+        composer = MCPComposer("composer", database_config=FakeDatabase())
 
-        composer = MCPComposer("composer")
+    # Mock server manager to simulate mounted server
+    mock_server_manager = MagicMock()
+    mock_server = MagicMock()
+    mock_server.health_status = HealthStatus.healthy
+    mock_server.disabled_prompts = ["test_prompt"]
+    mock_server.prompts_description = {}
+    mock_server_manager.list.return_value = [mock_server]
 
-        # Mock server manager to simulate mounted server
-        mock_server_manager = MagicMock()
-        mock_server = MagicMock()
-        mock_server.health_status = HealthStatus.healthy
-        mock_server.disabled_prompts = ["test_prompt"]
-        mock_server_manager.list.return_value = [mock_server]
+    composer._prompt_manager._server_manager = mock_server_manager
 
-        composer._prompt_manager._server_manager = mock_server_manager
+    # Add a test prompt
+    prompt_config = [
+        {
+            "name": "test_prompt",
+            "description": "A test prompt",
+            "template": "Hello, this is a test prompt.",
+        }
+    ]
+    composer.add_prompts(prompt_config)
 
-        # Add a test prompt
-        prompt_config = [
-            {
-                "name": "test_prompt",
-                "description": "A test prompt",
-                "template": "Hello, this is a test prompt.",
-            }
-        ]
-        composer.add_prompts(prompt_config)
-
-        # List prompts should not include disabled prompts
-        result = await composer._prompt_manager.list_prompts()
-        assert len(result) == 0
+    # List prompts should not include disabled prompts
+    result = await composer._prompt_manager.list_prompts()
+    assert len(result) == 0
 
 
 @pytest.mark.asyncio
@@ -522,18 +516,10 @@ async def test_prompt_manager_initialization():
 
 @pytest.mark.asyncio
 async def test_unmount_method():
-    """Test unmount method of prompt manager."""
+    """Prompt manager should not expose unmount API."""
     mock_server_manager = MagicMock()
     prompt_manager = MCPPromptManager(mock_server_manager)
-
-    # Add a mock mounted server
-    mock_mounted_server = MagicMock()
-    mock_mounted_server.prefix = "test-server"
-    prompt_manager._mounted_servers = [mock_mounted_server]
-
-    # Test unmount
-    prompt_manager.unmount("test-server")
-    assert len(prompt_manager._mounted_servers) == 0
+    assert not hasattr(prompt_manager, "unmount")
 
 
 @pytest.mark.asyncio
@@ -941,28 +927,18 @@ async def test_comprehensive_prompt_workflow():
 
 @pytest.mark.asyncio
 async def test_prompt_manager_initialization_with_duplicate_behavior():
-    """Test MCPPromptManager initialization with duplicate behavior."""
+    """Test MCPPromptManager default duplicate behavior setting."""
     mock_server_manager = MagicMock()
-    from fastmcp.settings import DuplicateBehavior
-
-    manager = MCPPromptManager(mock_server_manager, duplicate_behavior="replace")
-    assert manager.duplicate_behavior == "replace"
+    manager = MCPPromptManager(mock_server_manager)
+    assert manager.warn_on_duplicate_prompts is True
 
 
 @pytest.mark.asyncio
 async def test_unmount_nonexistent_server():
-    """Test unmounting a non-existent server."""
+    """Prompt manager should not expose unmount API."""
     mock_server_manager = MagicMock()
     prompt_manager = MCPPromptManager(mock_server_manager)
-
-    # Add a mock mounted server
-    mock_mounted_server = MagicMock()
-    mock_mounted_server.prefix = "other_server"
-    prompt_manager._mounted_servers = [mock_mounted_server]
-
-    # Test unmount non-existent server
-    prompt_manager.unmount("test_server")
-    assert len(prompt_manager._mounted_servers) == 1
+    assert not hasattr(prompt_manager, "unmount")
 
 
 @pytest.mark.asyncio

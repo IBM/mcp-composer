@@ -23,6 +23,13 @@ from mcp_composer.core.member_servers.layered_factory_oa import LayeredOpenAPIFa
 class TestLayeredOpenAPIFactory:
     """Test cases for LayeredOpenAPIFactory class."""
 
+    @staticmethod
+    async def _get_tools(layered_factory):
+        tools = await layered_factory.list_tools()
+        if isinstance(tools, dict):
+            return list(tools.values())
+        return list(tools)
+
     @pytest.fixture
     def mock_openapi_spec(self):
         """Create a mock OpenAPI specification for testing."""
@@ -117,17 +124,14 @@ class TestLayeredOpenAPIFactory:
         assert layered_factory.name == "Layered OpenAPI FastMCP"
         assert layered_factory.openapi_spec is not None
         assert layered_factory.client is not None
-        # Check that tools are added by checking the tool manager
-        assert hasattr(layered_factory, "_tool_manager")
-        tools_dict = await layered_factory._tool_manager.get_tools()
-        tools = list(tools_dict.values())
+        # Check that tools are added
+        tools = await self._get_tools(layered_factory)
         assert len(tools) == 3
 
     @pytest.mark.asyncio
     async def test_layered_factory_tools(self, layered_factory):
         """Test that LayeredOpenAPIFactory has the correct tools."""
-        tools_dict = await layered_factory._tool_manager.get_tools()
-        tools = list(tools_dict.values())
+        tools = await self._get_tools(layered_factory)
         tool_names = [tool.name for tool in tools]
         assert "get_service_info" in tool_names
         assert "get_type_info" in tool_names
@@ -443,8 +447,7 @@ class TestLayeredOpenAPIFactory:
     @pytest.mark.asyncio
     async def test_all_tools_have_descriptions(self, layered_factory):
         """Ensure each registered tool has a non-empty description."""
-        tools_dict = await layered_factory._tool_manager.get_tools()
-        tools = list(tools_dict.values())
+        tools = await self._get_tools(layered_factory)
         for tool in tools:
             desc = self._get_tool_description(tool)
             assert isinstance(desc, str)
@@ -455,8 +458,7 @@ class TestLayeredOpenAPIFactory:
     @pytest.mark.asyncio
     async def test_get_service_info_tool_description(self, layered_factory):
         """Check that get_service_info tool description refers to 'service' or 'services'."""
-        tools_dict = await layered_factory._tool_manager.get_tools()
-        tools = list(tools_dict.values())
+        tools = await self._get_tools(layered_factory)
 
         # find the tool object
         svc_tool = next(
@@ -471,8 +473,7 @@ class TestLayeredOpenAPIFactory:
     @pytest.mark.asyncio
     async def test_get_type_info_tool_description(self, layered_factory):
         """Check that get_type_info tool description refers to 'type' or 'parameters' or 'schema'."""
-        tools_dict = await layered_factory._tool_manager.get_tools()
-        tools = list(tools_dict.values())
+        tools = await self._get_tools(layered_factory)
 
         type_tool = next(
             (t for t in tools if getattr(t, "name", None) == "get_type_info"), None
@@ -485,8 +486,7 @@ class TestLayeredOpenAPIFactory:
     @pytest.mark.asyncio
     async def test_make_tool_call_tool_description(self, layered_factory):
         """Check that make_tool_call tool description refers to 'call', 'invoke' or 'request'."""
-        tools_dict = await layered_factory._tool_manager.get_tools()
-        tools = list(tools_dict.values())
+        tools = await self._get_tools(layered_factory)
 
         call_tool = next(
             (t for t in tools if getattr(t, "name", None) == "make_tool_call"), None

@@ -51,11 +51,12 @@ async def test_composer_restart_persists_and_restores_server(
     mock_server = MagicMock()
     mock_tool = MagicMock()
     mock_tool.name = f"{server_config['id']}_test_tool"
-    mock_server.get_tools = AsyncMock(return_value={mock_tool.name: mock_tool})
+    mock_tool.description = "Mock tool"
+    mock_server.list_tools = AsyncMock(return_value=[mock_tool])
 
     # Mock the as_proxy method to return a mock proxy
     mock_proxy = MagicMock()
-    mock_proxy.get_tools = AsyncMock(return_value={mock_tool.name: mock_tool})
+    mock_proxy.list_tools = AsyncMock(return_value=[mock_tool])
 
     with patch(
         "mcp_composer.core.member_servers.server_manager.MCPServerBuilder"
@@ -68,19 +69,19 @@ async def test_composer_restart_persists_and_restores_server(
             "composer", config=[server_config], database_config=fake_db
         )
         await composer_1.setup_member_servers()
-        tools_1 = await composer_1.get_tools()
+        tools_1 = await composer_1.list_tools()
         logger.debug("[First run] Tools: %s", tools_1)
         assert any(
-            server_config["id"] in t for t in tools_1
+            server_config["id"] in t.name for t in tools_1
         ), "Server tools not available after registration"
 
         # -------- Simulate restart --------
         composer_2 = MCPComposer("composer", database_config=fake_db)
         await composer_2.setup_member_servers()
-        tools_2 = await composer_2.get_tools()
+        tools_2 = await composer_2.list_tools()
         logger.debug("[After restart] Tools: %s", tools_2)
         assert any(
-            server_config["id"] in t for t in tools_2
+            server_config["id"] in t.name for t in tools_2
         ), "Server tool not found after restart"
 
 
@@ -91,11 +92,11 @@ async def test_duplicate_registration_skips_duplicate(fake_db, server_config, ca
 
     # Mock the MCP server to avoid network calls and missing descriptions
     mock_server = MagicMock()
-    mock_server.get_tools = AsyncMock(return_value={})
+    mock_server.list_tools = AsyncMock(return_value=[])
 
     # Mock the as_proxy method to return a mock proxy
     mock_proxy = MagicMock()
-    mock_proxy.get_tools = AsyncMock(return_value={})
+    mock_proxy.list_tools = AsyncMock(return_value=[])
 
     with patch(
         "mcp_composer.core.member_servers.server_manager.MCPServerBuilder"
@@ -128,8 +129,8 @@ async def test_corrupt_entry_does_not_crash_composer(fake_db):
     # Should not raise error even though one entry is invalid
     await composer.setup_member_servers()
 
-    tools = await composer.get_tools()
-    assert isinstance(tools, dict), "Composer should recover from bad DB entries"
+    tools = await composer.list_tools()
+    assert isinstance(tools, list), "Composer should recover from bad DB entries"
 
 
 @pytest.mark.asyncio
@@ -190,11 +191,12 @@ async def test_no_database_config_works(fake_db, server_config):
     mock_server = MagicMock()
     mock_tool = MagicMock()
     mock_tool.name = f"{server_config['id']}_test_tool"
-    mock_server.get_tools = AsyncMock(return_value={mock_tool.name: mock_tool})
+    mock_tool.description = "Mock tool"
+    mock_server.list_tools = AsyncMock(return_value=[mock_tool])
 
     # Mock the as_proxy method to return a mock proxy
     mock_proxy = MagicMock()
-    mock_proxy.get_tools = AsyncMock(return_value={mock_tool.name: mock_tool})
+    mock_proxy.list_tools = AsyncMock(return_value=[mock_tool])
 
     with patch(
         "mcp_composer.core.member_servers.server_manager.MCPServerBuilder"
@@ -206,8 +208,8 @@ async def test_no_database_config_works(fake_db, server_config):
         await composer.setup_member_servers()
 
         # Should still work but not persist
-        tools = await composer.get_tools()
-        assert any(server_config["id"] in t for t in tools)
+        tools = await composer.list_tools()
+        assert any(server_config["id"] in t.name for t in tools)
 
         # Verify nothing was persisted to database
         assert len(fake_db._servers) == 0
@@ -232,9 +234,9 @@ async def test_composer_initializes_without_any_config(fake_db):
                 composer = MCPComposer("composer", config=None, database_config=fake_db)
 
                 # Should have basic composer tools available
-                tools = await composer.get_tools()
+                tools = await composer.list_tools()
                 assert isinstance(
-                    tools, dict
+                    tools, list
                 ), "Composer should have basic tools available"
                 assert len(tools) > 0, "Composer should have at least some basic tools"
 
@@ -249,7 +251,7 @@ async def test_composer_initializes_without_any_config(fake_db):
                     len(composer._db_configs) == 0
                 ), "No database configs should be loaded when no database provided"
                 assert (
-                    len(composer._config) == 0
+                    len(composer._server_config_manager.config) == 0
                 ), "No configs should be loaded when none provided"
 
                 # Should NOT create member_servers.json file automatically when no database config
@@ -299,9 +301,9 @@ async def test_composer_initializes_when_file_creation_fails(fake_db):
                 composer = MCPComposer("composer", config=None, database_config=fake_db)
 
                 # Should have basic composer tools available
-                tools = await composer.get_tools()
+                tools = await composer.list_tools()
                 assert isinstance(
-                    tools, dict
+                    tools, list
                 ), "Composer should have basic tools available"
                 assert len(tools) > 0, "Composer should have at least some basic tools"
 
@@ -316,7 +318,7 @@ async def test_composer_initializes_when_file_creation_fails(fake_db):
                     len(composer._db_configs) == 0
                 ), "No database configs should be loaded when no database provided"
                 assert (
-                    len(composer._config) == 0
+                    len(composer._server_config_manager.config) == 0
                 ), "No configs should be loaded when none provided"
 
                 # Should be able to call setup_member_servers without errors (it will just log a warning)
@@ -359,9 +361,9 @@ async def test_composer_initializes_with_invalid_file_path(fake_db):
                 composer = MCPComposer("composer", config=None, database_config=fake_db)
 
                 # Should have basic composer tools available
-                tools = await composer.get_tools()
+                tools = await composer.list_tools()
                 assert isinstance(
-                    tools, dict
+                    tools, list
                 ), "Composer should have basic tools available"
                 assert len(tools) > 0, "Composer should have at least some basic tools"
 
@@ -376,7 +378,7 @@ async def test_composer_initializes_with_invalid_file_path(fake_db):
                     len(composer._db_configs) == 0
                 ), "No database configs should be loaded when no database provided"
                 assert (
-                    len(composer._config) == 0
+                    len(composer._server_config_manager.config) == 0
                 ), "No configs should be loaded when none provided"
 
                 # Should be able to call setup_member_servers without errors (it will just log a warning)
@@ -422,8 +424,8 @@ async def test_composer_uses_local_file_adapter_when_no_database_config(
         await composer.setup_member_servers()
 
         # Should have basic composer tools available
-        tools = await composer.get_tools()
-        assert isinstance(tools, dict), "Composer should have basic tools available"
+        tools = await composer.list_tools()
+        assert isinstance(tools, list), "Composer should have basic tools available"
         assert len(tools) > 0, "Composer should have at least some basic tools"
 
         # Should have the server from config mounted in memory
@@ -445,7 +447,7 @@ async def test_composer_uses_local_file_adapter_when_no_database_config(
 
         # Should have config from the config parameter
         assert (
-            len(composer._config) == 1
+            len(composer._server_config_manager.config) == 1
         ), "One config should be loaded from the config parameter"
     finally:
         # Restore environment variables

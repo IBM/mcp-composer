@@ -57,19 +57,15 @@ class TestListFilteredTool:
         monkeypatch.setattr(_EXTRACT, lambda req: None)
         monkeypatch.setenv("MCP_COMPOSER_ENV", "local")
 
-        mock_tools = {
-            "tool1": {"name": "tool1", "description": "Filtered Tool 1"}
-        }
-
-        list_filtered_tool.gw.get_tools.return_value = mock_tools
+        mock_tools = {"tool1": {"name": "tool1", "description": "Filtered Tool 1"}}
+        mock_call_next.return_value = mock_tools
 
         result = await list_filtered_tool.on_list_tools(mock_context, mock_call_next)
 
-        list_filtered_tool.gw.get_tools.assert_called_once()
-        mock_call_next.assert_called_once_with(mock_context)
-        assert isinstance(result, list)
+        assert mock_call_next.call_count == 2
+        assert isinstance(result, dict)
         assert len(result) == 1
-        assert result[0]["name"] == "tool1"
+        assert result["tool1"]["name"] == "tool1"
 
     @pytest.mark.asyncio
     async def test_on_list_tools_empty_tools(
@@ -78,12 +74,11 @@ class TestListFilteredTool:
         """Empty tool list returns empty list."""
         monkeypatch.setattr(_EXTRACT, lambda req: None)
         monkeypatch.setenv("MCP_COMPOSER_ENV", "local")
-
-        list_filtered_tool.gw.get_tools.return_value = {}
+        mock_call_next.return_value = {}
 
         result = await list_filtered_tool.on_list_tools(mock_context, mock_call_next)
 
-        assert isinstance(result, list)
+        assert isinstance(result, dict)
         assert len(result) == 0
 
     @pytest.mark.asyncio
@@ -102,13 +97,13 @@ class TestListFilteredTool:
             }
         }
 
-        list_filtered_tool.gw.get_tools.return_value = mock_tools
+        mock_call_next.return_value = mock_tools
 
         result = await list_filtered_tool.on_list_tools(mock_context, mock_call_next)
 
-        assert isinstance(result, list)
+        assert isinstance(result, dict)
         assert len(result) == 1
-        assert result[0]["name"] == "complex_tool"
+        assert result["complex_tool"]["name"] == "complex_tool"
 
     # ------------------------------------------------------------------
     # on_list_tools — user instances present in header
@@ -123,9 +118,11 @@ class TestListFilteredTool:
         monkeypatch.setattr(_EXTRACT, lambda req: instances)
 
         mock_tools = {"mcp-wx-data_get_service_info": Mock()}
-        mock_filtered = {"mcp-wx-data_get_service_info": mock_tools["mcp-wx-data_get_service_info"]}
+        mock_filtered = {
+            "mcp-wx-data_get_service_info": mock_tools["mcp-wx-data_get_service_info"]
+        }
 
-        list_filtered_tool.gw.get_tools = AsyncMock(return_value=mock_tools)
+        mock_call_next.return_value = mock_tools
         list_filtered_tool.gw._tool_manager.filter_tools.return_value = mock_filtered
 
         await list_filtered_tool.on_list_tools(mock_context, mock_call_next)
@@ -142,15 +139,19 @@ class TestListFilteredTool:
     async def test_on_list_tools_tool_filter_error(
         self, list_filtered_tool, mock_context, mock_call_next, monkeypatch
     ):
-        """ToolFilterError from get_tools is re-raised with middleware message."""
+        """ToolFilterError from filter_tools is re-raised with middleware message."""
         monkeypatch.setattr(_EXTRACT, lambda req: None)
-        list_filtered_tool.gw.get_tools.side_effect = ToolFilterError("Filter error")
+        mock_call_next.return_value = {"tool1": Mock()}
+        list_filtered_tool.gw._tool_manager.filter_tools.side_effect = ToolFilterError(
+            "Filter error"
+        )
 
-        with pytest.raises(ToolFilterError, match="Tools filtering failed in middleware"):
+        with pytest.raises(
+            ToolFilterError, match="Tools filtering failed in middleware"
+        ):
             await list_filtered_tool.on_list_tools(mock_context, mock_call_next)
 
-        list_filtered_tool.gw.get_tools.assert_called_once()
-        mock_call_next.assert_not_called()
+        mock_call_next.assert_called_once_with(mock_context)
 
     @pytest.mark.asyncio
     async def test_on_list_tools_dev_prod_calls_filter_tools(
@@ -160,7 +161,7 @@ class TestListFilteredTool:
         monkeypatch.setattr(_EXTRACT, lambda req: None)
         mock_tools = {"tool1": Mock()}
         mock_filtered = {"tool1": mock_tools["tool1"]}
-        list_filtered_tool.gw.get_tools.return_value = mock_tools
+        mock_call_next.return_value = mock_tools
         list_filtered_tool.gw._tool_manager.filter_tools.return_value = mock_filtered
 
         result = await list_filtered_tool.on_list_tools(mock_context, mock_call_next)
@@ -168,39 +169,36 @@ class TestListFilteredTool:
         list_filtered_tool.gw._tool_manager.filter_tools.assert_called_once_with(
             mock_tools, user_instances=[]
         )
-        mock_call_next.assert_called_once()
+        assert mock_call_next.call_count == 2
         assert len(result) == 1
-        assert result[0] == mock_tools["tool1"]
+        assert result["tool1"] == mock_tools["tool1"]
 
     @pytest.mark.asyncio
-    async def test_on_list_tools_get_tools_generic_error(
+    async def test_on_list_tools_filter_tools_generic_error(
         self, list_filtered_tool, mock_context, mock_call_next, monkeypatch
     ):
-        """Generic error from get_tools propagates unchanged."""
+        """Generic error from filter_tools propagates unchanged."""
         monkeypatch.setattr(_EXTRACT, lambda req: None)
-        list_filtered_tool.gw.get_tools.side_effect = Exception("Get tools error")
+        mock_call_next.return_value = {"tool1": Mock()}
+        list_filtered_tool.gw._tool_manager.filter_tools.side_effect = Exception(
+            "Filter tools error"
+        )
 
-        with pytest.raises(Exception, match="Get tools error"):
+        with pytest.raises(Exception, match="Filter tools error"):
             await list_filtered_tool.on_list_tools(mock_context, mock_call_next)
 
-        mock_call_next.assert_not_called()
+        mock_call_next.assert_called_once_with(mock_context)
 
     @pytest.mark.asyncio
     async def test_on_list_tools_call_next_error(
         self, list_filtered_tool, mock_context, mock_call_next, monkeypatch
     ):
-        """Error raised by call_next propagates after filter_tools succeeds."""
+        """Error raised by call_next propagates when initial tool fetch fails."""
         monkeypatch.setattr(_EXTRACT, lambda req: None)
-        mock_tools = {"tool1": Mock()}
-        mock_filtered_tools = {"tool1": {"name": "tool1", "description": "Filtered Tool 1"}}
-        list_filtered_tool.gw.get_tools.return_value = mock_tools
-        list_filtered_tool.gw._tool_manager.filter_tools.return_value = mock_filtered_tools
         mock_call_next.side_effect = Exception("Call next error")
 
         with pytest.raises(Exception, match="Call next error"):
             await list_filtered_tool.on_list_tools(mock_context, mock_call_next)
 
-        list_filtered_tool.gw._tool_manager.filter_tools.assert_called_once_with(
-            mock_tools, user_instances=[]
-        )
+        list_filtered_tool.gw._tool_manager.filter_tools.assert_not_called()
         mock_call_next.assert_called_once_with(mock_context)
