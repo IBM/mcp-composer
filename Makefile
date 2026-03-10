@@ -16,16 +16,32 @@ TEST_IMAGE_URI = mcp-composer-test
 BUILD_ENGINE ?= docker
 BUILD_ENGINE_ARGS ?= --platform linux/amd64
 
-docker-build: docker-build-root
+# Pre-build step: Create symlinks for CRA compliance check
+# CRA builds from repo root, so we need files accessible at root level
+pre-build:
+	@echo "🔗 Creating symlinks for CRA build context..."
+	@ln -sf modules/mcp_composer/pyproject.toml pyproject.toml 2>/dev/null || true
+	@ln -sf modules/mcp_composer/uv.lock uv.lock 2>/dev/null || true
+	@ln -sf modules/mcp_composer/src src 2>/dev/null || true
+	@ln -sf modules/mcp_composer/composers composers 2>/dev/null || true
+	@echo "✅ Symlinks created for CRA build"
 
+# # Clean up symlinks after build
+# post-build:
+# 	@echo "🧹 Cleaning up symlinks..."
+# 	@rm -f pyproject.toml uv.lock 2>/dev/null || true
+# 	@rm -f src composers 2>/dev/null || true
+# 	@echo "✅ Symlinks cleaned"
+
+docker-build: 
+	$(BUILD_ENGINE) build $(BUILD_ENGINE_ARGS) $(BUILD_ARGS) $(DREADNOUGHT_DOCKER_BUILD_ARGS) \
+		-f modules/mcp_composer/Dockerfile -t $(ROOT_IMAGE_URI) modules/mcp_composer
 docker-push:
 	$(BUILD_ENGINE) push $(ROOT_IMAGE_URI)
 # 	$(BUILD_ENGINE) push $(SRC_APP_IMAGE_URI)
 # 	$(BUILD_ENGINE) push $(SRC_CLIENT_IMAGE_URI)
 
-docker-build-root:
-	$(BUILD_ENGINE) build $(BUILD_ENGINE_ARGS) $(BUILD_ARGS) $(DREADNOUGHT_DOCKER_BUILD_ARGS) \
-		-f modules/mcp_composer/Dockerfile -t $(ROOT_IMAGE_URI) modules/mcp_composer
+
 
 # docker-build-app:
 # 	$(BUILD_ENGINE) build $(BUILD_ENGINE_ARGS) --no-cache $(BUILD_ARGS) $(DREADNOUGHT_DOCKER_BUILD_ARGS) \
