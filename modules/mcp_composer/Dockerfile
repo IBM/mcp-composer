@@ -2,6 +2,7 @@ ARG BUILDER_IMAGE=icr.io/ibm-dreadnought-prod-images/ubi9/python312-builder
 ARG RUNTIME_IMAGE=icr.io/ibm-dreadnought-prod-images/ubi9/python312-runtime
 ARG DREADNOUGHT_PYTHON312_TAG=SET_VALID_TAG
 
+
 #########################################
 # -------- Stage 1: Builder --------
 #########################################
@@ -42,6 +43,20 @@ ENV UV_PYTHON=/usr/bin/python3.12
 
 RUN uv sync --locked --no-install-project --no-dev
 
+# Add runtime libraries needed for the application to /image folder for scratch runtime
+# This must be done AFTER installing the packages
+RUN extend-image \
+    /bin/uv \
+    /bin/uvx \
+    /usr/bin/sqlite3 \
+    /usr/lib64/libssl.so.* \
+    /usr/lib64/libcrypto.so.* \
+    /usr/lib64/libgcc_s.so.* \
+    /usr/lib64/libstdc++.so.* \
+    /usr/lib64/librt.so.* \
+    /usr/lib64/libsqlite3.so.* \
+    /usr/lib64/libnss_*
+
 
 #########################################
 # -------- Stage 2: Runtime --------
@@ -55,24 +70,12 @@ USER root
 WORKDIR /app
 
 COPY --from=builder /app /app
-COPY --from=builder /bin/uv /bin/uv
-COPY --from=builder /bin/uvx /bin/uvx
 
 COPY --from=builder /etc/pki /etc/pki
 COPY --from=builder /etc/ssl /etc/ssl
 COPY --from=builder /etc/nsswitch.conf /etc/nsswitch.conf
 COPY --from=builder /etc/passwd /etc/passwd
 COPY --from=builder /etc/group /etc/group
-
-COPY --from=builder /usr/lib64/libnss_* /usr/lib64/
-COPY --from=builder /usr/lib64/libssl.so.* /usr/lib64/
-COPY --from=builder /usr/lib64/libcrypto.so.* /usr/lib64/
-
-COPY --from=builder /usr/lib64/libgcc_s.so.* /usr/lib64/
-COPY --from=builder /usr/lib64/libstdc++.so.* /usr/lib64/
-COPY --from=builder /usr/lib64/librt.so.* /usr/lib64/
-COPY --from=builder /usr/lib64/libsqlite3.so.* /usr/lib64/
-COPY --from=builder /usr/bin/sqlite3 /usr/bin/sqlite3
 
 ENV PYTHONPATH=/app/src
 ENV UV_CACHE_DIR="/tmp/.cache/uv"

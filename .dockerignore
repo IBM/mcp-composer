@@ -1,8 +1,11 @@
 ### ignore all ###
 /*
 
-# (re)include core files:
+# Re-include modules directory for CRA builds from repo root
+!/modules/
+!/modules/mcp_composer/
 
+# Re-include core files at root level (if they exist)
 !/uv.lock
 !/pyproject.toml
 !/src/
@@ -10,20 +13,15 @@
 !/example
 !/spec
 !/composers
-
-
-# REQUIRED for docker build from repo root
 !Dockerfile
 !Dockerfile.*
-!src/**
-!composers/**
-
 
 ### ignore final ###
 __pycache__
 *.egg-info
-/src/mcp_composer/.*.example
-
+*.pyc
+.pytest_cache/
+.coverage
 
 ### metafiles ###
 .DS_Store
