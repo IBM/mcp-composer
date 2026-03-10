@@ -1,4 +1,6 @@
 # Exclude the dockerfile from scanning
+modules/mcp_composer/Dockerfile
 modules/mcp_composer/Dockerfile.test
 modules/mcp_composer/Dockerfile.local
+modules/mcp_composer_app/Dockerfile
 modules/mcp_composer_client/Dockerfile
