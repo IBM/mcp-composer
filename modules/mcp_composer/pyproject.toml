@@ -45,6 +45,7 @@ dependencies = [
     "jaraco-context>=6.1.0",
     "pyasn1>=0.6.2",
     "filelock>=3.20.3",
+    "instana>=3.11.0",
 ]
 
 [project.urls]
