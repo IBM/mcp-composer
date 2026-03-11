@@ -87,7 +87,7 @@ class MCPComposer(FastMCP):
         effective_db_config = env_db_config or database_config
 
         if effective_db_config:
-            logger.info("Database configuration found: %s", effective_db_config)
+            logger.info("Database configuration found" )
             try:
                 if isinstance(effective_db_config, DatabaseInterface):
                     database = effective_db_config
