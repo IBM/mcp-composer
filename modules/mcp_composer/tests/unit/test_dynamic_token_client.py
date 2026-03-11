@@ -1,7 +1,7 @@
 """Test module for dynamic_token_client.py"""
 
 import time
-from unittest.mock import Mock, patch
+from unittest.mock import AsyncMock, Mock, patch
 
 import httpx
 import pytest
@@ -222,7 +222,7 @@ class TestDynamicTokenClient:
 
         with pytest.raises(
             ValueError,
-            match="Either apikey or \\(id and secret\\) must be provided in auth_data\\.",
+            match="Either apikey, \\(id and secret\\), or \\(client_id, client_secret, refresh_token\\) must be provided in auth_data\\.",
         ):
             await mock_client._refresh_token()
 
@@ -312,6 +312,38 @@ class TestDynamicTokenClient:
                 time.time() + DEFAULT_TOKEN_EXPIRY - TOKEN_REFRESH_BUFFER
             )
             assert abs(mock_client._expires_at - expected_expires_at) < 1
+
+    @pytest.mark.asyncio
+    async def test_refresh_token_oauth_refresh_grant(self):
+        """Test token refresh using OAuth refresh_token grant (dynamic_bearer with refresh token)"""
+        auth_data = {
+            ConfigKey.Token_URL: "https://auth.example.com/oauth/token",
+            ConfigKey.CLIENT_ID: "client-id",
+            ConfigKey.CLIENT_SECRET: "client-secret",
+            ConfigKey.REFRESH_TOKEN: "refresh-token-123",
+        }
+        client = DynamicTokenClient(
+            base_url="https://api.example.com",
+            auth_data=auth_data,
+        )
+        with patch(
+            "mcp_composer.core.auth_handler.dynamic_token_client.refresh_access_token",
+            new_callable=AsyncMock,
+            return_value="oauth-access-token",
+        ) as mock_refresh:
+            await client._refresh_token()
+            mock_refresh.assert_called_once_with(
+                client_id="client-id",
+                client_secret="client-secret",
+                token_url="https://auth.example.com/oauth/token",
+                refresh_token="refresh-token-123",
+                scope=None,
+            )
+            assert client._access_token == "oauth-access-token"
+            expected_expires_at = (
+                time.time() + DEFAULT_TOKEN_EXPIRY - TOKEN_REFRESH_BUFFER
+            )
+            assert abs(client._expires_at - expected_expires_at) < 1
 
     @pytest.mark.asyncio
     async def test_request_with_valid_token(self, mock_client):

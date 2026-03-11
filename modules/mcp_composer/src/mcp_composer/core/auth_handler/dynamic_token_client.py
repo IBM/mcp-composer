@@ -4,7 +4,10 @@ from typing import Any
 
 import httpx
 
-from mcp_composer.core.auth_handler.oauth_handler import resolve_env_value
+from mcp_composer.core.auth_handler.oauth_handler import (
+    refresh_access_token,
+    resolve_env_value,
+)
 from mcp_composer.core.utils import AuthStrategy, ConfigKey, LoggerFactory
 
 logger = LoggerFactory.get_logger()
@@ -67,23 +70,47 @@ class DynamicTokenClient(httpx.AsyncClient):
         try:
             if not self.auth_data:
                 raise ValueError("Missing auth_data for token refresh.")
+            token_url = resolve_env_value(self.auth_data.get(ConfigKey.Token_URL))
+            if not token_url:
+                raise ValueError("token_url must be provided in auth_data.")
+
+            # OAuth refresh_token grant: client_id, client_secret, token_url, refresh_token
+            client_id = resolve_env_value(self.auth_data.get(ConfigKey.CLIENT_ID))
+            client_secret = resolve_env_value(
+                self.auth_data.get(ConfigKey.CLIENT_SECRET)
+            )
+            refresh_token_value = resolve_env_value(
+                self.auth_data.get(ConfigKey.REFRESH_TOKEN)
+            )
+            if client_id and client_secret and refresh_token_value:
+                logger.debug("Refreshing token using OAuth refresh_token grant")
+                access_token = await refresh_access_token(
+                    client_id=client_id,
+                    client_secret=client_secret,
+                    token_url=token_url,
+                    refresh_token=refresh_token_value,
+                    scope=self.auth_data.get(ConfigKey.SCOPE),
+                )
+                self._access_token = access_token
+                self._expires_at = time.time() + DEFAULT_TOKEN_EXPIRY - TOKEN_REFRESH_BUFFER
+                logger.debug(
+                    "Token refreshed successfully via refresh_token, expires in %s seconds",
+                    DEFAULT_TOKEN_EXPIRY,
+                )
+                return
+
             _id = resolve_env_value(self.auth_data.get(ConfigKey.ID))
             _secret = resolve_env_value(self.auth_data.get(ConfigKey.SECRET))
             apikey = resolve_env_value(self.auth_data.get(ConfigKey.APIKEY, None))
             scope = self.auth_data.get(ConfigKey.SCOPE, None)
             server = self.auth_data.get(ConfigKey.SERVER, "").lower()
-            # Expect apikey to be in headers: self.headers["apikey"]
-            token_url = self.auth_data.get(ConfigKey.Token_URL)
             auth_generation_method = self.auth_data.get(
                 ConfigKey.TOKEN_GEN_AUTH_METHOD, ""
             )
 
-            if not token_url:
-                raise ValueError("token_url must be provided in auth_data.")
-
             if not apikey and not (_id and _secret):
                 raise ValueError(
-                    "Either apikey or (id and secret) must be provided in auth_data."
+                    "Either apikey, (id and secret), or (client_id, client_secret, refresh_token) must be provided in auth_data."
                 )
 
             logger.debug("Refreshing token using method: %s", auth_generation_method)

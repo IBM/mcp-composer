@@ -176,11 +176,17 @@ class ServerConfigValidator:
         if strategy == AuthStrategy.DYNAMIC_BEARER:
             has_apikey = bool(auth.get(ConfigKey.APIKEY))
             has_id_secret = bool(auth.get("id")) and bool(auth.get("secret"))
+            has_refresh = bool(auth.get(ConfigKey.REFRESH_TOKEN))
+            has_client_creds = bool(auth.get(ConfigKey.CLIENT_ID) or auth.get("client_id")) and bool(
+                auth.get(ConfigKey.CLIENT_SECRET) or auth.get("client_secret")
+            )
             has_token_url = bool(auth.get(ConfigKey.Token_URL))
             if not has_token_url:
                 missing = [ConfigKey.Token_URL]
+            elif has_refresh and has_client_creds:
+                missing = []
             elif not (has_apikey or has_id_secret):
-                missing = ["apikey or (id and secret)"]
+                missing = ["apikey or (id and secret) or (client_id, client_secret, refreshToken)"]
             else:
                 missing = []
         # Special logic for aspera_oauth_handler - check for clientId or client_id, and secret or clientSecret
