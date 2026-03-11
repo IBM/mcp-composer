@@ -231,11 +231,12 @@ class MCPServerBuilder:
                     headers=headers,
                 )
                 await http_client._refresh_token()
-                dynamic_token_client_oauth = DynamicTokenClientOAuth(
-                    access_token=http_client._access_token,
-                    auth_prefix=http_client._auth_prefix,
-                )
-                http_client.auth = dynamic_token_client_oauth
+                # TODO: remove this code as its for the bug of not refreshing the token when the token is expired
+                #dynamic_token_client_oauth = DynamicTokenClientOAuth(
+                #    access_token=http_client._access_token,
+                #    auth_prefix=http_client._auth_prefix,
+                #)
+                #http_client.auth = dynamic_token_client_oauth
             case AuthStrategy.OAUTH:
                 logger.info("Setting up OAuth client with auto-refresh")
                 # Use the generic resolve_env_value function to handle ENV_* values

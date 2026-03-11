@@ -222,7 +222,7 @@ class TestDynamicTokenClient:
 
         with pytest.raises(
             ValueError,
-            match="Either apikey or \\(id and secret\\) must be provided in auth_data\\.",
+            match="Either apikey, \\(id and secret\\), or \\(client_id and client_secret\\) must be provided in auth_data\\.",
         ):
             await mock_client._refresh_token()
 

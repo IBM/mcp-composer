@@ -4,7 +4,11 @@ from typing import Any
 
 import httpx
 
-from mcp_composer.core.auth_handler.oauth_handler import resolve_env_value
+from mcp_composer.core.auth_handler.oauth_handler import (
+    get_access_token_client_credentials,
+    refresh_access_token,
+    resolve_env_value,
+)
 from mcp_composer.core.utils import AuthStrategy, ConfigKey, LoggerFactory
 
 logger = LoggerFactory.get_logger()
@@ -12,6 +16,7 @@ logger = LoggerFactory.get_logger()
 # Constants
 DEFAULT_TOKEN_EXPIRY = 3600  # 1 hour
 TOKEN_REFRESH_BUFFER = 60  # Refresh 1 minute early
+MAX_TOKEN_LIFETIME = 90 * 60  # 90 minutes - cap expiry so we refresh by then
 
 
 class DynamicTokenClientOAuth(httpx.Auth):
@@ -67,23 +72,67 @@ class DynamicTokenClient(httpx.AsyncClient):
         try:
             if not self.auth_data:
                 raise ValueError("Missing auth_data for token refresh.")
+            token_url = resolve_env_value(self.auth_data.get(ConfigKey.Token_URL))
+            if not token_url:
+                raise ValueError("token_url must be provided in auth_data.")
+
+            # OAuth: client_id + client_secret (+ optional refresh_token)
+            client_id = resolve_env_value(self.auth_data.get(ConfigKey.CLIENT_ID))
+            client_secret = resolve_env_value(
+                self.auth_data.get(ConfigKey.CLIENT_SECRET)
+            )
+            refresh_token_value = resolve_env_value(
+                self.auth_data.get(ConfigKey.REFRESH_TOKEN)
+            )
+            if client_id and client_secret:
+                if refresh_token_value:
+                    logger.debug("Refreshing token using OAuth refresh_token grant")
+                    access_token = await refresh_access_token(
+                        client_id=client_id,
+                        client_secret=client_secret,
+                        token_url=token_url,
+                        refresh_token=refresh_token_value,
+                        scope=self.auth_data.get(ConfigKey.SCOPE),
+                    )
+                    self._access_token = access_token
+                    self._expires_at = (
+                        time.time() + DEFAULT_TOKEN_EXPIRY - TOKEN_REFRESH_BUFFER
+                    )
+                    logger.debug(
+                        "Token refreshed via refresh_token, expires in %s seconds",
+                        DEFAULT_TOKEN_EXPIRY,
+                    )
+                else:
+                    logger.debug(
+                        "Getting token using OAuth client_credentials grant (no refresh_token)"
+                    )
+                    access_token, expires_in = await get_access_token_client_credentials(
+                        client_id=client_id,
+                        client_secret=client_secret,
+                        token_url=token_url,
+                        scope=self.auth_data.get(ConfigKey.SCOPE),
+                    )
+                    self._access_token = access_token
+                    effective = min(expires_in, MAX_TOKEN_LIFETIME)
+                    self._expires_at = time.time() + effective - TOKEN_REFRESH_BUFFER
+                    logger.debug(
+                        "Token via client_credentials, effective expiry %.1f min",
+                        effective / 60,
+                    )
+                return
+
             _id = resolve_env_value(self.auth_data.get(ConfigKey.ID))
             _secret = resolve_env_value(self.auth_data.get(ConfigKey.SECRET))
             apikey = resolve_env_value(self.auth_data.get(ConfigKey.APIKEY, None))
             scope = self.auth_data.get(ConfigKey.SCOPE, None)
             server = self.auth_data.get(ConfigKey.SERVER, "").lower()
-            # Expect apikey to be in headers: self.headers["apikey"]
-            token_url = self.auth_data.get(ConfigKey.Token_URL)
             auth_generation_method = self.auth_data.get(
                 ConfigKey.TOKEN_GEN_AUTH_METHOD, ""
             )
 
-            if not token_url:
-                raise ValueError("token_url must be provided in auth_data.")
-
             if not apikey and not (_id and _secret):
                 raise ValueError(
-                    "Either apikey or (id and secret) must be provided in auth_data."
+                    "Either apikey, (id and secret), or (client_id and client_secret) must be provided in auth_data."
                 )
 
             logger.debug("Refreshing token using method: %s", auth_generation_method)
@@ -176,9 +225,13 @@ class DynamicTokenClient(httpx.AsyncClient):
                     self._access_token,
                 )
                 expires_in = int(token_data.get("expires_in", DEFAULT_TOKEN_EXPIRY))
-                self._expires_at = time.time() + expires_in - TOKEN_REFRESH_BUFFER
+                effective = min(expires_in, MAX_TOKEN_LIFETIME)
+                self._expires_at = time.time() + effective - TOKEN_REFRESH_BUFFER
                 logger.debug(
-                    "Token refreshed successfully, expires in %s seconds", expires_in
+                    "Token refreshed successfully, server expires_in=%ss, effective=%ss (capped at 90 min), %.1f min from now",
+                    expires_in,
+                    effective,
+                    (self._expires_at - time.time()) / 60,
                 )
             else:
                 # No token received, raise the status error
@@ -197,10 +250,11 @@ class DynamicTokenClient(httpx.AsyncClient):
                     )
                     self._access_token = error_token
                     expires_in = int(error_data.get("expires_in", DEFAULT_TOKEN_EXPIRY))
-                    self._expires_at = time.time() + expires_in - TOKEN_REFRESH_BUFFER
+                    effective = min(expires_in, MAX_TOKEN_LIFETIME)
+                    self._expires_at = time.time() + effective - TOKEN_REFRESH_BUFFER
                     logger.debug(
-                        "Token refreshed successfully from error response, expires in %s seconds",
-                        expires_in,
+                        "Token from error response, effective=%ss (capped at 90 min)",
+                        effective,
                     )
                 else:
                     logger.error(
@@ -224,6 +278,18 @@ class DynamicTokenClient(httpx.AsyncClient):
             logger.error("Unexpected error during token refresh: %s", e)
             raise
 
+    async def ensure_token(self) -> None:
+        """Ensure the bearer token is present and not expired; refresh if needed.
+        Call this before making a request when the client is used outside request()
+        (e.g. from make_tool_call) so refresh based on expiry is always checked."""
+        now = time.time()
+        if not self._access_token or now >= self._expires_at:
+            logger.debug(
+                "ensure_token: token missing or expired (secs_until_expiry=%.1f), refreshing",
+                (self._expires_at - now) if self._expires_at else 0,
+            )
+            await self._refresh_token()
+
     async def request(
         self, method: str, url: httpx.URL | str, **kwargs: Any
     ) -> httpx.Response:
@@ -235,7 +301,16 @@ class DynamicTokenClient(httpx.AsyncClient):
                 return await super().request(method, url, **kwargs)
             except httpx.HTTPError as e:
                 logger.error("Failed to make token request to %s: %s", url, e)
-        if not self._access_token or time.time() >= self._expires_at:
+        now = time.time()
+        if not self._access_token or now >= self._expires_at:
+            secs_left = (self._expires_at - now) if self._expires_at else 0
+            logger.debug(
+                "Token refresh check: no_token=%s, expired=%s, secs_until_expiry=%.1f (%.1f min), refreshing",
+                not self._access_token,
+                now >= self._expires_at,
+                secs_left,
+                secs_left / 60,
+            )
             try:
                 await self._refresh_token()
             except (httpx.HTTPError, ValueError, RuntimeError) as e:
@@ -244,6 +319,13 @@ class DynamicTokenClient(httpx.AsyncClient):
                 self._access_token = None
                 self._expires_at = 0
                 raise
+        else:
+            secs_left = self._expires_at - now
+            logger.debug(
+                "Token still valid, secs_until_expiry=%.1f (%.1f min), using existing token",
+                secs_left,
+                secs_left / 60,
+            )
 
         # Merge initialization headers with request headers
         headers = self.headers.copy()
