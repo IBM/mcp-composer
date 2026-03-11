@@ -478,6 +478,7 @@ class MCPComposer(FastMCP):
                     "description": template.description,
                     "uri_template": str(template.uri_template),
                     "mime_type": template.mime_type,
+                    "parameters": template.parameters or {},
                     "tags": list(template.tags) if template.tags else [],
                 }
             )
