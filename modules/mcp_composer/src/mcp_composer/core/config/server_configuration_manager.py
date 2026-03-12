@@ -32,7 +32,9 @@ class ServerConfigurationManager:
         version_adapter_config: Optional[Dict[str, Any]] = None,
     ):
         """Initialize the configuration manager."""
-        self._config_manager = ConfigManager(get_version_adapter(version_adapter_config))
+        self._config_manager = ConfigManager(
+            get_version_adapter(version_adapter_config)
+        )
         self._config: list[dict] = []
         self._unified_config_applied = False
         self._unified_config = None
@@ -80,7 +82,7 @@ class ServerConfigurationManager:
         effective_db_config = env_db_config or database_config
 
         if effective_db_config:
-            logger.info("Database configuration found: %s", effective_db_config)
+            logger.info("Database configuration found")
             try:
                 if isinstance(effective_db_config, DatabaseInterface):
                     database = effective_db_config

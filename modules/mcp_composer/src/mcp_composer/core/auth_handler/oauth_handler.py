@@ -71,6 +71,51 @@ async def refresh_access_token(
     return access_token
 
 
+async def get_access_token_client_credentials(
+    *,
+    client_id: str,
+    client_secret: str,
+    token_url: str,
+    scope: Optional[str] = None,
+    timeout_seconds: float = 30.0,
+) -> tuple[str, int]:
+    """Get an access token using OAuth2 client_credentials grant (no refresh token).
+
+    Returns:
+        Tuple of (access_token, expires_in_seconds). Uses 3600 if server omits expires_in.
+    """
+    data: Dict[str, Any] = {
+        "grant_type": "client_credentials",
+        "client_id": client_id,
+        "client_secret": client_secret,
+    }
+    if scope:
+        data["scope"] = scope
+
+    async with httpx.AsyncClient(timeout=timeout_seconds) as client:
+        try:
+            response = await client.post(
+                token_url, data=data, headers={"Accept": "application/json"}
+            )
+            response.raise_for_status()
+        except httpx.HTTPError as exc:
+            logger.error("OAuth client_credentials request failed: %s", exc)
+            raise RuntimeError(
+                "Failed to get access token via client_credentials"
+            ) from exc
+
+    token_payload = response.json()
+    access_token = token_payload.get("access_token") or token_payload.get("id_token")
+    if not access_token:
+        logger.error(
+            "OAuth client_credentials response missing access token: %s", token_payload
+        )
+        raise RuntimeError("OAuth provider did not return an access token")
+
+    expires_in = int(token_payload.get("expires_in", 3600))
+    return access_token, expires_in
+
+
 async def build_oauth_client(
     base_url: str, auth_config: Dict[str, Any]
 ) -> httpx.AsyncClient:
