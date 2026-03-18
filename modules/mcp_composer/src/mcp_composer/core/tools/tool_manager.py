@@ -142,34 +142,38 @@ class MCPToolManager(ToolManager):
 
             # 4. Product-based filter: when user_instances is provided, keep only tools
             # whose server's product_id is in the user's instances (or server has no product_id)
+            server_to_product: dict[str, Optional[str]] = {
+                member.id: (member.config.get("solis_config") or {}).get("product_id")
+                for member in server_config
+            }
+
+            allowed_product_ids: set[str] = set()
             if user_instances:
                 logger.debug("TOOL FILTER :user_instances in filter tools: %s", user_instances)
-                allowed_product_ids = set()
-                for i in user_instances:
-                    pid = self._get_instance_product_id(i)
+                for inst in user_instances:
+                    pid = self._get_instance_product_id(inst)
                     if pid:
                         allowed_product_ids.add(pid)
                 logger.debug("TOOL FILTER :allowed_product_ids in filter tools: %s", allowed_product_ids)
-                server_to_product: dict[str, Optional[str]] = {}
-                for member in server_config:
-                    solis = member.config.get("solis_config") or {}
-                    server_to_product[member.id] = solis.get("product_id")
 
-                result = {}
-                for tool_name, tool in filtered_tools.items():
-                    server_id = tool_name_to_server_id(tool_name)
-                    logger.debug("TOOL FILTER :server_id in filter tools: %s", server_id)
-                    if server_id is None or server_id not in server_to_product:
-                        result[tool_name] = tool
-                        continue
+            result: dict[str, Any] = {}
+            for tool_name, tool in filtered_tools.items():
+                server_id = tool_name_to_server_id(tool_name)
+                logger.debug("TOOL FILTER :server_id in filter tools: %s", server_id)
+
+                # Always keep tools that are not mapped to a product-bearing server
+                if server_id is None or server_id not in server_to_product:
+                    result[tool_name] = tool
+                    continue
+
+                # If we have user instances, enforce product-based filtering
+                if allowed_product_ids:
                     product_id = server_to_product.get(server_id)
-                    if  product_id and product_id in allowed_product_ids:
+                    if product_id and product_id in allowed_product_ids:
                         result[tool_name] = tool
 
-                logger.debug("TOOL FILTER : result in filter tools: %s", result)
-                filtered_tools = result
-
-            return filtered_tools
+            logger.debug("TOOL FILTER : result in filter tools: %s", result)
+            return result
 
         except Exception as e:
             logger.exception("Tools filtering failed: %s", e)
