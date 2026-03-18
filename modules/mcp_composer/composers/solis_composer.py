@@ -19,7 +19,7 @@ from mcp_composer import MCPComposer
 from mcp_composer.core.auth.jwt.isv_token_validator import ISVTokenValidator
 from mcp_composer.core.tools import IBMDocSearchDirectTool
 from mcp_composer.core.utils import LoggerFactory
-from mcp_composer.middleware import TracingMiddleware
+from mcp_composer.middleware import PromptInjectionMiddleware, TracingMiddleware, SecretsAndPIIMiddleware
 from mcp_composer.middleware.auth_context_middleware import (
     AuthContextMiddleware,
     REQUEST_CONTEXT_KEY,
@@ -131,6 +131,14 @@ def setup_middleware(composer: MCPComposer) -> None:
     composer.add_middleware(middleware=ListFilteredTool(composer, isv_validator=isv_validator))
     composer.add_middleware(ErrorSanitizationMiddleware())
     logger.info("Added middleware: ListFilteredTool (with ISV auth), ErrorSanitizationMiddleware")
+
+    composer.add_middleware(PromptInjectionMiddleware())
+    logger.info("Added PromptInjectionMiddleware")
+
+    composer.add_middleware(middleware=SecretsAndPIIMiddleware())
+    logger.info("Added PIIMiddleware")
+
+
 
 
 # -----------------------------------------------------------------------------
