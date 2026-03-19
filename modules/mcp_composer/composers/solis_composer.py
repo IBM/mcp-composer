@@ -68,7 +68,7 @@ logger.info(
 # -----------------------------------------------------------------------------
 
 isv_validator = ISVTokenValidator(
-    environment=environment,
+    environment=os.getenv("ISV_ENVIRONMENT", "test"),
     cache_enabled=cache_enabled,
     cache_ttl=cache_ttl,
     timeout=timeout,

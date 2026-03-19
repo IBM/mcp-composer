@@ -300,7 +300,15 @@ class DynamicTokenClient(httpx.AsyncClient):
             try:
                 return await super().request(method, url, **kwargs)
             except httpx.HTTPError as e:
-                logger.error("Failed to make token request to %s: %s", url, e)
+                # Must re-raise: swallowing here falls through to _refresh_token() and
+                # re-enters the same token POST, causing repeated ~timeout loops.
+                logger.error(
+                    "Failed to make token request to %s: %s: %s",
+                    url,
+                    type(e).__name__,
+                    e or repr(e),
+                )
+                raise
         now = time.time()
         if not self._access_token or now >= self._expires_at:
             secs_left = (self._expires_at - now) if self._expires_at else 0

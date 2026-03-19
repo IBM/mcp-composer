@@ -9,11 +9,12 @@ from mcp_composer.core.utils.logger import LoggerFactory
 from mcp_composer.core.auth.jwt.isv_token_validator import ISVUser
 if TYPE_CHECKING:
     from mcp_composer.core.auth.jwt.isv_token_validator import ISVTokenValidator
+from starlette.exceptions import HTTPException
 
 logger = LoggerFactory.get_logger()
-
+env = os.getenv("MCP_COMPOSER_ENV", "dev").lower()
 CONTEXT_REQUEST_KEY = "fastmcp_context.request_context.request"
-
+ENV_LOCAL = "local"
 
 class ListFilteredTool(Middleware):
     """Filter tools of member server before sending to clients.
@@ -93,7 +94,7 @@ class ListFilteredTool(Middleware):
         Raises:
             HTTPException: If authentication cookie is present but validation fails
         """
-        from starlette.exceptions import HTTPException
+        
 
         # If no validator was provided, we cannot perform ISV authentication here.
         # Guard defensively to avoid attribute errors when middleware is configured without ISV validator.
@@ -111,7 +112,12 @@ class ListFilteredTool(Middleware):
         if not has_auth_cookie:
             # No authentication cookie present - skip authentication
             logger.debug("No authentication cookie '%s' found, skipping ISV authentication", cookie_name)
-            return []
+            if env == ENV_LOCAL:
+                logger.info("authentication cookie %s is missing in local mode", cookie_name)
+                return []
+            else:
+                logger.debug("Authentication cookie '%s' found, performing ISV authentication", cookie_name)
+                raise HTTPException(status_code=401, detail="Authentication required")
 
         # Cookie is present - authentication is REQUIRED
         try:
