@@ -7,6 +7,7 @@ from mcp_composer.core.utils.context_request import ctx_get, extract_user_instan
 from mcp_composer.core.utils.exceptions import ToolFilterError
 from mcp_composer.core.utils.logger import LoggerFactory
 from mcp_composer.core.auth.jwt.isv_token_validator import ISVUser
+
 if TYPE_CHECKING:
     from mcp_composer.core.auth.jwt.isv_token_validator import ISVTokenValidator
 from starlette.exceptions import HTTPException
@@ -15,6 +16,7 @@ logger = LoggerFactory.get_logger()
 env = os.getenv("MCP_COMPOSER_ENV", "dev").lower()
 CONTEXT_REQUEST_KEY = "fastmcp_context.request_context.request"
 ENV_LOCAL = "local"
+
 
 class ListFilteredTool(Middleware):
     """Filter tools of member server before sending to clients.
@@ -83,7 +85,6 @@ class ListFilteredTool(Middleware):
                 len(filtered_tools),
             )
 
-            await call_next(context)
             return filtered_tools
         except ToolFilterError as e:
             logger.exception("Tools filtering failed in middleware: %s", e)
@@ -104,13 +105,14 @@ class ListFilteredTool(Middleware):
         Raises:
             HTTPException: If authentication cookie is present but validation fails
         """
-        
 
         # If no validator was provided, we cannot perform ISV authentication here.
         # Guard defensively to avoid attribute errors when middleware is configured without ISV validator.
         validator = self.isv_validator
         if validator is None:
-            logger.debug("ListFilteredTool called without ISV validator; skipping authentication")
+            logger.debug(
+                "ListFilteredTool called without ISV validator; skipping authentication"
+            )
             return []
 
         # Check if authentication cookie is present
@@ -123,14 +125,21 @@ class ListFilteredTool(Middleware):
 
         if not has_auth_cookie:
             # No authentication cookie present - skip authentication
-            logger.debug("No authentication cookie '%s' found, skipping ISV authentication", cookie_name)
+            logger.debug(
+                "No authentication cookie '%s' found, skipping ISV authentication",
+                cookie_name,
+            )
             if env == ENV_LOCAL:
-                logger.info("authentication cookie %s is missing in local mode", cookie_name)
+                logger.info(
+                    "authentication cookie %s is missing in local mode", cookie_name
+                )
                 return []
             else:
-                logger.debug("Authentication cookie '%s' found, performing ISV authentication", cookie_name)
+                logger.debug(
+                    "Authentication cookie '%s' found, performing ISV authentication",
+                    cookie_name,
+                )
                 raise HTTPException(status_code=401, detail="Authentication required")
-
 
         # Cookie is present - authentication is REQUIRED
         try:
@@ -147,17 +156,20 @@ class ListFilteredTool(Middleware):
 
                 request.state = State()
 
-            
-
             request.state.user = ISVUser(token_data)
 
             user_instances = token_data.get("user_instances", [])
             logger.debug("User instances in ListFilteredTool: %s", user_instances)
             if not user_instances:
-                logger.error("Authentication succeeded but failed to fetch user instances - this is a security error")
-                #raise HTTPException(status_code=403, detail="Failed to fetch user instances")
+                logger.error(
+                    "Authentication succeeded but failed to fetch user instances - this is a security error"
+                )
+                # raise HTTPException(status_code=403, detail="Failed to fetch user instances")
                 return []
-            logger.info("✓ Authentication successful for list_tools (found %d instances)", len(user_instances))
+            logger.info(
+                "✓ Authentication successful for list_tools (found %d instances)",
+                len(user_instances),
+            )
 
             return user_instances
 
