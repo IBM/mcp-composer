@@ -100,7 +100,10 @@ async def get_access_token_client_credentials(
             response.raise_for_status()
         except httpx.HTTPError as exc:
             logger.error("OAuth client_credentials request failed: %s", exc)
-            raise RuntimeError("Failed to get access token via client_credentials") from exc
+            raise RuntimeError(
+                "Failed to get access token via client_credentials"
+            ) from exc
+
 
     token_payload = response.json()
     access_token = token_payload.get("access_token") or token_payload.get("id_token")

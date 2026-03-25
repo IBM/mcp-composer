@@ -276,4 +276,3 @@ help:
 	@echo "  make check-release module=mcp_composer"
 	@echo "  make upload-testpypi module=mcp_composer version=1.0.0"
 	@echo "  make upload-pypi module=mcp_composer version=1.0.0"
-

@@ -11,11 +11,36 @@ from collections import defaultdict
 from typing import Any, Dict, Optional, Tuple
 from fastmcp.server.middleware import Middleware, MiddlewareContext, CallNext
 from fastmcp.exceptions import ToolError
+from fastmcp.tools.tool import ToolResult
 from mcp.types import TextContent, CallToolResult
 
 from mcp_composer.core.utils.logger import LoggerFactory
 
 logger = LoggerFactory.get_logger()
+
+
+class _ErrorToolResult(ToolResult):
+    """ToolResult subclass for sanitized error responses.
+
+    Provides `.to_mcp_result()` (required by the FastMCP middleware pipeline)
+    and exposes `.isError` / `.structuredContent` for direct attribute access.
+    """
+
+    isError: bool = True
+    structuredContent: dict[str, Any] | None = None
+
+    def __init__(self, content: list, structured_content: dict, **kwargs):
+        super().__init__(
+            content=content, structured_content=structured_content, **kwargs
+        )
+        self.structuredContent = structured_content
+
+    def to_mcp_result(self):
+        return CallToolResult(
+            content=self.content,
+            structuredContent=self.structured_content,
+            isError=True,
+        )
 
 
 class ErrorSanitizationMiddleware(Middleware):
@@ -163,18 +188,21 @@ class ErrorSanitizationMiddleware(Middleware):
             )
 
         # Validation errors
-        if any(
-            term in error_str
-            for term in [
-                "validation",
-                "invalid",
-                "malformed",
-                "parse",
-                "json",
-                "schema",
-                "validationerror",
-            ]
-        ) or "ValidationError" in error_type:
+        if (
+            any(
+                term in error_str
+                for term in [
+                    "validation",
+                    "invalid",
+                    "malformed",
+                    "parse",
+                    "json",
+                    "schema",
+                    "validationerror",
+                ]
+            )
+            or "ValidationError" in error_type
+        ):
             return (
                 "validation",
                 "The request contains invalid data. Please check your input and try again.",
@@ -245,9 +273,7 @@ class ErrorSanitizationMiddleware(Middleware):
 
         return error_msg.strip()
 
-    def _get_alternative_suggestions(
-        self, tool_name: str, category: str
-    ) -> list[str]:
+    def _get_alternative_suggestions(self, tool_name: str, category: str) -> list[str]:
         """Generate alternative suggestions based on tool and error category."""
         suggestions = []
 
@@ -338,8 +364,8 @@ class ErrorSanitizationMiddleware(Middleware):
 
     def _sanitize_error_result(
         self, result: Dict[str, Any], tool_name: str
-    ) -> Any:
-        """Sanitize a tool result that is an error; return CallToolResult with isError=True."""
+    ) -> _ErrorToolResult:
+        """Sanitize a tool result that is an error; return _ErrorToolResult."""
         status_code = result.get("status_code")
         raw_message = self._extract_raw_message(result)
         category, user_msg, suggestion = self._categorize_error(Exception(raw_message))
@@ -367,11 +393,9 @@ class ErrorSanitizationMiddleware(Middleware):
         if suggestion:
             structured["suggestion"] = suggestion
 
-        # Return CallToolResult with isError=True so the client/agent treats it as an error
-        return CallToolResult(
+        return _ErrorToolResult(
             content=[TextContent(type="text", text=error_text)],
-            structuredContent=structured,
-            isError=True,
+            structured_content=structured,
         )
 
     def _get_method_name(self, context: MiddlewareContext) -> str:
@@ -388,53 +412,59 @@ class ErrorSanitizationMiddleware(Middleware):
             # Check for resource URI
             if hasattr(msg, "uri") and msg.uri:
                 return f"read_resource:{msg.uri}"
-        
+
         # Try to get from context attributes
         method = getattr(context, "method", None)
         if method:
             return str(method)
-        
+
         return "unknown"
 
     def _track_error(self, error: Exception, method: str) -> None:
         """Track error statistics."""
         if not self.track_statistics:
             return
-        
+
         error_key = f"{type(error).__name__}:{method}"
         self.error_counts[error_key] += 1
 
     def _log_error(
-        self, error: Exception, method: str, category: str, tool_name: Optional[str] = None
+        self,
+        error: Exception,
+        method: str,
+        category: str,
+        tool_name: Optional[str] = None,
     ) -> None:
         """Log error with context."""
         context_info = f"Error in {method}"
         if tool_name and tool_name != "<unknown>":
             context_info += f" (tool: {tool_name})"
         context_info += f": {type(error).__name__}: {error}"
-        
+
         if self.log_full_traceback:
             logger.error(f"{context_info}\n{traceback.format_exc()}")
         else:
             logger.error(context_info)
 
-    async def on_message(
-        self, context: MiddlewareContext, call_next: CallNext
-    ) -> Any:
+    async def on_message(self, context: MiddlewareContext, call_next: CallNext) -> Any:
         """Intercept all messages and handle errors at message level."""
         method = self._get_method_name(context)
-        
+
         try:
             return await call_next(context)
         except Exception as error:
             # Track error statistics
             self._track_error(error, method)
-            
+
             # Log the error
-            tool_name = getattr(context.message, "name", None) if hasattr(context, "message") else None
+            tool_name = (
+                getattr(context.message, "name", None)
+                if hasattr(context, "message")
+                else None
+            )
             category, _, _ = self._categorize_error(error)
             self._log_error(error, method, category, tool_name)
-            
+
             # Re-raise to let specific hooks handle sanitization
             raise
 
@@ -451,7 +481,11 @@ class ErrorSanitizationMiddleware(Middleware):
         try:
             result = await call_next(context)
             # Sanitize tool results that are errors (top-level error, status_code 4xx/5xx, or data.error)
-            if self.enable_sanitization and isinstance(result, dict) and self._is_error_result(result):
+            if (
+                self.enable_sanitization
+                and isinstance(result, dict)
+                and self._is_error_result(result)
+            ):
                 result = self._sanitize_error_result(result, tool_name)
             return result
 
@@ -486,11 +520,9 @@ class ErrorSanitizationMiddleware(Middleware):
                 for alt in alternatives:
                     error_text += f"  • {alt}\n"
 
-            # Return CallToolResult with error
-            return CallToolResult(
+            return _ErrorToolResult(
                 content=[TextContent(type="text", text=error_text)],
-                structuredContent=error_details,
-                isError=True,
+                structured_content=error_details,
             )
 
         except Exception as e:
@@ -524,11 +556,9 @@ class ErrorSanitizationMiddleware(Middleware):
                 for alt in alternatives:
                     error_text += f"  • {alt}\n"
 
-            # Return CallToolResult with error
-            return CallToolResult(
+            return _ErrorToolResult(
                 content=[TextContent(type="text", text=error_text)],
-                structuredContent=error_details,
-                isError=True,
+                structured_content=error_details,
             )
 
     def get_error_statistics(self) -> Dict[str, int]:

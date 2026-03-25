@@ -2,18 +2,18 @@
 
 from __future__ import annotations
 import inspect
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Optional, Sequence, Any
 
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 
-from fastmcp.tools import ToolManager
-from fastmcp.tools.tool import Tool
-from fastmcp.settings import DuplicateBehavior
 
+from fastmcp.tools.tool import Tool
+from fastmcp.server.providers import LocalProvider
 
 from mcp_composer.core.member_servers.member_server import HealthStatus, MemberMCPServer
 from mcp_composer.middleware.auth_utils import tool_name_to_server_id
+from mcp_composer.core.models import tool
 from mcp_composer.core.utils.exceptions import ToolDisableError, ToolDuplicateError
 from mcp_composer.store.database import DatabaseInterface
 from mcp_composer.core.utils import LoggerFactory, get_server_doc_info
@@ -38,49 +38,68 @@ except ImportError:
 logger = LoggerFactory.get_logger()
 
 
-class MCPToolManager(ToolManager):
+class MCPToolManager:
     """Manages member servers tools."""
 
     def __init__(
         self,
         composer: MCPComposer,
         server_manager: ServerManager,
-        duplicate_behavior: DuplicateBehavior | None = None,
         database: Optional[DatabaseInterface] = None,
     ):
-        super().__init__(duplicate_behavior)
+        # Note: ToolManager doesn't exist in FastMCP 3.0, so we don't inherit from it
         self._composer = composer
         self._server_manager = server_manager
         self._database = database
         self._disabled_tools: list[str] = []
+        self._tools: list[str] = []
 
     def _get_mounted_servers(self):
-        """Safely access _mounted_servers, returning empty list if not initialized."""
-        return self._composer._mounted_servers
+        """Safely access mounted servers, returning empty list if not initialized."""
+        mounted_servers = getattr(self._composer, "_mounted_servers", None)
+        if isinstance(mounted_servers, list):
+            return mounted_servers
+        return []
 
     def unmount(self, server_id):
         """Unmount a member server"""
-        # Find the matching mounted server
-        # First try to get from parent class
-        parent_mounted = self._get_mounted_servers()
-        if not parent_mounted:
-            return
-        # Access the parent class's _mounted_servers directly for deletion
-        for idx, mounted_server in enumerate(parent_mounted):
-            if hasattr(mounted_server, "prefix") and mounted_server.prefix == server_id:
-                del parent_mounted[idx]
-                break
+        try:
+            # Find the matching mounted server
+            parent_mounted = self._get_mounted_servers()
+            # Access the parent class's _mounted_servers directly for deletion
+            for idx, mounted_server in enumerate(parent_mounted):
+                if (
+                    hasattr(mounted_server, "prefix")
+                    and mounted_server.prefix == server_id
+                ):
+                    del parent_mounted[idx]
+                    break
+            # unmount the server from the composer(FastMCP instance) providers
+            # Note: FastMCP 3.0 doesn't have a built-in tool manager or a standard way to unmount providers,
+            providers = getattr(self._composer, "providers", [])
+            for idx, provider in enumerate(list(providers)):
+                if not isinstance(provider, LocalProvider):
+                    transforms = getattr(provider, "transforms", None) or []
+                    if transforms:
+                        namespace = transforms[0]
+                        namespace_prefix = getattr(namespace, "_prefix", None)
+                        if namespace_prefix == server_id:
+                            del providers[idx]
+                            break
+        except Exception as e:
+            logger.exception("Error unmounting server '%s': %s", server_id, e)
+            raise RuntimeError(f"Error unmounting server '{server_id}'") from e
 
     async def has_tool(self, key: str | list[str]) -> bool:
         """Check if one or more tools exist by name."""
-        tools = await self.get_tools()
+        tools = await self._composer.list_tools()
 
         if isinstance(key, str):
             # Single key: short-circuit search
-            return any(tool.name == key for tool in tools.values())
+            return any(tool.name == key for tool in tools)
 
         # Multiple keys: build set once, then check
-        tool_names = {tool.name for tool in tools.values()}
+        tool_names = {tool.name for tool in tools}
         return any(k in tool_names for k in key)
 
     def _get_instance_product_id(self, instance: dict[str, Any]) -> Optional[str]:
@@ -94,9 +113,9 @@ class MCPToolManager(ToolManager):
 
     def filter_tools(
         self,
-        tools: dict[str, Tool],
+        tools: Sequence[Tool],
         user_instances: Optional[list[dict[str, Any]]] = None,
-    ) -> dict[str, Tool]:
+    ) -> Sequence[Tool]:
         """
         Filters and updates a dictionary of tools based on server configuration and
         locally disabled tools, performing the following actions for all member servers:
@@ -109,8 +128,10 @@ class MCPToolManager(ToolManager):
 
             # 1. Special case: If all tools are disabled locally
             if self._disabled_tools == ["all"]:
-                tool = self.add_tool(Tool.from_function(self.enable_all_tools))
-                return {tool.name: tool}
+                tool = self._composer.add_tool(
+                    Tool.from_function(self.enable_all_tools)
+                )
+                return [tool]
 
             # 2. Gather all disabled tools and description updates
             # Start with locally disabled tools
@@ -133,12 +154,16 @@ class MCPToolManager(ToolManager):
                     for name, desc in member.tools_description.items():
                         description_updates[f"{member.id}_{name}"] = desc
 
+            self._composer.disable(names=remove_set)
+
             # 3. Filter and update the tools dictionary
-            filtered_tools = {tool_name: tool for tool_name, tool in tools.items() if tool_name not in remove_set}
+            # filtered_tools = [tool for tool in tools if tool.name not in remove_set]
+
             # Update descriptions for the remaining tools
             for name, description in description_updates.items():
-                if name in filtered_tools:
-                    filtered_tools[name].description = description
+                for tool in tools:
+                    if tool.name == name:
+                        tool.description = description
 
             # 4. Product-based filter: when user_instances is provided, keep only tools
             # whose server's product_id is in the user's instances (or server has no product_id)
@@ -185,10 +210,10 @@ class MCPToolManager(ToolManager):
             if custom_tools:
                 for name, func in inspect.getmembers(custom_tools, inspect.isfunction):
                     logger.info("Adding tool from custom tool folder: %s", name)
-                    self.add_tool(Tool.from_function(func))
+                    self._composer.add_tool(Tool.from_function(func))
             # Load tools from curl commands
             for tool_fn in await generate_tool_from_curl():
-                self.add_tool(Tool.from_function(tool_fn))
+                self._composer.add_tool(Tool.from_function(tool_fn))
 
             # Load tools from OpenAPI Specifications
             server_data = await generate_tool_from_open_api()
@@ -201,35 +226,41 @@ class MCPToolManager(ToolManager):
         server: MemberMCPServer,
         remove: Optional[list[str]] = None,
         description: Optional[dict[str, str]] = None,
-    ) -> dict[str, Tool]:
+    ) -> Sequence[Tool]:
         """Fetch member server tools"""
-        result = {}
+        result = []
         # Find the matching mounted server and get its tools
-        mounted_servers = self._get_mounted_servers()
+        mounted_servers = self._server_manager._member_servers
         if not mounted_servers:
             return result
 
-        for mounted_server in mounted_servers:
-            if mounted_server.prefix == server.id:
-                tools = await mounted_server.server.get_tools()
+        for name, mounted_server in mounted_servers.items():
+            if name == server.id:
+                if mounted_server.server is not None:
+                    tools = await mounted_server.server.list_tools()
 
-                server_tools = {k: v for k, v in tools.items()}
-                result = {k: v for k, v in server_tools.items() if not remove or k not in remove}
+                    server_tools = {tool.name: tool for tool in tools}
+                    result = [
+                        v
+                        for k, v in server_tools.items()
+                        if not remove or k not in remove
+                    ]
                 break  # Stop after finding the matching server
 
         # Update tool descriptions if provided
         if description:
             for name, desc in description.items():
-                if name in result:
-                    result[name].description = desc
+                for tool in result:
+                    if tool.name == name:
+                        tool.description = desc
         return result
 
     async def get_all_tools(
         self,
         server_id: Optional[str] = None,
-    ) -> dict[str, Tool]:
+    ) -> Sequence[Tool]:
         """Get all tools by key."""
-        tools: dict[str, Tool] = {}
+        tools: Sequence[Tool] = []
         remove = []
         composer_doc = self._server_manager.get_document(self._composer.name)
         if composer_doc:
@@ -251,7 +282,7 @@ class MCPToolManager(ToolManager):
             return await self.fetch_server_tools(server, remove, description)
 
         # Default Case: All tools
-        tools.update(await self.get_tools())
+        tools.extend(await self._composer.list_tools())
         logger.info("Default Case: Fetch all tools from member servers and composer")
         return tools
 
@@ -259,7 +290,7 @@ class MCPToolManager(ToolManager):
         """
         Get a tool configuration details
         """
-        tools = self.filter_tools(await self.get_tools())
+        tools = self.filter_tools(await self._composer.list_tools())
         tool_configs = tool_config(tools, name)
         logger.info("Tool configuration details by tool name:%s", tool_configs)
         return tool_configs
@@ -322,14 +353,19 @@ class MCPToolManager(ToolManager):
         enable a tool or multiple tools
         """
         disabled_tools = self._disabled_tools
-        tools_to_remove = [tool for tool in tools if tool in disabled_tools]
+        tools_to_remove = [tl for tl in tools if tl in disabled_tools]
         if not tools_to_remove:
             raise ValueError("Tool is not disabled")
         # Remove matching tools from disabled_tools
-        self._disabled_tools = [tool for tool in disabled_tools if tool not in tools_to_remove]
+        self._disabled_tools = [
+            tl for tl in disabled_tools if tl not in tools_to_remove
+        ]
+        self._composer.enable(names=set(tools_to_remove))
 
         if self._database:
-            self._database.enable_tools(self._disabled_tools, server_id=self._composer.name)
+            self._database.enable_tools(
+                self._disabled_tools, server_id=self._composer.name
+            )
 
         logger.info("Enabled %s tools from composer", tools)
         return f"Enabled {tools} tools from composer"
@@ -342,19 +378,30 @@ class MCPToolManager(ToolManager):
             self._disabled_tools = []
 
         if self._database:
-            self._database.enable_tools(self._disabled_tools, server_id=self._composer.name)
+            self._database.enable_tools(
+                self._disabled_tools, server_id=self._composer.name
+            )
 
         logger.info("Enabled all tools from composer")
         return "Enabled all tools from composer"
 
-    async def update_tool_description(self, tool: str, description: str, server_id: str) -> str:
+    async def update_tool_description(
+        self, tool: str, description: str, server_id: str
+    ) -> str:
         """
         Update tool description of member servers
         """
         self._server_manager.check_server_exist(server_id)
         server_tools = await self.get_all_tools(server_id)
-        await tool_exist(tool, server_tools)
-        self._server_manager.update_tool_description(tool, description, server_id)
+
+        # Extract tool name if it's prefixed with server_id
+        tool_name = tool
+        prefix = f"{server_id}_"
+        if tool.startswith(prefix):
+            tool_name = tool[len(prefix) :]
+
+        await tool_exist(tool_name, server_tools)
+        self._server_manager.update_tool_description(tool_name, description, server_id)
         logger.info(
             "Updated tool '%s' with description '%s' for server '%s'",
             tool,
@@ -369,8 +416,11 @@ class MCPToolManager(ToolManager):
         Returns tools sorted by similarity score (highest first).
         """
         logger.info("Filter tools by using keyword: %s", keyword)
-        tools = self.filter_tools(await self.get_tools())  # Get dict of tools: {name: tool}
-        tool_names = list(tools.keys())
+        tools = self.filter_tools(
+            await self._composer.list_tools()
+        )  # Get dict of tools: {name: tool}
+        tools = {t.name: t for t in tools}  # Ensure valid names
+        tool_names = [t.name for t in tools.values()]  # Extract tool names
 
         # Create corpus: keyword + all tool names
         corpus = [keyword] + tool_names
@@ -385,38 +435,49 @@ class MCPToolManager(ToolManager):
         similarities = cosine_similarity(keyword_vector, tool_vectors).flatten()
 
         # Pair tool names with similarity scores
-        scored_tools = sorted(zip(tool_names, similarities), key=lambda x: x[1], reverse=True)
+        scored_tools = sorted(
+            zip(tool_names, similarities), key=lambda x: x[1], reverse=True
+        )
         # You can apply a threshold to filter out very dissimilar tools if needed
         # Lower threshold for better matching of prefixed tool names
         similarity_threshold = 0.01
-        filtered_tools = {name: tools[name] for name, score in scored_tools if score >= similarity_threshold}
-        logger.info("Filtered tools list by using keyword '%s': %s", keyword, filtered_tools)
+        filtered_tools = {
+            name: tools[name]
+            for name, score in scored_tools
+            if score >= similarity_threshold
+        }
+        logger.info(
+            "Filtered tools list by using keyword '%s': %s", keyword, filtered_tools
+        )
         return filtered_tools
 
-    async def list_tools(self):
-        """List all tools as a list"""
-        tools_dict = await self.get_tools()
-        return list(tools_dict.values())
-
-    def disable_composer_tool(self, tools: Optional[list[str]] = None) -> str:
+    async def disable_composer_tool(self, tools: Optional[list[str]] = None) -> str:
         """
         Disable specified composer tools, or all composer tools if none are specified.
         """
         # 1. Determine the set of tools to disable
         if tools is None:
             # If no tools are specified, disable all available tools
-            tools_to_disable = list(self._tools.keys())
+            composer_tools = await self._composer.list_tools()
+            tools_to_disable = [tool.name for tool in composer_tools]
         else:
             # Check if all specified tools actually exist
+            if not self._tools:
+                composer_tools = await self._composer.list_tools()
+                self._tools = [tool.name for tool in composer_tools]
             non_existent_tools = [tool for tool in tools if tool not in self._tools]
             if non_existent_tools:
                 # Raise an error if any specified tool doesn't exist
-                raise ToolDisableError(f"One or more tools do not exist: {', '.join(non_existent_tools)}")
+                raise ToolDisableError(
+                    f"One or more tools do not exist: {', '.join(non_existent_tools)}"
+                )
             tools_to_disable = tools
 
         # 2. Update the local set of disabled tools
         existing_disabled_tools = set(self._disabled_tools)
-        newly_disabled_tools = [tool for tool in tools_to_disable if tool not in existing_disabled_tools]
+        newly_disabled_tools = [
+            tool for tool in tools_to_disable if tool not in existing_disabled_tools
+        ]
         self._disabled_tools.extend(newly_disabled_tools)
 
         # 4. Logging and return value

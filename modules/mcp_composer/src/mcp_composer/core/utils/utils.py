@@ -12,7 +12,7 @@ import aiohttp
 import httpx
 from aiohttp import ClientConnectorError
 from fastmcp.prompts.prompt import Prompt, PromptArgument
-from fastmcp.server.openapi import MCPType, RouteMap
+from fastmcp.server.providers.openapi import MCPType, RouteMap
 from pydantic import HttpUrl
 
 from mcp_composer.core.member_servers.member_server import HealthStatus, MemberMCPServer
@@ -25,8 +25,10 @@ from mcp_composer.core.utils.validator import MemberServerType, ConfigKey
 logger = LoggerFactory.get_logger()
 
 
-async def _get_status(session, server: MemberMCPServer) -> Tuple[int, MemberMCPServer]:
-    async with session.get(server.config.get("endpoint")) as resp:
+async def _get_status(
+    session, server: MemberMCPServer, endpoint: str
+) -> Tuple[int, MemberMCPServer]:
+    async with session.get(endpoint) as resp:
         return resp.status, server
 
 
@@ -84,16 +86,21 @@ async def get_member_health(
     """Fetch server status"""
     try:
         async with aiohttp.ClientSession(trust_env=True) as session:
-            tasks = {
-                server.id: asyncio.create_task(_get_status(session, server))
-                for server in server_config
-                if "endpoint" in server.config
-            }
+            task_items = []
+            for server in server_config:
+                endpoint = get_endpoint_from_config(server.config)
+                if endpoint:
+                    task_items.append(
+                        (server.id, _get_status(session, server, str(endpoint)))
+                    )
 
-            results = await asyncio.gather(*tasks.values())
+            if not task_items:
+                return []
+
+            results = await asyncio.gather(*(task for _, task in task_items))
 
             status = []
-            for (status_code, server), server_id in zip(results, tasks.keys()):
+            for (status_code, server), (server_id, _) in zip(results, task_items):
                 server_status = {}
                 health = (
                     HealthStatus.healthy

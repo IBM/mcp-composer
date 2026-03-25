@@ -4,7 +4,7 @@ from typing import Any, Dict, List, Optional
 
 import httpx
 from fastmcp import FastMCP
-from fastmcp.server.openapi import MCPType, RouteMap
+from fastmcp.server.providers.openapi import MCPType, RouteMap
 from fastmcp.tools.tool import Tool
 from fastmcp.utilities.openapi import (
     clean_schema_for_display,
@@ -60,7 +60,9 @@ except ImportError:
     AUTH_KEY_USER_INSTANCES_FULL = "user_instances_full"
     REQUEST_CONTEXT_KEY = "x-request-context"
     get_auth_context = lambda: None  # type: ignore[assignment]
-    logger.debug("AuthContextMiddleware not available - auth context forwarding disabled")
+    logger.debug(
+        "AuthContextMiddleware not available - auth context forwarding disabled"
+    )
 
 
 class LayeredOpenAPIFactory(FastMCP):
@@ -71,7 +73,9 @@ class LayeredOpenAPIFactory(FastMCP):
         server_id: str = "unknown",  # Server ID for authorization (legacy)
         product_id: str | None = None,  # NEW: Product ID for authorization matching
         custom_routes: list[RouteMap] | None = None,
-        custom_routes_exclude_all: (list[RouteMap] | None) = None,  # pylint: disable=unused-argument
+        custom_routes_exclude_all: (
+            list[RouteMap] | None
+        ) = None,  # pylint: disable=unused-argument
         tool_descriptions: dict[str, str] | None = None,
     ):
         # Initialize the parent FastMCP class first
@@ -134,8 +138,11 @@ All tools automatically resolve OpenAPI schema references and provide enhanced m
         self.service_info = self._build_service_metadata()
         self._tool_descriptions = tool_descriptions or {}
 
-        logger.info("LayeredOpenAPIFactory initialized with server_id: %s, product_id: %s",
-                   self.server_id, self.product_id)
+        logger.info(
+            "LayeredOpenAPIFactory initialized with server_id: %s, product_id: %s",
+            self.server_id,
+            self.product_id,
+        )
 
         # Create the underlying FastMCP server with custom routes
         # self._mcp_server = FastMCP.from_openapi(self.openapi_spec,
@@ -220,10 +227,14 @@ All tools automatically resolve OpenAPI schema references and provide enhanced m
             return None
 
         if not self.product_id:
-            logger.error("productId not configured in server config. Authorization cannot proceed.")
+            logger.error(
+                "productId not configured in server config. Authorization cannot proceed."
+            )
             return None
 
-        logger.info("Using productId-based authorization: productId='%s'", self.product_id)
+        logger.info(
+            "Using productId-based authorization: productId='%s'", self.product_id
+        )
 
         matching_instances = [
             inst
@@ -234,7 +245,9 @@ All tools automatically resolve OpenAPI schema references and provide enhanced m
 
         if matching_instances:
             selected = matching_instances[0]
-            subscription_name = (selected.get("subscription") or {}).get("subscriptionName", FALLBACK_UNKNOWN)
+            subscription_name = (selected.get("subscription") or {}).get(
+                "subscriptionName", FALLBACK_UNKNOWN
+            )
             logger.info(
                 "✓ Authorization successful: productId '%s' matched instance subscription '%s'",
                 self.product_id,
@@ -249,7 +262,10 @@ All tools automatically resolve OpenAPI schema references and provide enhanced m
 
         # No match found with productId
         available_products = list(
-            set(self._get_instance_product_id(inst) or FALLBACK_UNKNOWN for inst in instances)
+            set(
+                self._get_instance_product_id(inst) or FALLBACK_UNKNOWN
+                for inst in instances
+            )
         )
         logger.warning(
             "Authorization failed: productId '%s' not found in user instances. Available productIds: %s",
@@ -306,7 +322,6 @@ All tools automatically resolve OpenAPI schema references and provide enhanced m
         if instance_id := instance.get("id"):
             headers[REQUEST_CONTEXT_KEY] = instance_id
 
-
         logger.debug("Built instance headers: %s", list(headers.keys()))
         return headers
 
@@ -336,7 +351,9 @@ All tools automatically resolve OpenAPI schema references and provide enhanced m
 
         return current if isinstance(current, dict) else {}
 
-    def _extract_parameter_schemas(self, parameters: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    def _extract_parameter_schemas(
+        self, parameters: List[Dict[str, Any]]
+    ) -> List[Dict[str, Any]]:
         """
         Extract and enhance parameter information including schema details.
 
@@ -368,7 +385,9 @@ All tools automatically resolve OpenAPI schema references and provide enhanced m
                 enhanced_param = {
                     PARAMETER_KEYS["NAME"]: param.get(PARAMETER_KEYS["NAME"]),
                     PARAMETER_KEYS["IN"]: param.get(PARAMETER_KEYS["IN"]),
-                    PARAMETER_KEYS["REQUIRED"]: param.get(PARAMETER_KEYS["REQUIRED"], DEFAULT_VALUES["REQUIRED"]),
+                    PARAMETER_KEYS["REQUIRED"]: param.get(
+                        PARAMETER_KEYS["REQUIRED"], DEFAULT_VALUES["REQUIRED"]
+                    ),
                     PARAMETER_KEYS["TYPE"]: (
                         schema.get(SCHEMA_KEYS["TYPE"], DEFAULT_VALUES["UNKNOWN_TYPE"])
                         if schema
@@ -386,7 +405,9 @@ All tools automatically resolve OpenAPI schema references and provide enhanced m
 
         return enhanced_params
 
-    def _extract_request_body_schema(self, request_body: Dict[str, Any]) -> Dict[str, Any]:
+    def _extract_request_body_schema(
+        self, request_body: Dict[str, Any]
+    ) -> Dict[str, Any]:
         """
         Extract and clean schema from request body using fastmcp utilities.
 
@@ -515,16 +536,22 @@ All tools automatically resolve OpenAPI schema references and provide enhanced m
                                     ),
                                     SERVICE_KEYS["HTTP_METHOD"]: http_method.upper(),
                                     SERVICE_KEYS["PATH"]: path,
-                                    SERVICE_KEYS["PARAMETERS"]: self._extract_parameter_schemas(
+                                    SERVICE_KEYS[
+                                        "PARAMETERS"
+                                    ]: self._extract_parameter_schemas(
                                         operation.get(
                                             OPERATION_KEYS["PARAMETERS"],
                                             DEFAULT_VALUES["EMPTY_LIST"],
                                         )
                                     ),
-                                    SERVICE_KEYS["REQUEST_BODY"]: self._extract_request_body_schema(
+                                    SERVICE_KEYS[
+                                        "REQUEST_BODY"
+                                    ]: self._extract_request_body_schema(
                                         operation.get(OPERATION_KEYS["REQUEST_BODY"])
                                     ),
-                                    SERVICE_KEYS["RESPONSES"]: self._extract_response_schemas(
+                                    SERVICE_KEYS[
+                                        "RESPONSES"
+                                    ]: self._extract_response_schemas(
                                         operation.get(
                                             OPERATION_KEYS["RESPONSES"],
                                             DEFAULT_VALUES["EMPTY_DICT"],
@@ -597,14 +624,18 @@ All tools automatically resolve OpenAPI schema references and provide enhanced m
         """
         if service not in self.service_info:
             return {
-                RESPONSE_KEYS["ERROR"]: ERROR_MESSAGES["SERVICE_NOT_FOUND"].format(service),
+                RESPONSE_KEYS["ERROR"]: ERROR_MESSAGES["SERVICE_NOT_FOUND"].format(
+                    service
+                ),
                 "available_services": list(self.service_info.keys()),
             }
 
         service_data = self.service_info[service]
 
         # Parameters are already enhanced with schema information
-        parameters = service_data.get(SERVICE_KEYS["PARAMETERS"], DEFAULT_VALUES["EMPTY_LIST"])
+        parameters = service_data.get(
+            SERVICE_KEYS["PARAMETERS"], DEFAULT_VALUES["EMPTY_LIST"]
+        )
 
         return {
             "service": service,
@@ -630,7 +661,9 @@ All tools automatically resolve OpenAPI schema references and provide enhanced m
             return {
                 "available_services": {
                     name: {
-                        SERVICE_KEYS["OPERATION_ID"]: info[SERVICE_KEYS["OPERATION_ID"]],
+                        SERVICE_KEYS["OPERATION_ID"]: info[
+                            SERVICE_KEYS["OPERATION_ID"]
+                        ],
                         SERVICE_KEYS["DESCRIPTION"]: info[SERVICE_KEYS["DESCRIPTION"]],
                         SERVICE_KEYS["SUMMARY"]: info[SERVICE_KEYS["SUMMARY"]],
                         SERVICE_KEYS["HTTP_METHOD"]: info[SERVICE_KEYS["HTTP_METHOD"]],
@@ -645,7 +678,9 @@ All tools automatically resolve OpenAPI schema references and provide enhanced m
 
         if service not in self.service_info:
             return {
-                RESPONSE_KEYS["ERROR"]: ERROR_MESSAGES["SERVICE_NOT_FOUND"].format(service),
+                RESPONSE_KEYS["ERROR"]: ERROR_MESSAGES["SERVICE_NOT_FOUND"].format(
+                    service
+                ),
                 "available_services": list(self.service_info.keys()),
             }
 
@@ -681,23 +716,35 @@ All tools automatically resolve OpenAPI schema references and provide enhanced m
                     ]
                 ),
                 "has_schemas": any(
-                    p.get("schema") for p in service_data.get(SERVICE_KEYS["PARAMETERS"], []) if isinstance(p, dict)
+                    p.get("schema")
+                    for p in service_data.get(SERVICE_KEYS["PARAMETERS"], [])
+                    if isinstance(p, dict)
                 ),
             },
             "request_body_summary": {
                 "has_schema": bool(service_data.get(SERVICE_KEYS["REQUEST_BODY"])),
                 "has_example": (
-                    bool(service_data.get(SERVICE_KEYS["REQUEST_BODY"], {}).get(SCHEMA_KEYS["EXAMPLE"]))
+                    bool(
+                        service_data.get(SERVICE_KEYS["REQUEST_BODY"], {}).get(
+                            SCHEMA_KEYS["EXAMPLE"]
+                        )
+                    )
                     if service_data.get(SERVICE_KEYS["REQUEST_BODY"])
                     else False
                 ),
                 "has_ref": (
-                    bool(service_data.get(SERVICE_KEYS["REQUEST_BODY"], {}).get("original_ref"))
+                    bool(
+                        service_data.get(SERVICE_KEYS["REQUEST_BODY"], {}).get(
+                            "original_ref"
+                        )
+                    )
                     if service_data.get(SERVICE_KEYS["REQUEST_BODY"])
                     else False
                 ),
                 "schema_type": (
-                    service_data.get(SERVICE_KEYS["REQUEST_BODY"], {}).get(SCHEMA_KEYS["TYPE"])
+                    service_data.get(SERVICE_KEYS["REQUEST_BODY"], {}).get(
+                        SCHEMA_KEYS["TYPE"]
+                    )
                     if service_data.get(SERVICE_KEYS["REQUEST_BODY"])
                     else None
                 ),
@@ -736,7 +783,9 @@ All tools automatically resolve OpenAPI schema references and provide enhanced m
             "schema_summary": schema_summary,
         }
 
-    async def make_tool_call(self, service: str, request: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    async def make_tool_call(
+        self, service: str, request: Optional[Dict[str, Any]] = None
+    ) -> Dict[str, Any]:
         """
         Execute an API call to the specified service.
 
@@ -746,7 +795,9 @@ All tools automatically resolve OpenAPI schema references and provide enhanced m
         """
         if service not in self.service_info:
             return {
-                RESPONSE_KEYS["ERROR"]: ERROR_MESSAGES["SERVICE_NOT_FOUND"].format(service),
+                RESPONSE_KEYS["ERROR"]: ERROR_MESSAGES["SERVICE_NOT_FOUND"].format(
+                    service
+                ),
                 "available_services": list(self.service_info.keys()),
             }
 
@@ -758,14 +809,20 @@ All tools automatically resolve OpenAPI schema references and provide enhanced m
         try:
             # Manual request execution using the httpx client
             url_path = service_data[SERVICE_KEYS["PATH"]]
-            path_params = request_dict.get(REQUEST_KEYS["PATH_PARAMS"], DEFAULT_VALUES["EMPTY_DICT"])
+            path_params = request_dict.get(
+                REQUEST_KEYS["PATH_PARAMS"], DEFAULT_VALUES["EMPTY_DICT"]
+            )
             for param_name, param_value in path_params.items():
                 url_path = url_path.replace(f"{{{param_name}}}", str(param_value))
 
             # Extract request components
             http_method = service_data[SERVICE_KEYS["HTTP_METHOD"]]
-            query_params = request_dict.get(REQUEST_KEYS["QUERY_PARAMS"], DEFAULT_VALUES["EMPTY_DICT"])
-            request_headers = request_dict.get(REQUEST_KEYS["HEADERS"], DEFAULT_VALUES["EMPTY_DICT"])
+            query_params = request_dict.get(
+                REQUEST_KEYS["QUERY_PARAMS"], DEFAULT_VALUES["EMPTY_DICT"]
+            )
+            request_headers = request_dict.get(
+                REQUEST_KEYS["HEADERS"], DEFAULT_VALUES["EMPTY_DICT"]
+            )
             request_body = request_dict.get(REQUEST_KEYS["BODY"])
 
             # Get authentication context and build auth headers
@@ -779,16 +836,38 @@ All tools automatically resolve OpenAPI schema references and provide enhanced m
                     logger.debug("Auth context retrieved: %s", auth_context)
                     if auth_context:
                         # AUTHORIZATION CHECK: Get full instance data
-                        instances_full = auth_context.get(AUTH_KEY_USER_INSTANCES_FULL, [])
-                        
-                        logger.info("DEBUG: instances_full type=%s, length=%d", type(instances_full).__name__, len(instances_full))
+                        instances_full = auth_context.get(
+                            AUTH_KEY_USER_INSTANCES_FULL, []
+                        )
+
+                        logger.info(
+                            "DEBUG: instances_full type=%s, length=%d",
+                            type(instances_full).__name__,
+                            len(instances_full),
+                        )
                         if instances_full:
-                            logger.info("DEBUG: First instance keys: %s", list(instances_full[0].keys()) if instances_full else "N/A")
-                            logger.info("DEBUG: First instance subscription: %s",
-                                       (instances_full[0].get("subscription") or {}) if instances_full else "N/A")
+                            logger.info(
+                                "DEBUG: First instance keys: %s",
+                                (
+                                    list(instances_full[0].keys())
+                                    if instances_full
+                                    else "N/A"
+                                ),
+                            )
+                            logger.info(
+                                "DEBUG: First instance subscription: %s",
+                                (
+                                    (instances_full[0].get("subscription") or {})
+                                    if instances_full
+                                    else "N/A"
+                                ),
+                            )
 
                         if not instances_full:
-                            logger.warning("No user instances found in auth context for service: %s", service)
+                            logger.warning(
+                                "No user instances found in auth context for service: %s",
+                                service,
+                            )
                             return {
                                 "error": "Unauthorized",
                                 "message": "No user instances available for authorization",
@@ -798,13 +877,18 @@ All tools automatically resolve OpenAPI schema references and provide enhanced m
                             }
 
                         # AUTHORIZATION: Match solis_config.product_id with instance.subscription.productId
-                        logger.debug("DEBUG: Calling _authorize_and_select_instance (product_id='%s')", self.product_id)
+                        logger.debug(
+                            "DEBUG: Calling _authorize_and_select_instance (product_id='%s')",
+                            self.product_id,
+                        )
                         selected_instance = self._authorize_and_select_instance(
                             instances_full,
                             self.server_id,
                         )
-                        logger.debug("DEBUG: _authorize_and_select_instance returned: %s",
-                                   "instance found" if selected_instance else "None")
+                        logger.debug(
+                            "DEBUG: _authorize_and_select_instance returned: %s",
+                            "instance found" if selected_instance else "None",
+                        )
 
                         if not selected_instance:
                             # No user instance had productId matching server's solis_config.product_id
@@ -832,17 +916,27 @@ All tools automatically resolve OpenAPI schema references and provide enhanced m
                             }
 
                         # ROUTING: Extract host for dynamic routing
-                        instance_host = self._extract_host_from_instance(selected_instance)
+                        instance_host = self._extract_host_from_instance(
+                            selected_instance
+                        )
                         if instance_host:
-                            logger.info("✓ Using instance-specific host: %s", instance_host)
+                            logger.info(
+                                "✓ Using instance-specific host: %s", instance_host
+                            )
 
                         # HEADERS: Build instance-specific headers
-                        instance_headers = self._build_instance_headers(selected_instance)
+                        instance_headers = self._build_instance_headers(
+                            selected_instance
+                        )
                         auth_headers.update(instance_headers)
 
                         # Debug: confirm instance_id and host resolved from ISV for this request
-                        resolved_instance_id = selected_instance.get("id") or selected_instance.get("instance_id", "")
-                        resolved_product_id = self._get_instance_product_id(selected_instance) or ""
+                        resolved_instance_id = selected_instance.get(
+                            "id"
+                        ) or selected_instance.get("instance_id", "")
+                        resolved_product_id = (
+                            self._get_instance_product_id(selected_instance) or ""
+                        )
                         logger.debug(
                             "ISV auth resolved for service '%s': instance_id=%s, productId=%s, host=%s",
                             service,
@@ -864,29 +958,46 @@ All tools automatically resolve OpenAPI schema references and provide enhanced m
                         logger.debug("AUTH_KEY_AUTH_TOKEN value: %s", auth_token_value)
                         if auth_token_value:
                             # Format: "ibm-platform {cookie_value}"
-                            auth_headers["Authorization"] = f"ibm-platform {auth_token_value}"
+                            auth_headers["Authorization"] = (
+                                f"ibm-platform {auth_token_value}"
+                            )
                             logger.info(
                                 "✓ Using cookie-based authorization (ibm-platform %s) for service: %s",
-                                auth_token_value[:20] + "..." if len(auth_token_value) > 20 else auth_token_value,
+                                (
+                                    auth_token_value[:20] + "..."
+                                    if len(auth_token_value) > 20
+                                    else auth_token_value
+                                ),
                                 service,
                             )
                         else:
-                            logger.debug("No auth_token found in context, will use OAuth2 Bearer token")
+                            logger.debug(
+                                "No auth_token found in context, will use OAuth2 Bearer token"
+                            )
 
                         # Add ISV token as X-ISV-Token header
                         if auth_context.get(AUTH_KEY_ISV_TOKEN):
-                            auth_headers[AUTH_HEADER_ISV_TOKEN] = auth_context[AUTH_KEY_ISV_TOKEN]
-                            logger.debug("Adding ISV token to request for service: %s", service)
+                            auth_headers[AUTH_HEADER_ISV_TOKEN] = auth_context[
+                                AUTH_KEY_ISV_TOKEN
+                            ]
+                            logger.debug(
+                                "Adding ISV token to request for service: %s", service
+                            )
 
                         # Add platform cookies as X-Platform-Cookie header.
                         # Use selected instance id for x-request-context (backend expects instance id, not dashboard URL).
                         if auth_context.get(AUTH_KEY_COOKIES):
                             cookies_for_request = dict(auth_context[AUTH_KEY_COOKIES])
-                            instance_id_for_context = selected_instance.get("id") or selected_instance.get("instance_id")
+                            instance_id_for_context = selected_instance.get(
+                                "id"
+                            ) or selected_instance.get("instance_id")
                             if instance_id_for_context:
-                                cookies_for_request[REQUEST_CONTEXT_KEY] = instance_id_for_context
+                                cookies_for_request[REQUEST_CONTEXT_KEY] = (
+                                    instance_id_for_context
+                                )
                             cookie_str = "; ".join(
-                                f"{name}={value}" for name, value in cookies_for_request.items()
+                                f"{name}={value}"
+                                for name, value in cookies_for_request.items()
                             )
                             if cookie_str:
                                 auth_headers[AUTH_HEADER_PLATFORM_COOKIE] = cookie_str
@@ -899,10 +1010,17 @@ All tools automatically resolve OpenAPI schema references and provide enhanced m
 
                         # Add user instances as X-User-Instances header (JSON)
                         if auth_context.get(AUTH_KEY_USER_INSTANCES):
-                            auth_headers[AUTH_HEADER_USER_INSTANCES] = json.dumps(auth_context[AUTH_KEY_USER_INSTANCES])
-                            logger.debug("Adding user instances to request for service: %s", service)
+                            auth_headers[AUTH_HEADER_USER_INSTANCES] = json.dumps(
+                                auth_context[AUTH_KEY_USER_INSTANCES]
+                            )
+                            logger.debug(
+                                "Adding user instances to request for service: %s",
+                                service,
+                            )
                 except Exception as e:
-                    logger.error("Failed to process auth context for service %s: %s", service, e)
+                    logger.error(
+                        "Failed to process auth context for service %s: %s", service, e
+                    )
                     return {
                         "error": "Authorization Error",
                         "message": f"Failed to process authorization: {str(e)}",
@@ -922,7 +1040,9 @@ All tools automatically resolve OpenAPI schema references and provide enhanced m
                 # Fallback to default client base_url
                 base_url = str(self.client.base_url) if self.client.base_url else ""
                 if not instance_host and AUTH_CONTEXT_AVAILABLE:
-                    logger.warning("No instance host found, using default: %s", base_url)
+                    logger.warning(
+                        "No instance host found, using default: %s", base_url
+                    )
 
             full_url = f"{base_url}{url_path}"
 
@@ -945,12 +1065,20 @@ All tools automatically resolve OpenAPI schema references and provide enhanced m
             logger.info("-" * 80)
             logger.info("Request Headers:")
             # Log client's default headers
-            if hasattr(self.client, "headers") and self.client.headers and hasattr(self.client.headers, "items"):
+            if (
+                hasattr(self.client, "headers")
+                and self.client.headers
+                and hasattr(self.client.headers, "items")
+            ):
                 logger.info("  Default Client Headers:")
                 try:
                     for header_name, header_value in self.client.headers.items():
                         # Redact sensitive headers
-                        if header_name.lower() in ["authorization", "api-key", "x-api-key"]:
+                        if header_name.lower() in [
+                            "authorization",
+                            "api-key",
+                            "x-api-key",
+                        ]:
                             if len(str(header_value)) > 20:
                                 redacted = f"{str(header_value)[:10]}...{str(header_value)[-10:]}"
                             else:
@@ -968,7 +1096,9 @@ All tools automatically resolve OpenAPI schema references and provide enhanced m
                     # Redact sensitive headers
                     if header_name.lower() in ["authorization", "api-key", "x-api-key"]:
                         if len(str(header_value)) > 20:
-                            redacted = f"{str(header_value)[:10]}...{str(header_value)[-10:]}"
+                            redacted = (
+                                f"{str(header_value)[:10]}...{str(header_value)[-10:]}"
+                            )
                         else:
                             redacted = "***REDACTED***"
                         logger.info("    %s: %s", header_name, redacted)
@@ -997,7 +1127,9 @@ All tools automatically resolve OpenAPI schema references and provide enhanced m
                 # Create a plain httpx client without OAuth2 auth
                 async with httpx.AsyncClient(
                     base_url=self.client.base_url,
-                    timeout=self.client.timeout if hasattr(self.client, "timeout") else 30.0,
+                    timeout=(
+                        self.client.timeout if hasattr(self.client, "timeout") else 30.0
+                    ),
                 ) as plain_client:
                     response = await plain_client.request(
                         method=http_method,
@@ -1052,7 +1184,10 @@ All tools automatically resolve OpenAPI schema references and provide enhanced m
             logger.info("=" * 80)
             logger.info("Service: %s", service)
             logger.info("Status Code: %d", response.status_code)
-            logger.info("Status Text: %s", response.reason_phrase if hasattr(response, "reason_phrase") else "N/A")
+            logger.info(
+                "Status Text: %s",
+                response.reason_phrase if hasattr(response, "reason_phrase") else "N/A",
+            )
 
             logger.info("-" * 80)
             logger.info("Response Headers:")
@@ -1103,5 +1238,7 @@ All tools automatically resolve OpenAPI schema references and provide enhanced m
             return {
                 RESPONSE_KEYS["SUCCESS"]: False,
                 RESPONSE_KEYS["SERVICE"]: service,
-                RESPONSE_KEYS["ERROR"]: ERROR_MESSAGES["API_CALL_FAILED"].format(str(e)),
+                RESPONSE_KEYS["ERROR"]: ERROR_MESSAGES["API_CALL_FAILED"].format(
+                    str(e)
+                ),
             }

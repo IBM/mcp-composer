@@ -6,7 +6,6 @@ including mounting, registration, persistence, tool management, and health check
 from typing import Dict, List, Any, Optional
 from collections.abc import Callable
 
-from fastmcp.settings import DuplicateBehavior
 from fastmcp.exceptions import NotFoundError, ToolError
 
 
@@ -36,10 +35,10 @@ class ServerManager:
 
     def __init__(
         self,
-        duplicate_behavior: DuplicateBehavior | None = None,
         serializer: Callable[[str, MemberMCPServer], Any] | None = None,
         database: Optional[DatabaseInterface] = None,
         config_manager=None,
+        composer=None,
     ):
         self._member_servers: dict[str, MemberMCPServer] = {}
         # Fix here: explicitly declare non-optional type
@@ -48,17 +47,7 @@ class ServerManager:
         )
         self._database = database
         self._config_manager = config_manager
-
-        if duplicate_behavior is None:
-            duplicate_behavior = "warn"
-
-        if duplicate_behavior not in DuplicateBehavior.__args__:
-            raise ValueError(
-                f"Invalid duplicate_behavior: {duplicate_behavior}. "
-                f"Must be one of: {', '.join(DuplicateBehavior.__args__)}"
-            )
-
-        self.duplicate_behavior = duplicate_behavior
+        self._composer = composer
 
     @staticmethod
     def default_serializer(
@@ -88,10 +77,14 @@ class ServerManager:
                 mcp_composer.mount(sub_mcp, server_id)
             else:
                 mcp_composer(sub_mcp, server_id)
-            tools = await sub_mcp.get_tools()
+            # get_tools() exists in FastMCP 3.0 and returns a list (per upgrade guide)
+            # Type checker doesn't recognize it, but it exists at runtime
+            tools = (
+                await sub_mcp.list_tools()
+            )  # pyright: ignore[reportAttributeAccessIssue]
             missing_description_tools = [
                 tool.name if hasattr(tool, "name") else str(tool)
-                for tool in tools.values()
+                for tool in tools
                 if not tool.description or not tool.description.strip()
             ]
 

@@ -36,14 +36,14 @@ class ListFilteredTool(Middleware):
 
     async def on_list_tools(self, context: MiddlewareContext, call_next: CallNext):
         try:
-            tools = await self.gw.get_tools()
+            tools = await call_next(context)
             env = os.getenv("MCP_COMPOSER_ENV", "").lower()
 
             # Skip filtering in local mode
             if env == "local":
                 logger.info("Local mode - returning all tools without filtering")
                 await call_next(context)
-                return [tool for _, tool in tools.items()]
+                return tools
 
             request = ctx_get(context, CONTEXT_REQUEST_KEY)
 
@@ -58,7 +58,9 @@ class ListFilteredTool(Middleware):
             if user_instances is None:
                 user_instances = []
 
-            logger.info("Filtering tools based on %d user instances", len(user_instances))
+            logger.info(
+                "Filtering tools based on %d user instances", len(user_instances)
+            )
             if user_instances:
                 logger.debug(
                     "User has access to products: %s",
@@ -71,17 +73,25 @@ class ListFilteredTool(Middleware):
                     ),
                 )
 
-            filtered_tools = self.gw._tool_manager.filter_tools(tools, user_instances=user_instances)
+            filtered_tools = self.gw._tool_manager.filter_tools(
+                tools, user_instances=user_instances
+            )
 
-            logger.info("Filtered tools: %d total, %d after filtering", len(tools), len(filtered_tools))
+            logger.info(
+                "Filtered tools: %d total, %d after filtering",
+                len(tools),
+                len(filtered_tools),
+            )
 
             await call_next(context)
-            return [tool for _, tool in filtered_tools.items()]
+            return filtered_tools
         except ToolFilterError as e:
             logger.exception("Tools filtering failed in middleware: %s", e)
             raise ToolFilterError("Tools filtering failed in middleware") from e
 
-    async def _authenticate_and_get_instances(self, request: Any) -> List[Dict[str, Any]]:
+    async def _authenticate_and_get_instances(
+        self, request: Any
+    ) -> List[Dict[str, Any]]:
         """
         Authenticate request and fetch user instances.
 
@@ -104,7 +114,9 @@ class ListFilteredTool(Middleware):
             return []
 
         # Check if authentication cookie is present
+
         cookie_name = validator.config.cookie_name
+
         headers = getattr(request, "headers", {})
         cookie_header = headers.get("cookie", "")
         has_auth_cookie = cookie_name in cookie_header or cookie_name in headers
@@ -119,9 +131,12 @@ class ListFilteredTool(Middleware):
                 logger.debug("Authentication cookie '%s' found, performing ISV authentication", cookie_name)
                 raise HTTPException(status_code=401, detail="Authentication required")
 
+
         # Cookie is present - authentication is REQUIRED
         try:
-            logger.debug("Authenticating request to fetch user instances for tool filtering")
+            logger.debug(
+                "Authenticating request to fetch user instances for tool filtering"
+            )
 
             # Validate token and fetch instances
             token_data = await validator.validate_request(request)
@@ -143,6 +158,7 @@ class ListFilteredTool(Middleware):
                 #raise HTTPException(status_code=403, detail="Failed to fetch user instances")
                 return []
             logger.info("✓ Authentication successful for list_tools (found %d instances)", len(user_instances))
+
             return user_instances
 
         except HTTPException:
@@ -151,4 +167,6 @@ class ListFilteredTool(Middleware):
         except Exception as e:
             # Authentication cookie present but validation failed - this is an error
             logger.error("Authentication failed with cookie present: %s", str(e))
-            raise HTTPException(status_code=403, detail=f"Authentication failed: {str(e)}")
+            raise HTTPException(
+                status_code=403, detail=f"Authentication failed: {str(e)}"
+            )

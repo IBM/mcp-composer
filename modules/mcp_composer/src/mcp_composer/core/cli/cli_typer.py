@@ -999,9 +999,9 @@ async def run_dynamic_composer(
         if disable_composer_tools:
             # Disable all tools: remove all available tools one by one
             logger.info("Disabling all composer tools as requested")
-            tools = await mcp.get_tools()
-            for tool_name in list(tools.keys() if isinstance(tools, dict) else tools):
-                mcp.remove_tool(tool_name)
+            tools = await mcp.list_tools()
+            for tool in tools:
+                mcp.remove_tool(tool.name)
             logger.info("All tools removed")
         elif disable_composer_tools_specific:
             # Parse the input: handle formats like "t1,t2" or "[t1,t2]"
@@ -1010,10 +1010,10 @@ async def run_dynamic_composer(
                 tools_str = tools_str[1:-1]  # Remove brackets
             tools_to_disable = [t.strip() for t in tools_str.split(",") if t.strip()]
 
-            tools = await mcp.get_tools()
+            tools = await mcp.list_tools()
             logger.info("Removing specified composer tools: %s", tools_to_disable)
             for tool_name in tools_to_disable:
-                if tool_name in tools:
+                if tool_name in [tool.name for tool in tools]:
                     mcp.remove_tool(tool_name)
                     logger.info("Removed tool: %s", tool_name)
                 else:
@@ -1045,11 +1045,9 @@ async def run_dynamic_composer(
             remote_proxy = MCPComposer("composer", auth=oauth_provider)
             # Remove all tools on the proxy to act as pure remote
             try:
-                tools = await remote_proxy.get_tools()
-                for tool_name in list(
-                    tools.keys() if isinstance(tools, dict) else tools
-                ):
-                    remote_proxy.remove_tool(tool_name)
+                tools = await remote_proxy.list_tools()
+                for tool in tools:
+                    remote_proxy.remove_tool(tool.name)
             except Exception as exc:
                 logger.warning("Failed to clear proxy tools: %s", exc)
 
@@ -1098,15 +1096,11 @@ async def run_dynamic_composer(
         elif mode == MemberServerType.SSE:
             if timeout is not None:
                 await asyncio.wait_for(
-                    mcp.run_sse_async(
-                        host=host, port=port, log_level="debug", path="/sse"
-                    ),
+                    mcp.run_sse_async(host=host, port=port, log_level="debug", path="/sse"),
                     timeout=timeout,
                 )
             else:
-                await mcp.run_sse_async(
-                    host=host, port=port, log_level="debug", path="/sse"
-                )
+                await mcp.run_sse_async(host=host, port=port, log_level="debug", path="/sse")
         elif mode == MemberServerType.HTTP:
             if timeout is not None:
                 await asyncio.wait_for(
@@ -1348,7 +1342,7 @@ def _create_composer_instance(
     try:
         if disable_composer_tools is True:
             # Remove all tools synchronously via fallback approach
-            tools = asyncio.run(composer.get_tools())
+            tools = asyncio.run(composer.list_tools())
             for tool_name in list(tools.keys() if isinstance(tools, dict) else tools):
                 composer.remove_tool(tool_name)
             logger.info("All composer tools removed (disable all)")
@@ -1359,7 +1353,7 @@ def _create_composer_instance(
                 tools_str = tools_str[1:-1]
             tools_to_disable = [t.strip() for t in tools_str.split(",") if t.strip()]
 
-            tools = asyncio.run(composer.get_tools())
+            tools = asyncio.run(composer.list_tools())
             logger.info("Removing specified composer tools: %s", tools_to_disable)
             for tool_name in tools_to_disable:
                 if tool_name in tools:

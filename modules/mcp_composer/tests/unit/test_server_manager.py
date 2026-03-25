@@ -153,18 +153,17 @@ def test_deactivate_server_success():
 
 # Additional comprehensive tests from test_server_manager_extended.py
 def test_server_manager_initialization_with_duplicate_behavior():
-    """Test ServerManager initialization with duplicate behavior."""
-    from fastmcp.settings import DuplicateBehavior
-
-    manager = ServerManager(duplicate_behavior="replace")
-    assert manager.duplicate_behavior == "replace"
+    """Test ServerManager basic initialization."""
+    manager = ServerManager()
+    assert manager._member_servers == {}
+    assert manager._database is None
 
 
 def test_server_manager_initialization_invalid_duplicate_behavior():
-    """Test ServerManager initialization with invalid duplicate behavior."""
-    with pytest.raises(ValueError) as exc_info:
+    """ServerManager should reject unsupported constructor kwargs."""
+    with pytest.raises(TypeError) as exc_info:
         ServerManager(duplicate_behavior="invalid_behavior")
-    assert "Must be one of" in str(exc_info.value)
+    assert "unexpected keyword argument 'duplicate_behavior'" in str(exc_info.value)
 
 
 def test_default_serializer():
