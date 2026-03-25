@@ -147,7 +147,7 @@ class ISVEnvironmentConfig:
         self.environment = environment.lower()
 
         # Cookie name: Priority order: 1) Parameter, 2) Env var, 3) Auto-determined
-        self.cookie_name = cookie_name or os.getenv("ISV_COOKIE_NAME") or self._get_default_cookie_name()
+        self.cookie_name = cookie_name or os.getenv("ISV_AUTH_COOKIE_NAME") or self._get_default_cookie_name()
 
         # Endpoint URL: Priority order: 1) Parameter, 2) Env var, 3) Auto-determined
         self.endpoint_url = endpoint_url or os.getenv("ISV_ENDPOINT_URL") or self._get_default_endpoint_url()
@@ -386,10 +386,8 @@ class ISVTokenValidator:
             'mcsp-glb-iam'
         """
         # Extract environment from URL
-        if ".test.saas.ibm.com" in api_url:
+        if ".test.saas.ibm.com" or ".dev.saas.ibm.com" in api_url:
             return "mcsp-glb-iam-test"
-        elif ".dev.saas.ibm.com" in api_url:
-            return "mcsp-glb-iam-dev"
         elif ".prod.saas.ibm.com" in api_url or "api.solis.saas.ibm.com" in api_url:
             return "mcsp-glb-iam"
         else:

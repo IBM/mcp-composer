@@ -104,6 +104,7 @@ async def get_access_token_client_credentials(
                 "Failed to get access token via client_credentials"
             ) from exc
 
+
     token_payload = response.json()
     access_token = token_payload.get("access_token") or token_payload.get("id_token")
     if not access_token:
