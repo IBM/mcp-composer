@@ -116,6 +116,7 @@ class TestListFilteredTool:
         """user instances extracted from x-user-instances header are forwarded to filter_tools."""
         instances = [{"subscription": {"productId": "lakehouse"}}]
         monkeypatch.setattr(_EXTRACT, lambda req: instances)
+        monkeypatch.setenv("MCP_COMPOSER_ENV", "dev")
 
         mock_tools = {"mcp-wx-data_get_service_info": Mock()}
         mock_filtered = {
@@ -141,6 +142,7 @@ class TestListFilteredTool:
     ):
         """ToolFilterError from filter_tools is re-raised with middleware message."""
         monkeypatch.setattr(_EXTRACT, lambda req: None)
+        monkeypatch.setenv("MCP_COMPOSER_ENV", "dev")
         mock_call_next.return_value = {"tool1": Mock()}
         list_filtered_tool.gw._tool_manager.filter_tools.side_effect = ToolFilterError(
             "Filter error"
@@ -159,6 +161,7 @@ class TestListFilteredTool:
     ):
         """In dev/prod path (env != local), filter_tools is called and filtered list returned."""
         monkeypatch.setattr(_EXTRACT, lambda req: None)
+        monkeypatch.setenv("MCP_COMPOSER_ENV", "dev")
         mock_tools = {"tool1": Mock()}
         mock_filtered = {"tool1": mock_tools["tool1"]}
         mock_call_next.return_value = mock_tools
@@ -169,7 +172,7 @@ class TestListFilteredTool:
         list_filtered_tool.gw._tool_manager.filter_tools.assert_called_once_with(
             mock_tools, user_instances=[]
         )
-        assert mock_call_next.call_count == 2
+        assert mock_call_next.call_count == 1
         assert len(result) == 1
         assert result["tool1"] == mock_tools["tool1"]
 
@@ -179,6 +182,7 @@ class TestListFilteredTool:
     ):
         """Generic error from filter_tools propagates unchanged."""
         monkeypatch.setattr(_EXTRACT, lambda req: None)
+        monkeypatch.setenv("MCP_COMPOSER_ENV", "dev")
         mock_call_next.return_value = {"tool1": Mock()}
         list_filtered_tool.gw._tool_manager.filter_tools.side_effect = Exception(
             "Filter tools error"

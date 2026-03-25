@@ -20,7 +20,6 @@ TOKEN_REFRESH_BUFFER = 60  # Refresh 1 minute early
 MAX_TOKEN_LIFETIME = 90 * 60  # 90 minutes - cap expiry so we refresh by then
 
 
-
 class DynamicTokenClientOAuth(httpx.Auth):
 
     def __init__(self, access_token=None, auth_prefix="Bearer") -> None:
@@ -110,11 +109,14 @@ class DynamicTokenClient(httpx.AsyncClient):
                         "Getting token using OAuth client_credentials grant (no refresh_token)"
                     )
 
-                    access_token, expires_in = await get_access_token_client_credentials(
-                        client_id=client_id,
-                        client_secret=client_secret,
-                        token_url=token_url,
-                        scope=self.auth_data.get(ConfigKey.SCOPE),
+                    access_token, expires_in = (
+                        await get_access_token_client_credentials(
+                            client_id=client_id,
+                            client_secret=client_secret,
+                            token_url=token_url,
+                            scope=self.auth_data.get(ConfigKey.SCOPE),
+                        )
+                    )
 
                     self._access_token = access_token
                     effective = min(expires_in, MAX_TOKEN_LIFETIME)
