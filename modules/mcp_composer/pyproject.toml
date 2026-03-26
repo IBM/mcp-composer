@@ -38,7 +38,7 @@ dependencies = [
     "numpy==2.4.2",
     "pandas==2.3.3",
     "a2a-sdk==0.3.25",
-    "litellm>=1.0.0",
+    "litellm==1.81.13",
     "ollama>=0.6.1",
     "cryptography>=46.0.5",
     "protobuf>=6.33.5",
