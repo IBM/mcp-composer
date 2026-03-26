@@ -16,7 +16,8 @@ logger = LoggerFactory.get_logger()
 # Constants
 DEFAULT_TOKEN_EXPIRY = 3600  # 1 hour
 TOKEN_REFRESH_BUFFER = 60  # Refresh 1 minute early
-MAX_TOKEN_LIFETIME = 90 * 60
+
+MAX_TOKEN_LIFETIME = 90 * 60  # 90 minutes - cap expiry so we refresh by then
 
 
 class DynamicTokenClientOAuth(httpx.Auth):
@@ -107,6 +108,7 @@ class DynamicTokenClient(httpx.AsyncClient):
                     logger.debug(
                         "Getting token using OAuth client_credentials grant (no refresh_token)"
                     )
+
                     access_token, expires_in = (
                         await get_access_token_client_credentials(
                             client_id=client_id,
@@ -115,6 +117,7 @@ class DynamicTokenClient(httpx.AsyncClient):
                             scope=self.auth_data.get(ConfigKey.SCOPE),
                         )
                     )
+
                     self._access_token = access_token
                     effective = min(expires_in, MAX_TOKEN_LIFETIME)
                     self._expires_at = time.time() + effective - TOKEN_REFRESH_BUFFER
@@ -132,6 +135,7 @@ class DynamicTokenClient(httpx.AsyncClient):
             auth_generation_method = self.auth_data.get(
                 ConfigKey.TOKEN_GEN_AUTH_METHOD, ""
             )
+
             if not apikey and not (_id and _secret):
                 raise ValueError(
                     "Either apikey, (id and secret), or (client_id and client_secret) must be provided in auth_data."
@@ -302,7 +306,16 @@ class DynamicTokenClient(httpx.AsyncClient):
             try:
                 return await super().request(method, url, **kwargs)
             except httpx.HTTPError as e:
-                logger.error("Failed to make token request to %s: %s", url, e)
+                # Must re-raise: swallowing here falls through to _refresh_token() and
+                # re-enters the same token POST, causing repeated ~timeout loops.
+                logger.error(
+                    "Failed to make token request to %s: %s: %s",
+                    url,
+                    type(e).__name__,
+                    e or repr(e),
+                )
+                raise
+
         now = time.time()
         if not self._access_token or now >= self._expires_at:
             secs_left = (self._expires_at - now) if self._expires_at else 0

@@ -74,8 +74,9 @@ def test_filter_tools_handles_no_config(
     tool_manager._server_manager.list.return_value = (
         []
     )  # pylint: disable=protected-access
-    tools = {"a": MagicMock()}
-    tools["a"].name = "a"
+    tool = MagicMock()
+    tool.name = "a"
+    tools = [tool]
 
     assert tool_manager.filter_tools(tools) == tools
 
@@ -89,8 +90,9 @@ def test_filter_tools_handles_unhealthy(
     tool_manager._server_manager.list.return_value = [
         member
     ]  # pylint: disable=protected-access
-    tools = {"a": MagicMock()}
-    tools["a"].name = "a"
+    tool = MagicMock()
+    tool.name = "a"
+    tools = [tool]
 
     assert tool_manager.filter_tools(tools) == tools
 
@@ -99,9 +101,11 @@ def test_filter_tools_exception(tool_manager):  # pylint: disable=redefined-oute
     tool_manager._server_manager.list.side_effect = Exception(
         "fail"
     )  # pylint: disable=protected-access
-
+    
+    tool = MagicMock()
+    tool.name = "a"
     with pytest.raises(Exception, match="fail"):
-        tool_manager.filter_tools({"a": MagicMock()})
+        tool_manager.filter_tools([tool])
 
 
 def test_filter_tools_user_instances_none_unchanged(
@@ -109,8 +113,9 @@ def test_filter_tools_user_instances_none_unchanged(
 ):  # pylint: disable=redefined-outer-name
     """With user_instances=None, behavior is unchanged (no product-based filtering)."""
     tool_manager._server_manager.list.return_value = []
-    tools = {"a": MagicMock()}
-    tools["a"].name = "a"
+    tool = MagicMock()
+    tool.name = "a"
+    tools = [tool]
 
     result = tool_manager.filter_tools(tools, user_instances=None)
     assert result == tools
@@ -121,8 +126,9 @@ def test_filter_tools_user_instances_empty_unchanged(
 ):  # pylint: disable=redefined-outer-name
     """With user_instances=[], no product-based filtering applied."""
     tool_manager._server_manager.list.return_value = []
-    tools = {"a": MagicMock()}
-    tools["a"].name = "a"
+    tool = MagicMock()
+    tool.name = "a"
+    tools = [tool]
 
     result = tool_manager.filter_tools(tools, user_instances=[])
     assert result == tools
