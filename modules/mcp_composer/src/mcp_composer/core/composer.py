@@ -78,6 +78,9 @@ class MCPComposer(FastMCP):
 
         # Get database from configuration
         logger.info("looking for DB config MCP Composer with name: %s", name)
+
+        # Get database from configuration
+        logger.info("looking for DB config MCP Composer with name: %s", name)
         database = self._server_config_manager.get_database_from_config(database_config)
 
         self._server_manager = ServerManager(
