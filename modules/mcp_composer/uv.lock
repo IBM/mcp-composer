@@ -2140,7 +2140,7 @@ dev = [
     { name = "pre-commit" },
     { name = "pylint", specifier = ">=3.3.7" },
     { name = "pytest", specifier = "==8.3.3" },
-    { name = "pytest-asyncio", specifier = "==0.23.5" },
+    { name = "pytest-asyncio", specifier = "==0.26.0" },
     { name = "pytest-cov", specifier = "==6.1.1" },
     { name = "pytest-flakefinder" },
     { name = "pytest-report", specifier = "==0.2.1" },
@@ -3153,14 +3153,14 @@ wheels = [
 
 [[package]]
 name = "pytest-asyncio"
-version = "0.23.5"
+version = "0.26.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "pytest" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/61/26/e0d399fc08f1ce8f03fd308334858342a73fb1fc55b74cbbd0b96b3ad5f7/pytest-asyncio-0.23.5.tar.gz", hash = "sha256:3a048872a9c4ba14c3e90cc1aa20cbc2def7d01c7c8db3777ec281ba9c057675", size = 45887, upload-time = "2024-02-09T16:48:19.732Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/8e/c4/453c52c659521066969523e87d85d54139bbd17b78f09532fb8eb8cdb58e/pytest_asyncio-0.26.0.tar.gz", hash = "sha256:c4df2a697648241ff39e7f0e4a73050b03f123f760673956cf0d72a4990e312f", size = 54156, upload-time = "2025-03-25T06:22:28.883Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/ce/0c/a60bcaeb3ba2f938b4d76e535180ea9f43e8da5fa6933fd9401f6f6e46ae/pytest_asyncio-0.23.5-py3-none-any.whl", hash = "sha256:4e7093259ba018d58ede7d5315131d21923a60f8a6e9ee266ce1589685c89eac", size = 17595, upload-time = "2024-02-09T16:48:18.214Z" },
+    { url = "https://files.pythonhosted.org/packages/20/7f/338843f449ace853647ace35870874f69a764d251872ed1b4de9f234822c/pytest_asyncio-0.26.0-py3-none-any.whl", hash = "sha256:7b51ed894f4fbea1340262bdae5135797ebbe21d8638978e35d31c6d19f72fb0", size = 19694, upload-time = "2025-03-25T06:22:27.807Z" },
 ]
 
 [[package]]
