@@ -21,7 +21,7 @@ dependencies = [
     "uncurl==0.0.11",
     "ibm-secrets-manager-sdk==2.1.13",
     "pydantic==2.12.5",
-    "pydantic-settings==2.10.1",
+    "pydantic-settings==2.13.1",
     "hvac==2.3.0",
     "types-requests>=2.32.4.20250611",
     "jsonref>=1.1.0",
