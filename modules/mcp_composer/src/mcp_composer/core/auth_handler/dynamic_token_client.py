@@ -31,6 +31,26 @@ class DynamicTokenClientOAuth(httpx.Auth):
         yield request
 
 
+class DynamicBearerAuth(httpx.Auth):
+    """HTTPX auth plugin that uses DynamicTokenClient to refresh tokens automatically."""
+
+    def __init__(self, token_client: "DynamicTokenClient") -> None:
+        self._token_client = token_client
+
+    def auth_flow(self, request):
+        access_token = self._token_client._access_token
+        auth_prefix = self._token_client._auth_prefix
+        if not access_token:
+            raise RuntimeError("Unable to obtain dynamic bearer access token")
+        request.headers["Authorization"] = f"{auth_prefix} {access_token}"
+        yield request
+
+    async def async_auth_flow(self, request):
+        await self._token_client.ensure_token()
+        async for flow_request in super().async_auth_flow(request):
+            yield flow_request
+
+
 class DynamicTokenClient(httpx.AsyncClient):
     def __init__(
         self,
@@ -51,6 +71,11 @@ class DynamicTokenClient(httpx.AsyncClient):
         self.headers = headers or {}
         self._auth_prefix = (
             auth_data.get("auth_prefix", "Bearer") if auth_data else "Bearer"
+        )
+        self._refresh_token_value = (
+            resolve_env_value(auth_data.get(ConfigKey.REFRESH_TOKEN))
+            if auth_data
+            else None
         )
         # Pass everything to parent class
         super().__init__(
@@ -83,8 +108,9 @@ class DynamicTokenClient(httpx.AsyncClient):
             client_secret = resolve_env_value(
                 self.auth_data.get(ConfigKey.CLIENT_SECRET)
             )
-            refresh_token_value = resolve_env_value(
-                self.auth_data.get(ConfigKey.REFRESH_TOKEN)
+            refresh_token_value = (
+                resolve_env_value(self.auth_data.get(ConfigKey.REFRESH_TOKEN))
+                or self._refresh_token_value
             )
             if client_id and client_secret:
                 if refresh_token_value:
@@ -222,6 +248,9 @@ class DynamicTokenClient(httpx.AsyncClient):
 
             self._access_token = token_data.get("access_token") or token_data.get(
                 "token"
+            )
+            self._refresh_token_value = (
+                token_data.get("refresh_token") or self._refresh_token_value
             )
 
             if self._access_token:

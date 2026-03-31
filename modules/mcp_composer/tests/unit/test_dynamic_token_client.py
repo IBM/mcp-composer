@@ -1,12 +1,13 @@
 """Test module for dynamic_token_client.py"""
 
 import time
-from unittest.mock import Mock, patch
+from unittest.mock import AsyncMock, Mock, patch
 
 import httpx
 import pytest
 
 from mcp_composer.core.auth_handler.dynamic_token_client import (
+    DynamicBearerAuth,
     DynamicTokenClient,
     DynamicTokenClientOAuth,
     DEFAULT_TOKEN_EXPIRY,
@@ -198,6 +199,40 @@ class TestDynamicTokenClient:
             assert mock_client_iam._access_token == "new-token"
             expected_expires_at = time.time() + 3600 - TOKEN_REFRESH_BUFFER
             assert abs(mock_client_iam._expires_at - expected_expires_at) < 1
+
+    @pytest.mark.asyncio
+    async def test_refresh_token_stores_refresh_token(self, mock_client):
+        """Test successful token refresh stores refresh_token returned from API."""
+        mock_response = Mock()
+        mock_response.json.return_value = {
+            "access_token": "new-token",
+            "refresh_token": "new-refresh-token",
+            "expires_in": 3600,
+        }
+        mock_response.status_code = 200
+        mock_response.raise_for_status.return_value = None
+
+        with patch("httpx.AsyncClient.post", return_value=mock_response):
+            await mock_client._refresh_token()
+
+            assert mock_client._access_token == "new-token"
+            assert mock_client._refresh_token_value == "new-refresh-token"
+            expected_expires_at = time.time() + 3600 - TOKEN_REFRESH_BUFFER
+            assert abs(mock_client._expires_at - expected_expires_at) < 1
+
+    def test_dynamic_bearer_auth_flow(self):
+        """Test DynamicBearerAuth flow sets Authorization header and returns request."""
+        mock_client = Mock()
+        mock_client._access_token = "mock-access-token"
+        mock_client._auth_prefix = "Bearer"
+
+        auth = DynamicBearerAuth(mock_client)
+        request = Mock()
+        request.headers = {}
+
+        for _request in auth.auth_flow(request):
+            assert _request is request
+            assert request.headers["Authorization"] == "Bearer mock-access-token"
 
     @pytest.mark.asyncio
     async def test_refresh_token_basic_auth_success(self, mock_client_basic_auth):

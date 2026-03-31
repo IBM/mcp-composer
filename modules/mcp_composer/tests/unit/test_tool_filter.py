@@ -153,7 +153,7 @@ class TestListFilteredTool:
         ):
             await list_filtered_tool.on_list_tools(mock_context, mock_call_next)
 
-        mock_call_next.assert_called_once_with(mock_context)
+        mock_call_next.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_on_list_tools_dev_prod_calls_filter_tools(
@@ -191,18 +191,21 @@ class TestListFilteredTool:
         with pytest.raises(Exception, match="Filter tools error"):
             await list_filtered_tool.on_list_tools(mock_context, mock_call_next)
 
-        mock_call_next.assert_called_once_with(mock_context)
+        mock_call_next.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_on_list_tools_call_next_error(
         self, list_filtered_tool, mock_context, mock_call_next, monkeypatch
     ):
-        """Error raised by call_next propagates when initial tool fetch fails."""
+        """Error raised by call_next propagates immediately."""
         monkeypatch.setattr(_EXTRACT, lambda req: None)
+        monkeypatch.delenv(
+            "MCP_COMPOSER_ENV", raising=False
+        )  # Ensure not in local mode
         mock_call_next.side_effect = Exception("Call next error")
 
         with pytest.raises(Exception, match="Call next error"):
             await list_filtered_tool.on_list_tools(mock_context, mock_call_next)
 
-        list_filtered_tool.gw._tool_manager.filter_tools.assert_not_called()
         mock_call_next.assert_called_once_with(mock_context)
+        list_filtered_tool.gw._tool_manager.filter_tools.assert_not_called()

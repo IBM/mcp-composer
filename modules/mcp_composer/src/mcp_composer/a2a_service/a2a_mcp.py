@@ -472,7 +472,7 @@ def generate_embeddings(text):
         A list of embeddings representing the input text.
     """
     try:
-        client = genai.Client(api_key="AIzaSyA79l4zIyIufWTzCMJfb1-DJTvUXRVI71s")
+        client = genai.Client(api_key=os.getenv("GOOGLE_API_KEY"))
         response = client.models.embed_content(
             model="gemini-embedding-001",
             contents=text,
@@ -551,7 +551,7 @@ def find_agent(query: str) -> str:
     df = build_agent_card_embeddings()
     if df.empty:
         return "{}"
-    client = genai.Client(api_key="AIzaSyA79l4zIyIufWTzCMJfb1-DJTvUXRVI71s")
+    client = genai.Client(api_key=os.getenv("GOOGLE_API_KEY"))
     try:
         query_embedding = client.models.embed_content(
             model="gemini-embedding-001",

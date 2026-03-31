@@ -24,8 +24,8 @@ from mcp_composer.core.utils import (
     load_spec_from_url,
 )
 from mcp_composer.core.auth_handler import (
+    DynamicBearerAuth,
     DynamicTokenClient,
-    DynamicTokenClientOAuth,
     DynamicTokenManager,
     OAuthRefreshClient,
     AsperaJWTClient,
@@ -116,6 +116,17 @@ class MCPServerBuilder:
                 headers[ConfigKey.AUTH_HEADER.value] = (
                     f"Bearer {auth_token.get(ConfigKey.TOKEN)}"
                 )
+
+            elif auth_strategy == AuthStrategy.DYNAMIC_BEARER:
+                logger.info("Setting up dynamic bearer token client")
+                auth_data = config.get(ConfigKey.AUTH, {})
+                dynamic_client = DynamicTokenClient(
+                    base_url=endpoint,
+                    auth_data=auth_data,
+                )
+                await dynamic_client.ensure_token()
+                auth = DynamicBearerAuth(dynamic_client)
+
             elif auth_strategy == AuthStrategy.SOLIS_JWT_HANDLER:
                 logger.info("Setting up Solis OAuth authentication client")
                 auth_data = config.get(ConfigKey.AUTH, {})

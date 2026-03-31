@@ -227,6 +227,65 @@ async def test_build_from_transport_http_with_solis_jwt_handler():
 
 
 @pytest.mark.asyncio
+async def test_build_from_transport_http_with_dynamic_bearer():
+    config = {
+        ConfigKey.ID: "srv",
+        ConfigKey.TYPE: MemberServerType.HTTP,
+        ConfigKey.ENDPOINT: "http://api",
+        ConfigKey.AUTH_STRATEGY: AuthStrategy.DYNAMIC_BEARER,
+        ConfigKey.AUTH: {
+            ConfigKey.Token_URL: "https://ixxxx.auth.com/identity/token",
+            ConfigKey.APIKEY: "test_apikey",
+            ConfigKey.AUTH_PREFIX: "Bearer",
+        },
+    }
+    builder = MCPServerBuilder(config)
+    with (
+        patch(
+            "mcp_composer.core.member_servers.builder.StreamableHttpTransport"
+        ) as mock_transport,
+        patch("mcp_composer.core.member_servers.builder.Client") as mock_client_cls,
+        patch(
+            "mcp_composer.core.member_servers.builder.create_proxy"
+        ) as mock_create_proxy,
+        patch(
+            "mcp_composer.core.member_servers.builder.DynamicTokenClient"
+        ) as mock_token_client_cls,
+        patch(
+            "mcp_composer.core.member_servers.builder.DynamicBearerAuth"
+        ) as mock_dynamic_bearer_auth_cls,
+    ):
+        mock_token_client = MagicMock()
+        mock_token_client.ensure_token = AsyncMock()
+        mock_token_client._access_token = "new-token"
+        mock_token_client._auth_prefix = "Bearer"
+        mock_token_client_cls.return_value = mock_token_client
+
+        mock_dynamic_bearer_auth = MagicMock()
+        mock_dynamic_bearer_auth_cls.return_value = mock_dynamic_bearer_auth
+
+        mock_client = MagicMock()
+        mock_client_cls.return_value = mock_client
+
+        mock_create_proxy.return_value = "proxy"
+
+        result = await builder._build_from_transport(MemberServerType.HTTP)
+
+        assert result == "proxy"
+        mock_token_client_cls.assert_called_once_with(
+            base_url=config[ConfigKey.ENDPOINT],
+            auth_data=config[ConfigKey.AUTH],
+        )
+        mock_token_client.ensure_token.assert_awaited_once()
+        mock_dynamic_bearer_auth_cls.assert_called_once_with(mock_token_client)
+        mock_transport.assert_called_once_with(
+            url=config[ConfigKey.ENDPOINT],
+            headers={},
+            auth=mock_dynamic_bearer_auth,
+        )
+
+
+@pytest.mark.asyncio
 async def test_build_from_transport_invalid():
     config = {ConfigKey.ID: "srv", ConfigKey.TYPE: "invalid"}
     builder = MCPServerBuilder(config)
