@@ -6,12 +6,12 @@ allowing MCP clients to interact with A2A agents.
 """
 
 import os
+import time
 import uuid
 from typing import Any, Dict, List, Optional, cast
 import json
 from fastmcp import Context
 import httpx
-from google import genai
 import numpy as np
 import pandas as pd
 from a2a.types import (
@@ -36,9 +36,32 @@ TASK_AGENT_MAPPING_FILE = os.getenv(
     "A2A_TASK_AGENT_MAPPING_FILE", "a2a_task_agent_mapping.json"
 )
 
+# Default embedding model constant
+DEFAULT_SENTENCE_TRANSFORMER_MODEL = "all-MiniLM-L6-v2"
+
+# Embedding configuration from environment variables
+EMBEDDING_PROVIDER = os.getenv("EMBEDDING_PROVIDER", "sentence-transformers")
+EMBEDDING_MODEL_PROVIDER = os.getenv("EMBEDDING_MODEL_PROVIDER")
+EMBEDDING_MODEL_NAME = os.getenv(
+    "EMBEDDING_MODEL_NAME", DEFAULT_SENTENCE_TRANSFORMER_MODEL
+)
+EMBEDDING_API_KEY = os.getenv("EMBEDDING_API_KEY")
+EMBEDDING_BASE_URL = os.getenv("EMBEDDING_BASE_URL", "http://localhost:11434")
+# Control fallback behavior: "true" to allow fallback, "false" to fail on error
+EMBEDDING_ALLOW_FALLBACK = (
+    os.getenv("EMBEDDING_ALLOW_FALLBACK", "true").lower() == "true"
+)
+
 # Initialize in-memory dictionaries with stored data
 registered_agents = {}
 task_agent_mapping = {}
+
+# Initialize embedding provider (lazy loading)
+_embedding_adapter = None
+
+# Cache for agent card embeddings
+_embeddings_cache: Optional[pd.DataFrame] = None
+_embeddings_cache_timestamp: Optional[float] = None
 
 
 def _create_client_factory(httpx_client) -> ClientFactory:
@@ -195,6 +218,9 @@ async def register_agent(url: str, ctx: Context) -> Dict[str, Any]:
         }
         save_to_json(agents_data, REGISTERED_AGENTS_FILE)
 
+        # Invalidate embeddings cache since we added a new agent
+        invalidate_embeddings_cache()
+
         await ctx.info(f"Successfully registered agent: {agent_card.name}")
         return {
             "status": "success",
@@ -257,6 +283,9 @@ async def unregister_agent(url: str, ctx: Optional[Context] = None) -> Dict[str,
         }
         save_to_json(agents_data, REGISTERED_AGENTS_FILE)
         save_to_json(task_agent_mapping, TASK_AGENT_MAPPING_FILE)
+
+        # Invalidate embeddings cache since we removed an agent
+        invalidate_embeddings_cache()
 
         if ctx:
             await ctx.info(f"Successfully unregistered agent: {agent_name}")
@@ -462,28 +491,138 @@ def load_registered_agents():
     )
 
 
+def get_embedding_adapter():
+    """Get or initialize the embedding adapter based on environment configuration.
+
+    The function attempts to initialize the configured embedding provider. If initialization
+    fails and EMBEDDING_ALLOW_FALLBACK is true, it falls back to sentence-transformers.
+    Otherwise, it raises the original exception.
+
+    Returns:
+        ModelProviderAdapter: The configured embedding adapter
+
+    Raises:
+        Exception: If provider initialization fails and fallback is disabled
+    """
+    global _embedding_adapter
+
+    if _embedding_adapter is None:
+        from mcp_composer.core.tools.model_providers.factory import (
+            ModelProviderFactory,
+        )
+
+        try:
+            _embedding_adapter = ModelProviderFactory.create_embedding_provider(
+                provider_name=EMBEDDING_PROVIDER,
+                model_name=EMBEDDING_MODEL_NAME,
+                model_provider=EMBEDDING_MODEL_PROVIDER,
+                api_key=EMBEDDING_API_KEY,
+                base_url=EMBEDDING_BASE_URL,
+            )
+            logger.info(
+                "Successfully initialized embedding provider: %s with model: %s",
+                EMBEDDING_PROVIDER,
+                EMBEDDING_MODEL_NAME,
+            )
+        except Exception as e:
+            error_msg = (
+                f"Failed to initialize embedding provider '{EMBEDDING_PROVIDER}' "
+                f"with model '{EMBEDDING_MODEL_NAME}': {str(e)}"
+            )
+
+            if not EMBEDDING_ALLOW_FALLBACK:
+                logger.error(
+                    "%s. Fallback is disabled (EMBEDDING_ALLOW_FALLBACK=false). "
+                    "Please check your configuration (API key, model name, base URL).",
+                    error_msg,
+                )
+                raise
+
+            # Log prominent warning about fallback
+            logger.warning("=" * 80)
+            logger.warning("EMBEDDING PROVIDER CONFIGURATION ERROR")
+            logger.warning("=" * 80)
+            logger.warning("%s", error_msg)
+            logger.warning(
+                "Falling back to sentence-transformers with model 'all-MiniLM-L6-v2'."
+            )
+            logger.warning(
+                "This may result in different embedding quality and performance."
+            )
+            logger.warning(
+                "To disable fallback and fail on configuration errors, set: "
+                "EMBEDDING_ALLOW_FALLBACK=false"
+            )
+            logger.warning("=" * 80)
+
+            try:
+                # Fallback to sentence-transformers
+                _embedding_adapter = ModelProviderFactory.create_embedding_provider(
+                    provider_name="sentence-transformers",
+                    model_name="all-MiniLM-L6-v2",
+                )
+                logger.info(
+                    "Successfully initialized fallback embedding provider: sentence-transformers"
+                )
+            except Exception as fallback_error:
+                logger.error(
+                    "Failed to initialize fallback embedding provider: %s",
+                    fallback_error,
+                )
+                raise RuntimeError(
+                    f"Both primary ({EMBEDDING_PROVIDER}) and fallback (sentence-transformers) "
+                    f"embedding providers failed to initialize"
+                ) from fallback_error
+
+    return _embedding_adapter
+
+
 def generate_embeddings(text):
-    """Generates embeddings for the given text using Google Generative AI.
+    """Generates embeddings for the given text using the configured embedding provider.
 
     Args:
         text: The input string for which to generate embeddings.
 
     Returns:
         A list of embeddings representing the input text.
+
+    Raises:
+        AttributeError: If adapter doesn't have expected methods (programming error)
+        TypeError: If text is of wrong type (programming error)
     """
+    if text is None or not text:
+        return []
+
     try:
-        client = genai.Client(api_key=os.getenv("GOOGLE_API_KEY"))
-        response = client.models.embed_content(
-            model="gemini-embedding-001",
-            contents=text,
-            config={"task_type": "retrieval_document"},
-        )
-        if response.embeddings is not None and len(response.embeddings) > 0:
-            return response.embeddings[0].values
+        # Get the embedding adapter
+        adapter = get_embedding_adapter()
+
+        # Generate embeddings using the adapter
+        # Pass model_name if the adapter has it stored (for litellm/ollama)
+        model_name = getattr(adapter, "_embedding_model", None)
+        if model_name:
+            embeddings = adapter.encode(text, model_name=model_name)
+        else:
+            embeddings = adapter.encode(text)
+
+        return embeddings
+    except (ConnectionError, TimeoutError, OSError) as e:
+        # Network-related errors
+        logger.error("Network error generating embedding: %s", e)
         return []
-    except Exception as e:
-        logger.error("Failed to generate embeddings for text: %s", e)
+    except (ValueError, KeyError) as e:
+        # Configuration or data-related errors
+        logger.error("Configuration/data error generating embedding: %s", e)
         return []
+    except (ImportError, ModuleNotFoundError) as e:
+        # Missing dependencies
+        logger.error("Missing dependency for embedding generation: %s", e)
+        return []
+    except RuntimeError as e:
+        # Runtime errors from the embedding provider
+        logger.error("Runtime error generating embedding: %s", e)
+        return []
+    # Let AttributeError, TypeError, and other programming errors propagate
 
 
 def load_agent_cards():
@@ -505,29 +644,73 @@ def load_agent_cards():
     return card_uris, agent_cards
 
 
-def build_agent_card_embeddings() -> pd.DataFrame:
+def invalidate_embeddings_cache():
+    """Invalidate the embeddings cache to force regeneration on next access."""
+    global _embeddings_cache, _embeddings_cache_timestamp
+    _embeddings_cache = None
+    _embeddings_cache_timestamp = None
+    logger.debug("Embeddings cache invalidated")
+
+
+def build_agent_card_embeddings(use_cache: bool = True) -> pd.DataFrame:
     """Loads agent cards, generates embeddings for them, and returns a DataFrame.
 
+    Implements caching to avoid regenerating embeddings on every call.
+    The cache is invalidated when agents are registered/unregistered.
+
+    Args:
+        use_cache: If True, use cached embeddings if available. If False, force regeneration.
+
     Returns:
-        Optional[pd.DataFrame]: A Pandas DataFrame containing the original
-        'agent_card' data and their corresponding 'Embeddings'. Returns None
-        if no agent cards were loaded initially or if an exception occurred
+        pd.DataFrame: A Pandas DataFrame containing the original
+        'agent_card' data and their corresponding 'Embeddings'. Returns empty
+        DataFrame if no agent cards were loaded initially or if an exception occurred
         during the embedding generation process.
     """
+    global _embeddings_cache, _embeddings_cache_timestamp
+
+    # Return cached embeddings if available and use_cache is True
+    if use_cache and _embeddings_cache is not None:
+        logger.debug(
+            "Using cached agent card embeddings (%s records)", len(_embeddings_cache)
+        )
+        return _embeddings_cache
+
+    # 1. Load the raw data
     card_uris, agent_cards = load_agent_cards()
-    logger.info("Generating Embeddings for agent cards:%s: %s", card_uris, agent_cards)
-    try:
-        if agent_cards and len(agent_cards) > 0:
-            df = pd.DataFrame({"card_uri": card_uris, "agent_card": agent_cards})
-            df["card_embeddings"] = df["agent_card"].apply(
-                lambda card: generate_embeddings(json.dumps(card))
-            )
-            df = df[df["card_embeddings"].apply(len) > 0]
-            return df
-        logger.info("Done generating embeddings for agent cards")
+
+    if not agent_cards:
+        logger.info("No agent cards found in directory.")
         return pd.DataFrame()
+
+    logger.info("Generating local embeddings for %s agent cards...", len(agent_cards))
+
+    try:
+        # 2. Create the DataFrame
+        df = pd.DataFrame({"card_uri": card_uris, "agent_card": agent_cards})
+
+        # 3. Apply embedding logic
+        # We use json.dumps because the model needs a string, but agent_card is a dict
+        df["card_embeddings"] = df["agent_card"].apply(
+            lambda card: generate_embeddings(json.dumps(card))
+        )
+
+        # 4. Clean up any rows where embedding failed
+        df = df[df["card_embeddings"].apply(len) > 0]
+
+        logger.info("Successfully built embedding database with %s records.", len(df))
+
+        # Cache the results
+        _embeddings_cache = df
+        _embeddings_cache_timestamp = time.time()
+        logger.debug(
+            "Cached agent card embeddings at timestamp %s", _embeddings_cache_timestamp
+        )
+
+        return df
+
     except Exception as e:
-        logger.error("An unexpected error occurred : %s.", e, exc_info=True)
+        logger.error("An unexpected error occurred during build: %s.", e, exc_info=True)
         return pd.DataFrame()
 
 
@@ -548,37 +731,58 @@ def find_agent(query: str) -> str:
         The json representing the agent card deemed most relevant
         to the input query based on embedding similarity.
     """
+    # 1. Load your pre-computed embeddings
+    # Note: Ensure build_agent_card_embeddings() uses the same embedding adapter
     df = build_agent_card_embeddings()
-    if df.empty:
+
+    if df is None or df.empty:
+        logger.warning("No agent cards found or DataFrame is empty.")
         return "{}"
-    client = genai.Client(api_key=os.getenv("GOOGLE_API_KEY"))
     try:
-        query_embedding = client.models.embed_content(
-            model="gemini-embedding-001",
-            contents=query,
-            config={"task_type": "retrieval_query"},
-        )
-        if (
-            query_embedding.embeddings is not None
-            and len(query_embedding.embeddings) > 0
-        ):
-            query_emb = cast(list[float], query_embedding.embeddings[0].values)
-        else:
+        # 2. Generate embedding for the user query using the configured provider
+        adapter = get_embedding_adapter()
+        query_emb = adapter.encode(query)
+
+        # Validate that embedding was generated successfully
+        if query_emb is None or (hasattr(query_emb, "__len__") and len(query_emb) == 0):
+            logger.error("Failed to generate query embedding for query: %s", query)
             return "{}"
+
+        # Convert to numpy array if it's a list
+        if isinstance(query_emb, list):
+            query_emb = np.array(query_emb)
+
+        # Additional validation after conversion
+        if query_emb.size == 0:
+            logger.error(
+                "Query embedding is empty after conversion for query: %s", query
+            )
+            return "{}"
+
+        # 3. Calculate similarity
+        # We stack the stored embeddings (which should be lists/arrays)
+        # and calculate the dot product against our query vector.
+        embeddings_stack = np.stack(df["card_embeddings"].tolist())
+        dot_products = np.dot(embeddings_stack, query_emb)
+
+        # 4. Find the best match
+        best_match_index = np.argmax(dot_products)
+
+        logger.debug(
+            "Found best match at index %s with score %s",
+            best_match_index,
+            dot_products[best_match_index],
+        )
+
+        # Return the original JSON/dict for that agent
+        return df.iloc[best_match_index]["agent_card"]
+
     except Exception as e:
-        logger.error("Failed to generate query embeddings: %s", e)
+        logger.error("Failed to generate query embeddings or find match: %s", e)
         return "{}"
-    dot_products = np.dot(np.stack(df["card_embeddings"].tolist()), query_emb)
-    best_match_index = np.argmax(dot_products)
-    logger.debug(
-        "Found best match at index %s with score %s",
-        best_match_index,
-        dot_products[best_match_index],
-    )
-    return df.iloc[best_match_index]["agent_card"]
 
 
-def get_agent_cards() -> dict:
+def get_agent_cards() -> str:
     """Retrieves all loaded agent cards as a json / dictionary for the MCP resource endpoint.
 
     This function serves as the handler for the MCP resource identified by
@@ -596,10 +800,10 @@ def get_agent_cards() -> dict:
         resources["agent_cards"] = []
     else:
         resources["agent_cards"] = df["card_uri"].to_list()
-    return resources
+    return json.dumps(resources)
 
 
-def get_agent_card(card_name: str) -> dict:
+def get_agent_card(card_name: str) -> str:
     """Retrieves an agent card as a json / dictionary for the MCP resource endpoint.
 
     This function serves as the handler for the MCP resource identified by
@@ -612,13 +816,15 @@ def get_agent_card(card_name: str) -> dict:
     resources = {}
     logger.info("Starting read resource resource://agent_cards/%s", card_name)
     if df.empty:
-        resources["agent_card"] = []
-        return resources
-    resources["agent_card"] = (
+        resources["agent_card"] = {}
+        return json.dumps(resources)
+
+    matched_cards = (
         df.loc[
             df["card_uri"] == f"resource://agent_cards/{card_name}",
             "agent_card",
         ]
     ).to_list()
 
-    return resources
+    resources["agent_card"] = matched_cards[0] if matched_cards else {}
+    return json.dumps(resources)

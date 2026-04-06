@@ -1631,6 +1631,149 @@ uv run test/test_composer_oauth_provider.py
 
 The A2A (Agent-to-Agent) module provides MCP tools for interacting with A2A agents, enabling seamless communication and task management between different agents.
 
+## A2A Embedding Configuration
+
+The A2A service supports multiple embedding providers for semantic search and agent matching. By default, it uses SentenceTransformer with `all-MiniLM-L6-v2` as the embedding model (local, no API key required).
+
+### Configuration Options
+
+#### 1. **SentenceTransformers (Default - Local)**
+
+No configuration needed. Uses local models with no external API calls.
+
+```bash
+# .env configuration (optional - these are defaults)
+EMBEDDING_PROVIDER=sentence-transformers
+EMBEDDING_MODEL_NAME=all-MiniLM-L6-v2
+EMBEDDING_ALLOW_FALLBACK=true
+```
+
+**Available Models:**
+- `all-MiniLM-L6-v2` (default) - Fast, lightweight, good for most use cases
+- `all-mpnet-base-v2` - Higher quality, slower
+- `paraphrase-multilingual-MiniLM-L12-v2` - Multilingual support
+
+#### 2. **OpenAI (via LiteLLM)**
+
+Use OpenAI's embedding models for high-quality embeddings.
+
+```bash
+# .env configuration
+EMBEDDING_PROVIDER=litellm
+EMBEDDING_MODEL_PROVIDER=openai
+EMBEDDING_MODEL_NAME=text-embedding-3-small
+EMBEDDING_API_KEY=sk-your-openai-api-key-here
+EMBEDDING_ALLOW_FALLBACK=false  # Fail fast if OpenAI is unavailable
+```
+
+**Available Models:**
+- `text-embedding-3-small` - Cost-effective, good performance
+- `text-embedding-3-large` - Highest quality
+- `text-embedding-ada-002` - Legacy model (still supported)
+
+**Cost:** ~$0.02 per 1M tokens (text-embedding-3-small)
+
+#### 3. **Google Gemini (via LiteLLM)**
+
+Use Google's Gemini embedding models.
+
+```bash
+# .env configuration
+EMBEDDING_PROVIDER=litellm
+EMBEDDING_MODEL_PROVIDER=gemini
+EMBEDDING_MODEL_NAME=text-embedding-004
+EMBEDDING_API_KEY=your-google-api-key-here
+EMBEDDING_ALLOW_FALLBACK=false
+```
+
+**Available Models:**
+- `text-embedding-004` - Latest Gemini embedding model
+- `embedding-001` - Legacy model
+
+**Cost:** Free tier available, then pay-as-you-go
+
+#### 4. **Ollama (Local)**
+
+Use locally-hosted Ollama models for privacy and offline operation.
+
+```bash
+# .env configuration
+EMBEDDING_PROVIDER=ollama
+EMBEDDING_MODEL_NAME=nomic-embed-text
+EMBEDDING_BASE_URL=http://localhost:11434
+EMBEDDING_ALLOW_FALLBACK=false
+```
+
+**Available Models:**
+- `nomic-embed-text` - High quality, 768 dimensions
+- `mxbai-embed-large` - Large model, 1024 dimensions
+- `all-minilm` - Lightweight, 384 dimensions
+
+**Setup:**
+```bash
+# Install Ollama: https://ollama.ai
+# Pull the embedding model
+ollama pull nomic-embed-text
+```
+
+#### 5. **Azure OpenAI (via LiteLLM)**
+
+Use Azure-hosted OpenAI embedding models.
+
+```bash
+# .env configuration
+EMBEDDING_PROVIDER=litellm
+EMBEDDING_MODEL_PROVIDER=azure
+EMBEDDING_MODEL_NAME=azure/your-deployment-name
+EMBEDDING_API_KEY=your-azure-api-key
+EMBEDDING_BASE_URL=https://your-resource.openai.azure.com
+EMBEDDING_ALLOW_FALLBACK=false
+```
+
+### Fallback Behavior
+
+The `EMBEDDING_ALLOW_FALLBACK` environment variable controls what happens when the configured provider fails:
+
+- `true` (default): Falls back to sentence-transformers with a WARNING log
+- `false`: Raises an error immediately, useful for production to catch configuration issues
+
+**Example with fallback disabled:**
+```bash
+EMBEDDING_PROVIDER=litellm
+EMBEDDING_MODEL_PROVIDER=openai
+EMBEDDING_MODEL_NAME=text-embedding-3-small
+EMBEDDING_API_KEY=sk-your-key
+EMBEDDING_ALLOW_FALLBACK=false  # Fail fast if OpenAI unavailable
+```
+
+### Performance Considerations
+
+**Caching:** Embeddings are automatically cached at the module level and invalidated when agents are registered/unregistered. This significantly improves performance for repeated queries.
+
+**Provider Comparison:**
+- **SentenceTransformers**: Fastest (local), no cost, good quality
+- **OpenAI**: High quality, low latency, pay-per-use
+- **Gemini**: Competitive quality, generous free tier
+- **Ollama**: Privacy-focused, offline capable, requires local setup
+- **Azure**: Enterprise-grade, SLA guarantees, higher cost
+
+### Troubleshooting
+
+**Issue:** `WARNING: Embedding provider 'litellm' failed, falling back to sentence-transformers`
+
+**Solutions:**
+1. Check API key is valid: `echo $EMBEDDING_API_KEY`
+2. Verify network connectivity to provider
+3. Check provider-specific quotas/limits
+4. Set `EMBEDDING_ALLOW_FALLBACK=false` to see the actual error
+
+**Issue:** `ValueError: Empty embedding result`
+
+**Solutions:**
+1. Ensure query text is not empty
+2. Check model is properly loaded
+3. Verify provider is responding correctly
+
 ## A2A MCP Tools
 
 #### `register_agent`

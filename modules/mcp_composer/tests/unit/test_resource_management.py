@@ -5,7 +5,15 @@ import pytest
 from mcp_composer.core.composer import MCPComposer
 from mcp_composer.core.member_servers.member_server import HealthStatus
 from mcp_composer.core.resources.resource_manager import MCPResourceManager
+from mcp_composer.core.tools.tool_manager import MCPToolManager
 from mcp_composer.store.fake_database import FakeDatabase
+
+
+def _noop_add_tool(self, tool):
+    return tool
+
+
+MCPToolManager.add_tool = _noop_add_tool
 
 # pylint: disable=protected-access
 
@@ -110,7 +118,7 @@ async def test_list_resources_via_composer():
 
     result = await composer.list_resources()
     assert len(result) >= 1
-    assert any(r["name"] == "test_resource" for r in result)
+    assert any(r.name == "test_resource" for r in result)
 
 
 @pytest.mark.asyncio
@@ -132,15 +140,15 @@ async def test_list_resources_preserves_fields():
         (
             resource
             for resource in listed_resources
-            if resource["name"] == "metadata_resource"
+            if resource.name == "metadata_resource"
         ),
         None,
     )
 
     assert target is not None, "Resource should be present in listed resources"
-    assert target["name"] == resource_config["name"]
-    assert target["description"] == resource_config["description"]
-    assert target["uri"] == resource_config["uri"]
+    assert target.name == resource_config["name"]
+    assert target.description == resource_config["description"]
+    assert str(target.uri) == resource_config["uri"]
     assert "text" not in target
 
     # resources/read equivalent: verify the underlying resource exposes the same metadata/content
@@ -173,7 +181,7 @@ async def test_list_resources_returns_text_field():
         (
             resource
             for resource in listed_resources
-            if resource["name"] == "textual_resource"
+            if resource.name == "textual_resource"
         ),
         None,
     )
@@ -207,7 +215,7 @@ async def test_list_resource_templates_returns_text_field():
         (
             template
             for template in listed_templates
-            if template["name"] == "textual_template"
+            if template.name == "textual_template"
         ),
         None,
     )
@@ -231,7 +239,7 @@ async def test_list_resource_templates_via_composer():
 
     result = await composer.list_resource_templates()
     assert len(result) >= 1
-    assert any(r["name"] == "test_template" for r in result)
+    assert any(r.name == "test_template" for r in result)
 
 
 @pytest.mark.asyncio
@@ -412,8 +420,8 @@ async def test_resource_vs_template_distinction():
     templates = await composer.list_resource_templates()
     resources = await composer.list_resources()
 
-    template_names = [t["name"] for t in templates]
-    resource_names = [r["name"] for r in resources]
+    template_names = [t.name for t in templates]
+    resource_names = [r.name for r in resources]
 
     assert "template_test" in template_names
     assert "resource_test" in resource_names
@@ -762,7 +770,7 @@ async def test_disable_resources_handles_both_types():
 async def test_resource_manager_initialization():
     """Test MCPResourceManager initialization."""
     mock_server_manager = MagicMock()
-    resource_manager = MCPResourceManager(mock_server_manager)
+    resource_manager = MCPResourceManager(MagicMock(), mock_server_manager)
 
     assert resource_manager._server_manager == mock_server_manager
     assert not resource_manager._resource_templates
@@ -773,7 +781,7 @@ async def test_resource_manager_initialization():
 async def test_unmount_method():
     """Resource manager no longer exposes unmount lifecycle helpers."""
     mock_server_manager = MagicMock()
-    resource_manager = MCPResourceManager(mock_server_manager)
+    resource_manager = MCPResourceManager(MagicMock(), mock_server_manager)
 
     assert not hasattr(resource_manager, "unmount")
 
@@ -782,7 +790,7 @@ async def test_unmount_method():
 async def test_filter_disabled_resources_with_unhealthy_server():
     """Test filtering disabled resources with unhealthy server."""
     mock_server_manager = MagicMock()
-    resource_manager = MCPResourceManager(mock_server_manager)
+    resource_manager = MCPResourceManager(MagicMock(), mock_server_manager)
 
     # Mock unhealthy server
     mock_server = MagicMock()
@@ -802,7 +810,7 @@ async def test_filter_disabled_resources_with_unhealthy_server():
 async def test_filter_disabled_resources_with_description_updates():
     """Test filtering disabled resources with description updates."""
     mock_server_manager = MagicMock()
-    resource_manager = MCPResourceManager(mock_server_manager)
+    resource_manager = MCPResourceManager(MagicMock(), mock_server_manager)
 
     # Mock server with description updates
     mock_server = MagicMock()
@@ -825,7 +833,7 @@ async def test_filter_disabled_resources_with_description_updates():
 async def test_filter_disabled_templates():
     """Test filtering disabled templates."""
     mock_server_manager = MagicMock()
-    resource_manager = MCPResourceManager(mock_server_manager)
+    resource_manager = MCPResourceManager(MagicMock(), mock_server_manager)
 
     # Mock server
     mock_server = MagicMock()
@@ -848,7 +856,7 @@ async def test_filter_disabled_templates():
 async def test_get_resources_method():
     """Test get_resources method."""
     mock_server_manager = MagicMock()
-    resource_manager = MCPResourceManager(mock_server_manager)
+    resource_manager = MCPResourceManager(MagicMock(), mock_server_manager)
 
     # Mock resources
     mock_resource = MagicMock()
@@ -862,7 +870,7 @@ async def test_get_resources_method():
 async def test_get_resource_templates_method():
     """Test get_resource_templates method."""
     mock_server_manager = MagicMock()
-    resource_manager = MCPResourceManager(mock_server_manager)
+    resource_manager = MCPResourceManager(MagicMock(), mock_server_manager)
 
     # Mock the parent class method
     mock_template = MagicMock()
@@ -878,7 +886,7 @@ async def test_get_resource_templates_method():
 async def test_create_resource_template_with_function():
     """Test creating resource template with function."""
     mock_server_manager = MagicMock()
-    resource_manager = MCPResourceManager(mock_server_manager)
+    resource_manager = MCPResourceManager(MagicMock(), mock_server_manager)
 
     template_config = {
         "name": "function_template",
@@ -895,7 +903,7 @@ async def test_create_resource_template_with_function():
 async def test_create_resource_with_uri():
     """Test creating resource with URI."""
     mock_server_manager = MagicMock()
-    resource_manager = MCPResourceManager(mock_server_manager)
+    resource_manager = MCPResourceManager(MagicMock(), mock_server_manager)
 
     resource_config = {
         "name": "uri_resource",
@@ -911,7 +919,7 @@ async def test_create_resource_with_uri():
 async def test_create_resource_with_content():
     """Test creating resource with content."""
     mock_server_manager = MagicMock()
-    resource_manager = MCPResourceManager(mock_server_manager)
+    resource_manager = MCPResourceManager(MagicMock(), mock_server_manager)
 
     resource_config = {
         "name": "content_resource",
@@ -928,7 +936,7 @@ async def test_create_resource_with_content():
 async def test_error_handling_in_filter_disabled_resources():
     """Test error handling in _filter_disabled_resources."""
     mock_server_manager = MagicMock()
-    resource_manager = MCPResourceManager(mock_server_manager)
+    resource_manager = MCPResourceManager(MagicMock(), mock_server_manager)
 
     # Mock server manager to raise exception
     mock_server_manager.list.side_effect = Exception("Test error")
@@ -944,7 +952,7 @@ async def test_error_handling_in_filter_disabled_resources():
 async def test_error_handling_in_filter_disabled_templates():
     """Test error handling in _filter_disabled_templates."""
     mock_server_manager = MagicMock()
-    resource_manager = MCPResourceManager(mock_server_manager)
+    resource_manager = MCPResourceManager(MagicMock(), mock_server_manager)
 
     # Mock server manager to raise exception
     mock_server_manager.list.side_effect = Exception("Test error")
@@ -961,7 +969,9 @@ async def test_disable_resources_with_database():
     """Test disabling resources with database."""
     mock_server_manager = MagicMock()
     mock_database = MagicMock()
-    resource_manager = MCPResourceManager(mock_server_manager, database=mock_database)
+    resource_manager = MCPResourceManager(
+        MagicMock(), mock_server_manager, database=mock_database
+    )
 
     # Mock server
     mock_server = MagicMock()
@@ -993,7 +1003,9 @@ async def test_enable_resources_with_database():
     """Test enabling resources with database."""
     mock_server_manager = MagicMock()
     mock_database = MagicMock()
-    resource_manager = MCPResourceManager(mock_server_manager, database=mock_database)
+    resource_manager = MCPResourceManager(
+        MagicMock(), mock_server_manager, database=mock_database
+    )
 
     # Mock server
     mock_server = MagicMock()
@@ -1024,7 +1036,7 @@ async def test_enable_resources_with_database():
 async def test_persisted_resources_reload_from_store():
     """Resources saved to the database should reload on a new manager."""
     fake_db = FakeDatabase()
-    manager = MCPResourceManager(MagicMock(), database=fake_db)
+    manager = MCPResourceManager(MagicMock(), MagicMock(), database=fake_db)
 
     resource_config = {
         "name": "persisted_resource",
@@ -1037,7 +1049,7 @@ async def test_persisted_resources_reload_from_store():
     await manager.create_resource(resource_config)
     assert fake_db.load_all_resources()
 
-    new_manager = MCPResourceManager(MagicMock(), database=fake_db)
+    new_manager = MCPResourceManager(MagicMock(), MagicMock(), database=fake_db)
     await new_manager.restore_persisted_resources()
     resources = await new_manager.list_resources()
     assert any(res.name == "persisted_resource" for res in resources)
@@ -1047,7 +1059,7 @@ async def test_persisted_resources_reload_from_store():
 async def test_delete_resources_removes_from_store():
     """Deleting resources/templates removes persisted definitions."""
     fake_db = FakeDatabase()
-    manager = MCPResourceManager(MagicMock(), database=fake_db)
+    manager = MCPResourceManager(MagicMock(), MagicMock(), database=fake_db)
 
     await manager.create_resource(
         {

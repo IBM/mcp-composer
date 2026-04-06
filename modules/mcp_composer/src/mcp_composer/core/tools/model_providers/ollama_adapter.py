@@ -3,9 +3,10 @@ Ollama Model Provider Adapter
 
 Adapter for using ollama-python library directly as the model provider.
 This provides access to Ollama-specific features like think=True for Guardian models.
+Supports both chat/completion and embedding generation.
 """
 
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List, Union
 from mcp_composer.core.tools.model_providers.base import ModelProviderAdapter
 from mcp_composer.core.utils import LoggerFactory
 
@@ -13,7 +14,7 @@ logger = LoggerFactory.get_logger()
 
 # Try to import ollama-python, but handle gracefully if not available
 try:
-    from ollama import AsyncClient
+    from ollama import AsyncClient, Client
 
     OLLAMA_PYTHON_AVAILABLE = True
 except ImportError:
@@ -45,6 +46,7 @@ class OllamaAdapter(ModelProviderAdapter):
 
         self.base_url = base_url
         self._client = AsyncClient(host=base_url)
+        self._sync_client = Client(host=base_url)  # For embeddings
 
     async def check_model_available(self, model_name: str) -> bool:
         """
@@ -78,7 +80,7 @@ class OllamaAdapter(ModelProviderAdapter):
         temperature: float = 0.7,
         max_tokens: int = 1000,
         options: Optional[Dict[str, Any]] = None,
-        **kwargs
+        **kwargs,
     ) -> Dict[str, Any]:
         """
         Send a chat request via ollama-python.
@@ -201,6 +203,54 @@ class OllamaAdapter(ModelProviderAdapter):
             result["response_model"] = response_model
 
         return result
+
+    def encode(
+        self, text: Union[str, List[str]], model_name: Optional[str] = None, **kwargs
+    ) -> Union[List[float], List[List[float]]]:
+        """
+        Generate embeddings using Ollama.
+
+        Args:
+            text: The input string or list of strings for which to generate embeddings
+            model_name: Name of the Ollama embedding model (default: nomic-embed-text)
+            **kwargs: Additional parameters passed to client.embeddings()
+
+        Returns:
+            List of embeddings (floats) for single text, or list of lists for multiple texts
+        """
+        if not OLLAMA_PYTHON_AVAILABLE:
+            raise ImportError("ollama-python is not available")
+
+        try:
+            # Use default embedding model if not specified
+            if model_name is None:
+                model_name = "nomic-embed-text"
+
+            # Handle single string input
+            if isinstance(text, str):
+                response = self._sync_client.embeddings(
+                    model=model_name, prompt=text, **kwargs
+                )
+                return response["embedding"]
+
+            # Handle list of strings
+            embeddings = []
+            for txt in text:
+                response = self._sync_client.embeddings(
+                    model=model_name, prompt=txt, **kwargs
+                )
+                embeddings.append(response["embedding"])
+
+            return embeddings
+
+        except Exception as e:
+            logger.error("Error generating embeddings with Ollama: %s", e)
+            if "model" in str(e).lower() and "not found" in str(e).lower():
+                raise ValueError(
+                    f"Model '{model_name}' not found in Ollama. "
+                    f"Please pull it first: 'ollama pull {model_name}'"
+                )
+            raise ValueError(f"Failed to generate embeddings: {e}")
 
     def is_available(self) -> bool:
         """Check if ollama-python is available."""

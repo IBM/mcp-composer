@@ -12,6 +12,7 @@ from fastmcp.server.auth.auth import OAuthProvider
 from fastmcp.server.auth.providers.jwt import JWTVerifier
 from starlette.middleware import Middleware as ASGIMiddleware
 from fastmcp.tools.tool import Tool
+from fastmcp.resources import FunctionResource, TextResource
 from fastmcp.resources.resource import Resource
 from fastmcp.resources.template import ResourceTemplate
 from mcp_composer.core.tools import MCPToolManager
@@ -70,7 +71,6 @@ class MCPComposer(FastMCP):
         auth: OAuthProvider | JWTVerifier | None = None,
     ):
         super().__init__(name=name, auth=auth)
-
         # Initialize configuration manager
         self._server_config_manager = ServerConfigurationManager(
             version_adapter_config=version_adapter_config
@@ -90,7 +90,7 @@ class MCPComposer(FastMCP):
             composer=self, server_manager=self._server_manager, database=database
         )
         self._resource_manager = MCPResourceManager(
-            server_manager=self._server_manager, database=database
+            composer=self, server_manager=self._server_manager, database=database
         )
         self._resource_manager.schedule_persisted_restore()
         self._prompt_manager = MCPPromptManager(
@@ -122,22 +122,6 @@ class MCPComposer(FastMCP):
             dynamic_tool_generator = [
                 self.add_tools_from_python,
             ]
-        self.add_resource(
-            Resource.from_function(
-                get_agent_cards,
-                uri="resource://agent_cards/list",
-                mime_type="application/json",
-            )
-        )
-
-        self.add_template(
-            ResourceTemplate.from_function(
-                get_agent_card,
-                uri_template="agent://agent_cards/{card_name}",
-                mime_type="application/json",
-                description="Retrieves a specific agent card by name.",
-            )
-        )
 
         load_registered_agents()
         a2a_tools = [
@@ -475,16 +459,26 @@ class MCPComposer(FastMCP):
         templates = await self._resource_manager.list_resource_templates()
         result = []
         for template in templates:
-            result.append(
-                {
-                    "name": template.name,
-                    "description": template.description,
-                    "uri_template": str(template.uri_template),
-                    "mime_type": template.mime_type,
-                    "parameters": template.parameters or {},
-                    "tags": list(template.tags) if template.tags else [],
-                }
-            )
+            # Handle both ResourceTemplate objects and dict-like objects
+            if isinstance(template, dict):
+                result.append(
+                    ResourceTemplate(
+                        name=template.get("name", ""),
+                        description=template.get("description", ""),
+                        uri_template=str(template.get("uri_template", "")),
+                        mime_type=template.get("mime_type", ""),
+                        parameters=template.get("parameters", {}),
+                        tags=set(template.get("tags") or []),
+                    )
+                )
+            elif isinstance(template, ResourceTemplate):
+                result.append(template)
+            else:
+                logger.warning(
+                    "Unexpected template format: %s. Expected dict or ResourceTemplate instance.",
+                    template,
+                )
+
         return result  # type: ignore[return-value]
 
     async def list_resources(  # type: ignore[override]
@@ -494,15 +488,26 @@ class MCPComposer(FastMCP):
         resources = await self._resource_manager.list_resources()
         result = []
         for resource in resources:
-            result.append(
-                {
-                    "name": resource.name,
-                    "description": resource.description,
-                    "uri": str(resource.uri),
-                    "mime_type": resource.mime_type,
-                    "tags": list(resource.tags) if resource.tags else [],
-                }
-            )
+            # Handle both Resource objects and dict-like objects
+            if isinstance(resource, dict):
+                result.append(
+                    TextResource(
+                        name=resource.get("name", ""),
+                        description=resource.get("description", ""),
+                        uri=resource.get("uri", ""),
+                        mime_type=resource.get("mime_type", ""),
+                        tags=set(resource.get("tags") or []),
+                        text=str(resource.get("text", "")),
+                    )
+                )
+            elif isinstance(resource, Resource):
+                result.append(resource)
+            else:
+                logger.warning(
+                    "Unexpected resource format: %s. Expected dict or Resource instance.",
+                    resource,
+                )
+
         return result  # type: ignore[return-value]
 
     async def list_resources_per_server(self, server_id: str) -> list[dict]:

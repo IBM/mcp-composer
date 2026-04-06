@@ -2,9 +2,10 @@
 LiteLLM Model Provider Adapter
 
 Adapter for using LiteLLM as the model provider.
+Supports both chat/completion and embedding generation.
 """
 
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List, Union
 from mcp_composer.core.tools.model_providers.base import ModelProviderAdapter
 from mcp_composer.core.utils import LoggerFactory
 
@@ -158,6 +159,47 @@ class LiteLLMAdapter(ModelProviderAdapter):
             result["response_model"] = response_model
 
         return result
+
+    def encode(
+        self, text: Union[str, List[str]], model_name: Optional[str] = None, **kwargs
+    ) -> Union[List[float], List[List[float]]]:
+        """
+        Generate embeddings using LiteLLM.
+
+        Args:
+            text: The input string or list of strings for which to generate embeddings
+            model_name: Name of the embedding model (default: text-embedding-ada-002)
+            **kwargs: Additional parameters passed to litellm.embedding()
+
+        Returns:
+            List of embeddings (floats) for single text, or list of lists for multiple texts
+        """
+        if not LITELLM_AVAILABLE:
+            raise ImportError("LiteLLM is not available")
+
+        try:
+            # Use default embedding model if not specified
+            if model_name is None:
+                model_name = "text-embedding-ada-002"
+
+            # Prepare input
+            input_text = [text] if isinstance(text, str) else text
+
+            # Generate embeddings
+            response = litellm.embedding(model=model_name, input=input_text, **kwargs)
+
+            # Extract embeddings from response
+            embeddings = [item["embedding"] for item in response["data"]]
+
+            # Return single list for single input, list of lists for multiple inputs
+            if isinstance(text, str):
+                return embeddings[0]
+            else:
+                return embeddings
+
+        except Exception as e:
+            logger.error("Error generating embeddings with LiteLLM: %s", e)
+            raise ValueError(f"Failed to generate embeddings: {e}")
 
     def is_available(self) -> bool:
         """Check if LiteLLM is available."""

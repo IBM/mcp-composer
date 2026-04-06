@@ -1,16 +1,20 @@
 """Resource management module for MCP Composer."""
 
+from __future__ import annotations
 import asyncio
 import logging
-from typing import Dict, List, Any, Optional
-
-from fastmcp.resources import Resource, ResourceTemplate
+from typing import TYPE_CHECKING, Dict, List, Any, Optional
+from fastmcp.resources import Resource, ResourceTemplate, FunctionResource
 
 from mcp_composer.core.member_servers.member_server import HealthStatus
 from mcp_composer.core.member_servers.server_manager import ServerManager
+from mcp_composer.a2a_service.a2a_mcp import get_agent_cards, get_agent_card
 
 logger = logging.getLogger(__name__)
 # pylint: disable=W0718
+
+if TYPE_CHECKING:
+    from mcp_composer.core.composer import MCPComposer
 
 
 class MCPResourceManager:
@@ -21,9 +25,11 @@ class MCPResourceManager:
 
     def __init__(
         self,
+        composer: MCPComposer,
         server_manager: ServerManager,
         database=None,
     ):
+        self._composer = composer
         self._server_manager = server_manager
         self._database = database
         # Store references to parent's dicts before we shadow them
@@ -50,6 +56,29 @@ class MCPResourceManager:
 
     async def restore_persisted_resources(self) -> None:
         """Load resources/templates from storage."""
+        # Add built-in resources for agent cards
+        await self.create_resource(
+            {
+                "function": get_agent_cards,
+                "uri": "resource://agent_cards/list",
+                "mime_type": "application/json",
+                "description": "Retrieves a list of all agent cards.",
+                "name": "get_agent_cards",
+            },
+            persist=False,
+        )
+
+        await self.create_resource_template(
+            {
+                "function": get_agent_card,
+                "uri_template": "agent://agent_cards/{card_name}",
+                "mime_type": "application/json",
+                "description": "Retrieves a specific agent card by name.",
+                "name": "get_agent_card",
+            },
+            persist=False,
+        )
+
         if not self._storage_enabled or not self._database:
             return
         stored = self._database.load_all_resources()
@@ -131,7 +160,9 @@ class MCPResourceManager:
             if self.warn_on_duplicate_resources:
                 logger.warning("Resource already exists: %s", resource.name)
             return existing
+        self._composer.add_resource(resource)  # Add to FastMCP's ResourceManager
         self._resources[resource.name] = resource
+
         return resource
 
     def add_template(self, template: ResourceTemplate) -> ResourceTemplate:
@@ -141,6 +172,7 @@ class MCPResourceManager:
             if self.warn_on_duplicate_resources:
                 logger.warning("Resource template already exists: %s", template.name)
             return existing
+        self._composer.add_template(template)  # Add to FastMCP's ResourceManager
         self._resource_templates[template.name] = template
         return template
 
@@ -707,8 +739,18 @@ class MCPResourceManager:
 
             # Add resources with type indicator
             for resource in resources:
-                all_items.append(
-                    {
+                # Handle both Resource objects and dict-like objects
+                if isinstance(resource, dict):
+                    resource_data = {
+                        "item": resource,
+                        "type": "resource",
+                        "name": resource.get("name", ""),
+                        "description": resource.get("description", ""),
+                        "uri": str(resource.get("uri", "")),
+                        "tags": resource.get("tags", set()),
+                    }
+                else:
+                    resource_data = {
                         "item": resource,
                         "type": "resource",
                         "name": getattr(resource, "name", ""),
@@ -716,12 +758,22 @@ class MCPResourceManager:
                         "uri": str(getattr(resource, "uri", "")),
                         "tags": getattr(resource, "tags", set()),
                     }
-                )
+                all_items.append(resource_data)
 
             # Add templates with type indicator
             for template in templates:
-                all_items.append(
-                    {
+                # Handle both ResourceTemplate objects and dict-like objects
+                if isinstance(template, dict):
+                    template_data = {
+                        "item": template,
+                        "type": "template",
+                        "name": template.get("name", ""),
+                        "description": template.get("description", ""),
+                        "uri_template": str(template.get("uri_template", "")),
+                        "tags": template.get("tags", set()),
+                    }
+                else:
+                    template_data = {
                         "item": template,
                         "type": "template",
                         "name": getattr(template, "name", ""),
@@ -729,7 +781,7 @@ class MCPResourceManager:
                         "uri_template": str(getattr(template, "uri_template", "")),
                         "tags": getattr(template, "tags", set()),
                     }
-                )
+                all_items.append(template_data)
 
             # Apply filters
             for item_data in all_items:
@@ -772,11 +824,14 @@ class MCPResourceManager:
                     and filter_criteria["uri_pattern"]
                 ):
                     if item_data["type"] == "resource":
-                        uri = item_data["uri"]
+                        uri = item_data.get("uri", "")
                     else:
-                        uri = item_data["uri_template"]
+                        uri = item_data.get("uri_template", "")
 
-                    if filter_criteria["uri_pattern"].lower() not in uri.lower():
+                    if (
+                        uri
+                        and filter_criteria["uri_pattern"].lower() not in uri.lower()
+                    ):
                         match = False
 
                 if match:
@@ -790,12 +845,12 @@ class MCPResourceManager:
 
                     # Add type-specific fields
                     if item_data["type"] == "resource":
-                        result_entry["uri"] = item_data["uri"]
+                        result_entry["uri"] = item_data.get("uri", "")
                     else:
-                        result_entry["uri_template"] = item_data["uri_template"]
+                        result_entry["uri_template"] = item_data.get("uri_template", "")
 
                     # Add tags if present
-                    if item_data["tags"]:
+                    if item_data.get("tags"):
                         result_entry["tags"] = list(item_data["tags"])
 
                     result.append(result_entry)
