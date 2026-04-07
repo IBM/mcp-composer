@@ -193,6 +193,9 @@ async def test_build_from_transport_http_with_solis_jwt_handler():
             "mcp_composer.core.member_servers.builder.create_proxy"
         ) as mock_create_proxy,
         patch(
+            "mcp_composer.core.member_servers.layered_factory_mcp.create_proxy"
+        ) as mock_create_proxy_layered,
+        patch(
             "mcp_composer.core.member_servers.builder.SolisJWTTokenGenerator"
         ) as mock_token_gen_cls,
     ):
@@ -203,12 +206,21 @@ async def test_build_from_transport_http_with_solis_jwt_handler():
         mock_client = MagicMock()
         mock_client_cls.return_value = mock_client
 
+        # Mock proxy for LayeredMCPFactory
+        mock_proxy = MagicMock()
+        mock_create_proxy_layered.return_value = mock_proxy
+
+        # Mock the final result
         mock_create_proxy.return_value = "proxy-server"
 
         result = await builder._build_from_transport(MemberServerType.HTTP)
 
-        # Ensure the FastMCP proxy is returned
-        assert result == "proxy-server"
+        # Ensure a LayeredMCPFactory instance is returned
+        from mcp_composer.core.member_servers.layered_factory_mcp import (
+            LayeredMCPFactory,
+        )
+
+        assert isinstance(result, LayeredMCPFactory)
 
         # SolisJWTTokenGenerator should be constructed with the auth config
         mock_token_gen_cls.assert_called_once_with(auth_data=config[ConfigKey.AUTH])
@@ -221,9 +233,11 @@ async def test_build_from_transport_http_with_solis_jwt_handler():
         headers = kwargs.get("headers", {})
         assert headers.get(ConfigKey.AUTH_HEADER.value) == "Bearer mock-jwt-token"
 
-        # Client should be created with the transport, and create_proxy called with it
+        # Client should be created with the transport
         mock_client_cls.assert_called_once_with(mock_transport.return_value, auth=None)
-        mock_create_proxy.assert_called_once_with(mock_client)
+
+        # create_proxy should be called in LayeredMCPFactory with the client
+        mock_create_proxy_layered.assert_called_once()
 
 
 @pytest.mark.asyncio

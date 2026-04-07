@@ -4,7 +4,7 @@
 # pylint: disable=C0411
 import json
 import os
-from typing import Dict
+from typing import Any, Dict
 import jsonref
 import httpx
 from fastmcp import FastMCP, Client
@@ -35,6 +35,7 @@ from mcp_composer.core.auth_handler import (
 )
 from mcp_composer.core.tools.graphql_tool import GraphQLTool
 from mcp_composer.core.member_servers.layered_factory_oa import LayeredOpenAPIFactory
+from mcp_composer.core.member_servers.layered_factory_mcp import LayeredMCPFactory
 from mcp_composer.core.member_servers.layered_constants import DEFAULT_EXCLUDE_CONFIG
 
 logger = LoggerFactory.get_logger()
@@ -108,37 +109,25 @@ class MCPServerBuilder:
         }:  # pylint: disable=R1705
             endpoint = config[ConfigKey.ENDPOINT]
             auth = None
-            if auth_strategy == AuthStrategy.OAUTH:
-                auth = OAuth(mcp_url=endpoint)
 
-            elif auth_strategy == AuthStrategy.BEARER:
-                logger.info("Setting up header for bearer")
-                headers[ConfigKey.AUTH_HEADER.value] = (
-                    f"Bearer {auth_token.get(ConfigKey.TOKEN)}"
+            # Check if layered mode is enabled for native MCP protocol
+            layered_enabled = config.get(ConfigKey.LAYERED, False)
+            if layered_enabled:
+                logger.info("Building layered MCP protocol server from HTTP transport")
+                return await self._build_layered_mcp_from_transport(
+                    endpoint, headers, auth_strategy, auth_token
                 )
 
-            elif auth_strategy == AuthStrategy.DYNAMIC_BEARER:
-                logger.info("Setting up dynamic bearer token client")
-                auth_data = config.get(ConfigKey.AUTH, {})
-                dynamic_client = DynamicTokenClient(
-                    base_url=endpoint,
-                    auth_data=auth_data,
-                )
-                await dynamic_client.ensure_token()
-                auth = DynamicBearerAuth(dynamic_client)
-
-            elif auth_strategy == AuthStrategy.SOLIS_JWT_HANDLER:
-                logger.info("Setting up Solis OAuth authentication client")
-                auth_data = config.get(ConfigKey.AUTH, {})
-                token_generator = SolisJWTTokenGenerator(auth_data=auth_data)
-                jwt_token = await token_generator.get_jwt_token()
-                headers[ConfigKey.AUTH_HEADER.value] = f"Bearer {jwt_token}"
+            # Set up authentication for the transport
+            headers, auth = await self._setup_auth_for_transport(
+                endpoint, headers, auth_strategy, auth_token
+            )
 
             transport = TransportClass(url=endpoint, headers=headers, auth=auth)
             logger.debug("the headers are >>> %s", headers)
             # Set up authentication if provided
             client = Client(transport, auth=auth)
-            return create_proxy(client)
+            return create_proxy(client, name=f"proxy_{self.mcp_id}")
 
         if transport_type == MemberServerType.STDIO:
             # For stdio, we need to pass the command and args
@@ -152,6 +141,84 @@ class MCPServerBuilder:
             return create_proxy(client)
 
         raise ValueError(f"Unsupported transport type: {transport_type}")
+
+    async def _setup_auth_for_transport(
+        self, endpoint: str, headers: Dict, auth_strategy: str | None, auth_config: Dict
+    ) -> tuple[Dict, Any]:
+        """
+        Set up authentication for HTTP/SSE transport.
+        Returns tuple of (updated_headers, auth_object).
+        """
+        auth = None
+
+        if auth_strategy == AuthStrategy.OAUTH:
+            auth = OAuth(mcp_url=endpoint)
+
+        elif auth_strategy == AuthStrategy.BEARER:
+            logger.info("Setting up header for bearer")
+            headers[ConfigKey.AUTH_HEADER.value] = (
+                f"Bearer {auth_config.get(ConfigKey.TOKEN)}"
+            )
+
+        elif auth_strategy == AuthStrategy.DYNAMIC_BEARER:
+            logger.info("Setting up dynamic bearer token client")
+            dynamic_client = DynamicTokenClient(
+                base_url=endpoint,
+                auth_data=auth_config,
+            )
+            await dynamic_client.ensure_token()
+            auth = DynamicBearerAuth(dynamic_client)
+
+        elif auth_strategy == AuthStrategy.SOLIS_JWT_HANDLER:
+            logger.info("Setting up Solis OAuth authentication client")
+            token_generator = SolisJWTTokenGenerator(auth_data=auth_config)
+            jwt_token = await token_generator.get_jwt_token()
+            headers[ConfigKey.AUTH_HEADER.value] = f"Bearer {jwt_token}"
+
+        return headers, auth
+
+    async def _build_layered_mcp_from_transport(
+        self, endpoint: str, headers: Dict, auth_strategy: str | None, auth_config: Dict
+    ) -> FastMCP:
+        """
+        Build a layered MCP protocol server from HTTP transport configuration.
+        This provides a discovery layer on top of native MCP servers without OpenAPI specs.
+        """
+        logger.info(
+            "Building layered MCP protocol server from HTTP transport with endpoint: %s",
+            endpoint,
+        )
+
+        # Set up authentication for the transport
+        headers, auth = await self._setup_auth_for_transport(
+            endpoint, headers, auth_strategy, auth_config
+        )
+
+        # Create the transport and client
+        transport = StreamableHttpTransport(url=endpoint, headers=headers, auth=auth)
+        client = Client(transport, auth=auth)
+
+        # Get optional tool descriptions
+        tool_descriptions = self.config.get("tool_description", {}) or {}
+
+        # Get product_id from solis_config or top-level productId for authorization matching
+        solis_config = self.config.get("solis_config") or {}
+        product_id = solis_config.get("product_id") or self.config.get(
+            "productId", None
+        )
+
+        # Create LayeredMCPFactory instance (which extends FastMCP)
+        mcp = LayeredMCPFactory(
+            client=client,
+            server_id=self.mcp_id,  # Pass server_id for authorization
+            product_id=product_id,  # Pass productId for authorization matching
+            tool_descriptions=tool_descriptions,
+        )
+
+        logger.info(
+            "Successfully built layered MCP protocol server from HTTP transport"
+        )
+        return mcp
 
     async def _build_from_client(self) -> FastMCP:
         client = Client(self.config[ConfigKey.ENDPOINT])
