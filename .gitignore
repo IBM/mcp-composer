@@ -53,6 +53,10 @@ chroes_output/ruff_output.txt
 .bob/*
 benchmark/*
 specs/*
+
+plans/*
+
 vectorstore/
 catalog/
 spec/
+
