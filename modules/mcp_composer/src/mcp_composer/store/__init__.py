@@ -1,19 +1,14 @@
-"""
-Storage module for MCP Composer.
-
-This module provides database interfaces and storage adapters including:
-- DatabaseInterface: Abstract base class for database operations
-- LocalFileAdapter: Local file-based storage implementation
-- CloudantAdapter: IBM Cloudant cloud database implementation for storing configurations
-- PostgresAdapter: PostgreSQL database implementation for storing configurations
-- FakeDatabase: In-memory database for testing
-"""
-
 from .database import DatabaseInterface
 from .local_file_adapter import LocalFileAdapter
 from .cloudant_adapter import CloudantAdapter
 from .postgres_adapter import PostgresAdapter
 from .fake_database import FakeDatabase
+
+from .catalog_database import CatalogDatabaseInterface
+from .catalog_postgres_adapter import CatalogPostgresAdapter
+from .catalog_local_file_adapter import CatalogLocalFileAdapter
+from .catalog_in_memory_database import CatalogInMemoryDatabase
+from .catalog_factory import get_catalog_db
 
 __all__ = [
     "DatabaseInterface",
@@ -21,4 +16,9 @@ __all__ = [
     "CloudantAdapter",
     "PostgresAdapter",
     "FakeDatabase",
+    "CatalogDatabaseInterface",
+    "CatalogPostgresAdapter",
+    "CatalogLocalFileAdapter",
+    "CatalogInMemoryDatabase",
+    "get_catalog_db",
 ]

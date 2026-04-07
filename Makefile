@@ -72,18 +72,18 @@ format:
 # Lint code with ruff
 lint:
 	@echo "🔍 Linting code with ruff..."
-	uv run ruff check . > ./../chroes_output/ruff_output.txt
+	uv run ruff check . > ./chroes_output/ruff_output.txt
 
 # Type checking with mypy
 type-check:
 	@echo "📝 Running type checks with mypy..."
-	uv run mypy ./../modules/mcp_composer/ > ./../chroes_output/mypy_output.txt
+	uv run mypy ./modules/mcp_composer/ > ./chroes_output/mypy_output.txt
 
 
 # Run tests with coverage
 test:
 	@echo "🧪 Running tests..."
-	uv run coverage run -m pytest ./../test/unit/ > ./../chroes_output/test_output.txt
+	uv run coverage run -m pytest ./modules/mcp_composer/tests/unit/ > ./chroes_output/test_output.txt
 
 # Run tests with automatic cleanup (for CI/CD pipelines)
 test-with-cleanup: test
@@ -120,7 +120,7 @@ clean-test:
 	@find . -type d -name "*.pytest*" -exec rm -rf {} + 2>/dev/null || true
 	@find . -type d -name ".pytest_cache" -exec rm -rf {} + 2>/dev/null || true
 	@find . -type f -name ".coverage.*" -delete 2>/dev/null || true
-	@rm -rf ./../chroes_output/ 2>/dev/null || true
+	@rm -rf ./chroes_output/ 2>/dev/null || true
 	@rm -rf modules/*/htmlcov/ modules/*/.coverage modules/*/.pytest_cache/ 2>/dev/null || true
 	@echo "✅ Test artifacts cleaned"
 

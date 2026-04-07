@@ -14,10 +14,14 @@ Environment variables:
 
 import asyncio
 import os
+from contextlib import suppress
+from typing import Iterable
 
 from mcp_composer import MCPComposer
+from mcp_composer.core.catalog import SkillListFilter, SkillManager
 from mcp_composer.core.auth.jwt.isv_token_validator import ISVTokenValidator
 from mcp_composer.core.tools import IBMDocSearchDirectTool
+from mcp_composer.core.tools.catalog import get_skill_mcp
 from mcp_composer.core.utils import LoggerFactory
 from mcp_composer.middleware import PromptInjectionMiddleware, TracingMiddleware, SecretsAndPIIMiddleware
 from mcp_composer.middleware.auth_context_middleware import (
@@ -28,6 +32,7 @@ from mcp_composer.middleware.auth_utils import tool_name_to_server_id
 from mcp_composer.middleware.error_sanitization_middleware import ErrorSanitizationMiddleware
 from mcp_composer.middleware.tool.tool_filter import ListFilteredTool
 from mcp_composer.middleware.tool_auth_middleware import ToolAuthenticationMiddleware
+from mcp_composer.store.catalog_factory import get_catalog_db
 
 
 # -----------------------------------------------------------------------------
@@ -75,6 +80,8 @@ isv_validator = ISVTokenValidator(
 )
 
 gw = MCPComposer(name="solis-composer", auth=None)
+_startup_skill_loader_task: asyncio.Task | None = None
+_startup_skill_loader: "StartupSkillLoader | None" = None
 
 
 # -----------------------------------------------------------------------------
@@ -152,6 +159,84 @@ def setup_tools(composer: MCPComposer) -> None:
     logger.info("Added IBM Doc Search Direct Tool")
 
 
+def _parse_csv_set(raw: str | None) -> set[str]:
+    if not raw:
+        return set()
+    return {item.strip() for item in raw.split(",") if item and item.strip()}
+
+
+def _skill_allowed_for_tools(
+    skill_allowed_tools: Iterable[str] | None, agent_allowed_tools: set[str]
+) -> bool:
+    if not agent_allowed_tools:
+        return True
+    if not skill_allowed_tools:
+        return True
+    return bool(set(skill_allowed_tools).intersection(agent_allowed_tools))
+
+
+class StartupSkillLoader:
+    """Continuously reads load-onstartup skills for startup/runtime refresh."""
+
+    def __init__(self) -> None:
+        self._manager = SkillManager(get_catalog_db())
+        self._tenant_id = (os.getenv("SOLIS_TENANT_ID") or "").strip() or None
+        self._agent_allowed_tools = _parse_csv_set(os.getenv("SOLIS_ALLOWED_TOOLS"))
+        self._refresh_interval = int(os.getenv("SOLIS_SKILL_REFRESH_INTERVAL_SECS", "30"))
+        self._loaded_skill_keys: set[tuple[str, str]] = set()
+
+    async def _load_once(self) -> None:
+        result = await self._manager.list(
+            SkillListFilter(
+                is_latest_only=True,
+                status_filter="load-onstartup",
+                tenant=self._tenant_id,
+                limit=1000,
+            )
+        )
+        filtered = [
+            item
+            for item in result.skills
+            if _skill_allowed_for_tools(item.skill.allowed_tools, self._agent_allowed_tools)
+        ]
+        loaded_now = {(item.skill.name, item.skill.version) for item in filtered}
+        if loaded_now != self._loaded_skill_keys:
+            logger.info(
+                "Startup skills refreshed: %d loaded (tenant=%s)",
+                len(loaded_now),
+                self._tenant_id or "all",
+            )
+            self._loaded_skill_keys = loaded_now
+
+    async def run_forever(self) -> None:
+        while True:
+            try:
+                await self._load_once()
+            except Exception as exc:  # pylint: disable=broad-exception-caught
+                logger.warning("Startup skill refresh failed: %s", exc)
+            await asyncio.sleep(max(self._refresh_interval, 5))
+
+    async def close(self) -> None:
+        await self._manager.close()
+
+
+async def setup_catalog(composer: MCPComposer) -> None:
+    """Mount the skill-catalog MCP sub-server (namespace='catalog').
+
+    DB pool is opened lazily on the first tool call — no explicit
+    initialisation is needed here.
+    """
+    global _startup_skill_loader_task, _startup_skill_loader
+
+    composer.mount(get_skill_mcp())
+    logger.info("Catalog MCP mounted")
+
+    _startup_skill_loader = StartupSkillLoader()
+    await _startup_skill_loader._load_once()
+    _startup_skill_loader_task = asyncio.create_task(_startup_skill_loader.run_forever())
+    logger.info("Startup skill loader started")
+
+
 async def run_http_mode(composer: MCPComposer) -> None:
     await composer.run_http_async(host="0.0.0.0", port=9000, log_level="debug", path="/mcp")
 
@@ -191,12 +276,20 @@ async def main() -> None:
     logger.info("Starting Solis Composer in %s mode", mode)
     logger.info("ISV Token Authentication is ACTIVE")
 
-    setup_middleware(gw)
-    setup_tools(gw)
-    await gw.setup_member_servers()
-    logger.info("Member servers setup complete")
-
-    await run_composer_mode(gw, mode)
+    try:
+        setup_middleware(gw)
+        setup_tools(gw)
+        await setup_catalog(gw)
+        await gw.setup_member_servers()
+        logger.info("Member servers setup complete")
+        await run_composer_mode(gw, mode)
+    finally:
+        if _startup_skill_loader_task is not None:
+            _startup_skill_loader_task.cancel()
+            with suppress(asyncio.CancelledError):
+                await _startup_skill_loader_task
+        if _startup_skill_loader is not None:
+            await _startup_skill_loader.close()
 
 
 if __name__ == "__main__":

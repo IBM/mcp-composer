@@ -1043,4 +1043,3 @@ __all__ = [
     "ResourceConfig",
 ]
 
-# Made with Bob

@@ -179,7 +179,7 @@ class ServerConfigurationManager:
         - MCP_DATABASE_TYPE: Type of database ("cloudant", "local_file", or "postgres")
         - MCP_DATABASE_API_KEY: API key for Cloudant (required for cloudant type)
         - MCP_DATABASE_SERVICE_URL: Service URL for Cloudant (required for cloudant type)
-        - MCP_DATABASE_DB_NAME: Database name (optional, defaults to "mcp_servers")
+        - MCP_DATABASE_NAME: Database name (optional, defaults to "mcp_servers")
         - MCP_DATABASE_FILE_PATH: File path for local file storage (optional for local_file type)
         - MCP_DATABASE_URL: PostgreSQL connection URL (preferred for postgres type)
         - MCP_DATABASE_HOST: PostgreSQL host (required for postgres type if URL not provided)
@@ -266,7 +266,7 @@ class ServerConfigurationManager:
             else:
                 # Use individual parameters
                 host = os.getenv("MCP_DATABASE_HOST")
-                database = os.getenv("MCP_DATABASE_DATABASE")
+                database = os.getenv("MCP_DATABASE_NAME")
                 user = os.getenv("MCP_DATABASE_USER")
                 password = os.getenv("MCP_DATABASE_PASSWORD")
 
@@ -280,7 +280,7 @@ class ServerConfigurationManager:
                     raise ValueError(error_msg)
                 if not database or not database.strip():
                     error_msg = (
-                        "PostgreSQL database type specified but MCP_DATABASE_DATABASE "
+                        "PostgreSQL database type specified but MCP_DATABASE_NAME "
                         "is missing or empty (or provide MCP_DATABASE_URL)"
                     )
                     logger.error("Database configuration error: %s", error_msg)

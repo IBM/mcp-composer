@@ -3,7 +3,7 @@ name = "mcp-composer"
 dynamic = ["version"]                      # <- dynamic version comes from tags in git
 description = "FastMCP-based MCP Server Orchestrator"
 readme = { file = "PACKAGE.md", content-type = "text/markdown" }
-requires-python = ">=3.11"
+requires-python = ">=3.11, <3.14"
 keywords = [
     "mcp", "mcp server", "mcp client", "mcp developer kit",
     "ibm", "model context protocol", "llm", "agent",
@@ -47,6 +47,7 @@ dependencies = [
     "jaraco-context>=6.1.0",
     "pyasn1>=0.6.2",
     "filelock>=3.20.3",
+    "packaging>=24.0",
     "sentence-transformers==5.3.0",
 ]
 

@@ -57,7 +57,7 @@ async def main():
 )
 
 
-    mgr = MiddlewareManager("/Users/mansurah/GitHub/mcp-composer/config/middleware-config.json", ensure_imports=True)
+    mgr = MiddlewareManager("./middlewares/config/middleware-config.json", ensure_imports=True)
     mgr.attach_to_server(gw)
     # Optional: print what got attached in order
     for info in mgr.describe():
