@@ -18,6 +18,13 @@ logger = LoggerFactory.get_logger()
 
 _SKILL_KIND = RegistryResourceKind.SKILL.value
 _PROMPT_KIND = RegistryResourceKind.PROMPT.value
+_KNOWN_RESOURCE_KINDS = frozenset({_SKILL_KIND, _PROMPT_KIND})
+
+
+def _expect_resource_kind(kind: str) -> str:
+    if kind not in _KNOWN_RESOURCE_KINDS:
+        raise ValueError(f"unsupported catalog kind: {kind!r}")
+    return kind
 
 # Columns returned for every resource SELECT
 _SKILL_COLUMNS = """
@@ -173,14 +180,15 @@ class CatalogPostgresAdapter(CatalogDatabaseInterface):
             raise RuntimeError("CatalogPostgresAdapter.initialize() has not been called")
         return self._pool
 
-    # ── skill methods ──────────────────────────────────────────────────────────
+    # ── kind-aware catalog resources ───────────────────────────────────────────
 
-    async def save_skill(self, row: dict) -> dict:
+    async def save_resource(self, kind: str, row: dict) -> dict:
         """INSERT … ON CONFLICT (kind, name, version) DO UPDATE. Returns saved row.
 
         If ``row["content"]`` is present it is written to the ``content`` column
         but is NOT included in the returned row (use ``get_resource_content``).
         """
+        kind = _expect_resource_kind(kind)
         pool = self._get_pool()
         payload = json.dumps(row.get("payload", {}))
         official_meta = json.dumps(row.get("official_meta", {}))
@@ -203,7 +211,7 @@ class CatalogPostgresAdapter(CatalogDatabaseInterface):
                             updated_at    = now()
                     RETURNING {_SKILL_COLUMNS}
                     """,
-                    _SKILL_KIND, row["name"], row["version"],
+                    kind, row["name"], row["version"],
                     payload, official_meta,
                     row.get("is_latest", False), tenant_ids, content,
                 )
@@ -221,14 +229,15 @@ class CatalogPostgresAdapter(CatalogDatabaseInterface):
                             updated_at    = now()
                     RETURNING {_SKILL_COLUMNS}
                     """,
-                    _SKILL_KIND, row["name"], row["version"],
+                    kind, row["name"], row["version"],
                     payload, official_meta,
                     row.get("is_latest", False), tenant_ids,
                 )
         return _row_to_dict(record)
 
-    async def get_skill(self, name: str, version: str) -> dict | None:
+    async def get_resource(self, kind: str, name: str, version: str) -> dict | None:
         """SELECT … WHERE kind=$1 AND name=$2 AND version=$3."""
+        kind = _expect_resource_kind(kind)
         pool = self._get_pool()
         async with pool.acquire() as conn:
             record = await conn.fetchrow(
@@ -237,12 +246,15 @@ class CatalogPostgresAdapter(CatalogDatabaseInterface):
                 FROM {self.TABLE}
                 WHERE kind=$1 AND name=$2 AND version=$3
                 """,
-                _SKILL_KIND, name, version,
+                kind, name, version,
             )
         return _row_to_dict(record) if record else None
 
-    async def get_skill_by_filter(self, name: str, is_latest: bool) -> dict | None:
+    async def get_resource_by_filter(
+        self, kind: str, name: str, is_latest: bool
+    ) -> dict | None:
         """SELECT … WHERE kind=$1 AND name=$2 AND is_latest=$3."""
+        kind = _expect_resource_kind(kind)
         pool = self._get_pool()
         async with pool.acquire() as conn:
             record = await conn.fetchrow(
@@ -251,12 +263,13 @@ class CatalogPostgresAdapter(CatalogDatabaseInterface):
                 FROM {self.TABLE}
                 WHERE kind=$1 AND name=$2 AND is_latest=$3
                 """,
-                _SKILL_KIND, name, is_latest,
+                kind, name, is_latest,
             )
         return _row_to_dict(record) if record else None
 
-    async def list_skills(
+    async def list_resources(
         self,
+        kind: str,
         *,
         name_like: str | None = None,
         is_latest_only: bool = False,
@@ -266,17 +279,17 @@ class CatalogPostgresAdapter(CatalogDatabaseInterface):
         offset: int = 0,
         limit: int = 50,
     ) -> tuple[list[dict], bool]:
-        """Offset-paginated list of skills."""
+        """Offset-paginated list of rows for ``kind``."""
+        kind = _expect_resource_kind(kind)
         pool = self._get_pool()
         conditions = ["kind = $1"]
-        params: list[Any] = [_SKILL_KIND]
+        params: list[Any] = [kind]
 
         if is_latest_only:
             conditions.append("is_latest = TRUE")
 
         if status_filter:
             params.append(status_filter)
-            # Rows with no status in official_meta are treated as "active".
             conditions.append(
                 f"(official_meta->>'status' = ${len(params)} OR official_meta->>'status' IS NULL)"
             )
@@ -285,8 +298,7 @@ class CatalogPostgresAdapter(CatalogDatabaseInterface):
             params.append(f"%{name_like}%")
             conditions.append(f"name ILIKE ${len(params)}")
 
-        if keywords:
-            # Any keyword matching any field is a hit (OR across all keywords).
+        if keywords and kind == _SKILL_KIND:
             kw_clauses = []
             for kw in keywords:
                 params.append(f"%{kw.lower()}%")
@@ -304,7 +316,6 @@ class CatalogPostgresAdapter(CatalogDatabaseInterface):
 
         where_clause = " AND ".join(conditions)
 
-        # Fetch limit+1 to detect whether more rows exist after this page.
         params.append(limit + 1)
         fetch_limit_param = f"${len(params)}"
         params.append(offset)
@@ -329,18 +340,53 @@ class CatalogPostgresAdapter(CatalogDatabaseInterface):
 
         return rows, has_more
 
-    async def count_skill_versions(self, name: str) -> int:
+    async def count_resource_versions(self, kind: str, name: str) -> int:
         """SELECT count(*) WHERE kind=$1 AND name=$2."""
+        kind = _expect_resource_kind(kind)
         pool = self._get_pool()
         async with pool.acquire() as conn:
             count = await conn.fetchval(
                 f"SELECT count(*) FROM {self.TABLE} WHERE kind=$1 AND name=$2",
-                _SKILL_KIND, name,
+                kind, name,
             )
         return int(count or 0)
 
-    async def list_skill_versions_for_name(self, name: str) -> list[dict]:
-        """SELECT all skill rows for exact *name* (all versions)."""
+    async def delete_resource(self, kind: str, name: str, version: str) -> None:
+        """DELETE WHERE kind=$1 AND name=$2 AND version=$3."""
+        kind = _expect_resource_kind(kind)
+        pool = self._get_pool()
+        async with pool.acquire() as conn:
+            await conn.execute(
+                f"DELETE FROM {self.TABLE} WHERE kind=$1 AND name=$2 AND version=$3",
+                kind, name, version,
+            )
+
+    async def update_resource_row(
+        self, kind: str, name: str, version: str, fields: dict
+    ) -> None:
+        """UPDATE SET <only the keys in fields> WHERE kind=$1 AND name=$2 AND version=$3."""
+        if not fields:
+            return
+        kind = _expect_resource_kind(kind)
+        pool = self._get_pool()
+
+        set_parts = []
+        params: list[Any] = [kind, name, version]
+        for key, value in fields.items():
+            params.append(value)
+            set_parts.append(f"{key} = ${len(params)}")
+        set_parts.append("updated_at = now()")
+
+        query = (
+            f"UPDATE {self.TABLE} SET {', '.join(set_parts)} "
+            f"WHERE kind=$1 AND name=$2 AND version=$3"
+        )
+        async with pool.acquire() as conn:
+            await conn.execute(query, *params)
+
+    async def list_resource_versions_for_name(self, kind: str, name: str) -> list[dict]:
+        """SELECT all rows for ``kind`` and exact ``name`` (all versions)."""
+        kind = _expect_resource_kind(kind)
         pool = self._get_pool()
         async with pool.acquire() as conn:
             records = await conn.fetch(
@@ -350,198 +396,10 @@ class CatalogPostgresAdapter(CatalogDatabaseInterface):
                 WHERE kind=$1 AND name=$2
                 ORDER BY version ASC
                 """,
-                _SKILL_KIND,
+                kind,
                 name,
             )
         return [_row_to_dict(r) for r in records]
-
-    async def delete_skill(self, name: str, version: str) -> None:
-        """DELETE WHERE kind=$1 AND name=$2 AND version=$3."""
-        pool = self._get_pool()
-        async with pool.acquire() as conn:
-            await conn.execute(
-                f"DELETE FROM {self.TABLE} WHERE kind=$1 AND name=$2 AND version=$3",
-                _SKILL_KIND, name, version,
-            )
-
-    async def update_skill_row(self, name: str, version: str, fields: dict) -> None:
-        """UPDATE SET <only the keys in fields> WHERE kind=$1 AND name=$2 AND version=$3."""
-        if not fields:
-            return
-        pool = self._get_pool()
-
-        set_parts = []
-        params: list[Any] = [_SKILL_KIND, name, version]
-        for key, value in fields.items():
-            params.append(value)
-            set_parts.append(f"{key} = ${len(params)}")
-        set_parts.append("updated_at = now()")
-
-        query = (
-            f"UPDATE {self.TABLE} SET {', '.join(set_parts)} "
-            f"WHERE kind=$1 AND name=$2 AND version=$3"
-        )
-        async with pool.acquire() as conn:
-            await conn.execute(query, *params)
-
-    # ── prompt methods ─────────────────────────────────────────────────────────
-
-    async def save_prompt(self, row: dict) -> dict:
-        """INSERT … ON CONFLICT (kind, name, version) DO UPDATE. Returns saved row.
-
-        If ``row["content"]`` is present it is written to the ``content`` column
-        but is NOT included in the returned row (use ``get_resource_content``).
-        """
-        pool = self._get_pool()
-        payload = json.dumps(row.get("payload", {}))
-        official_meta = json.dumps(row.get("official_meta", {}))
-        tenant_ids = row.get("tenant_ids") or []
-        content: str | None = row.get("content")
-
-        async with pool.acquire() as conn:
-            if content is not None:
-                record = await conn.fetchrow(
-                    f"""
-                    INSERT INTO {self.TABLE}
-                        (kind, name, version, payload, official_meta, is_latest, tenant_ids, content)
-                    VALUES ($1, $2, $3, $4::jsonb, $5::jsonb, $6, $7, $8)
-                    ON CONFLICT (kind, name, version) DO UPDATE
-                        SET payload       = EXCLUDED.payload,
-                            official_meta = EXCLUDED.official_meta,
-                            is_latest     = EXCLUDED.is_latest,
-                            tenant_ids    = EXCLUDED.tenant_ids,
-                            content       = EXCLUDED.content,
-                            updated_at    = now()
-                    RETURNING {_SKILL_COLUMNS}
-                    """,
-                    _PROMPT_KIND, row["name"], row["version"],
-                    payload, official_meta,
-                    row.get("is_latest", False), tenant_ids, content,
-                )
-            else:
-                record = await conn.fetchrow(
-                    f"""
-                    INSERT INTO {self.TABLE}
-                        (kind, name, version, payload, official_meta, is_latest, tenant_ids)
-                    VALUES ($1, $2, $3, $4::jsonb, $5::jsonb, $6, $7)
-                    ON CONFLICT (kind, name, version) DO UPDATE
-                        SET payload       = EXCLUDED.payload,
-                            official_meta = EXCLUDED.official_meta,
-                            is_latest     = EXCLUDED.is_latest,
-                            tenant_ids    = EXCLUDED.tenant_ids,
-                            updated_at    = now()
-                    RETURNING {_SKILL_COLUMNS}
-                    """,
-                    _PROMPT_KIND, row["name"], row["version"],
-                    payload, official_meta,
-                    row.get("is_latest", False), tenant_ids,
-                )
-        return _row_to_dict(record)
-
-    async def get_prompt(self, name: str, version: str) -> dict | None:
-        """SELECT … WHERE kind=$1 AND name=$2 AND version=$3."""
-        pool = self._get_pool()
-        async with pool.acquire() as conn:
-            record = await conn.fetchrow(
-                f"SELECT {_SKILL_COLUMNS} FROM {self.TABLE} WHERE kind=$1 AND name=$2 AND version=$3",
-                _PROMPT_KIND, name, version,
-            )
-        return _row_to_dict(record) if record else None
-
-    async def get_prompt_by_filter(self, name: str, is_latest: bool) -> dict | None:
-        """SELECT … WHERE kind=$1 AND name=$2 AND is_latest=$3."""
-        pool = self._get_pool()
-        async with pool.acquire() as conn:
-            record = await conn.fetchrow(
-                f"SELECT {_SKILL_COLUMNS} FROM {self.TABLE} WHERE kind=$1 AND name=$2 AND is_latest=$3",
-                _PROMPT_KIND, name, is_latest,
-            )
-        return _row_to_dict(record) if record else None
-
-    async def list_prompts(
-        self,
-        *,
-        name_like: str | None,
-        is_latest_only: bool,
-        status_filter: str | None,
-        tenant: str | None,
-        offset: int,
-        limit: int,
-    ) -> tuple[list[dict], bool]:
-        """Offset-paginated list of prompts."""
-        pool = self._get_pool()
-        conditions = ["kind = $1"]
-        params: list[Any] = [_PROMPT_KIND]
-
-        if is_latest_only:
-            conditions.append("is_latest = TRUE")
-        if status_filter:
-            params.append(status_filter)
-            conditions.append(
-                f"(official_meta->>'status' = ${len(params)} OR official_meta->>'status' IS NULL)"
-            )
-        if name_like:
-            params.append(f"%{name_like}%")
-            conditions.append(f"name ILIKE ${len(params)}")
-        if tenant:
-            params.append(tenant)
-            conditions.append(f"${len(params)} = ANY(tenant_ids)")
-
-        where_clause = " AND ".join(conditions)
-        params.append(limit + 1)
-        fetch_limit_param = f"${len(params)}"
-        params.append(offset)
-        offset_param = f"${len(params)}"
-
-        query = f"""
-            SELECT {_SKILL_COLUMNS} FROM {self.TABLE}
-            WHERE {where_clause}
-            ORDER BY name ASC
-            LIMIT {fetch_limit_param} OFFSET {offset_param}
-        """
-        async with pool.acquire() as conn:
-            records = await conn.fetch(query, *params)
-
-        rows = [_row_to_dict(r) for r in records]
-        has_more = len(rows) > limit
-        return rows[:limit] if has_more else rows, has_more
-
-    async def count_prompt_versions(self, name: str) -> int:
-        """SELECT count(*) WHERE kind=$1 AND name=$2."""
-        pool = self._get_pool()
-        async with pool.acquire() as conn:
-            count = await conn.fetchval(
-                f"SELECT count(*) FROM {self.TABLE} WHERE kind=$1 AND name=$2",
-                _PROMPT_KIND, name,
-            )
-        return int(count or 0)
-
-    async def delete_prompt(self, name: str, version: str) -> None:
-        """DELETE WHERE kind=$1 AND name=$2 AND version=$3."""
-        pool = self._get_pool()
-        async with pool.acquire() as conn:
-            await conn.execute(
-                f"DELETE FROM {self.TABLE} WHERE kind=$1 AND name=$2 AND version=$3",
-                _PROMPT_KIND, name, version,
-            )
-
-    async def update_prompt_row(self, name: str, version: str, fields: dict) -> None:
-        """UPDATE SET <only the keys in fields> WHERE kind=$1 AND name=$2 AND version=$3."""
-        if not fields:
-            return
-        pool = self._get_pool()
-        set_parts = []
-        params: list[Any] = [_PROMPT_KIND, name, version]
-        for key, value in fields.items():
-            params.append(value)
-            set_parts.append(f"{key} = ${len(params)}")
-        set_parts.append("updated_at = now()")
-        query = (
-            f"UPDATE {self.TABLE} SET {', '.join(set_parts)} "
-            f"WHERE kind=$1 AND name=$2 AND version=$3"
-        )
-        async with pool.acquire() as conn:
-            await conn.execute(query, *params)
 
     # ── resource content methods ───────────────────────────────────────────────
 

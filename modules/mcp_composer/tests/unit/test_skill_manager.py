@@ -6,13 +6,15 @@ from unittest.mock import patch
 
 import pytest
 
-from mcp_composer.core.catalog.skill_manager import (
-    VALID_SKILL_STATUSES,
-    InvalidSkillStatusError,
-    SkillListFilter,
-    SkillManager,
-    SkillNotFoundError,
-    SkillVersionCapError,
+from mcp_composer.core.catalog import (
+    CatalogResourceNotFoundError,
+    CatalogVersionCapError,
+    InvalidCatalogResourceStatusError,
+)
+from mcp_composer.core.catalog.skill_manager import SkillListFilter, SkillManager
+from mcp_composer.core.models.catalog_constants import (
+    RegistryResourceKind,
+    VALID_CATALOG_RESOURCE_STATUSES,
 )
 from mcp_composer.core.models.catalog_skill import (
     SkillJSON,
@@ -72,7 +74,7 @@ async def test_publish_sets_is_latest_true(mgr, db):
     """The row saved by publish() has is_latest=True."""
     await mgr.publish(_skill(version="1.0.0"))
 
-    row = await db.get_skill("my-skill", "1.0.0")
+    row = await db.get_resource(RegistryResourceKind.SKILL.value,"my-skill", "1.0.0")
     assert row is not None
     assert row["is_latest"] is True
 
@@ -92,8 +94,8 @@ async def test_publish_demotes_previous_latest(mgr, db):
     await mgr.publish(_skill(version="1.0.0"))
     await mgr.publish(_skill(version="2.0.0"))
 
-    old_row = await db.get_skill("my-skill", "1.0.0")
-    new_row = await db.get_skill("my-skill", "2.0.0")
+    old_row = await db.get_resource(RegistryResourceKind.SKILL.value,"my-skill", "1.0.0")
+    new_row = await db.get_resource(RegistryResourceKind.SKILL.value,"my-skill", "2.0.0")
 
     assert old_row["is_latest"] is False
     assert new_row["is_latest"] is True
@@ -119,7 +121,8 @@ async def test_publish_only_one_latest_after_multiple_versions(mgr, db):
     for ver in ("1.0.0", "2.0.0", "3.0.0"):
         await mgr.publish(_skill(version=ver))
 
-    rows, _ = await db.list_skills(
+    rows, _ = await db.list_resources(
+        RegistryResourceKind.SKILL.value,
         name_like=None, is_latest_only=True,
         tenant=None, offset=0, limit=1000,
     )
@@ -132,7 +135,7 @@ async def test_publish_normalises_tenant_ids(mgr, db):
     """Duplicate and empty tenant IDs are deduplicated and stripped."""
     await mgr.publish(_skill(), tenant_ids=["  t1  ", "t1", "t2", "", "  "])
 
-    row = await db.get_skill("my-skill", "1.0.0")
+    row = await db.get_resource(RegistryResourceKind.SKILL.value,"my-skill", "1.0.0")
     assert sorted(row["tenant_ids"]) == ["t1", "t2"]
 
 
@@ -141,7 +144,7 @@ async def test_publish_no_tenant_ids(mgr, db):
     """publish() without tenant_ids stores an empty list."""
     await mgr.publish(_skill())
 
-    row = await db.get_skill("my-skill", "1.0.0")
+    row = await db.get_resource(RegistryResourceKind.SKILL.value,"my-skill", "1.0.0")
     assert row["tenant_ids"] == []
 
 
@@ -151,9 +154,9 @@ async def test_publish_upsert_existing_version(mgr, db):
     await mgr.publish(_skill(description="v1"), tenant_ids=["t1"])
     await mgr.publish(_skill(description="v1-updated"), tenant_ids=["t2"])
 
-    row = await db.get_skill("my-skill", "1.0.0")
+    row = await db.get_resource(RegistryResourceKind.SKILL.value,"my-skill", "1.0.0")
     assert row["payload"]["description"] == "v1-updated"
-    assert await db.count_skill_versions("my-skill") == 1
+    assert await db.count_resource_versions(RegistryResourceKind.SKILL.value,"my-skill") == 1
 
 
 @pytest.mark.asyncio
@@ -162,7 +165,7 @@ async def test_publish_upsert_preserves_is_latest(mgr, db):
     await mgr.publish(_skill(version="1.0.0"))
     await mgr.publish(_skill(version="1.0.0", description="updated"))
 
-    row = await db.get_skill("my-skill", "1.0.0")
+    row = await db.get_resource(RegistryResourceKind.SKILL.value,"my-skill", "1.0.0")
     assert row["is_latest"] is True
 
 
@@ -171,7 +174,7 @@ async def test_publish_stores_status_in_official_meta(mgr, db):
     """When skill has an explicit status, official_meta.status matches."""
     await mgr.publish(_skill(status="deprecated"))
 
-    row = await db.get_skill("my-skill", "1.0.0")
+    row = await db.get_resource(RegistryResourceKind.SKILL.value,"my-skill", "1.0.0")
     assert row["official_meta"]["status"] == "deprecated"
 
 
@@ -180,7 +183,7 @@ async def test_publish_default_status_is_active(mgr, db):
     """When no status is specified, official_meta.status defaults to 'active'."""
     await mgr.publish(_skill())
 
-    row = await db.get_skill("my-skill", "1.0.0")
+    row = await db.get_resource(RegistryResourceKind.SKILL.value,"my-skill", "1.0.0")
     assert row["official_meta"]["status"] == "active"
 
 
@@ -189,7 +192,7 @@ async def test_publish_default_status_is_active(mgr, db):
 
 @pytest.mark.asyncio
 async def test_publish_raises_version_cap_error(mgr):
-    """SkillVersionCapError is raised when MAX_VERSIONS_PER_RESOURCE is exceeded."""
+    """CatalogVersionCapError is raised when MAX_VERSIONS_PER_RESOURCE is exceeded."""
     cap = 3
 
     with patch(
@@ -198,10 +201,11 @@ async def test_publish_raises_version_cap_error(mgr):
         for i in range(cap):
             await mgr.publish(_skill(version=f"{i}.0.0"))
 
-        with pytest.raises(SkillVersionCapError) as exc_info:
+        with pytest.raises(CatalogVersionCapError) as exc_info:
             await mgr.publish(_skill(version=f"{cap}.0.0"))
 
-    assert exc_info.value.skill_name == "my-skill"
+    assert exc_info.value.kind == RegistryResourceKind.SKILL.value
+    assert exc_info.value.name == "my-skill"
     assert exc_info.value.count == cap
 
 
@@ -238,12 +242,13 @@ async def test_get_returns_skill_response(mgr):
 
 @pytest.mark.asyncio
 async def test_get_not_found_raises(mgr):
-    """get() raises SkillNotFoundError when the version does not exist."""
-    with pytest.raises(SkillNotFoundError) as exc_info:
+    """get() raises CatalogResourceNotFoundError when the version does not exist."""
+    with pytest.raises(CatalogResourceNotFoundError) as exc_info:
         await mgr.get("ghost", "9.9.9")
 
-    assert exc_info.value.skill_name == "ghost"
-    assert exc_info.value.skill_version == "9.9.9"
+    assert exc_info.value.kind == RegistryResourceKind.SKILL.value
+    assert exc_info.value.name == "ghost"
+    assert exc_info.value.version == "9.9.9"
 
 
 @pytest.mark.asyncio
@@ -272,12 +277,13 @@ async def test_get_latest_returns_latest_version(mgr):
 
 @pytest.mark.asyncio
 async def test_get_latest_not_found_raises(mgr):
-    """get_latest() raises SkillNotFoundError when no skill exists."""
-    with pytest.raises(SkillNotFoundError) as exc_info:
+    """get_latest() raises CatalogResourceNotFoundError when no skill exists."""
+    with pytest.raises(CatalogResourceNotFoundError) as exc_info:
         await mgr.get_latest("nonexistent")
 
-    assert exc_info.value.skill_name == "nonexistent"
-    assert exc_info.value.skill_version == "latest"
+    assert exc_info.value.kind == RegistryResourceKind.SKILL.value
+    assert exc_info.value.name == "nonexistent"
+    assert exc_info.value.version == "latest"
 
 
 @pytest.mark.asyncio
@@ -388,18 +394,18 @@ async def test_list_metadata_count_matches_items(mgr):
 
 @pytest.mark.asyncio
 async def test_delete_removes_skill(mgr, db):
-    """delete() removes the row so subsequent get() raises SkillNotFoundError."""
+    """delete() removes the row so subsequent get() raises CatalogResourceNotFoundError."""
     await mgr.publish(_skill(version="1.0.0"))
     await mgr.delete("my-skill", "1.0.0")
 
-    with pytest.raises(SkillNotFoundError):
+    with pytest.raises(CatalogResourceNotFoundError):
         await mgr.get("my-skill", "1.0.0")
 
 
 @pytest.mark.asyncio
 async def test_delete_not_found_raises(mgr):
-    """delete() raises SkillNotFoundError when the row does not exist."""
-    with pytest.raises(SkillNotFoundError):
+    """delete() raises CatalogResourceNotFoundError when the row does not exist."""
+    with pytest.raises(CatalogResourceNotFoundError):
         await mgr.delete("ghost", "9.9.9")
 
 
@@ -411,7 +417,7 @@ async def test_delete_latest_promotes_next(mgr, db):
 
     await mgr.delete("my-skill", "2.0.0")
 
-    row = await db.get_skill("my-skill", "1.0.0")
+    row = await db.get_resource(RegistryResourceKind.SKILL.value,"my-skill", "1.0.0")
     assert row is not None
     assert row["is_latest"] is True
 
@@ -437,7 +443,7 @@ async def test_delete_non_latest_no_promotion(mgr, db):
 
     await mgr.delete("my-skill", "1.0.0")
 
-    latest = await db.get_skill("my-skill", "2.0.0")
+    latest = await db.get_resource(RegistryResourceKind.SKILL.value,"my-skill", "2.0.0")
     assert latest["is_latest"] is True
 
 
@@ -447,7 +453,8 @@ async def test_delete_only_version_leaves_no_latest(mgr, db):
     await mgr.publish(_skill(version="1.0.0"))
     await mgr.delete("my-skill", "1.0.0")
 
-    rows, _ = await db.list_skills(
+    rows, _ = await db.list_resources(
+        RegistryResourceKind.SKILL.value,
         name_like=None,
         is_latest_only=False,
         tenant=None,
@@ -466,7 +473,7 @@ async def test_delete_does_not_affect_other_skills(mgr, db):
 
     await mgr.delete("skill-a", "1.0.0")
 
-    row = await db.get_skill("skill-b", "1.0.0")
+    row = await db.get_resource(RegistryResourceKind.SKILL.value,"skill-b", "1.0.0")
     assert row is not None
     assert row["is_latest"] is True
 
@@ -480,15 +487,15 @@ async def test_update_status_valid(mgr, db):
     await mgr.publish(_skill(status="active"))
     await mgr.update_status("my-skill", "1.0.0", "deprecated")
 
-    row = await db.get_skill("my-skill", "1.0.0")
+    row = await db.get_resource(RegistryResourceKind.SKILL.value,"my-skill", "1.0.0")
     assert row["payload"]["status"] == "deprecated"
     assert row["official_meta"]["status"] == "deprecated"
 
 
 @pytest.mark.asyncio
 async def test_update_status_all_valid_values(mgr):
-    """Every value in VALID_SKILL_STATUSES is accepted without raising."""
-    for idx, status in enumerate(sorted(VALID_SKILL_STATUSES)):
+    """Every value in VALID_CATALOG_RESOURCE_STATUSES is accepted without raising."""
+    for idx, status in enumerate(sorted(VALID_CATALOG_RESOURCE_STATUSES)):
         await mgr.publish(_skill(name=f"skill-{idx}", version="1.0.0"))
         # Should not raise
         await mgr.update_status(f"skill-{idx}", "1.0.0", status)
@@ -496,26 +503,27 @@ async def test_update_status_all_valid_values(mgr):
 
 @pytest.mark.asyncio
 async def test_update_status_invalid_raises(mgr):
-    """update_status() raises InvalidSkillStatusError for an unknown status."""
+    """update_status() raises InvalidCatalogResourceStatusError for an unknown status."""
     await mgr.publish(_skill())
 
-    with pytest.raises(InvalidSkillStatusError) as exc_info:
+    with pytest.raises(InvalidCatalogResourceStatusError) as exc_info:
         await mgr.update_status("my-skill", "1.0.0", "unknown-state")
 
+    assert exc_info.value.kind == RegistryResourceKind.SKILL.value
     assert exc_info.value.status == "unknown-state"
 
 
 @pytest.mark.asyncio
 async def test_update_status_validation_before_db_lookup(mgr):
-    """InvalidSkillStatusError is raised even when the skill does not exist."""
-    with pytest.raises(InvalidSkillStatusError):
+    """InvalidCatalogResourceStatusError is raised even when the skill does not exist."""
+    with pytest.raises(InvalidCatalogResourceStatusError):
         await mgr.update_status("ghost", "9.9.9", "invalid")
 
 
 @pytest.mark.asyncio
 async def test_update_status_not_found_raises(mgr):
-    """SkillNotFoundError is raised when the skill does not exist."""
-    with pytest.raises(SkillNotFoundError):
+    """CatalogResourceNotFoundError is raised when the skill does not exist."""
+    with pytest.raises(CatalogResourceNotFoundError):
         await mgr.update_status("ghost", "9.9.9", "active")
 
 

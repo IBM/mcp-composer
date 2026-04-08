@@ -2,16 +2,20 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field
 
-from mcp_composer.core.models.catalog_common import (
-    RegistryListMetadata,
-    RegistryOfficialExtensions,
+from mcp_composer.core.catalog.catalog_helpers import (
+    registry_list_metadata_for_page,
+    registry_official_extensions_from_row,
+    utc_now_iso,
 )
-from mcp_composer.core.models.catalog_constants import MAX_VERSIONS_PER_RESOURCE, RegistryResourceKind
+from mcp_composer.core.models.catalog_constants import (
+    MAX_VERSIONS_PER_RESOURCE,
+    RegistryResourceKind,
+    VALID_CATALOG_RESOURCE_STATUSES,
+)
 from mcp_composer.core.models.catalog_skill import (
     SkillJSON,
     SkillListResponse,
@@ -19,51 +23,15 @@ from mcp_composer.core.models.catalog_skill import (
     SkillResponse,
     SkillResponseMeta,
 )
+from mcp_composer.core.catalog.catalog_exceptions import (
+    CatalogResourceNotFoundError,
+    CatalogVersionCapError,
+    InvalidCatalogResourceStatusError,
+)
 from mcp_composer.core.catalog.catalog_manager import CatalogManager, normalize_tenant_ids
 from mcp_composer.store.catalog_database import CatalogDatabaseInterface
 
 _SKILL_KIND = RegistryResourceKind.SKILL.value
-
-# ── Valid status values ───────────────────────────────────────────────────────
-
-VALID_SKILL_STATUSES: frozenset[str] = frozenset(
-    {"active", "draft", "deprecated", "deleted", "load-onstartup"}
-)
-
-# ── Exceptions ────────────────────────────────────────────────────────────────
-
-
-class SkillNotFoundError(KeyError):
-    """Raised when a (name, version) pair is absent from the catalog."""
-
-    def __init__(self, name: str, version: str) -> None:
-        self.skill_name = name
-        self.skill_version = version
-        super().__init__(f"Skill not found: {name}@{version}")
-
-
-class SkillVersionCapError(ValueError):
-    """Raised when publishing would exceed MAX_VERSIONS_PER_RESOURCE."""
-
-    def __init__(self, name: str, count: int) -> None:
-        self.skill_name = name
-        self.count = count
-        super().__init__(
-            f"Skill '{name}' has reached the maximum version limit "
-            f"({count}/{MAX_VERSIONS_PER_RESOURCE})"
-        )
-
-
-class InvalidSkillStatusError(ValueError):
-    """Raised when a caller supplies an unrecognised status value."""
-
-    def __init__(self, status: str) -> None:
-        self.status = status
-        super().__init__(
-            f"Invalid skill status {status!r}. "
-            f"Must be one of: {sorted(VALID_SKILL_STATUSES)}"
-        )
-
 
 # ── Input model for list queries ──────────────────────────────────────────────
 
@@ -81,10 +49,6 @@ class SkillListFilter(BaseModel):
 
 
 # ── Private helpers ───────────────────────────────────────────────────────────
-
-
-def _now_iso() -> str:
-    return datetime.now(timezone.utc).isoformat()
 
 
 def _public_resource_metadata(private_meta: dict | None) -> dict | None:
@@ -143,26 +107,7 @@ def _row_to_skill_response(
             )
         skill.remotes = enriched
 
-    published_at = (
-        official_meta_data.get("published_at")
-        or row.get("created_at")
-        or _now_iso()
-    )
-    updated_at = (
-        official_meta_data.get("updated_at")
-        or row.get("updated_at")
-        or published_at
-    )
-    is_latest_val = official_meta_data.get("is_latest")
-    if is_latest_val is None:
-        is_latest_val = row.get("is_latest", False)
-
-    official = RegistryOfficialExtensions(
-        status=official_meta_data.get("status") or "active",
-        published_at=published_at,
-        updated_at=updated_at,
-        is_latest=is_latest_val,
-    )
+    official = registry_official_extensions_from_row(row)
 
     meta = SkillResponseMeta(
         official=official,
@@ -212,7 +157,7 @@ class SkillManager(CatalogManager):
             SkillResponse for the saved row.
 
         Raises:
-            SkillVersionCapError: when a new version would exceed the cap.
+            CatalogVersionCapError: when a new version would exceed the cap.
         """
         await self._ensure_initialized()
         name = skill_json.name
@@ -221,14 +166,14 @@ class SkillManager(CatalogManager):
         normalised_tenants = normalize_tenant_ids(tenant_ids)
 
         # Step 3 — version cap (skip for upserts of already-stored versions)
-        existing = await self._db.get_skill(name, version)
+        existing = await self._db.get_resource(_SKILL_KIND, name, version)
         if existing is None:
-            count = await self._db.count_skill_versions(name)
+            count = await self._db.count_resource_versions(_SKILL_KIND, name)
             if count >= MAX_VERSIONS_PER_RESOURCE:
-                raise SkillVersionCapError(name, count)
+                raise CatalogVersionCapError(_SKILL_KIND, name, count)
 
         # Step 4–5 — build row; strip private remote fields from public payload
-        now = _now_iso()
+        now = utc_now_iso()
         payload = skill_json.model_dump(
             mode="json", by_alias=False, exclude_none=True
         )
@@ -268,7 +213,7 @@ class SkillManager(CatalogManager):
             "is_latest": False,
             "tenant_ids": normalised_tenants,
         }
-        saved = await self._db.save_skill(row)
+        saved = await self._db.save_resource(_SKILL_KIND, row)
 
         # Persist private remote config (transport_type + headers) if any remotes need it.
         if private_remotes_config:
@@ -278,9 +223,9 @@ class SkillManager(CatalogManager):
 
         await self.recompute_is_latest_for_skill_name(name)
 
-        final_row = await self._db.get_skill(name, version)
+        final_row = await self._db.get_resource(_SKILL_KIND, name, version)
         if final_row is None:
-            raise SkillNotFoundError(name, version)
+            raise CatalogResourceNotFoundError(_SKILL_KIND, name, version)
         private_meta = await self._db.get_resource_metadata(str(final_row["id"]))
         return _row_to_skill_response(final_row, private_meta)
 
@@ -300,9 +245,13 @@ class SkillManager(CatalogManager):
         response = await self.publish(skill_json, tenant_ids=tenant_ids)
         if not resource_metadata:
             return response
-        row = await self._db.get_skill(skill_json.name, skill_json.version)
+        row = await self._db.get_resource(
+            _SKILL_KIND, skill_json.name, skill_json.version
+        )
         if row is None:
-            raise SkillNotFoundError(skill_json.name, skill_json.version)
+            raise CatalogResourceNotFoundError(
+                _SKILL_KIND, skill_json.name, skill_json.version
+            )
         existing_raw = await self._db.get_resource_metadata(str(row["id"]))
         existing: Dict[str, Any] = dict(existing_raw or {})
         merged: Dict[str, Any] = {**existing, **resource_metadata}
@@ -316,12 +265,12 @@ class SkillManager(CatalogManager):
         """Return a specific skill version, including private remote config.
 
         Raises:
-            SkillNotFoundError: when no row matches ``(name, version)``.
+            CatalogResourceNotFoundError: when no row matches ``(name, version)``.
         """
         await self._ensure_initialized()
-        row = await self._db.get_skill(name, version)
+        row = await self._db.get_resource(_SKILL_KIND, name, version)
         if row is None:
-            raise SkillNotFoundError(name, version)
+            raise CatalogResourceNotFoundError(_SKILL_KIND, name, version)
         private_meta = await self._db.get_resource_metadata(str(row["id"]))
         return _row_to_skill_response(row, private_meta)
 
@@ -331,12 +280,12 @@ class SkillManager(CatalogManager):
         """Return the ``is_latest`` version for the given skill name, including private remote config.
 
         Raises:
-            SkillNotFoundError: when no latest version exists for the name.
+            CatalogResourceNotFoundError: when no latest version exists for the name.
         """
         await self._ensure_initialized()
-        row = await self._db.get_skill_by_filter(name, is_latest=True)
+        row = await self._db.get_resource_by_filter(_SKILL_KIND, name, is_latest=True)
         if row is None:
-            raise SkillNotFoundError(name, "latest")
+            raise CatalogResourceNotFoundError(_SKILL_KIND, name, "latest")
         private_meta = await self._db.get_resource_metadata(str(row["id"]))
         return _row_to_skill_response(row, private_meta)
 
@@ -353,7 +302,8 @@ class SkillManager(CatalogManager):
             SkillListResponse with items and pagination metadata.
         """
         await self._ensure_initialized()
-        rows, has_more = await self._db.list_skills(
+        rows, has_more = await self._db.list_resources(
+            _SKILL_KIND,
             name_like=filter.name_like,
             is_latest_only=filter.is_latest_only,
             status_filter=filter.status_filter,
@@ -363,10 +313,7 @@ class SkillManager(CatalogManager):
             limit=filter.limit,
         )
         skills = [_row_to_skill_response(r) for r in rows]
-        next_start = filter.start + len(skills) if has_more else None
-        metadata = RegistryListMetadata(
-            next_start=next_start, count=len(skills)
-        )
+        metadata = registry_list_metadata_for_page(filter.start, skills, has_more)
         return SkillListResponse(skills=skills, metadata=metadata)
 
     # ── delete ────────────────────────────────────────────────────────────────
@@ -378,14 +325,14 @@ class SkillManager(CatalogManager):
         remaining version for the same name is promoted to ``is_latest``.
 
         Raises:
-            SkillNotFoundError: when no row matches ``(name, version)``.
+            CatalogResourceNotFoundError: when no row matches ``(name, version)``.
         """
         await self._ensure_initialized()
-        row = await self._db.get_skill(name, version)
+        row = await self._db.get_resource(_SKILL_KIND, name, version)
         if row is None:
-            raise SkillNotFoundError(name, version)
+            raise CatalogResourceNotFoundError(_SKILL_KIND, name, version)
 
-        await self._db.delete_skill(name, version)
+        await self._db.delete_resource(_SKILL_KIND, name, version)
         await self.recompute_is_latest_for_skill_name(name)
 
     # ── get_content ───────────────────────────────────────────────────────────
@@ -398,18 +345,18 @@ class SkillManager(CatalogManager):
         When *version* is omitted the ``is_latest`` version is resolved first.
 
         Raises:
-            SkillNotFoundError: when the skill (or its latest version) does not exist.
+            CatalogResourceNotFoundError: when the skill (or its latest version) does not exist.
         """
         await self._ensure_initialized()
         if version is None:
-            row = await self._db.get_skill_by_filter(name, is_latest=True)
+            row = await self._db.get_resource_by_filter(_SKILL_KIND, name, is_latest=True)
             if row is None:
-                raise SkillNotFoundError(name, "latest")
+                raise CatalogResourceNotFoundError(_SKILL_KIND, name, "latest")
             version = row["version"]
         else:
-            row = await self._db.get_skill(name, version)
+            row = await self._db.get_resource(_SKILL_KIND, name, version)
             if row is None:
-                raise SkillNotFoundError(name, version)
+                raise CatalogResourceNotFoundError(_SKILL_KIND, name, version)
         return await self._db.get_resource_content(_SKILL_KIND, name, version)
 
     # ── update_status ─────────────────────────────────────────────────────────
@@ -423,16 +370,16 @@ class SkillManager(CatalogManager):
         ``official_meta["status"]`` to keep them consistent.
 
         Raises:
-            InvalidSkillStatusError: when *status* is not in VALID_SKILL_STATUSES.
-            SkillNotFoundError: when no row matches ``(name, version)``.
+            InvalidCatalogResourceStatusError: when *status* is not in VALID_CATALOG_RESOURCE_STATUSES.
+            CatalogResourceNotFoundError: when no row matches ``(name, version)``.
         """
         await self._ensure_initialized()
-        if status not in VALID_SKILL_STATUSES:
-            raise InvalidSkillStatusError(status)
+        if status not in VALID_CATALOG_RESOURCE_STATUSES:
+            raise InvalidCatalogResourceStatusError(_SKILL_KIND, status)
 
-        row = await self._db.get_skill(name, version)
+        row = await self._db.get_resource(_SKILL_KIND, name, version)
         if row is None:
-            raise SkillNotFoundError(name, version)
+            raise CatalogResourceNotFoundError(_SKILL_KIND, name, version)
 
         payload = dict(row.get("payload") or {})
         payload["status"] = status
@@ -440,6 +387,9 @@ class SkillManager(CatalogManager):
         official_meta = dict(row.get("official_meta") or {})
         official_meta["status"] = status
 
-        await self._db.update_skill_row(
-            name, version, {"payload": payload, "official_meta": official_meta}
+        await self._db.update_resource_row(
+            _SKILL_KIND,
+            name,
+            version,
+            {"payload": payload, "official_meta": official_meta},
         )

@@ -5,11 +5,22 @@ from __future__ import annotations
 import copy
 from datetime import datetime, timezone
 
+from mcp_composer.core.models.catalog_constants import RegistryResourceKind
+
 from .catalog_database import CatalogDatabaseInterface
+
+_SKILL = RegistryResourceKind.SKILL.value
+_PROMPT = RegistryResourceKind.PROMPT.value
 
 
 def _now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
+
+
+def _validate_kind(kind: str) -> str:
+    if kind not in (_SKILL, _PROMPT):
+        raise ValueError(f"unsupported catalog kind: {kind!r}")
+    return kind
 
 
 class CatalogInMemoryDatabase(CatalogDatabaseInterface):
@@ -33,6 +44,10 @@ class CatalogInMemoryDatabase(CatalogDatabaseInterface):
         self._next_int += 1
         return f"fake-{self._next_int:04d}"
 
+    def _store(self, kind: str) -> dict[tuple[str, str], dict]:
+        _validate_kind(kind)
+        return self._skills if kind == _SKILL else self._prompts
+
     def reset(self) -> None:
         """Clear all stored rows (convenience for test teardown)."""
         self._skills.clear()
@@ -49,20 +64,18 @@ class CatalogInMemoryDatabase(CatalogDatabaseInterface):
     async def close(self) -> None:
         """No-op; in-memory storage needs no teardown."""
 
-    # ── skill methods ──────────────────────────────────────────────────────────
+    # ── kind-aware resources ───────────────────────────────────────────────────
 
-    async def save_skill(self, row: dict) -> dict:
-        """Upsert a skill row; preserve id and created_at on update.
-
-        If ``row["content"]`` is present it is stored separately and is NOT
-        included in the returned dict (mirrors the Postgres behaviour).
-        """
+    async def save_resource(self, kind: str, row: dict) -> dict:
+        """Upsert a row; preserve id and created_at on update."""
+        _validate_kind(kind)
+        store = self._store(kind)
         key = (row["name"], row["version"])
-        existing = self._skills.get(key)
+        existing = store.get(key)
         now = _now_iso()
         stored = {
             "id": existing["id"] if existing else self._uid(),
-            "kind": "skill",
+            "kind": kind,
             "name": row["name"],
             "version": row["version"],
             "payload": copy.deepcopy(row.get("payload", {})),
@@ -72,25 +85,28 @@ class CatalogInMemoryDatabase(CatalogDatabaseInterface):
             "created_at": existing["created_at"] if existing else now,
             "updated_at": now,
         }
-        self._skills[key] = stored
+        store[key] = stored
         if row.get("content") is not None:
-            self._resource_content[("skill", row["name"], row["version"])] = row["content"]
+            self._resource_content[(kind, row["name"], row["version"])] = row["content"]
         return copy.deepcopy(stored)
 
-    async def get_skill(self, name: str, version: str) -> dict | None:
+    async def get_resource(self, kind: str, name: str, version: str) -> dict | None:
         """Return a deep copy of the stored row, or None if not found."""
-        row = self._skills.get((name, version))
+        row = self._store(kind).get((name, version))
         return copy.deepcopy(row) if row else None
 
-    async def get_skill_by_filter(self, name: str, is_latest: bool) -> dict | None:
+    async def get_resource_by_filter(
+        self, kind: str, name: str, is_latest: bool
+    ) -> dict | None:
         """Return the first row matching name and is_latest flag, or None."""
-        for row in self._skills.values():
+        for row in self._store(kind).values():
             if row["name"] == name and row["is_latest"] == is_latest:
                 return copy.deepcopy(row)
         return None
 
-    async def list_skills(
+    async def list_resources(
         self,
+        kind: str,
         *,
         name_like: str | None = None,
         is_latest_only: bool = False,
@@ -100,15 +116,16 @@ class CatalogInMemoryDatabase(CatalogDatabaseInterface):
         offset: int = 0,
         limit: int = 50,
     ) -> tuple[list[dict], bool]:
-        """Return a filtered, sorted, offset-paginated page of skill rows."""
-        rows = list(self._skills.values())
+        """Return a filtered, sorted, offset-paginated page of rows for ``kind``."""
+        rows = list(self._store(kind).values())
 
         if is_latest_only:
             rows = [r for r in rows if r["is_latest"]]
 
         if status_filter:
             rows = [
-                r for r in rows
+                r
+                for r in rows
                 if (r.get("official_meta", {}).get("status") or "active") == status_filter
             ]
 
@@ -116,7 +133,8 @@ class CatalogInMemoryDatabase(CatalogDatabaseInterface):
             pattern = name_like.lower()
             rows = [r for r in rows if pattern in r["name"].lower()]
 
-        if keywords:
+        if keywords and kind == _SKILL:
+
             def _matches_any(r: dict) -> bool:
                 meta = r.get("payload", {}).get("metadata") or {}
                 products = [str(v).lower() for v in meta.get("products", [])]
@@ -128,6 +146,7 @@ class CatalogInMemoryDatabase(CatalogDatabaseInterface):
                     or any(kw in t for t in tags)
                     for kw in [k.lower() for k in keywords]
                 )
+
             rows = [r for r in rows if _matches_any(r)]
 
         if tenant:
@@ -138,133 +157,40 @@ class CatalogInMemoryDatabase(CatalogDatabaseInterface):
         has_more = (offset + limit) < len(rows)
         return [copy.deepcopy(r) for r in page], has_more
 
-    async def count_skill_versions(self, name: str) -> int:
-        """Return the number of stored versions for the given skill name."""
-        return sum(1 for (n, _) in self._skills if n == name)
+    async def count_resource_versions(self, kind: str, name: str) -> int:
+        """Return the number of stored versions for the given logical name."""
+        store = self._store(kind)
+        return sum(1 for (n, _) in store if n == name)
 
-    async def list_skill_versions_for_name(self, name: str) -> list[dict]:
-        """Return every stored skill row whose name equals *name*."""
-        rows = [r for (n, _), r in self._skills.items() if n == name]
-        rows.sort(key=lambda r: r["version"])
-        return [copy.deepcopy(r) for r in rows]
-
-    async def delete_skill(self, name: str, version: str) -> None:
+    async def delete_resource(self, kind: str, name: str, version: str) -> None:
         """Remove the row for (name, version); silently ignore missing keys."""
-        row = self._skills.get((name, version))
+        store = self._store(kind)
+        row = store.get((name, version))
         if row is not None:
             self._resource_metadata.pop(str(row["id"]), None)
-            self._resource_content.pop(("skill", name, version), None)
-        self._skills.pop((name, version), None)
+            self._resource_content.pop((kind, name, version), None)
+        store.pop((name, version), None)
 
-    async def update_skill_row(self, name: str, version: str, fields: dict) -> None:
+    async def update_resource_row(
+        self, kind: str, name: str, version: str, fields: dict
+    ) -> None:
         """Patch the specified fields on the stored row; no-op for empty dict or missing row."""
         if not fields:
             return
         key = (name, version)
-        row = self._skills.get(key)
+        row = self._store(kind).get(key)
         if row is None:
             return
         for k, v in fields.items():
             row[k] = v
         row["updated_at"] = _now_iso()
 
-    # ── prompt methods ─────────────────────────────────────────────────────────
-
-    async def save_prompt(self, row: dict) -> dict:
-        """Upsert a prompt row; preserve id and created_at on update.
-
-        If ``row["content"]`` is present it is stored separately and is NOT
-        included in the returned dict (mirrors the Postgres behaviour).
-        """
-        key = (row["name"], row["version"])
-        existing = self._prompts.get(key)
-        now = _now_iso()
-        stored = {
-            "id": existing["id"] if existing else self._uid(),
-            "kind": "prompt",
-            "name": row["name"],
-            "version": row["version"],
-            "payload": copy.deepcopy(row.get("payload", {})),
-            "official_meta": copy.deepcopy(row.get("official_meta", {})),
-            "is_latest": row.get("is_latest", False),
-            "tenant_ids": list(row.get("tenant_ids") or []),
-            "created_at": existing["created_at"] if existing else now,
-            "updated_at": now,
-        }
-        self._prompts[key] = stored
-        if row.get("content") is not None:
-            self._resource_content[("prompt", row["name"], row["version"])] = row["content"]
-        return copy.deepcopy(stored)
-
-    async def get_prompt(self, name: str, version: str) -> dict | None:
-        """Return a deep copy of the stored prompt row, or None if not found."""
-        row = self._prompts.get((name, version))
-        return copy.deepcopy(row) if row else None
-
-    async def get_prompt_by_filter(self, name: str, is_latest: bool) -> dict | None:
-        """Return the first prompt row matching name and is_latest flag, or None."""
-        for row in self._prompts.values():
-            if row["name"] == name and row["is_latest"] == is_latest:
-                return copy.deepcopy(row)
-        return None
-
-    async def list_prompts(
-        self,
-        *,
-        name_like: str | None,
-        is_latest_only: bool,
-        status_filter: str | None,
-        tenant: str | None,
-        offset: int,
-        limit: int,
-    ) -> tuple[list[dict], bool]:
-        """Return a filtered, sorted, offset-paginated page of prompt rows."""
-        rows = list(self._prompts.values())
-
-        if is_latest_only:
-            rows = [r for r in rows if r["is_latest"]]
-
-        if status_filter:
-            rows = [
-                r for r in rows
-                if (r.get("official_meta", {}).get("status") or "active") == status_filter
-            ]
-
-        if name_like:
-            pattern = name_like.lower()
-            rows = [r for r in rows if pattern in r["name"].lower()]
-
-        if tenant:
-            rows = [r for r in rows if tenant in (r.get("tenant_ids") or [])]
-
-        rows.sort(key=lambda r: r["name"])
-        page = rows[offset : offset + limit]
-        has_more = (offset + limit) < len(rows)
-        return [copy.deepcopy(r) for r in page], has_more
-
-    async def count_prompt_versions(self, name: str) -> int:
-        """Return the number of stored versions for the given prompt name."""
-        return sum(1 for (n, _) in self._prompts if n == name)
-
-    async def delete_prompt(self, name: str, version: str) -> None:
-        """Remove the prompt row for (name, version); silently ignore missing keys."""
-        row = self._prompts.get((name, version))
-        if row is not None:
-            self._resource_metadata.pop(str(row["id"]), None)
-            self._resource_content.pop(("prompt", name, version), None)
-        self._prompts.pop((name, version), None)
-
-    async def update_prompt_row(self, name: str, version: str, fields: dict) -> None:
-        """Patch the specified fields on the stored prompt row; no-op for empty dict or missing row."""
-        if not fields:
-            return
-        key = (name, version)
-        row = self._prompts.get(key)
-        if row is None:
-            return
-        for k, v in fields.items():
-            row[k] = v
-        row["updated_at"] = _now_iso()
+    async def list_resource_versions_for_name(self, kind: str, name: str) -> list[dict]:
+        """Return every stored row for ``kind`` and ``name`` (all versions)."""
+        store = self._store(kind)
+        rows = [r for (n, _), r in store.items() if n == name]
+        rows.sort(key=lambda r: r["version"])
+        return [copy.deepcopy(r) for r in rows]
 
     # ── resource content methods ───────────────────────────────────────────────
 

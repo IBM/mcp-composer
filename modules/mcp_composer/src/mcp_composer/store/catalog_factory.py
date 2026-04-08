@@ -8,7 +8,8 @@ catalog layer.  Returns an *uninitialized* adapter; the caller must do:
     ...
     await db.close()
 
-Selection priority (same logic as the main DB factory):
+Selection priority (aligned with ``ServerConfigurationManager.get_database_from_config``
+for PostgreSQL: same ``MCP_DATABASE_*`` vars as the composer ``DatabaseInterface``):
   1. MCP_DATABASE_TYPE=postgres  → CatalogPostgresAdapter
      (reads MCP_DATABASE_URL  **or**  MCP_DATABASE_HOST / MCP_DATABASE_NAME /
       MCP_DATABASE_USER / MCP_DATABASE_PASSWORD / MCP_DATABASE_PORT)

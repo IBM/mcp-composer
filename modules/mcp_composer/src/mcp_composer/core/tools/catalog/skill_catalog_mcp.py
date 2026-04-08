@@ -25,11 +25,11 @@ import httpx
 from fastmcp import FastMCP
 
 from mcp_composer.core.catalog import (
-    InvalidSkillStatusError,
+    CatalogResourceNotFoundError,
+    CatalogVersionCapError,
+    InvalidCatalogResourceStatusError,
     SkillListFilter,
     SkillManager,
-    SkillNotFoundError,
-    SkillVersionCapError,
 )
 from mcp_composer.core.models.catalog_skill import SkillJSON, SkillResponse
 from mcp_composer.core.utils.catalog_validators import validate_agentskills_instructions
@@ -276,7 +276,7 @@ async def get_skill(
             result = await _skill_manager.get(name, version.strip())
         else:
             result = await _skill_manager.get_latest(name)
-    except SkillNotFoundError as exc:
+    except CatalogResourceNotFoundError as exc:
         raise ValueError(str(exc)) from exc
     return result.model_dump(by_alias=True)
 
@@ -318,7 +318,7 @@ async def load_skill_reference(
             result = await _skill_manager.get(name, version.strip())
         else:
             result = await _skill_manager.get_latest(name)
-    except SkillNotFoundError as exc:
+    except CatalogResourceNotFoundError as exc:
         raise ValueError(str(exc)) from exc
 
     entries = _collect_reference_entries(result)
@@ -439,7 +439,7 @@ async def add_skill(
 
     try:
         result = await _skill_manager.publish(parsed, tenant_ids=tenant_ids)
-    except SkillVersionCapError as exc:
+    except CatalogVersionCapError as exc:
         raise ValueError(str(exc)) from exc
     return result.model_dump(by_alias=True)
 
@@ -556,7 +556,7 @@ async def publish_skill_bundle(
             tenant_ids=tenant_ids,
             resource_metadata=resource_meta,
         )
-    except SkillVersionCapError as exc:
+    except CatalogVersionCapError as exc:
         raise ValueError(str(exc)) from exc
     return result.model_dump(by_alias=True)
 
@@ -586,7 +586,7 @@ async def delete_skill(name: str, version: str) -> dict:
         raise ValueError("name and version are required fields")
     try:
         await _skill_manager.delete(name.strip(), version.strip())
-    except SkillNotFoundError as exc:
+    except CatalogResourceNotFoundError as exc:
         raise ValueError(str(exc)) from exc
     return {"ok": True, "name": name.strip(), "version": version.strip()}
 
@@ -634,6 +634,9 @@ async def update_skill_status(
         raise ValueError("status is a required field")
     try:
         await _skill_manager.update_status(name.strip(), version.strip(), status.strip())
-    except (SkillNotFoundError, InvalidSkillStatusError) as exc:
+    except (
+        CatalogResourceNotFoundError,
+        InvalidCatalogResourceStatusError,
+    ) as exc:
         raise ValueError(str(exc)) from exc
     return {"ok": True, "name": name.strip(), "version": version.strip(), "status": status.strip()}

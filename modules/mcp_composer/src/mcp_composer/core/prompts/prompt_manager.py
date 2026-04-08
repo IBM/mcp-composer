@@ -1,4 +1,16 @@
-"""Prompt management module for MCP Composer."""
+"""Prompt management module for MCP Composer.
+
+MCPPromptManager registers FastMCP ``Prompt`` objects in memory and optionally
+persists composer prompt configs via ``DatabaseInterface`` (e.g. ``load_all_prompts`` /
+``add_prompt``). That is separate from ``mcp_composer.core.catalog.prompt_manager``,
+which implements the versioned prompt *catalog* on ``CatalogDatabaseInterface``
+(``catalog_resources`` rows). The two managers are not interchangeable.
+
+When ``MCP_DATABASE_TYPE=postgres``, composer persistence and the catalog use the same
+``MCP_DATABASE_URL`` / ``MCP_DATABASE_HOST`` (etc.) environment variables, but
+different tables: composer prompts live in the adapter's ``*_prompts`` table; catalog
+prompts use ``catalog_resources``.
+"""
 
 import logging
 from typing import Dict, List, Union, Optional
@@ -14,7 +26,7 @@ logger = logging.getLogger(__name__)
 
 
 class MCPPromptManager:
-    """Custom prompt manager that works with FastMCP's internal PromptManager."""
+    """Runtime FastMCP prompt registry; not a substitute for the catalog PromptManager."""
 
     def __init__(
         self,

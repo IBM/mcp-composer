@@ -53,8 +53,8 @@ class CatalogManager:
     async def close(self) -> None:
         await self._db.close()
 
-    async def recompute_is_latest_for_skill_name(self, name: str) -> None:
-        """Set ``is_latest`` on all skill rows for *name* so exactly one row is latest.
+    async def recompute_is_latest_for_resource_name(self, kind: str, name: str) -> None:
+        """Set ``is_latest`` on all rows for *kind* + *name* so exactly one row is latest.
 
         The latest row is the greatest version under :func:`max_catalog_version_string`
         (PEP 440). Updates both the ``is_latest`` column and ``official_meta["is_latest"]``.
@@ -63,7 +63,10 @@ class CatalogManager:
         the ``latest`` marker consistent.
         """
         await self._ensure_initialized()
-        rows = await self._db.list_skill_versions_for_name(name)
+        if kind not in ("skill", "prompt"):
+            return
+
+        rows = await self._db.list_resource_versions_for_name(kind, name)
         if not rows:
             return
 
@@ -78,7 +81,8 @@ class CatalogManager:
                 continue
             official_meta = dict(row.get("official_meta") or {})
             official_meta["is_latest"] = False
-            await self._db.update_skill_row(
+            await self._db.update_resource_row(
+                kind,
                 name,
                 ver,
                 {"is_latest": False, "official_meta": official_meta},
@@ -90,8 +94,17 @@ class CatalogManager:
                 continue
             official_meta = dict(row.get("official_meta") or {})
             official_meta["is_latest"] = True
-            await self._db.update_skill_row(
+            await self._db.update_resource_row(
+                kind,
                 name,
                 ver,
                 {"is_latest": True, "official_meta": official_meta},
             )
+
+    async def recompute_is_latest_for_skill_name(self, name: str) -> None:
+        """Set ``is_latest`` on all skill rows for *name* so exactly one row is latest."""
+        await self.recompute_is_latest_for_resource_name("skill", name)
+
+    async def recompute_is_latest_for_prompt_name(self, name: str) -> None:
+        """Set ``is_latest`` on all prompt rows for *name* (same rules as skills)."""
+        await self.recompute_is_latest_for_resource_name("prompt", name)

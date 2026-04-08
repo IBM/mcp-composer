@@ -1,4 +1,4 @@
-"""catalog_database.py — Abstract interface for catalog DB operations (skill + prompt + resource metadata)."""
+"""catalog_database.py — Abstract interface for catalog DB operations (kind-aware resources + metadata)."""
 
 from __future__ import annotations
 
@@ -7,6 +7,10 @@ from abc import ABC, abstractmethod
 
 class CatalogDatabaseInterface(ABC):
     """Abstract interface for catalog storage.
+
+    Resource rows are stored by ``kind`` (e.g. ``skill``, ``prompt``) with the same
+    logical shape in ``catalog_resources``. Managers hold business logic; the adapter
+    is kind-aware so callers do not need separate ``get_skill`` / ``get_prompt`` APIs.
 
     Lifecycle:
         db = ConcreteCatalogAdapter(...)
@@ -23,23 +27,30 @@ class CatalogDatabaseInterface(ABC):
     async def close(self) -> None:
         """Close the connection pool (or tear down in-memory state)."""
 
-    # ── skill ─────────────────────────────────────────────────────────────────
+    # ── catalog resources (``kind`` + name + version — one table / layout) ─────
 
     @abstractmethod
-    async def save_skill(self, row: dict) -> dict:
-        """Upsert a skill row; return the saved row (including DB-generated fields)."""
+    async def save_resource(self, kind: str, row: dict) -> dict:
+        """Upsert a row for ``kind``; return the saved row (including generated fields).
+
+        If ``row["content"]`` is present it may be stored separately and omitted from
+        the returned dict (see adapter docs).
+        """
 
     @abstractmethod
-    async def get_skill(self, name: str, version: str) -> dict | None:
-        """Return the skill row for (name, version), or None if not found."""
+    async def get_resource(self, kind: str, name: str, version: str) -> dict | None:
+        """Return the row for (kind, name, version), or None if not found."""
 
     @abstractmethod
-    async def get_skill_by_filter(self, name: str, is_latest: bool) -> dict | None:
-        """Return the skill row matching name + is_latest flag, or None."""
+    async def get_resource_by_filter(
+        self, kind: str, name: str, is_latest: bool
+    ) -> dict | None:
+        """Return a row matching ``name`` and ``is_latest``, or None."""
 
     @abstractmethod
-    async def list_skills(
+    async def list_resources(
         self,
+        kind: str,
         *,
         name_like: str | None = None,
         is_latest_only: bool = False,
@@ -49,62 +60,29 @@ class CatalogDatabaseInterface(ABC):
         offset: int = 0,
         limit: int = 50,
     ) -> tuple[list[dict], bool]:
-        """Return a page of skill rows and a boolean indicating whether more rows exist."""
+        """Return a page of rows for ``kind`` and whether more rows exist after the page.
+
+        ``keywords`` is applied only when ``kind`` is skill (metadata search); ignored
+        for other kinds.
+        """
 
     @abstractmethod
-    async def count_skill_versions(self, name: str) -> int:
-        """Return the total number of stored versions for a given skill name."""
+    async def count_resource_versions(self, kind: str, name: str) -> int:
+        """Return the number of stored versions for ``kind`` and logical ``name``."""
 
     @abstractmethod
-    async def list_skill_versions_for_name(self, name: str) -> list[dict]:
-        """Return all skill rows for an exact skill *name* (every stored version)."""
+    async def delete_resource(self, kind: str, name: str, version: str) -> None:
+        """Delete the row for (kind, name, version)."""
 
     @abstractmethod
-    async def delete_skill(self, name: str, version: str) -> None:
-        """Delete the row for (name, version)."""
+    async def update_resource_row(
+        self, kind: str, name: str, version: str, fields: dict
+    ) -> None:
+        """Patch columns on the row for (kind, name, version)."""
 
     @abstractmethod
-    async def update_skill_row(self, name: str, version: str, fields: dict) -> None:
-        """Patch arbitrary columns (by key) on the row for (name, version)."""
-
-    # ── prompt ────────────────────────────────────────────────────────────────
-
-    @abstractmethod
-    async def save_prompt(self, row: dict) -> dict:
-        """Upsert a prompt row; return the saved row (including DB-generated fields)."""
-
-    @abstractmethod
-    async def get_prompt(self, name: str, version: str) -> dict | None:
-        """Return the prompt row for (name, version), or None if not found."""
-
-    @abstractmethod
-    async def get_prompt_by_filter(self, name: str, is_latest: bool) -> dict | None:
-        """Return the prompt row matching name + is_latest flag, or None."""
-
-    @abstractmethod
-    async def list_prompts(
-        self,
-        *,
-        name_like: str | None,
-        is_latest_only: bool,
-        status_filter: str | None,
-        tenant: str | None,
-        offset: int,
-        limit: int,
-    ) -> tuple[list[dict], bool]:
-        """Return a page of prompt rows and a boolean indicating whether more rows exist."""
-
-    @abstractmethod
-    async def count_prompt_versions(self, name: str) -> int:
-        """Return the total number of stored versions for a given prompt name."""
-
-    @abstractmethod
-    async def delete_prompt(self, name: str, version: str) -> None:
-        """Delete the prompt row for (name, version)."""
-
-    @abstractmethod
-    async def update_prompt_row(self, name: str, version: str, fields: dict) -> None:
-        """Patch arbitrary columns (by key) on the prompt row for (name, version)."""
+    async def list_resource_versions_for_name(self, kind: str, name: str) -> list[dict]:
+        """Return all rows for an exact ``kind`` and resource ``name`` (every version)."""
 
     # ── resource content (raw file body — fetched only on explicit request) ─────
 
@@ -125,9 +103,8 @@ class CatalogDatabaseInterface(ABC):
     ) -> None:
         """Persist raw content for a catalog resource.
 
-        Can be called standalone after ``save_skill`` / ``save_prompt``, or the
-        ``save_*`` methods will call it automatically when ``row["content"]`` is
-        present.
+        May be called after ``save_resource``, or ``save_resource`` may persist
+        content when ``row["content"]`` is present.
         """
 
     # ── resource metadata (private — never exposed in API responses) ──────────
