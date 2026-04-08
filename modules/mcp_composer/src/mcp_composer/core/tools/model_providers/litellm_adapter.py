@@ -38,7 +38,8 @@ class LiteLLMAdapter(ModelProviderAdapter):
         """
         if not LITELLM_AVAILABLE:
             raise ImportError(
-                "LiteLLM is not available. Please install it with: pip install litellm"
+                "LiteLLM support requires 'ai' extras. "
+                "Install with: pip install mcp-composer[ai]"
             )
 
         self.base_url = base_url

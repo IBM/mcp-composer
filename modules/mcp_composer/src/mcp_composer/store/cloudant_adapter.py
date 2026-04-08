@@ -1,12 +1,22 @@
 """cloudant_adapter.py"""
 
 from __future__ import annotations
-from typing import TYPE_CHECKING, Dict, List
+from typing import TYPE_CHECKING, Dict, List, Any
 
-from ibm_cloud_sdk_core import ApiException
-from ibm_cloud_sdk_core.authenticators import IAMAuthenticator
-from ibmcloudant import CloudantV1
-from ibmcloudant.cloudant_v1 import Document
+# Lazy import for optional IBM Cloud dependencies
+try:
+    from ibm_cloud_sdk_core import ApiException
+    from ibm_cloud_sdk_core.authenticators import IAMAuthenticator
+    from ibmcloudant import CloudantV1
+    from ibmcloudant.cloudant_v1 import Document
+    _CLOUDANT_AVAILABLE = True
+except ImportError:
+    _CLOUDANT_AVAILABLE = False
+    if not TYPE_CHECKING:
+        CloudantV1 = None  # type: ignore
+        IAMAuthenticator = None  # type: ignore
+        Document = None  # type: ignore
+        ApiException = Exception  # type: ignore
 
 from mcp_composer.core.utils.exceptions import ToolDuplicateError
 from mcp_composer.core.utils import LoggerFactory
@@ -21,6 +31,11 @@ if TYPE_CHECKING:
 
 class CloudantAdapter(DatabaseInterface):
     def __init__(self, api_key: str, service_url: str, db_name: str = "mcp_servers"):
+        if not _CLOUDANT_AVAILABLE:
+            raise ImportError(
+                "Cloudant support requires 'ibm-cloud' extras. "
+                "Install with: pip install mcp-composer[ibm-cloud]"
+            )
         self._db_name = db_name
         self._resources_db_name = f"{db_name}_resources"
         self._prompts_db_name = f"{db_name}_prompts"
@@ -28,7 +43,7 @@ class CloudantAdapter(DatabaseInterface):
         self._service_url = service_url
         self._client = self._initialize_client()
 
-    def _initialize_client(self) -> CloudantV1:
+    def _initialize_client(self) -> Any:
         if not self._api_key or not self._service_url:
             raise ValueError("Both api_key and service_url must be provided")
 

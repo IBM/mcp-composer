@@ -2,10 +2,18 @@
 import json
 import logging
 import os
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, TYPE_CHECKING
 
-from ibm_cloud_sdk_core.authenticators import IAMAuthenticator
-from ibm_secrets_manager_sdk.secrets_manager_v2 import SecretsManagerV2
+# Lazy import for optional IBM Cloud dependencies
+try:
+    from ibm_cloud_sdk_core.authenticators import IAMAuthenticator
+    from ibm_secrets_manager_sdk.secrets_manager_v2 import SecretsManagerV2
+    _IBM_SECRETS_AVAILABLE = True
+except ImportError:
+    _IBM_SECRETS_AVAILABLE = False
+    if not TYPE_CHECKING:
+        IAMAuthenticator = None  # type: ignore
+        SecretsManagerV2 = None  # type: ignore
 
 from mcp_composer.core.settings.base_adapter import SecretAdapter
 
@@ -29,6 +37,11 @@ class IBMCloudSecretAdapter(SecretAdapter):
         secret_group: str = "default",
         history_limit: int = 10,
     ):
+        if not _IBM_SECRETS_AVAILABLE:
+            raise ImportError(
+                "IBM Secrets Manager support requires 'ibm-cloud' extras. "
+                "Install with: pip install mcp-composer[ibm-cloud]"
+            )
         self.api_key = api_key or os.getenv("IBM_CLOUD_SM_APIKEY")
         self.sm_url = sm_url or os.getenv("IBM_CLOUD_SM_URL")
         self.secret_group = secret_group or os.getenv(
@@ -40,7 +53,7 @@ class IBMCloudSecretAdapter(SecretAdapter):
             raise ValueError("IBM_CLOUD_SM_APIKEY and IBM_CLOUD_SM_URL must be set")
         self.client = self._connect()
 
-    def _connect(self) -> SecretsManagerV2:
+    def _connect(self) -> Any:
         authenticator = IAMAuthenticator(str(self.api_key))
         client = SecretsManagerV2(authenticator=authenticator)
         client.set_service_url(str(self.sm_url))

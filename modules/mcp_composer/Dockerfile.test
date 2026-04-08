@@ -28,25 +28,23 @@ WORKDIR /app
 RUN mkdir -p /app && chmod -R 0777 /app
 RUN mkdir -p /.cache/uv && chmod -R 0777 /.cache/uv
 
-COPY pyproject.toml uv.lock ./
-
-RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync --locked --no-install-project --no-dev
-
 COPY . /app
 
 RUN chmod -R 0777 /app
 
-# Initialize git repository for dynamic versioning (same as main Dockerfile)
+# Initialize git repository before uv sync so dynamic versioning can resolve a version
 RUN git init && \
     git config user.email "test@example.com" && \
     git config user.name "Test User" && \
     git add . && \
     git commit -m "Initial commit for testing"
 
-# Install dev dependencies for testing (pytest needs this)
 RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync --locked --no-install-project
+    uv sync --locked --no-install-project --no-dev --all-extras
+
+# Install dev dependencies and all optional feature deps for testing
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv sync --locked --no-install-project --all-extras
 
 ENV PATH="/app/.venv/bin:$PATH"
 ENV UV_CACHE_DIR=/.cache/uv

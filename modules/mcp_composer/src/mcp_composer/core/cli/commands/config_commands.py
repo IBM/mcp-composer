@@ -142,6 +142,33 @@ def apply_config(
         rprint(f"❌ [red]Error applying configuration: {e}[/red]")
         raise typer.Exit(1)
 
+@app.command("check-dependencies")
+def check_dependencies() -> None:
+    """Check which optional dependencies are needed based on environment variables."""
+    from mcp_composer.core.utils.optional_deps import (
+        detect_required_extras,
+        get_missing_extras_message,
+    )
+    
+    required = detect_required_extras()
+    
+    if not required:
+        rprint("[green]✓[/green] No optional dependencies detected from environment")
+        rprint("\n[dim]Set environment variables to enable optional features:[/dim]")
+        rprint("  • IBM Cloud: CLOUDANT_URL, IBM_CLOUD_API_KEY")
+        rprint("  • PostgreSQL: POSTGRES_URL or DATABASE_URL")
+        rprint("  • Vault: VAULT_ADDR, VAULT_TOKEN")
+        rprint("  • AI features: GOOGLE_API_KEY, LITELLM_API_KEY, OLLAMA_HOST")
+        rprint("  • A2A: A2A_ENABLED=true")
+        rprint("  • Search: ENABLE_SEARCH=true")
+        return
+    
+    rprint("[yellow]Optional dependencies detected from environment:[/yellow]")
+    for extra in sorted(required):
+        rprint(f"  • {extra}")
+    
+    rprint("\n" + get_missing_extras_message(required))
+
 
 def _show_section(config_dict: dict, section: str) -> None:
     """Show a specific section of the configuration."""

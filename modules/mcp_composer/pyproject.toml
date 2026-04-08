@@ -10,38 +10,23 @@ keywords = [
 ]
 dependencies = [
     "fastmcp==3.2.0",
-    "requests==2.33.0",
+    "requests==2.33.1",
     "httpx==0.28.1",
     "beautifulsoup4>=4.12.0",
     "markdownify>=0.12.0",
-    "ibmcloudant==0.10.2",
-    "ibm-cloud-sdk-core==3.23.0",
-    "aiohttp==3.13.4",
+    "aiohttp==3.13.5",
     "jsonschema>=4.24.0",
     "uncurl==0.0.11",
-    "ibm-secrets-manager-sdk==2.1.13",
     "pydantic==2.12.5",
     "pydantic-settings==2.13.1",
-    "hvac==2.4.0",
     "types-requests>=2.32.4.20250611",
     "jsonref>=1.1.0",
     "deepdiff>=8.6.1",
-    "scikit-learn>=1.7.1",
     "typer>=0.17.0",
     "python-daemon>=3.1.2",
     "python-dotenv>=1.0.0",
     "pyyaml>=6.0.2",
-    "asyncpg>=0.29.0",
     "rich>=13.7",
-    "duckduckgo-search>=6.3.0",
-
-    "google-genai==1.68.0",
-    "numpy==2.4.3",
-
-    "pandas==3.0.2",
-    "a2a-sdk==0.3.25",
-    "litellm==1.83.0",
-    "ollama>=0.6.1",
     "cryptography>=46.0.6",
     "protobuf>=6.33.5",
     "jaraco-context>=6.1.0",
@@ -75,13 +60,57 @@ dev = [
     "twine==6.2.0",
     "debugpy>=1.8.16",
     "detect-secrets>=1.5.0",
+    "a2a-sdk==0.3.25",
 ]
 
 [project.optional-dependencies]
+# Existing optional dependencies
 tracing = [
-  "opentelemetry-api>=1.39.0",
-  "opentelemetry-sdk>=1.39.0",
-  "opentelemetry-exporter-otlp>=1.39.0",
+    "opentelemetry-api>=1.39.0",
+    "opentelemetry-sdk>=1.39.0",
+    "opentelemetry-exporter-otlp>=1.39.0",
+]
+
+# IBM Cloud integration
+ibm-cloud = [
+    "ibmcloudant==0.11.5",
+    "ibm-cloud-sdk-core==3.24.4",
+    "ibm-secrets-manager-sdk==2.1.13",
+]
+
+# Database backends
+databases = [
+    "asyncpg>=0.29.0",  # PostgreSQL
+]
+
+# Secrets management
+secrets = [
+    "hvac==2.4.0",  # HashiCorp Vault
+]
+
+# AI/ML features
+ai = [
+    "google-genai==1.68.0",
+    "litellm==1.83.0",
+    "ollama>=0.6.1",
+    "scikit-learn>=1.7.1",
+    "numpy==2.4.4",
+    "pandas==3.0.2",
+]
+
+# Agent-to-Agent communication
+a2a = [
+    "a2a-sdk==0.3.25",
+]
+
+# Search functionality
+search = [
+    "duckduckgo-search>=6.3.0",
+]
+
+# All optional features
+all = [
+    "mcp-composer[tracing,ibm-cloud,databases,secrets,ai,a2a,search]",
 ]
 
 [project.scripts]

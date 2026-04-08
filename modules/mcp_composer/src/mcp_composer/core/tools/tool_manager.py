@@ -4,8 +4,16 @@ from __future__ import annotations
 import inspect
 from typing import TYPE_CHECKING, Optional, Sequence, Any
 
-from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.metrics.pairwise import cosine_similarity
+# Lazy import for optional scikit-learn dependency
+try:
+    from sklearn.feature_extraction.text import TfidfVectorizer
+    from sklearn.metrics.pairwise import cosine_similarity
+    _SKLEARN_AVAILABLE = True
+except ImportError:
+    _SKLEARN_AVAILABLE = False
+    if not TYPE_CHECKING:
+        TfidfVectorizer = None  # type: ignore
+        cosine_similarity = None  # type: ignore
 
 
 from fastmcp.tools.tool import Tool
@@ -429,14 +437,28 @@ class MCPToolManager:
         # Create corpus: keyword + all tool names
         corpus = [keyword] + tool_names
 
-        # TF-IDF vectorization
-        vectorizer = TfidfVectorizer(analyzer="char_wb", ngram_range=(2, 4)).fit(corpus)
-        vectors = vectorizer.transform(corpus)
+        # TF-IDF vectorization when scikit-learn is available,
+        # otherwise fall back to simple substring matching.
+        if _SKLEARN_AVAILABLE:
+            vectorizer = TfidfVectorizer(analyzer="char_wb", ngram_range=(2, 4)).fit(corpus)
+            vectors = vectorizer.transform(corpus)
 
-        # Compute cosine similarity between keyword and all tool names
-        keyword_vector = vectors[0]
-        tool_vectors = vectors[1:]
-        similarities = cosine_similarity(keyword_vector, tool_vectors).flatten()
+            # Compute cosine similarity between keyword and all tool names
+            keyword_vector = vectors[0]
+            tool_vectors = vectors[1:]
+            similarities = cosine_similarity(keyword_vector, tool_vectors).flatten()
+        else:
+            keyword_lower = keyword.lower()
+            similarities = []
+            for tool_name in tool_names:
+                tool_name_lower = tool_name.lower()
+                tool_parts = tool_name_lower.replace("-", "_").split("_")
+                if keyword_lower in tool_name_lower:
+                    similarities.append(1.0)
+                elif any(keyword_lower in part or part in keyword_lower for part in tool_parts):
+                    similarities.append(0.8)
+                else:
+                    similarities.append(0.0)
 
         # Pair tool names with similarity scores
         scored_tools = sorted(
@@ -444,7 +466,7 @@ class MCPToolManager:
         )
         # You can apply a threshold to filter out very dissimilar tools if needed
         # Lower threshold for better matching of prefixed tool names
-        similarity_threshold = 0.01
+        similarity_threshold = 0.0
         filtered_tools = {
             name: tools[name]
             for name, score in scored_tools

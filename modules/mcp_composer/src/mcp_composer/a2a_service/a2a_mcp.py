@@ -8,23 +8,57 @@ allowing MCP clients to interact with A2A agents.
 import os
 import time
 import uuid
-from typing import Any, Dict, List, Optional, cast
+from typing import Any, Dict, List, Optional, cast, TYPE_CHECKING
 import json
 from fastmcp import Context
 import httpx
-import numpy as np
-import pandas as pd
-from a2a.types import (
-    AgentCard,
-    AgentCapabilities,
-    AgentSkill,
-    TaskQueryParams,
-    TaskIdParams,
-    Message,
-    Task,
-    TextPart,
-)
-from a2a.client import ClientFactory, ClientConfig
+# Lazy import for optional AI dependencies
+ai_available = True
+genai: Any = None
+np: Any = None
+pd: Any = None
+try:
+    import importlib
+
+    np = importlib.import_module("numpy")
+    pd = importlib.import_module("pandas")
+    try:
+        genai = importlib.import_module("google.genai")
+    except ImportError:
+        genai = None
+except ImportError:
+    ai_available = False
+
+# Lazy import for optional A2A dependency
+a2a_available = True
+AgentCard: Any = None
+AgentCapabilities: Any = None
+AgentSkill: Any = None
+TaskQueryParams: Any = None
+TaskIdParams: Any = None
+Message: Any = None
+Task: Any = None
+TextPart: Any = None
+ClientFactory: Any = None
+ClientConfig: Any = None
+try:
+    import importlib
+
+    a2a_types = importlib.import_module("a2a.types")
+    a2a_client = importlib.import_module("a2a.client")
+
+    AgentCard = a2a_types.AgentCard
+    AgentCapabilities = a2a_types.AgentCapabilities
+    AgentSkill = a2a_types.AgentSkill
+    TaskQueryParams = a2a_types.TaskQueryParams
+    TaskIdParams = a2a_types.TaskIdParams
+    Message = a2a_types.Message
+    Task = a2a_types.Task
+    TextPart = a2a_types.TextPart
+    ClientFactory = a2a_client.ClientFactory
+    ClientConfig = a2a_client.ClientConfig
+except ImportError:
+    a2a_available = False
 from mcp_composer.core.utils.logger import LoggerFactory
 from mcp_composer.core.utils.utils import load_from_json, save_to_json
 
@@ -60,19 +94,24 @@ task_agent_mapping = {}
 _embedding_adapter = None
 
 # Cache for agent card embeddings
-_embeddings_cache: Optional[pd.DataFrame] = None
+_embeddings_cache: Any = None
 _embeddings_cache_timestamp: Optional[float] = None
 
 
-def _create_client_factory(httpx_client) -> ClientFactory:
+def _create_client_factory(httpx_client) -> Any:
     """
     Create a ClientFactory with default configuration.
     """
+    if not a2a_available:
+        raise ImportError(
+            "A2A support requires 'a2a' extras. "
+            "Install with: pip install mcp-composer[a2a]"
+        )
     config = {"httpx_client": httpx_client}
     return ClientFactory(config=ClientConfig(**config))
 
 
-def _sanitize_agent_card_data(raw: Dict[str, Any], fallback_url: str) -> AgentCard:
+def _sanitize_agent_card_data(raw: Dict[str, Any], fallback_url: str) -> Any:
     name = raw.get("name") or "Unknown Agent"
     url = raw.get("url") or fallback_url
     version = raw.get("version") or "0.1.0"
@@ -86,7 +125,7 @@ def _sanitize_agent_card_data(raw: Dict[str, Any], fallback_url: str) -> AgentCa
     default_output_modes = raw.get("default_output_modes") or ["text"]
 
     skills_raw = raw.get("skills") or []
-    skills: List[AgentSkill] = []
+    skills: List[Any] = []
     for s in skills_raw:
         if not isinstance(s, dict):
             continue
@@ -129,7 +168,7 @@ def _sanitize_agent_card_data(raw: Dict[str, Any], fallback_url: str) -> AgentCa
     )
 
 
-async def fetch_agent_card(url: str) -> AgentCard:
+async def fetch_agent_card(url: str) -> Any:
     """
     Fetch the agent card from the agent's URL.
     First try the main URL, then the well-known location.
@@ -652,7 +691,7 @@ def invalidate_embeddings_cache():
     logger.debug("Embeddings cache invalidated")
 
 
-def build_agent_card_embeddings(use_cache: bool = True) -> pd.DataFrame:
+def build_agent_card_embeddings(use_cache: bool = True) -> Any:
     """Loads agent cards, generates embeddings for them, and returns a DataFrame.
 
     Implements caching to avoid regenerating embeddings on every call.
@@ -668,6 +707,10 @@ def build_agent_card_embeddings(use_cache: bool = True) -> pd.DataFrame:
         during the embedding generation process.
     """
     global _embeddings_cache, _embeddings_cache_timestamp
+
+    if not ai_available:
+        logger.info("AI dependencies not installed; skipping agent card embeddings")
+        return None
 
     # Return cached embeddings if available and use_cache is True
     if use_cache and _embeddings_cache is not None:
@@ -711,7 +754,7 @@ def build_agent_card_embeddings(use_cache: bool = True) -> pd.DataFrame:
 
     except Exception as e:
         logger.error("An unexpected error occurred during build: %s.", e, exc_info=True)
-        return pd.DataFrame()
+        return None
 
 
 def find_agent(query: str) -> str:
@@ -734,8 +777,7 @@ def find_agent(query: str) -> str:
     # 1. Load your pre-computed embeddings
     # Note: Ensure build_agent_card_embeddings() uses the same embedding adapter
     df = build_agent_card_embeddings()
-
-    if df is None or df.empty:
+    if not ai_available or df is None or df.empty:
         logger.warning("No agent cards found or DataFrame is empty.")
         return "{}"
     try:
@@ -796,7 +838,7 @@ def get_agent_cards() -> str:
     df = build_agent_card_embeddings()
     resources = {}
     logger.info("Starting read resources")
-    if df.empty:
+    if not ai_available or df is None or df.empty:
         resources["agent_cards"] = []
     else:
         resources["agent_cards"] = df["card_uri"].to_list()
@@ -815,7 +857,7 @@ def get_agent_card(card_name: str) -> str:
     df = build_agent_card_embeddings()
     resources = {}
     logger.info("Starting read resource resource://agent_cards/%s", card_name)
-    if df.empty:
+    if df is None or df.empty:
         resources["agent_card"] = {}
         return json.dumps(resources)
 

@@ -40,7 +40,11 @@ COPY . .
 
 ENV UV_PYTHON=/usr/bin/python3.12
 
-RUN uv sync --locked --no-install-project --no-dev
+RUN uv sync --locked --no-install-project --no-dev \
+    --extra ibm-cloud \
+    --extra databases \
+    --extra ai \
+    --extra a2a
 
 
 #########################################

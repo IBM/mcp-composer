@@ -1,7 +1,16 @@
 import os
 import json
-from typing import Dict, Any, Optional, List
-import hvac
+from typing import Dict, Any, Optional, List, TYPE_CHECKING
+
+# Lazy import for optional HashiCorp Vault dependency
+try:
+    import hvac
+    _HVAC_AVAILABLE = True
+except ImportError:
+    _HVAC_AVAILABLE = False
+    if not TYPE_CHECKING:
+        hvac = None  # type: ignore
+
 from mcp_composer.middleware.acl.policy.base_policy_enforcer import BasePolicyEnforcer
 from mcp_composer.middleware.acl.acl_utils import (
     resolve_role_from_context,
@@ -50,6 +59,11 @@ class HashiCorpVaultPolicyEnforcer(BasePolicyEnforcer):
             policy_path: Path within the KV store where policies are stored
             **kwargs: Additional configuration options
         """
+        if not _HVAC_AVAILABLE:
+            raise ImportError(
+                "HashiCorp Vault support requires 'secrets' extras. "
+                "Install with: pip install mcp-composer[secrets]"
+            )
         self.vault_url = vault_url
         self.token = token or kwargs.get("token")
         self.mount_point = mount_point

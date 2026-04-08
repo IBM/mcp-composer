@@ -41,7 +41,8 @@ class OllamaAdapter(ModelProviderAdapter):
         """
         if not OLLAMA_PYTHON_AVAILABLE:
             raise ImportError(
-                "ollama-python is not available. Please install it with: pip install ollama"
+                "Ollama support requires 'ai' extras. "
+                "Install with: pip install mcp-composer[ai]"
             )
 
         self.base_url = base_url

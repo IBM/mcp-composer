@@ -759,9 +759,9 @@ def test_build_agent_card_embeddings_exception_handling(monkeypatch):
         module_under_test, "generate_embeddings", mock_generate_embeddings
     )
 
-    # Should return empty DataFrame on exception
+    # Should return the current fallback value on exception
     df = build_agent_card_embeddings(use_cache=False)
-    assert df.empty
+    assert df is None
 
 
 def test_find_agent_uses_cached_embeddings(monkeypatch):

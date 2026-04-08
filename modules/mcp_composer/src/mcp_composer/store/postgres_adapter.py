@@ -6,7 +6,15 @@ import asyncio
 from typing import TYPE_CHECKING, Dict, List, Any, Union, Optional
 from urllib.parse import urlparse
 import concurrent.futures
-import asyncpg
+
+# Lazy import for optional PostgreSQL dependency
+try:
+    import asyncpg
+    _POSTGRES_AVAILABLE = True
+except ImportError:
+    _POSTGRES_AVAILABLE = False
+    if not TYPE_CHECKING:
+        asyncpg = None  # type: ignore
 
 from mcp_composer.core.utils.exceptions import ToolDuplicateError
 from mcp_composer.core.utils import LoggerFactory
@@ -46,6 +54,11 @@ class PostgresAdapter(DatabaseInterface):
             min_size: Minimum connections in the pool
             max_size: Maximum connections in the pool
         """
+        if not _POSTGRES_AVAILABLE:
+            raise ImportError(
+                "PostgreSQL support requires 'databases' extras. "
+                "Install with: pip install mcp-composer[databases]"
+            )
         self._table_name = table_name
         self._resources_table_name = f"{table_name}_resources"
         self._prompts_table_name = f"{table_name}_prompts"
