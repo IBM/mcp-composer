@@ -10,8 +10,6 @@ from mcp_composer.middleware.tool.tool_filter import ListFilteredTool
 
 # pylint: disable=protected-access,too-few-public-methods
 
-_EXTRACT = "mcp_composer.middleware.tool.tool_filter.extract_user_instances"
-
 
 class TestListFilteredTool:
     """Test cases for ListFilteredTool middleware"""
@@ -54,7 +52,6 @@ class TestListFilteredTool:
         self, list_filtered_tool, mock_context, mock_call_next, monkeypatch
     ):
         """Successful filtering when x-user-instances header is absent."""
-        monkeypatch.setattr(_EXTRACT, lambda req: None)
         monkeypatch.setenv("MCP_COMPOSER_ENV", "local")
 
         mock_tools = {"tool1": {"name": "tool1", "description": "Filtered Tool 1"}}
@@ -62,7 +59,7 @@ class TestListFilteredTool:
 
         result = await list_filtered_tool.on_list_tools(mock_context, mock_call_next)
 
-        assert mock_call_next.call_count == 2
+        assert mock_call_next.call_count == 1
         assert isinstance(result, dict)
         assert len(result) == 1
         assert result["tool1"]["name"] == "tool1"
@@ -72,7 +69,6 @@ class TestListFilteredTool:
         self, list_filtered_tool, mock_context, mock_call_next, monkeypatch
     ):
         """Empty tool list returns empty list."""
-        monkeypatch.setattr(_EXTRACT, lambda req: None)
         monkeypatch.setenv("MCP_COMPOSER_ENV", "local")
         mock_call_next.return_value = {}
 
@@ -86,7 +82,6 @@ class TestListFilteredTool:
         self, list_filtered_tool, mock_context, mock_call_next, monkeypatch
     ):
         """Complex tool objects pass through correctly."""
-        monkeypatch.setattr(_EXTRACT, lambda req: None)
         monkeypatch.setenv("MCP_COMPOSER_ENV", "local")
 
         mock_tools = {
@@ -106,16 +101,14 @@ class TestListFilteredTool:
         assert result["complex_tool"]["name"] == "complex_tool"
 
     # ------------------------------------------------------------------
-    # on_list_tools — user instances present in header
+    # on_list_tools — non-local without ISV (no validated instances)
     # ------------------------------------------------------------------
 
     @pytest.mark.asyncio
-    async def test_on_list_tools_passes_user_instances_from_header(
+    async def test_on_list_tools_non_local_without_isv_passes_empty_instances(
         self, list_filtered_tool, mock_context, mock_call_next, monkeypatch
     ):
-        """user instances extracted from x-user-instances header are forwarded to filter_tools."""
-        instances = [{"subscription": {"productId": "lakehouse"}}]
-        monkeypatch.setattr(_EXTRACT, lambda req: instances)
+        """Without isv_validator, non-local env never forwards header-only instances."""
         monkeypatch.setenv("MCP_COMPOSER_ENV", "dev")
 
         mock_tools = {"mcp-wx-data_get_service_info": Mock()}
@@ -129,7 +122,7 @@ class TestListFilteredTool:
         await list_filtered_tool.on_list_tools(mock_context, mock_call_next)
 
         list_filtered_tool.gw._tool_manager.filter_tools.assert_called_once_with(
-            mock_tools, user_instances=instances
+            mock_tools, user_instances=[]
         )
 
     # ------------------------------------------------------------------
@@ -141,7 +134,6 @@ class TestListFilteredTool:
         self, list_filtered_tool, mock_context, mock_call_next, monkeypatch
     ):
         """ToolFilterError from filter_tools is re-raised with middleware message."""
-        monkeypatch.setattr(_EXTRACT, lambda req: None)
         monkeypatch.setenv("MCP_COMPOSER_ENV", "dev")
         mock_call_next.return_value = {"tool1": Mock()}
         list_filtered_tool.gw._tool_manager.filter_tools.side_effect = ToolFilterError(
@@ -160,7 +152,6 @@ class TestListFilteredTool:
         self, list_filtered_tool, mock_context, mock_call_next, monkeypatch
     ):
         """In dev/prod path (env != local), filter_tools is called and filtered list returned."""
-        monkeypatch.setattr(_EXTRACT, lambda req: None)
         monkeypatch.setenv("MCP_COMPOSER_ENV", "dev")
         mock_tools = {"tool1": Mock()}
         mock_filtered = {"tool1": mock_tools["tool1"]}
@@ -181,7 +172,6 @@ class TestListFilteredTool:
         self, list_filtered_tool, mock_context, mock_call_next, monkeypatch
     ):
         """Generic error from filter_tools propagates unchanged."""
-        monkeypatch.setattr(_EXTRACT, lambda req: None)
         monkeypatch.setenv("MCP_COMPOSER_ENV", "dev")
         mock_call_next.return_value = {"tool1": Mock()}
         list_filtered_tool.gw._tool_manager.filter_tools.side_effect = Exception(
@@ -198,7 +188,6 @@ class TestListFilteredTool:
         self, list_filtered_tool, mock_context, mock_call_next, monkeypatch
     ):
         """Error raised by call_next propagates immediately."""
-        monkeypatch.setattr(_EXTRACT, lambda req: None)
         monkeypatch.delenv(
             "MCP_COMPOSER_ENV", raising=False
         )  # Ensure not in local mode
@@ -209,3 +198,77 @@ class TestListFilteredTool:
 
         mock_call_next.assert_called_once_with(mock_context)
         list_filtered_tool.gw._tool_manager.filter_tools.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_non_local_isv_no_cookie_uses_empty_instances_in_filter_tools(
+        self, mock_context, mock_call_next, monkeypatch
+    ):
+        """With ISV validator, non-local env, and no session cookie — filter_tools gets []."""
+        mock_isv = Mock()
+        mock_isv.config.cookie_name = "mcsp-glb-iam-test"
+
+        mock_gw = Mock()
+        mock_gw._tool_manager = Mock()
+        mock_gw._tool_manager.filter_tools = Mock(return_value=[])
+
+        middleware = ListFilteredTool(mock_gw, isv_validator=mock_isv)
+        monkeypatch.setenv("MCP_COMPOSER_ENV", "dev")
+
+        req = Mock()
+        req.headers = {}  # no Cookie and no mcsp-glb-iam-test header
+
+        monkeypatch.setattr(
+            "mcp_composer.middleware.tool.tool_filter.ctx_get",
+            lambda _ctx, *_names, **_kw: req,
+        )
+
+        tool_mock = Mock()
+        tool_mock.name = "mcp-x_foo"
+        mock_call_next.return_value = [tool_mock]
+
+        result = await middleware.on_list_tools(mock_context, mock_call_next)
+
+        assert result == []
+        mock_gw._tool_manager.filter_tools.assert_called_once_with(
+            [tool_mock], user_instances=[]
+        )
+
+    @pytest.mark.asyncio
+    async def test_non_local_isv_cookie_calls_auth_for_instances(
+        self, mock_context, mock_call_next, monkeypatch
+    ):
+        """ISV + cookie present — user_instances come from _authenticate_and_get_instances."""
+        mock_isv = Mock()
+        mock_isv.config.cookie_name = "session-cookie"
+
+        mock_gw = Mock()
+        mock_gw._tool_manager = Mock()
+        mock_gw._tool_manager.filter_tools = Mock(return_value=[])
+
+        middleware = ListFilteredTool(mock_gw, isv_validator=mock_isv)
+        monkeypatch.setenv("MCP_COMPOSER_ENV", "dev")
+
+        req = Mock()
+        req.headers = {"cookie": "session-cookie=abc123"}
+
+        monkeypatch.setattr(
+            "mcp_composer.middleware.tool.tool_filter.ctx_get",
+            lambda _ctx, *_names, **_kw: req,
+        )
+
+        instances = [{"subscription": {"productId": "lakehouse"}}]
+        monkeypatch.setattr(
+            middleware,
+            "_authenticate_and_get_instances",
+            AsyncMock(return_value=instances),
+        )
+
+        tool_mock = Mock()
+        tool_mock.name = "tool1"
+        mock_call_next.return_value = [tool_mock]
+
+        await middleware.on_list_tools(mock_context, mock_call_next)
+
+        mock_gw._tool_manager.filter_tools.assert_called_once_with(
+            [tool_mock], user_instances=instances
+        )

@@ -111,7 +111,7 @@ def test_filter_tools_exception(tool_manager):  # pylint: disable=redefined-oute
 def test_filter_tools_user_instances_none_unchanged(
     tool_manager,
 ):  # pylint: disable=redefined-outer-name
-    """With user_instances=None, behavior is unchanged (no product-based filtering)."""
+    """With user_instances=None and no product members, all tools pass (after disable rules)."""
     tool_manager._server_manager.list.return_value = []
     tool = MagicMock()
     tool.name = "a"
@@ -124,7 +124,7 @@ def test_filter_tools_user_instances_none_unchanged(
 def test_filter_tools_user_instances_empty_unchanged(
     tool_manager,
 ):  # pylint: disable=redefined-outer-name
-    """With user_instances=[], no product-based filtering applied."""
+    """With user_instances=[] and no product members, all tools pass."""
     tool_manager._server_manager.list.return_value = []
     tool = MagicMock()
     tool.name = "a"
@@ -132,6 +132,30 @@ def test_filter_tools_user_instances_empty_unchanged(
 
     result = tool_manager.filter_tools(tools, user_instances=[])
     assert result == tools
+
+
+def test_filter_tools_empty_user_instances_hides_product_servers(
+    tool_manager,
+):  # pylint: disable=redefined-outer-name
+    """With no entitlement, tools from members with solis_config.product_id are hidden."""
+    t_member = MagicMock()
+    t_member.name = "mcp-wx-data_get_service_info"
+    t_plain = MagicMock()
+    t_plain.name = "enable_all_tools"
+    tools = [t_member, t_plain]
+
+    member = MagicMock()
+    member.id = "mcp-wx-data"
+    member.health_status = HealthStatus.healthy
+    member.disabled_tools = []
+    member.tools_description = {}
+    member.config = {"solis_config": {"product_id": "lakehouse"}}
+    tool_manager._server_manager.list.return_value = [member]
+
+    result = tool_manager.filter_tools(tools, user_instances=[])
+    names = [t.name for t in result]
+    assert "mcp-wx-data_get_service_info" not in names
+    assert "enable_all_tools" in names
 
 
 def test_filter_tools_user_instances_filters_by_product(

@@ -1,19 +1,21 @@
 """Tools filter middleware"""
 
 import os
-from typing import TYPE_CHECKING, Any, List, Dict, Optional
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
+
 from fastmcp.server.middleware import CallNext, Middleware, MiddlewareContext
-from mcp_composer.core.utils.context_request import ctx_get, extract_user_instances
+from starlette.exceptions import HTTPException
+
+from mcp_composer.core.auth.jwt.isv_token_validator import ISVUser
+from mcp_composer.core.utils.context_request import ctx_get
 from mcp_composer.core.utils.exceptions import ToolFilterError
 from mcp_composer.core.utils.logger import LoggerFactory
-from mcp_composer.core.auth.jwt.isv_token_validator import ISVUser
 
 if TYPE_CHECKING:
     from mcp_composer.core.auth.jwt.isv_token_validator import ISVTokenValidator
-from starlette.exceptions import HTTPException
 
 logger = LoggerFactory.get_logger()
-env = os.getenv("MCP_COMPOSER_ENV", "dev").lower()
+
 CONTEXT_REQUEST_KEY = "fastmcp_context.request_context.request"
 ENV_LOCAL = "local"
 
@@ -22,7 +24,8 @@ class ListFilteredTool(Middleware):
     """Filter tools of member server before sending to clients.
     1. Remove tools
     2. Update description of tools if exist
-    3. Perform ISV authentication to fetch user instances (non-local mode)
+    3. Non-local: user_instances start empty; only ISV validation (when a session
+       cookie is present) may populate them for product-based filtering.
     """
 
     def __init__(self, gw, isv_validator: Optional["ISVTokenValidator"] = None):
@@ -39,29 +42,37 @@ class ListFilteredTool(Middleware):
     async def on_list_tools(self, context: MiddlewareContext, call_next: CallNext):
         try:
             tools = await call_next(context)
-            env = os.getenv("MCP_COMPOSER_ENV", "").lower()
+            env = (os.getenv("MCP_COMPOSER_ENV") or "").strip().lower()
 
-            # Skip filtering in local mode
-            if env == "local":
+            # Local: no ISV validation, no user-instance-based filtering
+            if env == ENV_LOCAL:
                 logger.info("Local mode - returning all tools without filtering")
-                await call_next(context)
                 return tools
 
             request = ctx_get(context, CONTEXT_REQUEST_KEY)
 
-            # Try to authenticate and fetch user instances if validator is provided
-            if self.isv_validator and request:
-                user_instances = await self._authenticate_and_get_instances(request)
-            else:
-                # Fallback: extract from existing context or header
-                user_instances = extract_user_instances(request)
+            user_instances: List[Dict[str, Any]] = []
 
-            # Ensure user_instances is always a list (handle None case)
-            if user_instances is None:
-                user_instances = []
+            if self.isv_validator and request:
+                cookie_name = self.isv_validator.config.cookie_name
+                if self._check_authentication_cookie(request, cookie_name):
+                    user_instances = await self._authenticate_and_get_instances(
+                        request
+                    )
+                else:
+                    logger.info(
+                        "Non-local, ISV enabled, missing session %r — user_instances empty",
+                        cookie_name,
+                    )
+            elif self.isv_validator and not request:
+                logger.info(
+                    "Non-local, ISV enabled, no HTTP request in context — user_instances empty"
+                )
 
             logger.info(
-                "Filtering tools based on %d user instances", len(user_instances)
+                "list_tools filter: MCP_COMPOSER_ENV=%r, user_instances=%d",
+                env,
+                len(user_instances),
             )
             if user_instances:
                 logger.debug(
@@ -90,67 +101,31 @@ class ListFilteredTool(Middleware):
             logger.exception("Tools filtering failed in middleware: %s", e)
             raise ToolFilterError("Tools filtering failed in middleware") from e
 
+    def _check_authentication_cookie(self, request: Any, cookie_name: str) -> bool:
+        """Return True if the ISV session cookie is present on the request."""
+        headers = getattr(request, "headers", {})
+        cookie_header = headers.get("cookie", "")
+        return cookie_name in cookie_header or cookie_name in headers
+
     async def _authenticate_and_get_instances(
         self, request: Any
     ) -> List[Dict[str, Any]]:
         """
-        Authenticate request and fetch user instances.
+        Validate the request with ISV and return user_instances for tool filtering.
 
-        Args:
-            request: HTTP request object
-
-        Returns:
-            List of user instances
-
-        Raises:
-            HTTPException: If authentication cookie is present but validation fails
+        On failure or empty user_instances, returns [] so list_tools yields an empty
+        tool list (after filtering) instead of raising.
         """
-
-        # If no validator was provided, we cannot perform ISV authentication here.
-        # Guard defensively to avoid attribute errors when middleware is configured without ISV validator.
-        validator = self.isv_validator
-        if validator is None:
-            logger.debug(
-                "ListFilteredTool called without ISV validator; skipping authentication"
-            )
+        if not self.isv_validator:
             return []
 
-        # Check if authentication cookie is present
-
-        cookie_name = validator.config.cookie_name
-
-        headers = getattr(request, "headers", {})
-        cookie_header = headers.get("cookie", "")
-        has_auth_cookie = cookie_name in cookie_header or cookie_name in headers
-
-        if not has_auth_cookie:
-            # No authentication cookie present - skip authentication
-            logger.debug(
-                "No authentication cookie '%s' found, skipping ISV authentication",
-                cookie_name,
-            )
-            if env == ENV_LOCAL:
-                logger.info(
-                    "authentication cookie %s is missing in local mode", cookie_name
-                )
-                return []
-            else:
-                logger.debug(
-                    "Authentication cookie '%s' found, performing ISV authentication",
-                    cookie_name,
-                )
-                raise HTTPException(status_code=401, detail="Authentication required")
-
-        # Cookie is present - authentication is REQUIRED
         try:
             logger.debug(
                 "Authenticating request to fetch user instances for tool filtering"
             )
-
-            # Validate token and fetch instances
-            token_data = await validator.validate_request(request)
+            token_data = await self.isv_validator.validate_request(request)
             logger.debug("Token data in ListFilteredTool: %s", token_data)
-            # Store user in request.state for downstream use
+
             if not hasattr(request, "state"):
                 from starlette.datastructures import State
 
@@ -158,27 +133,35 @@ class ListFilteredTool(Middleware):
 
             request.state.user = ISVUser(token_data)
 
-            user_instances = token_data.get("user_instances", [])
+            user_instances = (
+                token_data.get("user_instances")
+                or token_data.get("userInstances")
+                or []
+            )
+            if isinstance(user_instances, dict):
+                user_instances = [user_instances]
             logger.debug("User instances in ListFilteredTool: %s", user_instances)
             if not user_instances:
-                logger.error(
-                    "Authentication succeeded but failed to fetch user instances - this is a security error"
+                logger.info(
+                    "ISV token had no user_instances / userInstances; returning empty"
                 )
-                # raise HTTPException(status_code=403, detail="Failed to fetch user instances")
                 return []
+
             logger.info(
                 "✓ Authentication successful for list_tools (found %d instances)",
                 len(user_instances),
             )
-
             return user_instances
 
-        except HTTPException:
-            # Re-raise HTTP exceptions (401, 403, etc.)
-            raise
-        except Exception as e:
-            # Authentication cookie present but validation failed - this is an error
-            logger.error("Authentication failed with cookie present: %s", str(e))
-            raise HTTPException(
-                status_code=403, detail=f"Authentication failed: {str(e)}"
+        except HTTPException as e:
+            logger.warning(
+                "ISV validation failed (HTTP %s); returning empty user_instances: %s",
+                e.status_code,
+                e.detail,
             )
+            return []
+        except Exception as e:
+            logger.warning(
+                "ISV authentication failed; returning empty user_instances: %s", str(e)
+            )
+            return []
