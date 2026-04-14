@@ -44,8 +44,8 @@ RUN uv sync --locked --no-install-project --no-dev \
     --extra ibm-cloud \
     --extra databases \
     --extra ai \
-    --extra a2a
-
+    --extra a2a \
+    --extra aws
 
 #########################################
 # -------- Stage 2: Runtime --------

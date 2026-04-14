@@ -108,9 +108,14 @@ search = [
     "duckduckgo-search>=6.3.0",
 ]
 
+# AWS integration
+aws = [
+    "boto3>=1.34.0",
+]
+
 # All optional features
 all = [
-    "mcp-composer[tracing,ibm-cloud,databases,secrets,ai,a2a,search]",
+    "mcp-composer[tracing,ibm-cloud,databases,secrets,ai,a2a,search,aws]",
 ]
 
 [project.scripts]

@@ -707,6 +707,71 @@ Location: `config/member_servers.json`
     "username": "user",
     "password": "pass"
   }
+
+##### Loading OpenAPI Specs from AWS S3
+
+MCP Composer supports loading OpenAPI specifications directly from AWS S3 buckets. This is useful for centralized spec management, version control, and access control using AWS IAM.
+
+**Installation:**
+
+To use S3 URLs, install the AWS optional dependency:
+
+```bash
+pip install mcp-composer[aws]
+```
+
+**Supported S3 URL Formats:**
+
+1. **Virtual-hosted style** (recommended):
+   ```
+   https://bucket-name.s3.region.amazonaws.com/path/to/spec.json
+   ```
+
+2. **Path-style**:
+   ```
+   https://s3.region.amazonaws.com/bucket-name/path/to/spec.json
+   ```
+
+**Authentication:**
+
+S3 access uses the standard AWS credential chain (no additional configuration needed):
+- IAM roles (for EC2/ECS/Lambda)
+- AWS credentials file (`~/.aws/credentials`)
+- Environment variables (`AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`)
+- AWS SSO
+
+**Example Configuration:**
+
+```json
+{
+  "id": "my-service",
+  "type": "openapi",
+  "open_api": {
+    "endpoint": "https://api.example.com",
+    "spec_url": "https://bucket-solis-openapi-spec.s3.us-east-1.amazonaws.com/lakehouse-v3-short.json"
+  },
+  "auth_strategy": "bearer",
+  "auth": {
+    "token": "${API_TOKEN}"
+  }
+}
+```
+
+**Benefits:**
+- **Centralized Management**: Store all OpenAPI specs in a central S3 bucket
+- **Version Control**: Use S3 versioning for spec history
+- **Access Control**: Leverage AWS IAM for fine-grained permissions
+- **Cost-Effective**: S3 storage is cheaper than hosting specs on web servers
+- **Scalability**: Better suited for large-scale deployments
+
+**Error Handling:**
+
+The system provides clear error messages for common S3 issues:
+- `AccessDenied`: Check IAM permissions
+- `NoSuchBucket`: Verify bucket name and region
+- `NoSuchKey`: Verify the file path in the bucket
+- Invalid JSON: Ensure the S3 object contains valid JSON
+
 }
 ```
 

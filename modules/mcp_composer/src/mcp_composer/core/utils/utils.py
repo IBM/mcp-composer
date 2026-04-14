@@ -64,13 +64,102 @@ async def load_custom_mappings_from_json(json_data: str | list[dict]) -> list[Ro
 
 
 async def load_spec_from_url(base_url, openapi_spec_url):
-    """Load json from url"""
-    logger.info("Downloading the json spec for the open api")
-    async with httpx.AsyncClient(base_url=base_url) as client:
-        response = await client.get(openapi_spec_url)
-        response.raise_for_status()
-        spec = response.json()
-        return spec
+    """
+    Load JSON spec from URL or S3.
+    Automatically detects S3 URLs and uses boto3 for authenticated access.
+    
+    Supports two S3 URL formats:
+    1. Virtual-hosted style: https://bucket-name.s3.region.amazonaws.com/path/to/file.json
+    2. Path-style: https://s3.region.amazonaws.com/bucket-name/path/to/file.json
+    
+    Args:
+        base_url: Base URL for the API endpoint
+        openapi_spec_url: URL to the OpenAPI spec (HTTP/HTTPS or S3)
+        
+    Returns:
+        dict: Parsed JSON specification
+        
+    Raises:
+        ValueError: If S3 access fails or JSON is invalid
+        httpx.HTTPStatusError: If HTTP request fails
+    """
+    logger.info("Loading OpenAPI spec from: %s", openapi_spec_url)
+    
+    # Check if URL is an S3 URL (virtual-hosted style)
+    s3_virtual_pattern = r'https://([^.]+)\.s3\.([^.]+)\.amazonaws\.com/(.+)'
+    s3_virtual_match = re.match(s3_virtual_pattern, openapi_spec_url)
+    
+    # Check if URL is an S3 URL (path-style)
+    s3_path_pattern = r'https://s3\.([^.]+)\.amazonaws\.com/([^/]+)/(.+)'
+    s3_path_match = re.match(s3_path_pattern, openapi_spec_url)
+    
+    if s3_virtual_match or s3_path_match:
+        # Import boto3 only when needed (optional dependency)
+        try:
+            import boto3
+            from botocore.exceptions import ClientError
+        except ImportError as e:
+            logger.error("boto3 is required for S3 URL support. Install with: pip install mcp-composer[aws]")
+            raise ValueError(
+                "boto3 is not installed. Install with: pip install mcp-composer[aws]"
+            ) from e
+        
+        # Extract bucket, region, and key based on URL format
+        if s3_virtual_match:
+            bucket = s3_virtual_match.group(1)
+            region = s3_virtual_match.group(2)
+            key = s3_virtual_match.group(3)
+            logger.info(
+                "Detected S3 virtual-hosted style URL - bucket: %s, region: %s, key: %s",
+                bucket, region, key
+            )
+        elif s3_path_match:
+            region = s3_path_match.group(1)
+            bucket = s3_path_match.group(2)
+            key = s3_path_match.group(3)
+            logger.info(
+                "Detected S3 path-style URL - bucket: %s, region: %s, key: %s",
+                bucket, region, key
+            )
+        else:
+            # This should never happen due to the outer if condition, but added for type safety
+            raise ValueError(f"Failed to parse S3 URL: {openapi_spec_url}")
+        
+        try:
+            s3_client = boto3.client('s3', region_name=region)
+            response = s3_client.get_object(Bucket=bucket, Key=key)
+            spec_content = response['Body'].read().decode('utf-8')
+            spec = json.loads(spec_content)
+            logger.info("Successfully loaded OpenAPI spec from S3: s3://%s/%s", bucket, key)
+            return spec
+        except ClientError as e:
+            error_code = e.response['Error']['Code']
+            error_message = e.response['Error'].get('Message', 'Unknown error')
+            logger.error(
+                "Failed to load spec from S3 (s3://%s/%s): %s - %s",
+                bucket, key, error_code, error_message
+            )
+            raise ValueError(
+                f"Cannot load OpenAPI spec from S3 (s3://{bucket}/{key}): {error_code} - {error_message}"
+            ) from e
+        except json.JSONDecodeError as e:
+            logger.error("Invalid JSON in S3 object (s3://%s/%s): %s", bucket, key, str(e))
+            raise ValueError(
+                f"Invalid JSON in OpenAPI spec from S3 (s3://{bucket}/{key})"
+            ) from e
+        except Exception as e:
+            logger.error("Unexpected error loading spec from S3 (s3://%s/%s): %s", bucket, key, str(e))
+            raise ValueError(
+                f"Unexpected error loading OpenAPI spec from S3 (s3://{bucket}/{key}): {str(e)}"
+            ) from e
+    else:
+        # Standard HTTP/HTTPS URL - use existing logic
+        logger.info("Using standard HTTP client for non-S3 URL")
+        async with httpx.AsyncClient(base_url=base_url) as client:
+            response = await client.get(openapi_spec_url)
+            response.raise_for_status()
+            spec = response.json()
+            return spec
 
 
 async def load_json(filepath):
