@@ -242,7 +242,7 @@ class ServerManager:
 
     def list_servers(self) -> list[dict]:
         """
-        List status of all member servers (active or deactivated).
+        List status of active member servers only (excludes deactivated servers).
         """
         logger.info("Listing member servers")
         configs = self.load_all_servers_db()
@@ -264,6 +264,7 @@ class ServerManager:
                 "status": self.get_server_status(cfg["id"]),
             }
             for cfg in configs
+            if self.get_server_status(cfg["id"]) != "deactivated"
         ]
 
     def check_server_exist(self, server_id) -> None:

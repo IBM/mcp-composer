@@ -217,4 +217,52 @@ async def test_rollback_restores_previous_version(
         assert rollback_config["label"] == "Initial Label"
         assert rollback_config["tags"] == ["v1"]
 
-        await composer.update_mcp_server_config(server_config["id"], rollback_config)
+
+
+@pytest.mark.asyncio
+async def test_list_servers_filters_deactivated(fake_db):
+    """Test that list_servers() filters out deactivated servers."""
+    # Mock the MCP server to avoid network calls
+    mock_server = MagicMock()
+    mock_server.list_tools = AsyncMock(return_value=[])
+
+    with patch(
+        "mcp_composer.core.member_servers.server_manager.MCPServerBuilder"
+    ) as mock_builder:
+        mock_builder.return_value.build = AsyncMock(return_value=mock_server)
+
+        # Create two server configs
+        active_server = {
+            "id": "active-server",
+            "type": "sse",
+            "endpoint": "https://active.example.com/sse",
+        }
+        deactivated_server = {
+            "id": "deactivated-server",
+            "type": "sse",
+            "endpoint": "https://deactivated.example.com/sse",
+            "status": "deactivated",
+        }
+
+        composer = MCPComposer(
+            "composer",
+            config=[active_server, deactivated_server],
+            database_config=fake_db,
+        )
+        await composer.setup_member_servers()
+
+        # Get the list of servers
+        members = composer._server_manager.list_servers()
+
+        # Verify only active server is in the list
+        assert isinstance(members, list)
+        server_ids = [m["id"] for m in members]
+        
+        assert "active-server" in server_ids, "Active server should be in the list"
+        assert (
+            "deactivated-server" not in server_ids
+        ), "Deactivated server should NOT be in the list"
+        
+        # Verify the active server has correct status
+        active_member = next(m for m in members if m["id"] == "active-server")
+        assert active_member["status"] != "deactivated"
