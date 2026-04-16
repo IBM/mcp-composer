@@ -196,7 +196,6 @@ class MCPToolManager:
             result = []
             for tool in tools:
                 server_id = tool_name_to_server_id(tool.name)
-                logger.debug("TOOL FILTER :server_id in filter tools: %s", server_id)
 
                 # Always keep tools that are not mapped to a product-bearing server
                 if server_id is None or server_id not in server_to_product:

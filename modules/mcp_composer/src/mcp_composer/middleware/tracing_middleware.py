@@ -594,10 +594,10 @@ class TracingMiddleware(Middleware):
                 try:
                     tools = getattr(result, "tools", result)
                     if tools and n > 0:
-                        tool_names = [getattr(t, "name", str(t)) for t in tools[:10]]  # First 10
-                        logger.debug("Tool names (first 10): %s", tool_names)
-                        if n > 10:
-                            logger.debug("... and %d more tools", n - 10)
+                        logger.debug("Tool names:")
+                        for idx, tool in enumerate(tools, 1):
+                            tool_name = getattr(tool, "name", str(tool))
+                            logger.debug("  %d. %s\n", idx, tool_name)
                 except Exception as e:
                     logger.debug("Could not extract tool names: %s", e)
 
