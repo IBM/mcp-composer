@@ -293,9 +293,17 @@ class MCPToolManager:
             return await self.fetch_server_tools(server, remove, description)
 
         # Default Case: All tools
-        tools.extend(await self._composer.list_tools())
-        logger.info("Default Case: Fetch all tools from member servers and composer")
-        return tools
+        try:
+            _tools = await self._composer.list_tools()
+            if _tools and len(_tools) > 0:
+                tools.extend(_tools)
+                logger.info("Default Case: Fetch all tools from member servers and composer")
+                return tools
+            else:
+                return []
+        except Exception as e:
+            logger.exception("Error fetching all tools: %s", e)
+            return []
 
     async def get_tool_config_by_name(self, name: str) -> list[dict]:
         """

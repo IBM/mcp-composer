@@ -51,6 +51,34 @@ from mcp_composer.a2a_service.a2a_mcp import (
 load_dotenv()
 
 logger = LoggerFactory.get_logger()
+
+
+def _json_safe_tool_payload(value: Any) -> Any:
+    """Recursively normalize tool payload values to JSON-safe data."""
+    if isinstance(value, dict):
+        return {
+            key: safe_val
+            for key, val in value.items()
+            if key not in {"fn", "serializer", "auth", "task_config", "x-fastmcp-wrap-result"}
+            if (safe_val := _json_safe_tool_payload(val)) is not None
+        }
+    if isinstance(value, set):
+        items = sorted(
+            safe_item
+            for item in value
+            if (safe_item := _json_safe_tool_payload(item)) is not None
+        )
+        return items or None
+    if isinstance(value, list | tuple):
+        items = [
+            safe_item
+            for item in value
+            if (safe_item := _json_safe_tool_payload(item)) is not None
+        ]
+        return items or None
+    if callable(value):
+        return None
+    return value
 # pylint: disable=W0718
 
 
@@ -143,6 +171,7 @@ class MCPComposer(FastMCP):
             self.add_tools_from_openapi,
             self.rollback_openapi_tool_version,
             self.rollback_curl_tool_version,
+            self.get_available_tools,
             # Optional tools:
             # self._tool_manager.disable_tools_by_server,
             # self._tool_manager.enable_tools_by_server,
@@ -561,7 +590,28 @@ class MCPComposer(FastMCP):
         await super().run_stdio_async(
             show_banner=False, log_level=log_level, stateless=stateless
         )
-
+    async def get_available_tools(self, server_id: str | None = None) -> dict[str, list[dict[str, Any]]]:
+        """Get all available tools from the composer."""
+        tools = await self._tool_manager.get_all_tools(server_id)
+        result: list[dict[str, Any]] = []
+        for index, tool in enumerate(tools):
+            if hasattr(tool, "model_dump"):
+                try:
+                    item = tool.model_dump(mode="json")  # type: ignore[call-arg]
+                except Exception:
+                    item = dict(getattr(tool, "__dict__", {}))
+            elif hasattr(tool, "dict"):
+                item = tool.dict()  # type: ignore[call-arg]
+            elif isinstance(tool, dict):
+                item = tool
+            else:
+                item = {
+                    "name": getattr(tool, "name", str(tool)),
+                    "description": getattr(tool, "description", None),
+                }
+            item = _json_safe_tool_payload(item)
+            result.append(item)
+        return {"tools": result}
     async def run_http_async(
         self,
         show_banner: bool = True,
