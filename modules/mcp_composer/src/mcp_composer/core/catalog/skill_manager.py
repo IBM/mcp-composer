@@ -4,8 +4,6 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
 
-from pydantic import BaseModel, Field
-
 from mcp_composer.core.catalog.catalog_helpers import (
     registry_list_metadata_for_page,
     registry_official_extensions_from_row,
@@ -28,25 +26,15 @@ from mcp_composer.core.catalog.catalog_exceptions import (
     CatalogVersionCapError,
     InvalidCatalogResourceStatusError,
 )
-from mcp_composer.core.catalog.catalog_manager import CatalogManager, normalize_tenant_ids
+from mcp_composer.core.catalog.catalog_manager import (
+    CatalogManager,
+    CatalogResourceListFilter,
+    expect_catalog_list_filter_kind,
+    normalize_tenant_ids,
+)
 from mcp_composer.store.catalog_database import CatalogDatabaseInterface
 
 _SKILL_KIND = RegistryResourceKind.SKILL.value
-
-# ── Input model for list queries ──────────────────────────────────────────────
-
-
-class SkillListFilter(BaseModel):
-    """Query parameters for SkillManager.list()."""
-
-    name_like: Optional[str] = None
-    is_latest_only: bool = False
-    status_filter: Optional[str] = None
-    keywords: Optional[List[str]] = None
-    tenant: Optional[str] = None
-    start: int = Field(default=0, ge=0)
-    limit: int = Field(default=50, ge=1, le=1000)
-
 
 # ── Private helpers ───────────────────────────────────────────────────────────
 
@@ -291,7 +279,7 @@ class SkillManager(CatalogManager):
 
     # ── list ──────────────────────────────────────────────────────────────────
 
-    async def list(self, filter: SkillListFilter) -> SkillListResponse:
+    async def list(self, filter: CatalogResourceListFilter) -> SkillListResponse:
         """Return a paginated list of skills matching *filter*.
 
         Args:
@@ -302,6 +290,7 @@ class SkillManager(CatalogManager):
             SkillListResponse with items and pagination metadata.
         """
         await self._ensure_initialized()
+        expect_catalog_list_filter_kind(filter, RegistryResourceKind.SKILL)
         rows, has_more = await self._db.list_resources(
             _SKILL_KIND,
             name_like=filter.name_like,
@@ -346,6 +335,30 @@ class SkillManager(CatalogManager):
 
         Raises:
             CatalogResourceNotFoundError: when the skill (or its latest version) does not exist.
+        """
+        await self._ensure_initialized()
+        if version is None:
+            row = await self._db.get_resource_by_filter(_SKILL_KIND, name, is_latest=True)
+            if row is None:
+                raise CatalogResourceNotFoundError(_SKILL_KIND, name, "latest")
+            version = row["version"]
+        else:
+            row = await self._db.get_resource(_SKILL_KIND, name, version)
+            if row is None:
+                raise CatalogResourceNotFoundError(_SKILL_KIND, name, version)
+        return await self._db.get_resource_content(_SKILL_KIND, name, version)
+
+    # ── get_content ───────────────────────────────────────────────────────────
+
+    async def get_content(
+        self, name: str, version: Optional[str] = None
+    ) -> str | None:
+        """Return the raw content for a skill version, or None if not stored.
+
+        When *version* is omitted the ``is_latest`` version is resolved first.
+
+        Raises:
+            SkillNotFoundError: when the skill (or its latest version) does not exist.
         """
         await self._ensure_initialized()
         if version is None:

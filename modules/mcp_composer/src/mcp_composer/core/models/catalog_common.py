@@ -1,7 +1,7 @@
 """Shared Pydantic types for agentregistry-aligned list and _meta payloads.
 
-Only types used by **more than one** resource kind (skill, prompt, agent) live here.
-Agent-only supporting models live in catalog_agent.py.
+Only types used by **more than one** resource kind (skill, prompt, agent, workflow) live here.
+Kind-specific supporting models live in catalog_agent.py, catalog_workflow.py, etc.
 """
 
 from __future__ import annotations

@@ -1,4 +1,4 @@
-"""catalog_in_memory_database.py — In-memory implementation of CatalogDatabaseInterface for unit tests (skill + prompt + resource metadata)."""
+"""catalog_in_memory_database.py — In-memory implementation of CatalogDatabaseInterface for unit tests (skill, prompt, agent, workflow + resource metadata)."""
 
 from __future__ import annotations
 
@@ -11,6 +11,8 @@ from .catalog_database import CatalogDatabaseInterface
 
 _SKILL = RegistryResourceKind.SKILL.value
 _PROMPT = RegistryResourceKind.PROMPT.value
+_AGENT = RegistryResourceKind.AGENT.value
+_WORKFLOW = RegistryResourceKind.WORKFLOW.value
 
 
 def _now_iso() -> str:
@@ -18,7 +20,7 @@ def _now_iso() -> str:
 
 
 def _validate_kind(kind: str) -> str:
-    if kind not in (_SKILL, _PROMPT):
+    if kind not in (_SKILL, _PROMPT, _AGENT, _WORKFLOW):
         raise ValueError(f"unsupported catalog kind: {kind!r}")
     return kind
 
@@ -26,13 +28,15 @@ def _validate_kind(kind: str) -> str:
 class CatalogInMemoryDatabase(CatalogDatabaseInterface):
     """Thread-unsafe, in-memory implementation used exclusively in unit tests.
 
-    Storage keys: (name, version) for skills/prompts; resource_id string for metadata.
+    Storage keys: (name, version) per kind; resource_id string for metadata.
     """
 
     def __init__(self) -> None:
         """Initialise empty in-memory storage for all resource kinds."""
         self._skills: dict[tuple[str, str], dict] = {}
         self._prompts: dict[tuple[str, str], dict] = {}
+        self._agents: dict[tuple[str, str], dict] = {}
+        self._workflows: dict[tuple[str, str], dict] = {}
         # catalog_resources.id (string) -> private_meta dict
         self._resource_metadata: dict[str, dict] = {}
         # (kind, name, version) -> raw content string
@@ -46,12 +50,20 @@ class CatalogInMemoryDatabase(CatalogDatabaseInterface):
 
     def _store(self, kind: str) -> dict[tuple[str, str], dict]:
         _validate_kind(kind)
-        return self._skills if kind == _SKILL else self._prompts
+        if kind == _SKILL:
+            return self._skills
+        if kind == _PROMPT:
+            return self._prompts
+        if kind == _AGENT:
+            return self._agents
+        return self._workflows
 
     def reset(self) -> None:
         """Clear all stored rows (convenience for test teardown)."""
         self._skills.clear()
         self._prompts.clear()
+        self._agents.clear()
+        self._workflows.clear()
         self._resource_metadata.clear()
         self._resource_content.clear()
         self._next_int = 0

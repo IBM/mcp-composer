@@ -19,3 +19,4 @@ class RegistryResourceKind(str, Enum):
     SKILL = "skill"
     AGENT = "agent"
     PROMPT = "prompt"
+    WORKFLOW = "workflow"

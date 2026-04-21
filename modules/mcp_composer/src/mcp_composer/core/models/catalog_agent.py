@@ -177,6 +177,8 @@ class AgentResponseMeta(BaseModel):
         default=None,
         alias="aregistry.ai/deployments",
     )
+    #: Private fields from ``catalog_resource_metadata.data`` (not ``remotes_config``).
+    metadata: Optional[Dict[str, Any]] = None
 
 
 class AgentResponse(BaseModel):

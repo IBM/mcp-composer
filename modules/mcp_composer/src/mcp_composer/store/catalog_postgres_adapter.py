@@ -18,7 +18,11 @@ logger = LoggerFactory.get_logger()
 
 _SKILL_KIND = RegistryResourceKind.SKILL.value
 _PROMPT_KIND = RegistryResourceKind.PROMPT.value
-_KNOWN_RESOURCE_KINDS = frozenset({_SKILL_KIND, _PROMPT_KIND})
+_AGENT_KIND = RegistryResourceKind.AGENT.value
+_WORKFLOW_KIND = RegistryResourceKind.WORKFLOW.value
+_KNOWN_RESOURCE_KINDS = frozenset(
+    {_SKILL_KIND, _PROMPT_KIND, _AGENT_KIND, _WORKFLOW_KIND}
+)
 
 
 def _expect_resource_kind(kind: str) -> str:

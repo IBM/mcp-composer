@@ -1,4 +1,4 @@
-"""catalog_exceptions.py — Shared errors for catalog resource managers (skill, prompt, …)."""
+"""catalog_exceptions.py — Shared errors for catalog resource managers (skill, prompt, agent, workflow, …)."""
 
 from __future__ import annotations
 
@@ -11,6 +11,8 @@ from mcp_composer.core.models.catalog_constants import (
 _KIND_LABEL: dict[str, str] = {
     RegistryResourceKind.SKILL.value: "Skill",
     RegistryResourceKind.PROMPT.value: "Prompt",
+    RegistryResourceKind.AGENT.value: "Agent",
+    RegistryResourceKind.WORKFLOW.value: "Workflow",
 }
 
 

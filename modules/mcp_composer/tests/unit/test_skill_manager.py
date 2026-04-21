@@ -11,7 +11,9 @@ from mcp_composer.core.catalog import (
     CatalogVersionCapError,
     InvalidCatalogResourceStatusError,
 )
-from mcp_composer.core.catalog.skill_manager import SkillListFilter, SkillManager
+from mcp_composer.core.catalog.catalog_manager import CatalogResourceListFilter
+from mcp_composer.core.models.catalog_constants import RegistryResourceKind
+from mcp_composer.core.catalog.skill_manager import SkillManager
 from mcp_composer.core.models.catalog_constants import (
     RegistryResourceKind,
     VALID_CATALOG_RESOURCE_STATUSES,
@@ -304,7 +306,7 @@ async def test_get_latest_returns_highest_semantic_version(mgr):
 async def test_list_returns_skill_list_response(mgr):
     """list() returns a SkillListResponse."""
     await mgr.publish(_skill(version="1.0.0"))
-    result = await mgr.list(SkillListFilter())
+    result = await mgr.list(CatalogResourceListFilter(kind=RegistryResourceKind.SKILL))
 
     assert isinstance(result, SkillListResponse)
 
@@ -312,7 +314,7 @@ async def test_list_returns_skill_list_response(mgr):
 @pytest.mark.asyncio
 async def test_list_empty_store(mgr):
     """list() on an empty store returns zero items and no cursor."""
-    result = await mgr.list(SkillListFilter())
+    result = await mgr.list(CatalogResourceListFilter(kind=RegistryResourceKind.SKILL))
 
     assert result.skills == []
     assert result.metadata.count == 0
@@ -326,7 +328,7 @@ async def test_list_all_versions(mgr):
     await mgr.publish(_skill(version="2.0.0"))
     await mgr.publish(_skill(name="other-skill", version="1.0.0"))
 
-    result = await mgr.list(SkillListFilter())
+    result = await mgr.list(CatalogResourceListFilter(kind=RegistryResourceKind.SKILL))
     assert result.metadata.count == 3
 
 
@@ -337,7 +339,7 @@ async def test_list_is_latest_only(mgr):
     await mgr.publish(_skill(version="2.0.0"))
     await mgr.publish(_skill(name="other-skill", version="1.0.0"))
 
-    result = await mgr.list(SkillListFilter(is_latest_only=True))
+    result = await mgr.list(CatalogResourceListFilter(kind=RegistryResourceKind.SKILL, is_latest_only=True))
     assert result.metadata.count == 2
     assert all(r.meta.official.is_latest for r in result.skills)
 
@@ -348,7 +350,7 @@ async def test_list_name_like_filter(mgr):
     await mgr.publish(_skill(name="foo-bar", version="1.0.0"))
     await mgr.publish(_skill(name="baz-qux", version="1.0.0"))
 
-    result = await mgr.list(SkillListFilter(name_like="foo"))
+    result = await mgr.list(CatalogResourceListFilter(kind=RegistryResourceKind.SKILL, name_like="foo"))
     assert result.metadata.count == 1
     assert result.skills[0].skill.name == "foo-bar"
 
@@ -359,7 +361,7 @@ async def test_list_tenant_filter(mgr):
     await mgr.publish(_skill(name="skill-a", version="1.0.0"), tenant_ids=["team-1"])
     await mgr.publish(_skill(name="skill-b", version="1.0.0"), tenant_ids=["team-2"])
 
-    result = await mgr.list(SkillListFilter(tenant="team-1"))
+    result = await mgr.list(CatalogResourceListFilter(kind=RegistryResourceKind.SKILL, tenant="team-1"))
     assert result.metadata.count == 1
     assert result.skills[0].skill.name == "skill-a"
 
@@ -370,11 +372,13 @@ async def test_list_pagination(mgr):
     for i in range(5):
         await mgr.publish(_skill(name=f"skill-{i:02d}", version="1.0.0"))
 
-    page1 = await mgr.list(SkillListFilter(limit=3))
+    page1 = await mgr.list(CatalogResourceListFilter(kind=RegistryResourceKind.SKILL, limit=3))
     assert page1.metadata.count == 3
     assert page1.metadata.next_start == 3
 
-    page2 = await mgr.list(SkillListFilter(limit=3, start=page1.metadata.next_start))
+    page2 = await mgr.list(CatalogResourceListFilter(
+            kind=RegistryResourceKind.SKILL, limit=3, start=page1.metadata.next_start
+        ))
     assert page2.metadata.count == 2
     assert page2.metadata.next_start is None
 
@@ -385,7 +389,7 @@ async def test_list_metadata_count_matches_items(mgr):
     for i in range(4):
         await mgr.publish(_skill(name=f"skill-{i}", version="1.0.0"))
 
-    result = await mgr.list(SkillListFilter())
+    result = await mgr.list(CatalogResourceListFilter(kind=RegistryResourceKind.SKILL))
     assert result.metadata.count == len(result.skills)
 
 
@@ -568,7 +572,7 @@ async def test_list_items_are_valid_skill_responses(mgr):
     for i in range(3):
         await mgr.publish(_skill(name=f"s{i}", version="1.0.0"))
 
-    result = await mgr.list(SkillListFilter())
+    result = await mgr.list(CatalogResourceListFilter(kind=RegistryResourceKind.SKILL))
     for item in result.skills:
         assert isinstance(item, SkillResponse)
         assert item.meta.official is not None

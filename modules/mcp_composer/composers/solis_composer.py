@@ -5,6 +5,10 @@ This composer integrates IBM Document Search tools with ISV token-based authenti
 for secure access to Solis resources. It validates platform session cookies and exchanges
 them for ISV tokens via IBM's authentication service.
 
+Catalog MCPs (skill / agent / workflow) and the startup skill poller live in
+``catalog_composer.py`` — run that process when you need catalog management without
+Solis doc search and ISV middleware.
+
 Environment variables:
 - MCP_COMPOSER_ENV: local | test | dev | prod (drives ISV endpoint and cookie; local and test use same ISV config)
 - ISV_AUTH_COOKIE_NAME: override cookie name (optional)
@@ -14,14 +18,10 @@ Environment variables:
 
 import asyncio
 import os
-from contextlib import suppress
-from typing import Iterable
 
 from mcp_composer import MCPComposer
-from mcp_composer.core.catalog import SkillListFilter, SkillManager
 from mcp_composer.core.auth.jwt.isv_token_validator import ISVTokenValidator
 from mcp_composer.core.tools import IBMDocSearchDirectTool
-from mcp_composer.core.tools.catalog import get_skill_mcp
 from mcp_composer.core.utils import LoggerFactory
 from mcp_composer.middleware import PromptInjectionMiddleware, TracingMiddleware, SecretsAndPIIMiddleware
 from mcp_composer.middleware.auth_context_middleware import (
@@ -32,7 +32,6 @@ from mcp_composer.middleware.auth_utils import tool_name_to_server_id
 from mcp_composer.middleware.error_sanitization_middleware import ErrorSanitizationMiddleware
 from mcp_composer.middleware.tool.tool_filter import ListFilteredTool
 from mcp_composer.middleware.tool_auth_middleware import ToolAuthenticationMiddleware
-from mcp_composer.store.catalog_factory import get_catalog_db
 
 
 # -----------------------------------------------------------------------------
@@ -145,8 +144,6 @@ def setup_middleware(composer: MCPComposer) -> None:
     logger.info("Added PIIMiddleware")
 
 
-
-
 # -----------------------------------------------------------------------------
 # Tools and run modes
 # -----------------------------------------------------------------------------
@@ -156,7 +153,6 @@ def setup_tools(composer: MCPComposer) -> None:
     """Register composer tools."""
     composer.add_tool(IBMDocSearchDirectTool())
     logger.info("Added IBM Doc Search Direct Tool")
-
 
 async def run_http_mode(composer: MCPComposer) -> None:
     await composer.run_http_async(host="0.0.0.0", port=9000, log_level="debug", path="/mcp")

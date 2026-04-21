@@ -10,8 +10,6 @@ from __future__ import annotations
 
 from typing import List, Optional
 
-from pydantic import BaseModel, Field
-
 from mcp_composer.core.catalog.catalog_helpers import (
     registry_list_metadata_for_page,
     registry_official_extensions_from_row,
@@ -22,7 +20,12 @@ from mcp_composer.core.catalog.catalog_exceptions import (
     CatalogVersionCapError,
     InvalidCatalogResourceStatusError,
 )
-from mcp_composer.core.catalog.catalog_manager import CatalogManager, normalize_tenant_ids
+from mcp_composer.core.catalog.catalog_manager import (
+    CatalogManager,
+    CatalogResourceListFilter,
+    expect_catalog_list_filter_kind,
+    normalize_tenant_ids,
+)
 from mcp_composer.core.models.catalog_constants import (
     MAX_VERSIONS_PER_RESOURCE,
     RegistryResourceKind,
@@ -37,17 +40,6 @@ from mcp_composer.core.models.catalog_prompt import (
 from mcp_composer.store.catalog_database import CatalogDatabaseInterface
 
 _PROMPT_KIND = RegistryResourceKind.PROMPT.value
-
-
-class PromptListFilter(BaseModel):
-    """Query parameters for PromptManager.list()."""
-
-    name_like: Optional[str] = None
-    is_latest_only: bool = False
-    status_filter: Optional[str] = None
-    tenant: Optional[str] = None
-    start: int = Field(default=0, ge=0)
-    limit: int = Field(default=50, ge=1, le=1000)
 
 
 def _row_to_prompt_response(row: dict) -> PromptResponse:
@@ -124,8 +116,9 @@ class PromptManager(CatalogManager):
             raise CatalogResourceNotFoundError(_PROMPT_KIND, name, "latest")
         return _row_to_prompt_response(row)
 
-    async def list(self, filter: PromptListFilter) -> PromptListResponse:
+    async def list(self, filter: CatalogResourceListFilter) -> PromptListResponse:
         await self._ensure_initialized()
+        expect_catalog_list_filter_kind(filter, RegistryResourceKind.PROMPT)
         rows, has_more = await self._db.list_resources(
             _PROMPT_KIND,
             name_like=filter.name_like,

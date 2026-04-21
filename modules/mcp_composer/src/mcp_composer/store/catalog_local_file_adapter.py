@@ -13,6 +13,16 @@ Folder layout:
           <version>.json
           <version>.content
           latest
+      agents/
+        <name>/
+          <version>.json
+          <version>.content
+          latest
+      workflows/
+        <name>/
+          <version>.json
+          <version>.content
+          latest
       metadata/
         <resource-uuid>.json   ← private metadata dict (matches catalog_resources.id)
 
@@ -43,12 +53,19 @@ _LATEST_MARKER = "latest"
 
 _SKILL = RegistryResourceKind.SKILL.value
 _PROMPT = RegistryResourceKind.PROMPT.value
+_AGENT = RegistryResourceKind.AGENT.value
+_WORKFLOW = RegistryResourceKind.WORKFLOW.value
 
 
 def _expect_kind(kind: str) -> str:
-    if kind not in (_SKILL, _PROMPT):
+    if kind not in (_SKILL, _PROMPT, _AGENT, _WORKFLOW):
         raise ValueError(f"unsupported catalog kind: {kind!r}")
     return kind
+
+
+def _reject_unknown_kind(kind: str) -> None:
+    """Fail fast if *kind* is not one of the supported registry kinds."""
+    raise ValueError(f"unsupported catalog kind: {kind!r}")
 
 
 def _now_iso() -> str:
@@ -56,7 +73,7 @@ def _now_iso() -> str:
 
 
 class CatalogLocalFileAdapter(CatalogDatabaseInterface):
-    """Local-filesystem catalog adapter (skills and prompts under ``<root>/skills`` / ``prompts``)."""
+    """Local-filesystem catalog adapter (``skills/``, ``prompts/``, ``agents/``, ``workflows/``)."""
 
     def __init__(self, root_path: str | None = None) -> None:
         if root_path is None:
@@ -64,7 +81,36 @@ class CatalogLocalFileAdapter(CatalogDatabaseInterface):
         self._root = Path(root_path)
         self._skills_dir = self._root / "skills"
         self._prompts_dir = self._root / "prompts"
+        self._agents_dir = self._root / "agents"
+        self._workflows_dir = self._root / "workflows"
         self._metadata_dir = self._root / "metadata"
+        
+        # Create dispatch tables for O(1) kind-based routing
+        self._file_getters = {
+            _SKILL: self._skill_file,
+            _PROMPT: self._prompt_file,
+            _AGENT: self._agent_file,
+            _WORKFLOW: self._workflow_file,
+        }
+        self._latest_readers = {
+            _SKILL: self._read_latest_version,
+            _PROMPT: self._read_prompt_latest_version,
+            _AGENT: self._read_agent_latest_version,
+            _WORKFLOW: self._read_workflow_latest_version,
+        }
+        self._latest_writers = {
+            _SKILL: self._write_latest_version,
+            _PROMPT: self._write_prompt_latest_version,
+            _AGENT: self._write_agent_latest_version,
+            _WORKFLOW: self._write_workflow_latest_version,
+        }
+        self._latest_clearers = {
+            _SKILL: self._clear_latest_marker,
+            _PROMPT: self._clear_prompt_latest_marker,
+            _AGENT: self._clear_agent_latest_marker,
+            _WORKFLOW: self._clear_workflow_latest_marker,
+        }
+        
         logger.info(
             "CatalogLocalFileAdapter configured with root: %s", self._root.resolve()
         )
@@ -73,7 +119,13 @@ class CatalogLocalFileAdapter(CatalogDatabaseInterface):
 
     async def initialize(self) -> None:
         """Create the root directory trees if they do not exist."""
-        for d in (self._skills_dir, self._prompts_dir, self._metadata_dir):
+        for d in (
+            self._skills_dir,
+            self._prompts_dir,
+            self._agents_dir,
+            self._workflows_dir,
+            self._metadata_dir,
+        ):
             try:
                 d.mkdir(parents=True, exist_ok=True)
             except OSError as exc:
@@ -114,6 +166,30 @@ class CatalogLocalFileAdapter(CatalogDatabaseInterface):
     def _prompt_latest_marker(self, name: str) -> Path:
         return self._prompt_dir(name) / _LATEST_MARKER
 
+    def _agent_dir(self, name: str) -> Path:
+        return self._agents_dir / name
+
+    def _agent_file(self, name: str, version: str) -> Path:
+        return self._agent_dir(name) / f"{version}.json"
+
+    def _agent_content_file(self, name: str, version: str) -> Path:
+        return self._agent_dir(name) / f"{version}.content"
+
+    def _agent_latest_marker(self, name: str) -> Path:
+        return self._agent_dir(name) / _LATEST_MARKER
+
+    def _workflow_dir(self, name: str) -> Path:
+        return self._workflows_dir / name
+
+    def _workflow_file(self, name: str, version: str) -> Path:
+        return self._workflow_dir(name) / f"{version}.json"
+
+    def _workflow_content_file(self, name: str, version: str) -> Path:
+        return self._workflow_dir(name) / f"{version}.content"
+
+    def _workflow_latest_marker(self, name: str) -> Path:
+        return self._workflow_dir(name) / _LATEST_MARKER
+
     def _read_row(self, path: Path) -> dict:
         with open(path, encoding="utf-8") as fh:
             return json.load(fh)
@@ -151,26 +227,60 @@ class CatalogLocalFileAdapter(CatalogDatabaseInterface):
         if marker.exists():
             marker.unlink()
 
+    def _read_agent_latest_version(self, name: str) -> str | None:
+        marker = self._agent_latest_marker(name)
+        if not marker.exists():
+            return None
+        return marker.read_text(encoding="utf-8").strip() or None
+
+    def _write_agent_latest_version(self, name: str, version: str) -> None:
+        self._agent_latest_marker(name).write_text(version, encoding="utf-8")
+
+    def _clear_agent_latest_marker(self, name: str) -> None:
+        marker = self._agent_latest_marker(name)
+        if marker.exists():
+            marker.unlink()
+
+    def _read_workflow_latest_version(self, name: str) -> str | None:
+        marker = self._workflow_latest_marker(name)
+        if not marker.exists():
+            return None
+        return marker.read_text(encoding="utf-8").strip() or None
+
+    def _write_workflow_latest_version(self, name: str, version: str) -> None:
+        self._workflow_latest_marker(name).write_text(version, encoding="utf-8")
+
+    def _clear_workflow_latest_marker(self, name: str) -> None:
+        marker = self._workflow_latest_marker(name)
+        if marker.exists():
+            marker.unlink()
+
     def _resource_file(self, kind: str, name: str, version: str) -> Path:
         _expect_kind(kind)
-        return self._skill_file(name, version) if kind == _SKILL else self._prompt_file(name, version)
+        getter = self._file_getters.get(kind)
+        if getter:
+            return getter(name, version)
+        _reject_unknown_kind(kind)
 
     def _read_latest_version_for_kind(self, kind: str, name: str) -> str | None:
-        if kind == _SKILL:
-            return self._read_latest_version(name)
-        return self._read_prompt_latest_version(name)
+        reader = self._latest_readers.get(kind)
+        if reader:
+            return reader(name)
+        _reject_unknown_kind(kind)
 
     def _write_latest_version_for_kind(self, kind: str, name: str, version: str) -> None:
-        if kind == _SKILL:
-            self._write_latest_version(name, version)
+        writer = self._latest_writers.get(kind)
+        if writer:
+            writer(name, version)
         else:
-            self._write_prompt_latest_version(name, version)
+            _reject_unknown_kind(kind)
 
     def _clear_latest_marker_for_kind(self, kind: str, name: str) -> None:
-        if kind == _SKILL:
-            self._clear_latest_marker(name)
+        clearer = self._latest_clearers.get(kind)
+        if clearer:
+            clearer(name)
         else:
-            self._clear_prompt_latest_marker(name)
+            _reject_unknown_kind(kind)
 
     # ── kind-aware resources ───────────────────────────────────────────────────
 
@@ -203,11 +313,16 @@ class CatalogLocalFileAdapter(CatalogDatabaseInterface):
         self._write_row(path, stored)
 
         if row.get("content") is not None:
-            content_path = (
-                self._skill_content_file(name, version)
-                if kind == _SKILL
-                else self._prompt_content_file(name, version)
-            )
+            if kind == _SKILL:
+                content_path = self._skill_content_file(name, version)
+            elif kind == _PROMPT:
+                content_path = self._prompt_content_file(name, version)
+            elif kind == _AGENT:
+                content_path = self._agent_content_file(name, version)
+            elif kind == _WORKFLOW:
+                content_path = self._workflow_content_file(name, version)
+            else:
+                _reject_unknown_kind(kind)
             content_path.write_text(row["content"], encoding="utf-8")
 
         if stored["is_latest"]:
@@ -232,7 +347,16 @@ class CatalogLocalFileAdapter(CatalogDatabaseInterface):
                 return None
             return await self.get_resource(kind, name, ver)
 
-        base = self._skill_dir(name) if kind == _SKILL else self._prompt_dir(name)
+        if kind == _SKILL:
+            base = self._skill_dir(name)
+        elif kind == _PROMPT:
+            base = self._prompt_dir(name)
+        elif kind == _AGENT:
+            base = self._agent_dir(name)
+        elif kind == _WORKFLOW:
+            base = self._workflow_dir(name)
+        else:
+            _reject_unknown_kind(kind)
         if not base.exists():
             return None
         for p in sorted(base.glob("*.json")):
@@ -254,7 +378,16 @@ class CatalogLocalFileAdapter(CatalogDatabaseInterface):
         limit: int = 50,
     ) -> tuple[list[dict], bool]:
         kind = _expect_kind(kind)
-        base_dir = self._skills_dir if kind == _SKILL else self._prompts_dir
+        if kind == _SKILL:
+            base_dir = self._skills_dir
+        elif kind == _PROMPT:
+            base_dir = self._prompts_dir
+        elif kind == _AGENT:
+            base_dir = self._agents_dir
+        elif kind == _WORKFLOW:
+            base_dir = self._workflows_dir
+        else:
+            _reject_unknown_kind(kind)
         if not base_dir.exists():
             return [], False
 
@@ -297,7 +430,16 @@ class CatalogLocalFileAdapter(CatalogDatabaseInterface):
 
     async def count_resource_versions(self, kind: str, name: str) -> int:
         kind = _expect_kind(kind)
-        base = self._skill_dir(name) if kind == _SKILL else self._prompt_dir(name)
+        if kind == _SKILL:
+            base = self._skill_dir(name)
+        elif kind == _PROMPT:
+            base = self._prompt_dir(name)
+        elif kind == _AGENT:
+            base = self._agent_dir(name)
+        elif kind == _WORKFLOW:
+            base = self._workflow_dir(name)
+        else:
+            _reject_unknown_kind(kind)
         if not base.exists():
             return 0
         return len(list(base.glob("*.json")))
@@ -318,11 +460,16 @@ class CatalogLocalFileAdapter(CatalogDatabaseInterface):
             self._clear_latest_marker_for_kind(kind, name)
 
         path.unlink()
-        content_file = (
-            self._skill_content_file(name, version)
-            if kind == _SKILL
-            else self._prompt_content_file(name, version)
-        )
+        if kind == _SKILL:
+            content_file = self._skill_content_file(name, version)
+        elif kind == _PROMPT:
+            content_file = self._prompt_content_file(name, version)
+        elif kind == _AGENT:
+            content_file = self._agent_content_file(name, version)
+        elif kind == _WORKFLOW:
+            content_file = self._workflow_content_file(name, version)
+        else:
+            _reject_unknown_kind(kind)
         if content_file.exists():
             content_file.unlink()
         if resource_id:
@@ -331,7 +478,16 @@ class CatalogLocalFileAdapter(CatalogDatabaseInterface):
                 meta_path.unlink()
         logger.debug("Deleted %s %s@%s", kind, name, version)
 
-        parent = self._skill_dir(name) if kind == _SKILL else self._prompt_dir(name)
+        if kind == _SKILL:
+            parent = self._skill_dir(name)
+        elif kind == _PROMPT:
+            parent = self._prompt_dir(name)
+        elif kind == _AGENT:
+            parent = self._agent_dir(name)
+        elif kind == _WORKFLOW:
+            parent = self._workflow_dir(name)
+        else:
+            _reject_unknown_kind(kind)
         if parent.exists() and not any(parent.iterdir()):
             parent.rmdir()
 
@@ -358,12 +514,17 @@ class CatalogLocalFileAdapter(CatalogDatabaseInterface):
 
     async def list_resource_versions_for_name(self, kind: str, name: str) -> list[dict]:
         """Return all JSON rows for ``kind`` and ``name`` (every version)."""
+        kind = _expect_kind(kind)
         if kind == _SKILL:
             base_dir = self._skill_dir(name)
         elif kind == _PROMPT:
             base_dir = self._prompt_dir(name)
+        elif kind == _AGENT:
+            base_dir = self._agent_dir(name)
+        elif kind == _WORKFLOW:
+            base_dir = self._workflow_dir(name)
         else:
-            return []
+            _reject_unknown_kind(kind)
         if not base_dir.exists():
             return []
         rows: list[dict] = []
@@ -383,7 +544,11 @@ class CatalogLocalFileAdapter(CatalogDatabaseInterface):
             return self._skill_content_file(name, version)
         if kind == _PROMPT:
             return self._prompt_content_file(name, version)
-        return self._root / f"{kind}s" / name / f"{version}.content"
+        if kind == _AGENT:
+            return self._agent_content_file(name, version)
+        if kind == _WORKFLOW:
+            return self._workflow_content_file(name, version)
+        _reject_unknown_kind(kind)
 
     async def get_resource_content(
         self, kind: str, name: str, version: str

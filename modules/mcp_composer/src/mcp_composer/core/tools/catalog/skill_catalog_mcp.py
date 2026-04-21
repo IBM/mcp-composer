@@ -25,12 +25,13 @@ import httpx
 from fastmcp import FastMCP
 
 from mcp_composer.core.catalog import (
+    CatalogResourceListFilter,
     CatalogResourceNotFoundError,
     CatalogVersionCapError,
     InvalidCatalogResourceStatusError,
-    SkillListFilter,
     SkillManager,
 )
+from mcp_composer.core.models.catalog_constants import RegistryResourceKind
 from mcp_composer.core.models.catalog_skill import SkillJSON, SkillResponse
 from mcp_composer.core.utils.catalog_validators import validate_agentskills_instructions
 from mcp_composer.store.catalog_factory import get_catalog_db
@@ -209,7 +210,8 @@ async def list_skills(
     try:
         tokens = [t for t in (keywords or "").split() if t] or None
         result = await _skill_manager.list(
-            SkillListFilter(
+            CatalogResourceListFilter(
+                kind=RegistryResourceKind.SKILL,
                 name_like=None,
                 is_latest_only=True,
                 status_filter="active",
@@ -559,6 +561,49 @@ async def publish_skill_bundle(
     except CatalogVersionCapError as exc:
         raise ValueError(str(exc)) from exc
     return result.model_dump(by_alias=True)
+
+
+def _parse_skill_bundle(raw: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any] | None]:
+    """Split a bundle dict into skill document and optional catalog_resource_metadata.data."""
+    meta_keys = (
+        "catalog_resource_metadata",
+        "private_meta",
+        "resource_metadata",
+        "data",
+    )
+    found_keys: list[str] = []
+    meta: dict[str, Any] | None = None
+    for key in meta_keys:
+        if key not in raw:
+            continue
+        val = raw[key]
+        if val is None:
+            continue
+        if not isinstance(val, dict):
+            raise ValueError(f"'{key}' must be a JSON object")
+        found_keys.append(key)
+        meta = val
+    if len(found_keys) > 1:
+        raise ValueError(
+            "Use only one of: catalog_resource_metadata, private_meta, resource_metadata, data"
+        )
+
+    resource_body_keys = ("catalog_resource", "skill", "payload")
+    present = [k for k in resource_body_keys if k in raw and raw[k] is not None]
+    if len(present) > 1:
+        raise ValueError(
+            "Use only one of: catalog_resource, skill, payload (same agentskills document)"
+        )
+    if len(present) == 0:
+        raise ValueError(
+            "Bundle must include 'catalog_resource' (preferred), 'skill', or 'payload' "
+            "— the public resource document stored in catalog_resources.payload"
+        )
+    key = present[0]
+    skill_obj = raw[key]
+    if not isinstance(skill_obj, dict):
+        raise ValueError(f"'{key}' must be a JSON object")
+    return skill_obj, meta
 
 
 @catalog_mcp.tool()

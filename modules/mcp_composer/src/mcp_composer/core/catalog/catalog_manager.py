@@ -5,8 +5,41 @@ from __future__ import annotations
 from typing import List, Optional
 
 from packaging.version import InvalidVersion, Version
+from pydantic import BaseModel, Field
 
+from mcp_composer.core.models.catalog_constants import RegistryResourceKind
 from mcp_composer.store.catalog_database import CatalogDatabaseInterface
+
+
+class CatalogResourceListFilter(BaseModel):
+    """Query parameters for listing rows in ``catalog_resources`` (all kinds).
+
+    ``kind`` must match the manager you call (e.g. ``SkillManager.list`` requires
+    ``kind=RegistryResourceKind.SKILL``).
+
+    ``keywords`` is only used when listing **skills** (product/tag/name metadata search);
+    other kinds pass it through as ``None`` or it is ignored by the store.
+    """
+
+    kind: RegistryResourceKind
+    name_like: Optional[str] = None
+    is_latest_only: bool = False
+    status_filter: Optional[str] = None
+    keywords: Optional[List[str]] = None
+    tenant: Optional[str] = None
+    start: int = Field(default=0, ge=0)
+    limit: int = Field(default=50, ge=1, le=1000)
+
+
+def expect_catalog_list_filter_kind(
+    filter: CatalogResourceListFilter,
+    expected: RegistryResourceKind,
+) -> None:
+    """Raise ``ValueError`` if *filter*.kind does not match *expected*."""
+    if filter.kind != expected:
+        raise ValueError(
+            f"list filter kind must be {expected.value!r}, got {filter.kind.value!r}"
+        )
 
 
 def normalize_tenant_ids(tenant_ids: Optional[List[str]]) -> List[str]:
@@ -63,7 +96,7 @@ class CatalogManager:
         the ``latest`` marker consistent.
         """
         await self._ensure_initialized()
-        if kind not in ("skill", "prompt"):
+        if kind not in ("skill", "prompt", "agent", "workflow"):
             return
 
         rows = await self._db.list_resource_versions_for_name(kind, name)
@@ -75,30 +108,17 @@ class CatalogManager:
         if latest_ver is None:
             return
 
+        # Single pass: update all rows in one iteration
         for row in rows:
             ver = row["version"]
-            if ver == latest_ver:
-                continue
+            is_latest = (ver == latest_ver)
             official_meta = dict(row.get("official_meta") or {})
-            official_meta["is_latest"] = False
+            official_meta["is_latest"] = is_latest
             await self._db.update_resource_row(
                 kind,
                 name,
                 ver,
-                {"is_latest": False, "official_meta": official_meta},
-            )
-
-        for row in rows:
-            ver = row["version"]
-            if ver != latest_ver:
-                continue
-            official_meta = dict(row.get("official_meta") or {})
-            official_meta["is_latest"] = True
-            await self._db.update_resource_row(
-                kind,
-                name,
-                ver,
-                {"is_latest": True, "official_meta": official_meta},
+                {"is_latest": is_latest, "official_meta": official_meta},
             )
 
     async def recompute_is_latest_for_skill_name(self, name: str) -> None:
@@ -108,3 +128,11 @@ class CatalogManager:
     async def recompute_is_latest_for_prompt_name(self, name: str) -> None:
         """Set ``is_latest`` on all prompt rows for *name* (same rules as skills)."""
         await self.recompute_is_latest_for_resource_name("prompt", name)
+
+    async def recompute_is_latest_for_agent_name(self, name: str) -> None:
+        """Set ``is_latest`` on all agent rows for *name* (same rules as skills)."""
+        await self.recompute_is_latest_for_resource_name("agent", name)
+
+    async def recompute_is_latest_for_workflow_name(self, name: str) -> None:
+        """Set ``is_latest`` on all workflow rows for *name* (same rules as skills)."""
+        await self.recompute_is_latest_for_resource_name("workflow", name)
