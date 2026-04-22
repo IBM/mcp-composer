@@ -219,6 +219,22 @@ ENABLE_OAUTH=False
 
 ---
 
+## Composer Initialization Flow
+
+[`MCPComposer.__init__()`](modules/mcp_composer/src/mcp_composer/core/composer.py:93) initializes the runtime in isolated phases so each step can be tested independently and failures are easier to diagnose from logs.
+
+Startup phases:
+
+1. Configuration manager setup via [`MCPComposer._initialize_config_manager()`](modules/mcp_composer/src/mcp_composer/core/composer.py:112)
+2. Database resolution via [`MCPComposer._initialize_database()`](modules/mcp_composer/src/mcp_composer/core/composer.py:125)
+3. Manager wiring via [`MCPComposer._initialize_managers()`](modules/mcp_composer/src/mcp_composer/core/composer.py:145)
+4. Persisted state and config loading via [`MCPComposer._load_initial_state()`](modules/mcp_composer/src/mcp_composer/core/composer.py:167)
+5. Tool registration via [`MCPComposer._register_startup_tools()`](modules/mcp_composer/src/mcp_composer/core/composer.py:179)
+
+Each phase emits initialization logs and raises immediately on failure so startup behavior remains unchanged while making the sequence easier to validate in isolation.
+
+---
+
 ### GitHub OAuth
 
 #### `OAUTH_PROVIDER`

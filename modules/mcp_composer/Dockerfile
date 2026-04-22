@@ -40,10 +40,7 @@ COPY . .
 
 ENV UV_PYTHON=/usr/bin/python3.12
 
-RUN uv sync --locked --no-install-project --no-dev \
-    --extra ibm-cloud \
-    --extra ai \
-    --extra aws
+RUN uv sync --locked --no-install-project --no-dev
 
 #########################################
 # -------- Stage 2: Runtime --------
