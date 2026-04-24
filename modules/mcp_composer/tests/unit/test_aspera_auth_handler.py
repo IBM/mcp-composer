@@ -8,6 +8,7 @@ import pytest
 
 from mcp_composer.core.auth_handler.aspera_auth_handler import AsperaJWTClient
 from mcp_composer.core.utils import ConfigKey
+from mcp_composer.middleware.auth_context_middleware import AUTH_KEY_AUTH_TOKEN
 
 # pylint: disable=protected-access,too-many-public-methods
 
@@ -778,3 +779,178 @@ MIIEpAIBAAKCAQEA1234567890abcdefghijklmnopqrstuvwxyz
             assert "authorization" not in headers  # Lowercase version should be removed
             assert headers["X-Custom"] == "value"  # Other headers preserved
             assert headers["Accept"] == "application/json"
+
+    @pytest.mark.asyncio
+    @patch("mcp_composer.core.auth_handler.aspera_auth_handler.get_auth_context")
+    @patch("mcp_composer.core.auth_handler.aspera_auth_handler.resolve_env_value")
+    async def test_refresh_token_platform_session_success(
+        self, mock_resolve, mock_get_auth_context, auth_data
+    ):
+        """Test successful token refresh with platform-session grant type"""
+        # Mock auth context to return session_id
+        mock_get_auth_context.return_value = {
+            AUTH_KEY_AUTH_TOKEN: "test-session-id-12345"
+        }
+
+        # Mock resolve_env_value
+        mock_resolve.side_effect = lambda x: x
+
+        client = AsperaJWTClient(
+            base_url="https://api.example.com", auth_data=auth_data
+        )
+
+        mock_response = Mock()
+        mock_response.json.return_value = {
+            "access_token": "new-platform-token",
+            "expires_in": 3600,
+        }
+        mock_response.status_code = 200
+        mock_response.raise_for_status.return_value = None
+
+        with patch("httpx.AsyncClient.post", return_value=mock_response) as mock_post:
+            await client._refresh_token()
+
+            # Verify the request was made with correct parameters
+            call_args = mock_post.call_args
+            assert call_args is not None
+
+            # Check headers
+            headers = call_args.kwargs.get("headers")
+            assert headers is not None
+            assert headers["Authorization"] == "ibm-platform test-session-id-12345"
+            assert headers["Content-Type"] == "application/json"
+
+            # Check JSON body
+            json_body = call_args.kwargs.get("json")
+            assert json_body is not None
+            assert (
+                json_body["grant_type"]
+                == "urn:ibm:params:oauth:grant-type:platform-session"
+            )
+            assert json_body["scope"] == "user:all"
+
+            # Verify token was set
+            assert client._access_token == "new-platform-token"
+
+    @pytest.mark.asyncio
+    @patch("mcp_composer.core.auth_handler.aspera_auth_handler.get_auth_context")
+    @patch("mcp_composer.core.auth_handler.aspera_auth_handler.resolve_env_value")
+    async def test_refresh_token_platform_session_custom_scope(
+        self, mock_resolve, mock_get_auth_context, auth_data
+    ):
+        """Test platform-session token refresh with custom scope"""
+        # Mock auth context to return session_id
+        mock_get_auth_context.return_value = {
+            AUTH_KEY_AUTH_TOKEN: "test-session-id-12345"
+        }
+
+        auth_data[ConfigKey.SCOPE] = "custom:scope:value"
+
+        # Mock resolve_env_value
+        mock_resolve.side_effect = lambda x: x
+
+        client = AsperaJWTClient(
+            base_url="https://api.example.com", auth_data=auth_data
+        )
+
+        mock_response = Mock()
+        mock_response.json.return_value = {
+            "access_token": "new-platform-token",
+            "expires_in": 3600,
+        }
+        mock_response.status_code = 200
+        mock_response.raise_for_status.return_value = None
+
+        with patch("httpx.AsyncClient.post", return_value=mock_response) as mock_post:
+            await client._refresh_token()
+
+            # Verify custom scope was used
+            json_body = mock_post.call_args.kwargs.get("json")
+            assert json_body["scope"] == "custom:scope:value"
+
+    @pytest.mark.asyncio
+    @patch("mcp_composer.core.auth_handler.aspera_auth_handler.get_auth_context")
+    @patch("mcp_composer.core.auth_handler.aspera_auth_handler.resolve_env_value")
+    @patch("jwt.encode")
+    async def test_refresh_token_jwt_bearer_when_no_session_id(
+        self, mock_jwt_encode, mock_resolve, mock_get_auth_context, client
+    ):
+        """Test that JWT bearer flow is used when session_id is not in auth context"""
+        # Mock auth context to return None (no session_id)
+        mock_get_auth_context.return_value = None
+
+        # Mock JWT encoding
+        mock_jwt_encode.return_value = "mocked-jwt-assertion"
+
+        # Mock resolve_env_value
+        mock_resolve.side_effect = lambda x: x
+
+        mock_response = Mock()
+        mock_response.json.return_value = {
+            "access_token": "jwt-bearer-token",
+            "expires_in": 3600,
+        }
+        mock_response.status_code = 200
+        mock_response.raise_for_status.return_value = None
+
+        with patch("httpx.AsyncClient.post", return_value=mock_response) as mock_post:
+            await client._refresh_token()
+
+            # Verify JWT bearer flow was used (Basic auth, form-encoded)
+            call_args = mock_post.call_args
+            assert call_args is not None
+
+            # Check that Basic auth was used
+            auth = call_args.kwargs.get("auth")
+            assert auth is not None
+            assert isinstance(auth, httpx.BasicAuth)
+
+            # Check content-type is form-encoded
+            headers = call_args.kwargs.get("headers")
+            assert headers["Content-Type"] == "application/x-www-form-urlencoded"
+
+            # Verify token was set
+
+    @pytest.mark.asyncio
+    @patch("mcp_composer.core.auth_handler.aspera_auth_handler.get_auth_context")
+    @patch("mcp_composer.core.auth_handler.aspera_auth_handler.resolve_env_value")
+    async def test_refresh_token_with_session_id_in_auth_context(
+        self, mock_resolve, mock_get_auth_context, auth_data
+    ):
+        """Test that session_id from auth context is used for platform-session flow"""
+        # Mock auth context to return session_id
+        mock_get_auth_context.return_value = {
+            AUTH_KEY_AUTH_TOKEN: "auth-context-session-id"
+        }
+
+        # Mock resolve_env_value to return values as-is
+        mock_resolve.side_effect = lambda x: x
+
+        client = AsperaJWTClient(
+            base_url="https://api.example.com", auth_data=auth_data
+        )
+
+        mock_response = Mock()
+        mock_response.json.return_value = {
+            "access_token": "platform-session-token",
+            "expires_in": 3600,
+        }
+        mock_response.status_code = 200
+        mock_response.raise_for_status.return_value = None
+
+        with patch("httpx.AsyncClient.post", return_value=mock_response) as mock_post:
+            await client._refresh_token()
+
+            # Verify platform-session flow was used with auth context session_id
+            call_args = mock_post.call_args
+            assert call_args is not None
+
+            # Check that ibm-platform auth was used with auth context session_id
+            headers = call_args.kwargs.get("headers")
+            assert headers["Authorization"] == "ibm-platform auth-context-session-id"
+
+            # Check content-type is JSON
+            assert headers["Content-Type"] == "application/json"
+
+            # Verify token was set
+            assert client._access_token == "platform-session-token"

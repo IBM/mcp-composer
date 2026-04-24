@@ -7,6 +7,10 @@ import jwt
 
 from mcp_composer.core.auth_handler.oauth_handler import resolve_env_value
 from mcp_composer.core.utils import ConfigKey, LoggerFactory
+from mcp_composer.middleware.auth_context_middleware import (
+    get_auth_context,
+    AUTH_KEY_AUTH_TOKEN,
+)
 
 logger = LoggerFactory.get_logger()
 
@@ -91,12 +95,91 @@ class AsperaJWTClient(httpx.AsyncClient):
 
     async def _refresh_token(self) -> None:
         """Refresh internal bearer token if missing/expired."""
+        # Check if we should use platform-session grant type (new flow)
+        # Get session_id from auth context middleware (not from auth_data)
+        session_id = None
+
+        auth_context = get_auth_context()
+        if auth_context:
+            session_id = auth_context.get(AUTH_KEY_AUTH_TOKEN)
+            if session_id:
+                logger.info(
+                    "✓ Session ID found in auth context: %s",
+                    session_id[:20] + "..." if len(session_id) > 20 else session_id,
+                )
+        if session_id:
+            logger.info("Using platform-session grant type for token refresh")
+            # New flow: platform-session grant type with ibm-platform authorization
+            await self._refresh_token_platform_session(session_id)
+        else:
+            logger.info(
+                "No session_id in auth context; using JWT bearer grant type for token refresh"
+            )
+            # Original flow: JWT bearer grant type
+            await self._refresh_token_jwt_bearer()
+
+    async def _refresh_token_platform_session(self, session_id: str) -> None:
+        """
+        Refresh token using platform-session grant type.
+
+        Request format:
+        POST /api/v1/oauth2/{org}/token
+        Authorization: ibm-platform {session_id}
+        Content-Type: application/json
+        Body: {"grant_type": "urn:ibm:params:oauth:grant-type:platform-session", "scope": "user:all"}
+        """
+        token_url = self.auth_data.get(ConfigKey.Token_URL)
+        if not token_url:
+            raise ValueError("token_url must be provided")
+
+        scope = self.auth_data.get(ConfigKey.SCOPE) or DEFAULT_SCOPE
+
+        headers = {
+            "Authorization": f"ibm-platform {session_id}",
+            "Content-Type": "application/json",
+        }
+
+        body = {
+            "grant_type": "urn:ibm:params:oauth:grant-type:platform-session",
+            "scope": scope,
+        }
+
+        logger.debug("Requesting token with platform-session grant type")
+        resp = await super().post(
+            token_url,
+            json=body,
+            headers=headers,
+        )
+
+        # Avoid printing tokens in logs; show status only
+        resp.raise_for_status()
+        token_data = resp.json()
+        logger.debug("Token exchange status=%s", resp.status_code)
+
+        access_token = token_data.get("access_token") or token_data.get("token")
+        if not access_token:
+            raise ValueError(f"No access_token in response: {token_data}")
+
+        self._access_token = access_token
+        expires_in = int(token_data.get("expires_in", DEFAULT_TOKEN_EXPIRY))
+        self._expires_at = time.time() + expires_in - TOKEN_REFRESH_BUFFER
+        logger.debug("Token acquired; expires_in=%s (buffered)", expires_in)
+
+    async def _refresh_token_jwt_bearer(self) -> None:
+        """
+        Refresh token using JWT bearer grant type (original flow).
+
+        Request format:
+        POST /api/v1/oauth2/{org}/token
+        Authorization: Basic {client_id:client_secret}
+        Content-Type: application/x-www-form-urlencoded
+        Body: assertion={jwt}&grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer&scope={scope}
+        """
         assertion = self._generate_jwt_assertion()
         scope = self.auth_data.get(ConfigKey.SCOPE) or DEFAULT_SCOPE
         scope = urllib.parse.quote(scope)
 
         token_url_with_org = self.auth_data.get(ConfigKey.TOKEN_URL_WITH_ORG)
-
         if not token_url_with_org:
             raise ValueError("token_url_with_org must be provided")
 
@@ -125,7 +208,7 @@ class AsperaJWTClient(httpx.AsyncClient):
         access_token = token_data.get("access_token") or token_data.get("token")
         if not access_token:
             raise ValueError(f"No access_token in response: {token_data}")
-        # logger.debug("Access token %s ",access_token)
+
         self._access_token = access_token
         expires_in = int(token_data.get("expires_in", DEFAULT_TOKEN_EXPIRY))
         self._expires_at = time.time() + expires_in - TOKEN_REFRESH_BUFFER
