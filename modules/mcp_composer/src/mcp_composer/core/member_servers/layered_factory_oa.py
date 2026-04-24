@@ -1121,8 +1121,16 @@ All tools automatically resolve OpenAPI schema references and provide enhanced m
             logger.info("=" * 80)
 
             # Make the actual HTTP request with merged headers
-            # If we have cookie-based auth, use a plain httpx client to avoid OAuth2 override
-            if auth_headers.get("Authorization"):
+            # Check if client is AsperaJWTClient - if so, always use it for token refresh
+            from mcp_composer.core.auth_handler.aspera_auth_handler import (
+                AsperaJWTClient,
+            )
+
+            is_aspera_client = isinstance(self.client, AsperaJWTClient)
+
+            # If we have cookie-based auth AND it's not Aspera, use a plain httpx client to avoid OAuth2 override
+            # For Aspera, always use the AsperaJWTClient so it can handle token refresh
+            if auth_headers.get("Authorization") and not is_aspera_client:
                 logger.info("✓ Using plain HTTP client with cookie-based authorization")
                 # Create a plain httpx client without OAuth2 auth
                 async with httpx.AsyncClient(
@@ -1139,8 +1147,17 @@ All tools automatically resolve OpenAPI schema references and provide enhanced m
                         json=request_body,
                     )
             else:
-                logger.debug("Using OAuth2 client for authentication")
-                # Use the OAuth2 client
+                if is_aspera_client:
+                    logger.info(
+                        "✓ Using AsperaJWTClient for authentication with token refresh"
+                    )
+                    logger.debug(
+                        "final_headers being passed to AsperaJWTClient: %s",
+                        final_headers,
+                    )
+                else:
+                    logger.debug("Using OAuth2 client for authentication")
+                # Use the configured client (AsperaJWTClient or OAuth2 client)
                 response = await self.client.request(
                     method=http_method,
                     url=url_path,
