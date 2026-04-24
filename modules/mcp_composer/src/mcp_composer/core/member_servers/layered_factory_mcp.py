@@ -336,10 +336,28 @@ All tools are proxied from the underlying MCP server.""",
                     return tools
         except Exception as e:
             logger.warning("Failed to fetch tools from proxy: %s", e)
+            logger.exception("Proxy fetch full traceback:")
 
         # Try method 2: Get tools directly from client
         try:
             logger.info("Attempting to fetch tools from client.list_tools()")
+            
+            # Log client configuration details
+            logger.info("Client configuration details:")
+            logger.info("  - Client type: %s", type(self.client).__name__)
+            logger.info("  - Client attributes: %s", dir(self.client))
+            
+            # Try to extract connection details if available
+            if hasattr(self.client, 'read_url'):
+                logger.info("  - Read URL: %s", getattr(self.client, 'read_url', 'N/A'))
+            if hasattr(self.client, 'write_url'):
+                logger.info("  - Write URL: %s", getattr(self.client, 'write_url', 'N/A'))
+            if hasattr(self.client, '_transport'):
+                logger.info("  - Transport type: %s", type(getattr(self.client, '_transport', None)).__name__)
+            if hasattr(self.client, 'timeout'):
+                logger.info("  - Timeout: %s", getattr(self.client, 'timeout', 'N/A'))
+            
+            logger.info("Attempting to connect to client...")
             async with self.client:
                 result = await self.client.list_tools()
                 logger.info("Client.list_tools() returned: %s", type(result))
@@ -370,6 +388,30 @@ All tools are proxied from the underlying MCP server.""",
                 return tools
         except Exception as e:
             logger.error("Failed to fetch tools from client: %s", e)
+            logger.error("Exception type: %s", type(e).__name__)
+            logger.error("Exception args: %s", e.args)
+            
+            # Log additional network-related error details
+            import sys
+            import traceback
+            exc_type, exc_value, exc_traceback = sys.exc_info()
+            logger.error("Full exception details:")
+            logger.error("  - Type: %s", exc_type)
+            logger.error("  - Value: %s", exc_value)
+            logger.error("  - Traceback:")
+            for line in traceback.format_tb(exc_traceback):
+                logger.error("    %s", line.strip())
+            
+            # Check for specific network errors
+            if "timeout" in str(e).lower():
+                logger.error("⚠️  TIMEOUT ERROR: Connection timed out - check network latency or increase timeout")
+            elif "connection" in str(e).lower():
+                logger.error("⚠️  CONNECTION ERROR: Cannot establish connection - check network policies, DNS, and firewall")
+            elif "ssl" in str(e).lower() or "certificate" in str(e).lower():
+                logger.error("⚠️  SSL/TLS ERROR: Certificate validation failed - check SSL configuration")
+            elif "refused" in str(e).lower():
+                logger.error("⚠️  CONNECTION REFUSED: Target server is not accepting connections")
+            
             logger.exception("Full traceback:")
 
         # If we got here, no tools were found
