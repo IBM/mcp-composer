@@ -38,7 +38,7 @@ dependencies = [
     "asyncpg>=0.29.0",
     "numpy==2.4.4",
     "pandas==3.0.2",
-    "authlib==1.6.11",
+    "authlib==1.7.0",
 ]
 
 [project.urls]
