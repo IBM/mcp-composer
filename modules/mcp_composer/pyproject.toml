@@ -17,7 +17,7 @@ dependencies = [
     "aiohttp==3.13.5",
     "jsonschema>=4.24.0",
     "uncurl==0.0.11",
-    "pydantic==2.12.5",
+    "pydantic==2.13.3",
     "pydantic-settings==2.13.1",
     "types-requests>=2.32.4.20250611",
     "jsonref>=1.1.0",
