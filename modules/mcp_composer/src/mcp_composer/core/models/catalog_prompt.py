@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from typing import List, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
@@ -21,7 +20,7 @@ class PromptJSON(BaseModel):
     model_config = ConfigDict(extra="forbid", populate_by_name=True, str_strip_whitespace=True)
 
     name: str
-    description: Optional[str] = None
+    description: str | None = None
     version: str
     content: str
 
@@ -44,7 +43,7 @@ class PromptJSON(BaseModel):
 class PromptResponseMeta(BaseModel):
     model_config = ConfigDict(extra="forbid", populate_by_name=True)
 
-    official: Optional[RegistryOfficialExtensions] = Field(
+    official: RegistryOfficialExtensions | None = Field(
         default=None,
         alias="io.modelcontextprotocol.registry/official",
     )
@@ -60,5 +59,5 @@ class PromptResponse(BaseModel):
 class PromptListResponse(BaseModel):
     model_config = ConfigDict(extra="forbid", populate_by_name=True)
 
-    prompts: List[PromptResponse]
+    prompts: list[PromptResponse]
     metadata: RegistryListMetadata

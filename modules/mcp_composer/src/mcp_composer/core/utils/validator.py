@@ -1,4 +1,4 @@
-from typing import Dict, Any, List
+from typing import Any
 from enum import Enum
 from mcp_composer.core.utils.logger import LoggerFactory
 
@@ -88,7 +88,7 @@ class ValidationError(Exception):
 class ServerConfigValidator:
     """Validator for individual server configurations."""
 
-    def __init__(self, config: Dict[str, Any]):
+    def __init__(self, config: dict[str, Any]):
         self.config = config
         self.server_id = config.get(ConfigKey.ID, "<unknown>")
 
@@ -116,7 +116,7 @@ class ServerConfigValidator:
                 self.config.get(ConfigKey.TYPE),
             )
 
-    def _has_any_key(self, auth: Dict[str, Any], *keys: str) -> bool:
+    def _has_any_key(self, auth: dict[str, Any], *keys: str) -> bool:
         """Check if any of the provided keys exist in auth dict."""
         return any(auth.get(key) for key in keys)
 
@@ -127,7 +127,7 @@ class ServerConfigValidator:
             return
 
         # Check for required fields: command and args
-        missing = []
+        missing: list[str] = []
         if not self.config.get(ConfigKey.COMMAND):
             missing.append(ConfigKey.COMMAND)
         if not self.config.get(ConfigKey.ARGS):
@@ -172,6 +172,9 @@ class ServerConfigValidator:
             raise ValidationError(
                 f"Unsupported {ConfigKey.AUTH_STRATEGY} '{strategy}' for server '{self.server_id}'"
             )
+        
+        missing: list[str] = []
+        
         # Special logic for dynamic_bearer
         if strategy == AuthStrategy.DYNAMIC_BEARER:
             has_apikey = bool(auth.get(ConfigKey.APIKEY))
@@ -299,7 +302,7 @@ class ServerConfigValidator:
 class AllServersValidator:
     """Validator for a list of server configurations."""
 
-    def __init__(self, server: List[Dict[str, Any]]):
+    def __init__(self, server: list[dict[str, Any]]):
         self.server = server
 
     def validate_all(self) -> None:

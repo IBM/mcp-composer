@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import re
-from typing import Optional
 
 # Skill / prompt names: alphanumeric, underscore, hyphen (pkg/validators/names.go).
 _SKILL_OR_PROMPT_NAME_RE = re.compile(r"^[a-zA-Z0-9_-]+$")
@@ -66,7 +65,7 @@ _DOTTED_VERSION_LIKE_RE = re.compile(
 )
 
 
-def strip_optional(value: Optional[str]) -> Optional[str]:
+def strip_optional(value: str | None) -> str | None:
     """Strip surrounding whitespace; None stays None."""
     if value is None:
         return None

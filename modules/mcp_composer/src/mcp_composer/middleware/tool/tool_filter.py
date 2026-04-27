@@ -1,8 +1,7 @@
 """Tools filter middleware"""
 
 import os
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
-
+from typing import TYPE_CHECKING, Any
 from fastmcp.server.middleware import CallNext, Middleware, MiddlewareContext
 from starlette.exceptions import HTTPException
 
@@ -28,7 +27,7 @@ class ListFilteredTool(Middleware):
        cookie is present) may populate them for product-based filtering.
     """
 
-    def __init__(self, gw, isv_validator: Optional["ISVTokenValidator"] = None):
+    def __init__(self, gw, isv_validator: "ISVTokenValidator | None" = None) -> None:
         """
         Initialize ListFilteredTool middleware.
 
@@ -39,7 +38,9 @@ class ListFilteredTool(Middleware):
         self.gw = gw
         self.isv_validator = isv_validator
 
-    async def on_list_tools(self, context: MiddlewareContext, call_next: CallNext):
+    async def on_list_tools(
+        self, context: MiddlewareContext, call_next: CallNext
+    ) -> Any:
         try:
             tools = await call_next(context)
             env = (os.getenv("MCP_COMPOSER_ENV") or "").strip().lower()
@@ -51,14 +52,12 @@ class ListFilteredTool(Middleware):
 
             request = ctx_get(context, CONTEXT_REQUEST_KEY)
 
-            user_instances: List[Dict[str, Any]] = []
+            user_instances: list[dict[str, Any]] = []
 
             if self.isv_validator and request:
                 cookie_name = self.isv_validator.config.cookie_name
                 if self._check_authentication_cookie(request, cookie_name):
-                    user_instances = await self._authenticate_and_get_instances(
-                        request
-                    )
+                    user_instances = await self._authenticate_and_get_instances(request)
                 else:
                     logger.info(
                         "Non-local, ISV enabled, missing session %r — user_instances empty",
@@ -112,7 +111,7 @@ class ListFilteredTool(Middleware):
 
     async def _authenticate_and_get_instances(
         self, request: Any
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """
         Validate the request with ISV and return user_instances for tool filtering.
 

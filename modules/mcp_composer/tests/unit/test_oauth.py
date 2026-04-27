@@ -590,12 +590,19 @@ class TestSimpleOAuthProvider:
         )
         oauth_provider.tokens[token] = access_token
 
-        await oauth_provider.revoke_token(token)
+        await oauth_provider.revoke_token(access_token)
         assert token not in oauth_provider.tokens
 
     @pytest.mark.asyncio
     async def test_revoke_token_nonexistent(self, oauth_provider):
         """Test revoking non-existent token."""
+        # Create a token object for a nonexistent token
+        nonexistent_token = AccessToken(
+            token="nonexistent_token",
+            client_id="test_client_id",
+            scopes=["mcp:read"],
+            expires_at=int(time.time()) + 3600,
+        )
         # Should not raise an error
-        await oauth_provider.revoke_token("nonexistent_token")
+        await oauth_provider.revoke_token(nonexistent_token)
         assert "nonexistent_token" not in oauth_provider.tokens

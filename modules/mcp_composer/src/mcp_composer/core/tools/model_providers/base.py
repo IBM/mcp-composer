@@ -5,7 +5,7 @@ Abstract base class for model provider adapters.
 """
 
 from abc import ABC, abstractmethod
-from typing import Dict, Any, List, Optional, Union
+from typing import Any
 
 
 class ModelProviderAdapter(ABC):
@@ -16,7 +16,7 @@ class ModelProviderAdapter(ABC):
     Supports both chat/completion and embedding generation.
     """
 
-    _embedding_model: Optional[str] = None
+    _embedding_model: str | None = None
 
     @abstractmethod
     async def chat(
@@ -25,9 +25,9 @@ class ModelProviderAdapter(ABC):
         prompt: str,
         temperature: float = 0.7,
         max_tokens: int = 1000,
-        options: Dict[str, Any] = None,
-        **kwargs,
-    ) -> Dict[str, Any]:
+        options: dict[str, Any] | None = None,
+        **kwargs: Any,
+    ) -> dict[str, Any]:
         """
         Send a chat request to the model provider.
 
@@ -54,8 +54,8 @@ class ModelProviderAdapter(ABC):
         pass
 
     def encode(
-        self, text: Union[str, List[str]], model_name: str = None, **kwargs
-    ) -> Union[List[float], List[List[float]]]:
+        self, text: str | list[str], model_name: str | None = None, **kwargs: Any
+    ) -> list[float] | list[list[float]]:
         """
         Generate embeddings for the given text (optional, not all providers support this).
 

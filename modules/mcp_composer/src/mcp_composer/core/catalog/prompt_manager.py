@@ -8,7 +8,7 @@ composer ``*_prompts`` table).
 
 from __future__ import annotations
 
-from typing import List, Optional
+from pydantic import BaseModel, Field
 
 from mcp_composer.core.catalog.catalog_helpers import (
     registry_list_metadata_for_page,
@@ -42,11 +42,22 @@ from mcp_composer.store.catalog_database import CatalogDatabaseInterface
 _PROMPT_KIND = RegistryResourceKind.PROMPT.value
 
 
+class PromptListFilter(BaseModel):
+    """Query parameters for PromptManager.list()."""
+
+    name_like: str | None = None
+    is_latest_only: bool = False
+    status_filter: str | None = None
+    tenant: str | None = None
+    start: int = Field(default=0, ge=0)
+    limit: int = Field(default=50, ge=1, le=1000)
+
+
 def _row_to_prompt_response(row: dict) -> PromptResponse:
     prompt = PromptJSON(**row["payload"])
     official = registry_official_extensions_from_row(row)
-    meta = PromptResponseMeta(official=official)
-    return PromptResponse(prompt=prompt, meta=meta)
+    meta = PromptResponseMeta.model_validate({"official": official})
+    return PromptResponse(prompt=prompt, _meta=meta)
 
 
 class PromptManager(CatalogManager):
@@ -58,7 +69,7 @@ class PromptManager(CatalogManager):
     async def publish(
         self,
         prompt_json: PromptJSON,
-        tenant_ids: Optional[List[str]] = None,
+        tenant_ids: list[str] | None = None,
         status: str = "active",
     ) -> PromptResponse:
         """Publish (create or update) a prompt version; recompute semantic ``is_latest``."""

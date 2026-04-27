@@ -4,16 +4,16 @@ Extends FastMCP with runtime composition, tool management, and database-backed c
 """
 
 import os
-import sys
-from typing import Any, Dict, Optional, Union, Literal, Sequence
+from collections.abc import Sequence
+from typing import Any, Callable, Literal
 from dotenv import load_dotenv
 from fastmcp import FastMCP
 from fastmcp.server.auth.auth import OAuthProvider
 from fastmcp.server.auth.providers.jwt import JWTVerifier
 from starlette.middleware import Middleware as ASGIMiddleware
-from fastmcp.tools.tool import Tool
-from fastmcp.resources import FunctionResource, TextResource
-from fastmcp.resources.resource import Resource
+from fastmcp.tools import Tool
+from fastmcp.resources import TextResource
+from fastmcp.resources import Resource
 from fastmcp.resources.template import ResourceTemplate
 from mcp_composer.core.tools import MCPToolManager
 from mcp_composer.core.utils import LoggerFactory
@@ -44,8 +44,6 @@ from mcp_composer.a2a_service.a2a_mcp import (
     get_task_result,
     cancel_task,
     load_registered_agents,
-    get_agent_cards,
-    get_agent_card,
 )
 
 load_dotenv()
@@ -59,7 +57,8 @@ def _json_safe_tool_payload(value: Any) -> Any:
         return {
             key: safe_val
             for key, val in value.items()
-            if key not in {"fn", "serializer", "auth", "task_config", "x-fastmcp-wrap-result"}
+            if key
+            not in {"fn", "serializer", "auth", "task_config", "x-fastmcp-wrap-result"}
             if (safe_val := _json_safe_tool_payload(val)) is not None
         }
     if isinstance(value, set):
@@ -79,6 +78,8 @@ def _json_safe_tool_payload(value: Any) -> Any:
     if callable(value):
         return None
     return value
+
+
 # pylint: disable=W0718
 
 
@@ -93,9 +94,9 @@ class MCPComposer(FastMCP):
     def __init__(
         self,
         name: str = "",
-        config: Optional[Union[list[dict[str, Any]], str]] = None,
-        database_config: Optional[Union[Dict[str, Any], DatabaseInterface]] = None,
-        version_adapter_config: Optional[Dict[str, Any]] = None,
+        config: list[dict] | str | None = None,
+        database_config: dict[str, Any] | DatabaseInterface | None = None,
+        version_adapter_config: dict[str, Any] | None = None,
         auth: OAuthProvider | JWTVerifier | None = None,
     ):
         super().__init__(name=name, auth=auth)
@@ -110,7 +111,7 @@ class MCPComposer(FastMCP):
         logger.info("MCP Composer initialization completed for name: %s", name)
 
     def _initialize_config_manager(
-        self, version_adapter_config: Optional[Dict[str, Any]]
+        self, version_adapter_config: dict[str, Any] | None
     ) -> ServerConfigurationManager:
         """Initialize the server configuration manager."""
         logger.info("Initializing server configuration manager")
@@ -125,7 +126,7 @@ class MCPComposer(FastMCP):
     def _initialize_database(
         self,
         name: str,
-        database_config: Optional[Union[Dict[str, Any], DatabaseInterface]],
+        database_config: dict[str, Any] | DatabaseInterface | None,
     ) -> DatabaseInterface | None:
         """Resolve the database backend from configuration."""
         logger.info("Looking for DB config for MCP Composer with name: %s", name)
@@ -140,7 +141,9 @@ class MCPComposer(FastMCP):
                 )
             return database
         except Exception:
-            logger.exception("Failed to initialize database for MCP Composer '%s'", name)
+            logger.exception(
+                "Failed to initialize database for MCP Composer '%s'", name
+            )
             raise
 
     def _initialize_managers(self, database: DatabaseInterface | None) -> None:
@@ -148,7 +151,8 @@ class MCPComposer(FastMCP):
         logger.info("Initializing MCP Composer managers")
         try:
             self._server_manager = ServerManager(
-                database=database, config_manager=self._server_config_manager.config_manager
+                database=database,
+                config_manager=self._server_config_manager.config_manager,
             )
             self._tool_manager = MCPToolManager(
                 composer=self, server_manager=self._server_manager, database=database
@@ -165,9 +169,7 @@ class MCPComposer(FastMCP):
             logger.exception("Failed to initialize MCP Composer managers")
             raise
 
-    def _load_initial_state(
-        self, config: Optional[Union[list[dict[str, Any]], str]]
-    ) -> None:
+    def _load_initial_state(self, config: list[dict[str, Any]] | str | None) -> None:
         """Load persisted server state and process startup configuration."""
         logger.info("Loading MCP Composer startup state")
         try:
@@ -421,7 +423,7 @@ class MCPComposer(FastMCP):
 
     async def member_health(self) -> list[dict[str, Any]]:
         """Get status for all member servers."""
-        return await self._server_manager.member_health(self._server_manager.list())
+        return await self._server_manager.member_health(self._server_manager.members())
 
     async def activate_mcp_server(self, server_id: str) -> str:
         """Reactivates a previously deactivated member server."""
@@ -438,15 +440,13 @@ class MCPComposer(FastMCP):
     async def add_tools_from_curl(self, tool_config: dict[str, Any]) -> str:
         """Create a tool from a curl command."""
         fn = await tool_from_curl(tool_config)
-        if fn:
-            self.add_tool(Tool.from_function(fn))
+        self.add_tool(Tool.from_function(fn))
         return "Successfully added tools"
 
     async def add_tools_from_python(self, tool_config: dict[str, Any]) -> str:
         """Create a tool from a python script."""
         fn = await tool_from_script(tool_config)
-        if fn:
-            self.add_tool(Tool.from_function(fn))
+        self.add_tool(Tool.from_function(fn))
         return "Successfully added tools"
 
     async def add_tools_from_openapi(
@@ -477,9 +477,7 @@ class MCPComposer(FastMCP):
         """Filter tools by keyword"""
         return await self._tool_manager.filter_tool_by_keyword(keyword)
 
-    def add_prompts(
-        self, prompt_config: Union[dict[str, Any], list[dict[str, Any]]]
-    ) -> list[str]:
+    def add_prompts(self, prompt_config: dict | list[dict]) -> list[str]:
         """
         Add one or more prompts based on the provided configuration.
         Returns a list of registered prompt names.
@@ -513,7 +511,7 @@ class MCPComposer(FastMCP):
         """
         return await self._prompt_manager.enable_prompts(prompts, server_id)
 
-    def delete_prompts(self, prompt_names: Union[str, list[str]]) -> dict[str, Any]:
+    def delete_prompts(self, prompt_names: str | list[str]) -> dict:
         """
         Delete one or more prompts from the composer and database.
 
@@ -532,9 +530,7 @@ class MCPComposer(FastMCP):
         """
         return self._prompt_manager.delete_prompts(prompt_names)
 
-    async def create_resource_template(
-        self, resource_config: dict[str, Any]
-    ) -> str:
+    async def create_resource_template(self, resource_config: dict[str, Any]) -> str:
         """Add a resource template to the composer."""
         return await self._resource_manager.create_resource_template(resource_config)
 
@@ -630,7 +626,7 @@ class MCPComposer(FastMCP):
         """
         return await self._resource_manager.delete_resources(resources, resource_type)
 
-    async def disable_composer_tool(self, tools: Optional[list[str]] = None) -> str:
+    async def disable_composer_tool(self, tools: list[str] | None = None) -> str:
         """
         Disable a tool or multiple tools in the composer server
         """
@@ -652,7 +648,10 @@ class MCPComposer(FastMCP):
             )
         super_run_stdio = super().run_stdio_async
         await super_run_stdio(show_banner=False)
-    async def get_available_tools(self, server_id: str | None = None) -> dict[str, list[dict[str, Any]]]:
+
+    async def get_available_tools(
+        self, server_id: str | None = None
+    ) -> dict[str, list[dict[str, Any]]]:
         """Get all available tools from the composer."""
         tools = await self._tool_manager.get_all_tools(server_id)
         result: list[dict[str, Any]] = []
@@ -674,6 +673,7 @@ class MCPComposer(FastMCP):
             item = _json_safe_tool_payload(item)
             result.append(item)
         return {"tools": result}
+
     async def run_http_async(
         self,
         show_banner: bool = True,
@@ -684,8 +684,8 @@ class MCPComposer(FastMCP):
         path: str | None = None,
         uvicorn_config: dict[str, Any] | None = None,
         middleware: list[ASGIMiddleware] | None = None,
-        stateless_http: bool | None = None,
         json_response: bool | None = None,
+        stateless_http: bool | None = None,
         stateless: bool | None = None,
     ) -> None:
         """

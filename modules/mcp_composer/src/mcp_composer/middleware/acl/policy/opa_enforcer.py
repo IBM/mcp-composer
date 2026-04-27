@@ -1,4 +1,4 @@
-from typing import Dict, Any, Optional
+from typing import Any
 import httpx  # type: ignore
 from mcp_composer.middleware.acl.policy.base_policy_enforcer import BasePolicyEnforcer
 from mcp_composer.middleware.acl.acl_utils import extract_context_info
@@ -53,7 +53,7 @@ class OPARegoPolicyEnforcer(BasePolicyEnforcer):
 
         logger.info("Initialized OPA policy enforcer - URL: %s", self.query_url)
 
-    async def _query_opa(self, input_data: Dict[str, Any]) -> Optional[bool]:
+    async def _query_opa(self, input_data: dict[str, Any]) -> bool | None:
         """
         Query OPA server for policy decision.
 
@@ -94,7 +94,7 @@ class OPARegoPolicyEnforcer(BasePolicyEnforcer):
             logger.error("Unexpected error querying OPA: %s", e)
             return None
 
-    def is_allowed(self, tool_name: str, context: Dict[str, Any]) -> bool:
+    def is_allowed(self, tool_name: str, context: dict[str, Any]) -> bool:
         """
         Check if the tool is allowed using OPA policy.
 
@@ -158,7 +158,7 @@ class OPARegoPolicyEnforcer(BasePolicyEnforcer):
 
         return result
 
-    def _fallback_check(self, tool_name: str, context_info: Dict[str, Any]) -> bool:
+    def _fallback_check(self, tool_name: str, context_info: dict[str, Any]) -> bool:
         """
         Fallback policy check when OPA is unavailable.
 
@@ -181,7 +181,7 @@ class OPARegoPolicyEnforcer(BasePolicyEnforcer):
         )
         return False
 
-    async def is_allowed_async(self, tool_name: str, context: Dict[str, Any]) -> bool:
+    async def is_allowed_async(self, tool_name: str, context: dict[str, Any]) -> bool:
         """
         Async version of is_allowed for use in async contexts.
 

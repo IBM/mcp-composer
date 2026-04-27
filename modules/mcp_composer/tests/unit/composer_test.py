@@ -5,7 +5,7 @@ import logging
 import os
 import json
 from unittest.mock import MagicMock, patch, AsyncMock
-from fastmcp.tools.tool import Tool
+from fastmcp.tools import Tool
 from fastmcp.exceptions import ToolError
 
 from mcp_composer.core.member_servers.member_server import HealthStatus

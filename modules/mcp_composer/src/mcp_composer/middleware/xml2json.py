@@ -2,7 +2,7 @@
 
 import json
 import xml.etree.ElementTree as ET
-from typing import Any, Dict, Union, List
+from typing import Any
 from typing_extensions import override
 from fastmcp.server.middleware import Middleware, MiddlewareContext, CallNext
 import mcp.types as mt
@@ -19,9 +19,9 @@ class FormatXml2Json(Middleware):
     def __init__(self, mcp_composer):
         self.mcp_composer = mcp_composer
 
-    def _xml_to_dict(self, element: ET.Element) -> Union[Dict[str, Any], str]:
+    def _xml_to_dict(self, element: ET.Element) -> dict[str, Any] | str:
         """Convert XML element to dictionary"""
-        result = {}
+        result: dict[str, Any] = {}
 
         # Handle attributes
         if element.attrib:
@@ -50,7 +50,7 @@ class FormatXml2Json(Middleware):
 
         return result
 
-    def _parse_xml_string(self, xml_string: str) -> Dict[str, Any]:
+    def _parse_xml_string(self, xml_string: str) -> dict[str, Any]:
         """Parse XML string and convert to dictionary"""
         try:
             # Remove any leading/trailing whitespace
@@ -66,10 +66,10 @@ class FormatXml2Json(Middleware):
             return result
         except ET.ParseError as e:
             logger.error("Failed to parse XML: %s", e)
-            raise ToolFilterError("Invalid XML format: %s", e)
+            raise ToolFilterError(f"Invalid XML format: {e}")
         except Exception as e:
             logger.error("Error converting XML to JSON: %s", e)
-            raise ToolFilterError("XML to JSON conversion failed: %s", e)
+            raise ToolFilterError(f"XML to JSON conversion failed: {e}")
 
     def _is_xml_content(self, content: Any) -> bool:
         """Check if content appears to be XML"""
@@ -84,8 +84,8 @@ class FormatXml2Json(Middleware):
         )
 
     def _convert_content_blocks(
-        self, content_blocks: List[mt.ContentBlock]
-    ) -> List[mt.ContentBlock]:
+        self, content_blocks: list[mt.ContentBlock]
+    ) -> list[mt.ContentBlock]:
         """Convert XML content in content blocks to JSON"""
         converted_blocks = []
 
@@ -99,7 +99,7 @@ class FormatXml2Json(Middleware):
                     from dataclasses import replace, is_dataclass
 
                     if is_dataclass(block):
-                        block = replace(block, text=json.dumps(json_data, indent=2))
+                        block = replace(block, text=json.dumps(json_data, indent=2))  # type: ignore[arg-type]
                     else:
                         # Fallback for non-dataclass objects (like mocks)
                         block.text = json.dumps(json_data, indent=2)
@@ -114,8 +114,8 @@ class FormatXml2Json(Middleware):
         return converted_blocks
 
     def _convert_structured_content(
-        self, structured_content: Dict[str, Any]
-    ) -> Dict[str, Any]:
+        self, structured_content: dict[str, Any]
+    ) -> dict[str, Any]:
         """Convert XML in structured content to JSON"""
         if not structured_content:
             return structured_content

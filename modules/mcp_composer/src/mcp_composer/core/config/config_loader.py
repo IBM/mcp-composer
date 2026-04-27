@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import yaml
 
@@ -333,8 +333,8 @@ class ConfigLoader:
         return items
 
     async def apply_config(
-        self, config: UnifiedConfig, sections: Optional[List[ConfigSection]] = None
-    ) -> Dict[str, Any]:
+        self, config: UnifiedConfig, sections: list[ConfigSection] | None = None
+    ) -> dict[str, Any]:
         """
         Apply configuration to MCP Composer.
 
@@ -381,9 +381,9 @@ class ConfigLoader:
 
         return results
 
-    async def _apply_servers(self, servers: List[Any]) -> Dict[str, Any]:
+    async def _apply_servers(self, servers: list[Any]) -> dict[str, Any]:
         """Apply server configurations with optimized error handling."""
-        results = {"registered": [], "failed": [], "total": len(servers)}
+        results: dict[str, Any] = {"registered": [], "failed": [], "total": len(servers)}
 
         for server_config in servers:
             try:
@@ -433,9 +433,9 @@ class ConfigLoader:
 
         return server_dict
 
-    async def _apply_middleware(self, middleware_configs: List[Any]) -> Dict[str, Any]:
+    async def _apply_middleware(self, middleware_configs: list[Any]) -> dict[str, Any]:
         """Apply middleware configurations."""
-        results = {
+        results: dict[str, Any] = {
             "registered": [],
             "failed": [],
             "skipped": [],
@@ -506,9 +506,9 @@ class ConfigLoader:
 
         return results
 
-    async def _apply_prompts(self, prompts: List[Any]) -> Dict[str, Any]:
+    async def _apply_prompts(self, prompts: list[Any]) -> dict[str, Any]:
         """Apply prompt configurations."""
-        results = {"registered": [], "failed": [], "skipped": [], "total": len(prompts)}
+        results: dict[str, Any] = {"registered": [], "failed": [], "skipped": [], "total": len(prompts)}
 
         # Convert prompts to the format expected by the prompt manager
         prompt_configs = []
@@ -568,9 +568,9 @@ class ConfigLoader:
 
         return results
 
-    async def _apply_tools(self, tools: Dict[str, Any]) -> Dict[str, Any]:
+    async def _apply_tools(self, tools: dict[str, Any]) -> dict[str, Any]:
         """Apply tool configurations."""
-        results = {"registered": [], "failed": [], "skipped": [], "total": len(tools)}
+        results: dict[str, Any] = {"registered": [], "failed": [], "skipped": [], "total": len(tools)}
 
         for tool_name, tool_config in tools.items():
             try:
@@ -664,7 +664,7 @@ class ConfigLoader:
         return results
 
     def _get_resource_name(
-        self, resource_config: Any, resource_dict: Optional[Dict[str, Any]] = None
+        self, resource_config: Any, resource_dict: dict[str, Any] | None = None
     ) -> str:
         """
         Helper method to consistently extract resource name from config.
@@ -690,7 +690,7 @@ class ConfigLoader:
         # Final fallback
         return name if name else "unknown"
 
-    async def _apply_resources(self, resources: List[Any]) -> Dict[str, Any]:
+    async def _apply_resources(self, resources: list[Any]) -> dict[str, Any]:
         """
         Apply resource configurations.
 
@@ -704,7 +704,7 @@ class ConfigLoader:
                 - skipped: List of skipped resources with name and reason (e.g., disabled resources)
                 - total: Total number of resources processed
         """
-        results = {
+        results: dict[str, Any] = {
             "registered": [],
             "failed": [],
             "skipped": [],
@@ -841,9 +841,9 @@ class ConfigManager:
     async def load_and_apply(
         self,
         file_path: str,
-        sections: Optional[List[ConfigSection]] = None,
+        sections: list[ConfigSection] | None = None,
         config_type: str = "all",
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Load configuration from file and apply it to the composer.
 

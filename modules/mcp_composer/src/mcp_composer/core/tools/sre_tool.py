@@ -7,7 +7,7 @@ from typing import TypedDict
 
 from mcp_composer.core.tools.nvd_tool import enrich_issues_csv_with_cvss
 
-from github import Auth, Github, GithubException
+from github import Auth, Github, GithubException  # type: ignore[import-not-found]
 
 
 class PRResult(TypedDict):

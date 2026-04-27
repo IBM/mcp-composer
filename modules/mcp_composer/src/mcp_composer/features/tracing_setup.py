@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import importlib
 import os
-from typing import Any, Optional
+from typing import Any
 
 from .config import (
     ENVIRONMENT,
@@ -61,7 +61,7 @@ def init_tracing_if_enabled() -> bool:
         return False
 
 
-def init_metrics_if_enabled() -> Optional[Any]:
+def init_metrics_if_enabled() -> Any | None:
     """
     Returns a meter if metrics are enabled and SDK is available, else None.
     Uses OTLP/HTTP exporter by default.

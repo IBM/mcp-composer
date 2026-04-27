@@ -4,7 +4,7 @@ Inspired by permit-fastmcp's comprehensive identity extraction approach.
 """
 
 import re
-from typing import Dict, Any, Optional, Tuple
+from typing import Any, Tuple
 import jwt  # type: ignore
 from mcp_composer.middleware.acl.policy.config import SETTINGS, IdentityMode, Settings
 from mcp_composer.middleware.acl.policy.schemas import AuthContext
@@ -16,7 +16,7 @@ logger = LoggerFactory.get_logger()
 class IdentityManager:
     """Manages user identity extraction and authentication."""
 
-    def __init__(self, settings: Optional[Settings] = None):
+    def __init__(self, settings: Settings | None = None):
         """
         Initialize the identity manager.
 
@@ -28,7 +28,7 @@ class IdentityManager:
             "Identity manager initialized with mode: %s", self.settings.identity_mode
         )
 
-    def extract_identity(self, context: Any) -> Tuple[str, Dict[str, Any]]:
+    def extract_identity(self, context: Any) -> tuple[str, dict[str, Any]]:
         """
         Extract user identity from context based on configured mode.
 
@@ -56,7 +56,7 @@ class IdentityManager:
             logger.error("Error extracting identity: %s", e)
             return "unknown", {"type": "extraction_error", "error": str(e)}
 
-    def _extract_jwt_identity(self, context: Any) -> Tuple[str, Dict[str, Any]]:
+    def _extract_jwt_identity(self, context: Any) -> tuple[str, dict[str, Any]]:
         """Extract identity from JWT token."""
         headers = self._get_headers(context)
 
@@ -117,7 +117,7 @@ class IdentityManager:
             logger.error("Error decoding JWT: %s", e)
             return "unknown", {"type": "jwt_decode_error", "error": str(e)}
 
-    def _extract_fixed_identity(self, context: Any) -> Tuple[str, Dict[str, Any]]:
+    def _extract_fixed_identity(self, context: Any) -> tuple[str, dict[str, Any]]:
         """Extract fixed identity value."""
         user_id = self.settings.identity_fixed_value
         attributes = {
@@ -128,7 +128,7 @@ class IdentityManager:
         logger.debug("Using fixed identity: %s", user_id)
         return user_id, attributes
 
-    def _extract_header_identity(self, context: Any) -> Tuple[str, Dict[str, Any]]:
+    def _extract_header_identity(self, context: Any) -> tuple[str, dict[str, Any]]:
         """Extract identity from header."""
         headers = self._get_headers(context)
 
@@ -147,7 +147,7 @@ class IdentityManager:
         logger.debug("Extracted header identity: %s", user_id)
         return user_id, attributes
 
-    def _extract_source_identity(self, context: Any) -> Tuple[str, Dict[str, Any]]:
+    def _extract_source_identity(self, context: Any) -> tuple[str, dict[str, Any]]:
         """Extract identity from context source."""
         source = getattr(context, "source", None)
 
@@ -163,7 +163,7 @@ class IdentityManager:
         logger.debug("Extracted source identity: %s", user_id)
         return user_id, attributes
 
-    def _extract_api_key_identity(self, context: Any) -> Tuple[str, Dict[str, Any]]:
+    def _extract_api_key_identity(self, context: Any) -> tuple[str, dict[str, Any]]:
         """Extract identity from API key."""
         headers = self._get_headers(context)
 
@@ -186,9 +186,9 @@ class IdentityManager:
         logger.debug("Extracted API key identity: %s", user_id)
         return user_id, attributes
 
-    def _get_headers(self, context: Any) -> Dict[str, str]:
+    def _get_headers(self, context: Any) -> dict[str, str]:
         """Extract headers from context."""
-        headers: Dict[str, str] = {}
+        headers: dict[str, str] = {}
 
         # Try different ways to get headers
         if hasattr(context, "headers"):
@@ -261,7 +261,7 @@ class IdentityManager:
         # For demo purposes, we'll accept any non-empty API key
         return bool(api_key and api_key.strip())
 
-    def get_user_permissions(self, user_id: str) -> Dict[str, Any]:
+    def get_user_permissions(self, user_id: str) -> dict[str, Any]:
         """
         Get user permissions (placeholder for production implementation).
 

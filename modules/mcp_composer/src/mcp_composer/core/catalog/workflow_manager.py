@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from mcp_composer.core.catalog.catalog_exceptions import (
     CatalogResourceNotFoundError,
@@ -36,20 +36,26 @@ from mcp_composer.store.catalog_database import CatalogDatabaseInterface
 _WORKFLOW_KIND = RegistryResourceKind.WORKFLOW.value
 
 
-def _public_resource_metadata(private_meta: dict | None) -> dict | None:
+def _public_resource_metadata(
+    private_meta: dict[str, Any] | None,
+) -> dict[str, Any] | None:
     if not private_meta:
         return None
     return dict(private_meta) if private_meta else None
 
 
-def _row_to_workflow_response(row: dict, private_meta: dict | None = None) -> WorkflowResponse:
+def _row_to_workflow_response(
+    row: dict[str, Any], private_meta: dict[str, Any] | None = None
+) -> WorkflowResponse:
     workflow = WorkflowJSON(**row["payload"])
     official = registry_official_extensions_from_row(row)
-    meta = WorkflowResponseMeta(
-        official=official,
-        metadata=_public_resource_metadata(private_meta),
+    meta = WorkflowResponseMeta.model_validate(
+        {
+            "official": official,
+            "metadata": _public_resource_metadata(private_meta),
+        }
     )
-    return WorkflowResponse(workflow=workflow, meta=meta)
+    return WorkflowResponse(workflow=workflow, _meta=meta)
 
 
 class WorkflowManager(CatalogManager):
@@ -61,7 +67,7 @@ class WorkflowManager(CatalogManager):
     async def publish(
         self,
         workflow_json: WorkflowJSON,
-        tenant_ids: Optional[List[str]] = None,
+        tenant_ids: list[str] | None = None,
     ) -> WorkflowResponse:
         """Publish (create or update) a workflow version; recompute ``is_latest``."""
         await self._ensure_initialized()
@@ -76,9 +82,11 @@ class WorkflowManager(CatalogManager):
                 raise CatalogVersionCapError(_WORKFLOW_KIND, name, count)
 
         now = utc_now_iso()
-        payload = workflow_json.model_dump(mode="json", by_alias=False, exclude_none=True)
+        payload = workflow_json.model_dump(
+            mode="json", by_alias=False, exclude_none=True
+        )
 
-        official_meta: Dict[str, Any] = {
+        official_meta: dict[str, Any] = {
             "status": workflow_json.status or "active",
             "published_at": now,
             "updated_at": now,
@@ -105,8 +113,8 @@ class WorkflowManager(CatalogManager):
     async def publish_with_resource_metadata(
         self,
         workflow_json: WorkflowJSON,
-        tenant_ids: Optional[List[str]] = None,
-        resource_metadata: Optional[Dict[str, Any]] = None,
+        tenant_ids: list[str] | None = None,
+        resource_metadata: dict[str, Any] | None = None,
     ) -> WorkflowResponse:
         """Publish a workflow and merge optional ``catalog_resource_metadata.data``."""
         await self._ensure_initialized()
@@ -121,8 +129,8 @@ class WorkflowManager(CatalogManager):
                 _WORKFLOW_KIND, workflow_json.name, workflow_json.version
             )
         existing_raw = await self._db.get_resource_metadata(str(row["id"]))
-        existing: Dict[str, Any] = dict(existing_raw or {})
-        merged: Dict[str, Any] = {**existing, **resource_metadata}
+        existing: dict[str, Any] = dict(existing_raw or {})
+        merged: dict[str, Any] = {**existing, **resource_metadata}
         await self._db.save_resource_metadata(str(row["id"]), merged)
         private_meta = await self._db.get_resource_metadata(str(row["id"]))
         return _row_to_workflow_response(row, private_meta)
@@ -137,7 +145,9 @@ class WorkflowManager(CatalogManager):
 
     async def get_latest(self, name: str) -> WorkflowResponse:
         await self._ensure_initialized()
-        row = await self._db.get_resource_by_filter(_WORKFLOW_KIND, name, is_latest=True)
+        row = await self._db.get_resource_by_filter(
+            _WORKFLOW_KIND, name, is_latest=True
+        )
         if row is None:
             raise CatalogResourceNotFoundError(_WORKFLOW_KIND, name, "latest")
         private_meta = await self._db.get_resource_metadata(str(row["id"]))

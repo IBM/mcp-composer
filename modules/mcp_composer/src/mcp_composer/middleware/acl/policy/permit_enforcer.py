@@ -1,4 +1,4 @@
-from typing import Dict, Any, Optional
+from typing import Any
 from mcp_composer.core.utils.logger import LoggerFactory
 from mcp_composer.middleware.acl.policy.base_policy_enforcer import BasePolicyEnforcer
 from mcp_composer.middleware.acl.acl_utils import extract_context_info
@@ -16,7 +16,7 @@ class PermitPolicyEnforcer(BasePolicyEnforcer):
     def __init__(
         self,
         permit_url: str = "https://cloud.permit.io",
-        api_key: Optional[str] = None,
+        api_key: str | None = None,
         **kwargs: Any,
     ) -> None:
         """
@@ -59,7 +59,7 @@ class PermitPolicyEnforcer(BasePolicyEnforcer):
             logger.error("Failed to initialize Permit middleware: %s", e)
             self.permit_middleware = None
 
-    def is_allowed(self, tool_name: str, context: Dict[str, Any]) -> bool:
+    def is_allowed(self, tool_name: str, context: dict[str, Any]) -> bool:
         """
         Check if the tool is allowed using Permit.io policy.
 
@@ -109,7 +109,7 @@ class PermitPolicyEnforcer(BasePolicyEnforcer):
             logger.error("Error checking Permit policy: %s", e)
             return False
 
-    def get_user_permissions(self, user_id: str) -> Dict[str, Any]:
+    def get_user_permissions(self, user_id: str) -> dict[str, Any]:
         """
         Get user permissions from Permit.io.
 

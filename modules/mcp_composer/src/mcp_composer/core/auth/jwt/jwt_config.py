@@ -1,6 +1,5 @@
 """JWT configuration models for MCP Composer."""
 
-from typing import Optional, List
 from pydantic import BaseModel, Field, field_validator, model_validator
 import os
 
@@ -45,10 +44,10 @@ class JWTConfig(BaseModel):
     """
 
     # Secret or public key (one required)
-    secret: Optional[str] = Field(
+    secret: str | None = Field(
         None, description="Secret key for HS256/HS384/HS512 algorithms"
     )
-    public_key: Optional[str] = Field(
+    public_key: str | None = Field(
         None, description="Public key for RS256/ES256/PS256 algorithms"
     )
 
@@ -58,8 +57,8 @@ class JWTConfig(BaseModel):
     )
 
     # Validation options
-    issuer: Optional[str] = Field(None, description="Expected token issuer (iss claim)")
-    audience: Optional[str] = Field(
+    issuer: str | None = Field(None, description="Expected token issuer (iss claim)")
+    audience: str | None = Field(
         None, description="Expected token audience (aud claim)"
     )
     verify_exp: bool = Field(default=True, description="Verify token expiration")
@@ -74,7 +73,7 @@ class JWTConfig(BaseModel):
     header_prefix: str = Field(default="Bearer", description="Token prefix in header")
 
     # Additional options
-    required_claims: List[str] = Field(
+    required_claims: list[str] = Field(
         default_factory=list, description="List of required claims in JWT"
     )
     leeway: int = Field(
@@ -184,7 +183,7 @@ class JWTConfig(BaseModel):
                 return default
             return value.lower() in ("true", "1", "yes", "on")
 
-        def get_list(key: str) -> List[str]:
+        def get_list(key: str) -> list[str]:
             """Get list from comma-separated environment variable."""
             value = os.getenv(f"{prefix}{key}", "")
             return [item.strip() for item in value.split(",") if item.strip()]
@@ -215,7 +214,7 @@ class JWTConfig(BaseModel):
         Returns:
             Dictionary of kwargs for JWTVerifier initialization
         """
-        kwargs = {}
+        kwargs: dict[str, str | list[str]] = {}
 
         # Add algorithm
         if self.algorithm:
@@ -233,6 +232,10 @@ class JWTConfig(BaseModel):
 
         # Convert required_claims to required_scopes (FastMCP uses scopes)
         if self.required_claims:
-            kwargs["required_scopes"] = self.required_claims
+            kwargs["required_scopes"] = (
+                self.required_claims
+                if isinstance(self.required_claims, list)
+                else [self.required_claims]
+            )
 
         return kwargs

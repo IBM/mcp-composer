@@ -12,7 +12,7 @@ import asyncio
 import os
 import sys
 from pathlib import Path
-from typing import Dict, List, Optional, Annotated
+from typing import Annotated
 from dotenv import load_dotenv
 
 import typer
@@ -171,46 +171,46 @@ def add_middleware(
         str, Option("--kind", help="Python import path to middleware class")
     ],
     description: Annotated[
-        Optional[str], Option("--description", help="Description of the middleware")
+        str | None, Option("--description", help="Description of the middleware")
     ] = None,
     version: Annotated[  # pylint: disable=redefined-outer-name
-        Optional[str], Option("--version", help="Version of the middleware")
+        str | None, Option("--version", help="Version of the middleware")
     ] = None,
     mode: Annotated[str, Option("--mode", help="Middleware mode")] = "enabled",
     priority: Annotated[int, Option("--priority", help="Execution priority")] = 100,
     applied_hooks: Annotated[
-        Optional[str], Option("--applied-hooks", help="Comma-separated list of hooks")
+        str | None, Option("--applied-hooks", help="Comma-separated list of hooks")
     ] = None,
     include_tools: Annotated[
-        Optional[str],
+        str | None,
         Option("--include-tools", help="Comma-separated list of tools to include"),
     ] = None,
     exclude_tools: Annotated[
-        Optional[str],
+        str | None,
         Option("--exclude-tools", help="Comma-separated list of tools to exclude"),
     ] = None,
     include_prompts: Annotated[
-        Optional[str],
+        str | None,
         Option("--include-prompts", help="Comma-separated list of prompts to include"),
     ] = None,
     exclude_prompts: Annotated[
-        Optional[str],
+        str | None,
         Option("--exclude-prompts", help="Comma-separated list of prompts to exclude"),
     ] = None,
     include_server_ids: Annotated[
-        Optional[str],
+        str | None,
         Option(
             "--include-server-ids", help="Comma-separated list of server IDs to include"
         ),
     ] = None,
     exclude_server_ids: Annotated[
-        Optional[str],
+        str | None,
         Option(
             "--exclude-server-ids", help="Comma-separated list of server IDs to exclude"
         ),
     ] = None,
     config_file: Annotated[
-        Optional[str],
+        str | None,
         Option(
             "--config-file",
             help="Path to JSON file containing middleware configuration",
@@ -289,18 +289,18 @@ def run_composer(
     ] = "mcp-local",
     # Endpoint configuration
     endpoint: Annotated[
-        Optional[str],
+        str | None,
         Option(
             "--endpoint", "-e", help="Endpoint for HTTP or SSE server running remotely"
         ),
     ] = None,
     # Script configuration
     script_path: Annotated[
-        Optional[str],
+        str | None,
         Option("--script-path", "-s", help="Path to the script to run in 'stdio' mode"),
     ] = None,
     directory: Annotated[
-        Optional[str],
+        str | None,
         Option(
             "--directory",
             "-d",
@@ -316,14 +316,14 @@ def run_composer(
     ] = 9000,
     # Authentication
     auth_type: Annotated[
-        Optional[str],
+        str | None,
         Option(
             "--auth-type",
             help="Optional auth type. If 'oauth', uses OAuth authentication",
         ),
     ] = None,
     auth_provider: Annotated[
-        Optional[str],
+        str | None,
         Option(
             "--auth_provider",
             help=(
@@ -335,7 +335,7 @@ def run_composer(
     ] = "oidc",
     # Remote server configuration
     sse_url: Annotated[
-        Optional[str],
+        str | None,
         Option(
             "--sse-url",
             help="Langflow compatible URL for remote SSE / HTTP server to connect to",
@@ -356,7 +356,7 @@ def run_composer(
     ] = "none",
     # Configuration
     config_path: Annotated[
-        Optional[str],
+        str | None,
         Option(
             "--config-path", "-c", help="Path to JSON config for MCP member servers"
         ),
@@ -371,7 +371,7 @@ def run_composer(
     ] = False,
     # Feature flags (specific tools)
     disable_composer_tools_specific: Annotated[
-        Optional[str],
+        str | None,
         Option(
             "--disable-composer-tools-specific",
             help="Comma-separated list of composer tool names to disable (e.g., t1,t2 or [t1,t2])",
@@ -379,7 +379,7 @@ def run_composer(
     ] = None,
     # Environment variables
     env: Annotated[
-        List[str],
+        list[str],
         Option(
             "--env",
             "-E",
@@ -447,7 +447,7 @@ def run_composer(
             raise typer.Exit(1)
 
     # Handle environment variables
-    base_env: Dict[str, str] = {}
+    base_env: dict[str, str] = {}
 
     # Add environment variables from --env arguments
     for env_var in env:
@@ -530,7 +530,7 @@ def info() -> None:
 @app.command("init")
 def init_command(
     project_name: Annotated[
-        Optional[str], Argument(help="Name of the project to initialize")
+        str | None, Argument(help="Name of the project to initialize")
     ] = None,
     defaults: Annotated[
         bool,
@@ -550,7 +550,7 @@ def init_command(
         ),
     ] = True,
     adapter: Annotated[
-        Optional[str],
+        str | None,
         Option(
             "--adapter",
             help=(
@@ -567,7 +567,7 @@ def init_command(
         str, Option("--host", help="Default host for HTTP/SSE server")
     ] = "0.0.0.0",
     server_mode: Annotated[
-        Optional[str],
+        str | None,
         Option(
             "--server-mode",
             help="Default server mode: http, sse, stdio, openapi, graphql, local, or client",
@@ -575,7 +575,7 @@ def init_command(
         ),
     ] = None,
     auth_type: Annotated[
-        Optional[str],
+        str | None,
         Option(
             "--auth-type",
             help="Authentication type: oauth or none",
@@ -583,7 +583,7 @@ def init_command(
         ),
     ] = None,
     database: Annotated[
-        Optional[str],
+        str | None,
         Option(
             "--database",
             help="Database type: sqlite, postgres, or none",
@@ -591,10 +591,10 @@ def init_command(
         ),
     ] = None,
     description: Annotated[
-        Optional[str], Option("--description", help="Project description")
+        str | None, Option("--description", help="Project description")
     ] = None,
     directory: Annotated[
-        Optional[str],
+        str | None,
         Option(
             "--directory",
             "-d",
@@ -628,47 +628,47 @@ def main_callback(
     ctx: typer.Context,  # pylint: disable=unused-argument
     # Server parameters matching original CLI
     mode: Annotated[
-        Optional[str],
+        str | None,
         Option(
             "--mode", help="MCP mode to run (http, sse, or stdio)", case_sensitive=False
         ),
     ] = None,
     id: Annotated[
-        Optional[str], Option("--id", help="Unique ID for this MCP instance")
+        str | None, Option("--id", help="Unique ID for this MCP instance")
     ] = None,
     endpoint: Annotated[
-        Optional[str],
+        str | None,
         Option("--endpoint", help="Endpoint for HTTP or SSE server running remotely"),
     ] = None,
     config_path: Annotated[
-        Optional[str],
+        str | None,
         Option("--config_path", help="Path to JSON config for MCP member servers"),
     ] = None,
     directory: Annotated[
-        Optional[str],
+        str | None,
         Option(
             "--directory", help="Working directory for the uvicorn process (optional)"
         ),
     ] = None,
     script_path: Annotated[
-        Optional[str],
+        str | None,
         Option("--script_path", help="Path to the script to run in 'stdio' mode"),
     ] = None,
     host: Annotated[
-        Optional[str], Option("--host", help="Host for SSE or HTTP server")
+        str | None, Option("--host", help="Host for SSE or HTTP server")
     ] = None,
     port: Annotated[
-        Optional[int], Option("--port", help="Port for SSE or HTTP server")
+        int | None, Option("--port", help="Port for SSE or HTTP server")
     ] = None,
     auth_type: Annotated[
-        Optional[str],
+        str | None,
         Option(
             "--auth_type",
             help="Optional auth type. If 'oauth', uses OAuth authentication",
         ),
     ] = None,
     auth_provider: Annotated[
-        Optional[str],
+        str | None,
         Option(
             "--auth_provider",
             help=(
@@ -679,48 +679,48 @@ def main_callback(
         ),
     ] = "oidc",
     sse_url: Annotated[
-        Optional[str],
+        str | None,
         Option(
             "--sse-url",
             help="Langflow compatible URL for remote SSE / HTTP server to connect to",
         ),
     ] = None,
     disable_composer_tools: Annotated[
-        Optional[bool],
+        bool | None,
         Option(
             "--disable-composer-tools",
             help="Disable all composer tools",
         ),
     ] = False,
     disable_composer_tools_specific: Annotated[
-        Optional[str],
+        str | None,
         Option(
             "--disable-composer-tools-specific",
             help="Comma-separated list of composer tool names to disable (e.g., t1,t2 or [t1,t2])",
         ),
     ] = None,
     pass_environment: Annotated[
-        Optional[bool],
+        bool | None,
         Option(
             "--pass-environment/--no-pass-environment",
             help="Pass through all environment variables when spawning all server processes",
         ),
     ] = None,
     remote_auth_type: Annotated[
-        Optional[str],
+        str | None,
         Option(
             "--remote_auth_type",
             help="Authentication type for remote server (oauth or none)",
         ),
     ] = None,
     client_auth_type: Annotated[
-        Optional[str],
+        str | None,
         Option(
             "--client_auth_type", help="Authentication type for client (oauth or none)"
         ),
     ] = None,
     env: Annotated[
-        Optional[List[str]],
+        list[str] | None,
         Option(
             "--env",
             "-e",
@@ -728,21 +728,21 @@ def main_callback(
         ),
     ] = None,
     log_level: Annotated[
-        Optional[str],
+        str | None,
         Option(
             "--log-level",
             help="Set the logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL)",
         ),
     ] = None,
     timeout: Annotated[
-        Optional[int],
+        int | None,
         Option(
             "--timeout",
             help="Set timeout in seconds for server operations and connections (optional - no timeout by default)",
         ),
     ] = None,
     version: Annotated[
-        Optional[bool],
+        bool | None,
         Option(
             "--version",
             help="Show version information and exit",
@@ -750,7 +750,7 @@ def main_callback(
     ] = False,
     # Unified configuration options
     config: Annotated[
-        Optional[str],
+        str | None,
         Option(
             "--config",
             help=(
@@ -760,13 +760,13 @@ def main_callback(
         ),
     ] = None,
     configfilepath: Annotated[
-        Optional[str], Option("--configfilepath", help="Path to the configuration file")
+        str | None, Option("--configfilepath", help="Path to the configuration file")
     ] = None,
     config_format: Annotated[
-        Optional[str], Option("--format", help="Output format (table, json)")
+        str | None, Option("--format", help="Output format (table, json)")
     ] = None,
     dry_run: Annotated[
-        Optional[bool],
+        bool | None,
         Option(
             "--dry-run", help="Show what would be applied without actually applying"
         ),
@@ -887,7 +887,7 @@ def main_callback(
             logger.error("Failed to load config file %s: %s", config_path, e)
             raise typer.Exit(1)
 
-    base_env: Dict[str, str] = {}
+    base_env: dict[str, str] = {}
 
     # Add environment variables from --env arguments (preprocessed to KEY=VALUE format)
     if env:
@@ -954,17 +954,17 @@ app.callback(invoke_without_command=True)(main_callback)
 
 async def run_dynamic_composer(
     mode: str,
-    config: List[Dict],
-    auth_type: Optional[str] = None,
+    config: list[dict[str, object]],
+    auth_type: str | None = None,
     auth_provider: str = "oidc",
-    sse_url: Optional[str] = None,
+    sse_url: str | None = None,
     remote_auth_type: str = "none",
     client_auth_type: str = "none",
     disable_composer_tools: bool = False,
-    disable_composer_tools_specific: Optional[str] = None,
+    disable_composer_tools_specific: str | None = None,
     host: str = "localhost",
     port: int = 9000,
-    timeout: Optional[int] = None,
+    timeout: int | None = None,
 ) -> None:
     """Run MCP Composer with dynamically constructed configuration."""
     logger.info("Running MCP Composer with dynamic configuration... %s", auth_type)
@@ -1025,7 +1025,7 @@ async def run_dynamic_composer(
         logger.info("mounting Remote server into MCP composer")
         remote_url = sse_url
 
-        remote_proxy = None
+        remote_proxy: MCPComposer | None = None
 
         if remote_auth_type == "oauth":
             remote_settings = ServerSettings(
@@ -1069,17 +1069,19 @@ async def run_dynamic_composer(
 
             # Prefer SSE if you're connecting to /sse
             if remote_url.endswith("/sse"):
-                transport = SSETransport(remote_url, headers=auth_headers)
+                transport: SSETransport | StreamableHttpTransport = SSETransport(
+                    remote_url, headers=auth_headers
+                )
             else:
                 transport = StreamableHttpTransport(remote_url, headers=auth_headers)
 
             # Now create the proxy **from the transport**, not from ProxyClient
-            remote_proxy = MCPComposer.as_proxy(transport, name="remote-oauth")
+            remote_proxy = MCPComposer.as_proxy(transport, name="remote-oauth")  # type: ignore[assignment]
         else:
             logger.info("Created remote client without OAuth")
             from fastmcp.server.proxy import ProxyClient
 
-            remote_proxy = MCPComposer.as_proxy(
+            remote_proxy = MCPComposer.as_proxy(  # type: ignore[assignment]
                 ProxyClient(remote_url), name="local-stdio"
             )
 
@@ -1096,11 +1098,15 @@ async def run_dynamic_composer(
         elif mode == MemberServerType.SSE:
             if timeout is not None:
                 await asyncio.wait_for(
-                    mcp.run_sse_async(host=host, port=port, log_level="debug", path="/sse"),
+                    mcp.run_sse_async(  # type: ignore[attr-defined]
+                        host=host, port=port, log_level="debug", path="/sse"
+                    ),
                     timeout=timeout,
                 )
             else:
-                await mcp.run_sse_async(host=host, port=port, log_level="debug", path="/sse")
+                await mcp.run_sse_async(  # type: ignore[attr-defined]
+                    host=host, port=port, log_level="debug", path="/sse"
+                )
         elif mode == MemberServerType.HTTP:
             if timeout is not None:
                 await asyncio.wait_for(
@@ -1125,13 +1131,14 @@ async def run_dynamic_composer(
 
 def build_config_from_args(
     mode: str,
-    endpoint: Optional[str] = None,
-    script_path: Optional[str] = None,
-    directory: Optional[str] = None,
+    endpoint: str | None = None,
+    script_path: str | None = None,
+    directory: str | None = None,
     id: str = "mcp-local",
-) -> List[Dict]:
+) -> list[dict[str, object]]:
     """Build configuration dictionary from command line arguments."""
 
+    config: dict[str, object]
     if mode in (MemberServerType.SSE, MemberServerType.HTTP):
         if endpoint:
             config = {
@@ -1163,7 +1170,7 @@ def build_config_from_args(
     else:
         raise typer.BadParameter(f"Unsupported mode '{mode}'")
 
-    server_configs = [config]
+    server_configs: list[dict[str, object]] = [config]
     return server_configs
 
 
@@ -1176,7 +1183,7 @@ async def _start_server(
     if mode == "stdio":
         await composer.run_stdio_async()
     elif mode == "sse":
-        await composer.run_sse_async(
+        await composer.run_sse_async(  # type: ignore[attr-defined]
             host=host, port=port, log_level=log_level or "debug", path="/sse"
         )
     elif mode == "http":
@@ -1189,30 +1196,33 @@ async def _start_server(
 
 def _apply_config_and_start_server(
     config: str,
-    configfilepath: Optional[str],
-    config_format: Optional[str],  # pylint: disable=unused-argument
-    dry_run: Optional[bool],
+    configfilepath: str | None,
+    config_format: str | None,  # pylint: disable=unused-argument
+    dry_run: bool | None,
     mode: str,
-    id: Optional[str],
-    endpoint: Optional[str],
-    config_path: Optional[str],  # pylint: disable=unused-argument
-    directory: Optional[str],
-    script_path: Optional[str],
-    host: Optional[str],
-    port: Optional[int],
-    auth_type: Optional[str],
+    id: str | None,
+    endpoint: str | None,
+    config_path: str | None,  # pylint: disable=unused-argument
+    directory: str | None,
+    script_path: str | None,
+    host: str | None,
+    port: int | None,
+    auth_type: str | None,
     auth_provider: str,
-    sse_url: Optional[str],  # pylint: disable=unused-argument
-    disable_composer_tools: Optional[bool],
-    disable_composer_tools_specific: Optional[str],
-    pass_environment: Optional[bool],  # pylint: disable=unused-argument
-    remote_auth_type: Optional[str],  # pylint: disable=unused-argument
-    client_auth_type: Optional[str],  # pylint: disable=unused-argument
-    env: Optional[List[str]],  # pylint: disable=unused-argument
-    log_level: Optional[str],  # pylint: disable=unused-argument
-    timeout: Optional[int],  # pylint: disable=unused-argument
+    sse_url: str | None,  # pylint: disable=unused-argument
+    disable_composer_tools: bool | None,
+    disable_composer_tools_specific: str | None,
+    pass_environment: bool | None,  # pylint: disable=unused-argument
+    remote_auth_type: str | None,  # pylint: disable=unused-argument
+    client_auth_type: str | None,  # pylint: disable=unused-argument
+    env: list[str] | None,  # pylint: disable=unused-argument
+    log_level: str | None,  # pylint: disable=unused-argument
+    timeout: int | None,  # pylint: disable=unused-argument
 ) -> None:
     """Apply configuration and start the server."""
+    # Type assertion - configfilepath should be validated before calling this function
+    assert configfilepath is not None, "configfilepath is required"
+
     try:
         # Determine config type and sections to apply
         config_type = config
@@ -1235,7 +1245,7 @@ def _apply_config_and_start_server(
 
         if dry_run:
             typer.echo("🔍 Dry run mode - showing what would be applied:")
-            _show_dry_run(configfilepath, sections, config_type)
+            _show_dry_run(configfilepath, sections, config)
             return
 
         # Load and validate configuration
@@ -1267,7 +1277,7 @@ def _apply_config_and_start_server(
         # Apply configuration to composer
         config_manager.loader.composer = composer
         results = asyncio.run(
-            config_manager.load_and_apply(configfilepath, sections, config_type)
+            config_manager.load_and_apply(configfilepath, sections, config)
         )
         _display_apply_results(results)
 
@@ -1287,24 +1297,24 @@ def _apply_config_and_start_server(
 
 def _create_composer_instance(
     mode: str,
-    id: Optional[str],
-    endpoint: Optional[str],
-    config_path: Optional[str],
-    directory: Optional[str],
-    script_path: Optional[str],
-    host: Optional[str],
-    port: Optional[int],
-    auth_type: Optional[str],
+    id: str | None,
+    endpoint: str | None,
+    config_path: str | None,
+    directory: str | None,
+    script_path: str | None,
+    host: str | None,
+    port: int | None,
+    auth_type: str | None,
     auth_provider: str,
-    sse_url: Optional[str],
-    disable_composer_tools: Optional[bool],
-    disable_composer_tools_specific: Optional[str],
-    pass_environment: Optional[bool],
-    remote_auth_type: Optional[str],
-    client_auth_type: Optional[str],
-    env: Optional[List[str]],
-    log_level: Optional[str],
-    timeout: Optional[int],
+    sse_url: str | None,
+    disable_composer_tools: bool | None,
+    disable_composer_tools_specific: str | None,
+    pass_environment: bool | None,
+    remote_auth_type: str | None,
+    client_auth_type: str | None,
+    env: list[str] | None,
+    log_level: str | None,
+    timeout: int | None,
 ) -> MCPComposer:
     """Create MCPComposer instance with the given parameters."""
     # Set defaults
@@ -1370,11 +1380,12 @@ def _create_composer_instance(
 def _build_config_from_args(
     mode: str,
     id: str,
-    endpoint: Optional[str],
-    script_path: Optional[str],
-    directory: Optional[str],
-) -> List[Dict]:
+    endpoint: str | None,
+    script_path: str | None,
+    directory: str | None,
+) -> list[dict[str, object]]:
     """Build configuration from command line arguments."""
+    config: dict[str, object]
     if mode in ["http", "sse"]:
         if endpoint:
             config = {
@@ -1404,18 +1415,22 @@ def _build_config_from_args(
     else:
         raise ValueError(f"Unsupported mode '{mode}'")
 
-    return [config] if config else []
+    result: list[dict[str, object]] = [config] if config else []
+    return result
 
 
 def _handle_unified_config_commands(
     config: str,
-    configfilepath: Optional[str],
-    config_format: Optional[str],  # pylint: disable=unused-argument
-    dry_run: Optional[bool],
+    configfilepath: str | None,
+    config_format: str | None,  # pylint: disable=unused-argument
+    dry_run: bool | None,
 ) -> None:
     """Handle unified configuration commands as global options with optimized error handling."""
     if not configfilepath:
         _handle_error("--configfilepath is required when using --config")
+
+    # Type assertion after None check
+    assert configfilepath is not None
 
     try:
         config_manager = ConfigManager()
@@ -1444,7 +1459,7 @@ def _handle_unified_config_commands(
         _handle_error(f"Unexpected error: {e}")
 
 
-def _handle_error(message: str, suggestion: Optional[str] = None) -> None:
+def _handle_error(message: str, suggestion: str | None = None) -> None:
     """Handle errors with consistent formatting."""
     typer.echo(f"❌ Error: {message}")
     if suggestion:
@@ -1476,7 +1491,7 @@ def _handle_apply_command(
     config_manager: ConfigManager,
     config: str,
     configfilepath: str,
-    dry_run: Optional[bool],
+    dry_run: bool | None,
 ) -> None:
     """Handle apply commands."""
     # Parse sections to apply
@@ -1641,7 +1656,7 @@ def _show_all_sections(config_dict: dict) -> None:
 
 def _show_dry_run(
     configfilepath: str,
-    sections: Optional[List[ConfigSection]],
+    sections: list[ConfigSection] | None,
     config_type: str = "all",
 ) -> None:
     """Show what would be applied in dry run mode."""

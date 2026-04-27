@@ -94,35 +94,35 @@ class TestSecretAdapter:
 
     def test_method_signatures(self):
         """Test that abstract methods have correct signatures"""
-        from typing import Dict, List, Optional, Any
+        from typing import Any
 
         # Test load_config
         sig = SecretAdapter.load_config.__annotations__
         assert "server_id" in sig
         assert sig["server_id"] == str  # noqa: E721
         assert "return" in sig
-        assert sig["return"] == Dict[str, Any]
+        assert sig["return"] == dict[str, Any]
 
         # Test save_config
         sig = SecretAdapter.save_config.__annotations__
         assert "server_id" in sig
         assert sig["server_id"] == str  # noqa: E721
         assert "versions" in sig
-        assert sig["versions"] == List[Dict[str, Any]]
+        assert sig["versions"] == list[dict[str, Any]]
 
         # Test get_all_versions
         sig = SecretAdapter.get_all_versions.__annotations__
         assert "server_id" in sig
         assert sig["server_id"] == str  # noqa: E721
         assert "return" in sig
-        assert sig["return"] == List[Dict[str, Any]]
+        assert sig["return"] == list[dict[str, Any]]
 
         # Test get_latest_version
         sig = SecretAdapter.get_latest_version.__annotations__
         assert "server_id" in sig
         assert sig["server_id"] == str  # noqa: E721
         assert "return" in sig
-        assert sig["return"] == Optional[Dict[str, Any]]
+        assert sig["return"] == dict[str, Any] | None
 
         # Test get_version_by_id
         sig = SecretAdapter.get_version_by_id.__annotations__
@@ -131,7 +131,7 @@ class TestSecretAdapter:
         assert "version_id" in sig
         assert sig["version_id"] == str  # noqa: E721
         assert "return" in sig
-        assert sig["return"] == Optional[Dict[str, Any]]
+        assert sig["return"] == dict[str, Any] | None
 
         # Test rollback
         sig = SecretAdapter.rollback.__annotations__
@@ -140,7 +140,7 @@ class TestSecretAdapter:
         assert "version_id" in sig
         assert sig["version_id"] == str  # noqa: E721
         assert "return" in sig
-        assert sig["return"] == Dict[str, Any]
+        assert sig["return"] == dict[str, Any]
 
     def test_docstrings_exist(self):
         """Test that methods have docstrings"""

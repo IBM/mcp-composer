@@ -41,9 +41,13 @@ from mcp_composer.store.catalog_skills_provider import CatalogSkillsProvider
 # _skill_manager is the only entry point to the DB from this module.
 _skill_manager = SkillManager(get_catalog_db())
 
-catalog_mcp = FastMCP("skill-catalog", instructions="This MCP server provides access to the skill catalog.")
+catalog_mcp = FastMCP(
+    "skill-catalog",
+    instructions="This MCP server provides access to the skill catalog.",
+)
 
 catalog_mcp.add_provider(CatalogSkillsProvider())  # ← add here, stays in catalog module
+
 
 def get_skill_mcp() -> FastMCP:
     """Return the module-level catalog FastMCP instance (zero-arg, composable)."""
@@ -76,11 +80,11 @@ def _collect_reference_entries(resp: SkillResponse) -> list[dict[str, str]]:
             for item in extra:
                 if not isinstance(item, dict):
                     continue
-                u = item.get("url")
-                f = item.get("file")
-                if not isinstance(u, str) or not isinstance(f, str):
+                url_val = item.get("url")
+                file_val = item.get("file")
+                if not isinstance(url_val, str) or not isinstance(file_val, str):
                     continue
-                u, f = u.strip(), f.strip()
+                u, f = url_val.strip(), file_val.strip()
                 if not u or not f:
                     continue
                 key = (u, f)
@@ -96,7 +100,9 @@ def _validate_reference_file_arg(file_arg: str) -> str:
     if not f:
         raise ValueError("file is a required field")
     if ".." in f or "/" in f or "\\" in f:
-        raise ValueError("file must be a basename only (e.g. finops-aws.md), not a path")
+        raise ValueError(
+            "file must be a basename only (e.g. finops-aws.md), not a path"
+        )
     return f
 
 
@@ -446,7 +452,9 @@ async def add_skill(
     return result.model_dump(by_alias=True)
 
 
-def _parse_skill_bundle(raw: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any] | None]:
+def _parse_skill_bundle(
+    raw: dict[str, Any],
+) -> tuple[dict[str, Any], dict[str, Any] | None]:
     """Split a bundle dict into skill document and optional catalog_resource_metadata.data."""
     meta_keys = (
         "catalog_resource_metadata",
@@ -563,7 +571,9 @@ async def publish_skill_bundle(
     return result.model_dump(by_alias=True)
 
 
-def _parse_skill_bundle(raw: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any] | None]:
+def _parse_skill_bundle(
+    raw: dict[str, Any],
+) -> tuple[dict[str, Any], dict[str, Any] | None]:
     """Split a bundle dict into skill document and optional catalog_resource_metadata.data."""
     meta_keys = (
         "catalog_resource_metadata",
@@ -678,10 +688,17 @@ async def update_skill_status(
     if not status or not status.strip():
         raise ValueError("status is a required field")
     try:
-        await _skill_manager.update_status(name.strip(), version.strip(), status.strip())
+        await _skill_manager.update_status(
+            name.strip(), version.strip(), status.strip()
+        )
     except (
         CatalogResourceNotFoundError,
         InvalidCatalogResourceStatusError,
     ) as exc:
         raise ValueError(str(exc)) from exc
-    return {"ok": True, "name": name.strip(), "version": version.strip(), "status": status.strip()}
+    return {
+        "ok": True,
+        "name": name.strip(),
+        "version": version.strip(),
+        "status": status.strip(),
+    }

@@ -1,7 +1,8 @@
 """Tools util functions"""
 
-from typing import Optional, List, Dict, Any, Callable, Tuple, Sequence
-from fastmcp.tools.tool import Tool
+from typing import Any, Callable
+from collections.abc import Sequence
+from fastmcp.tools import Tool
 from fastmcp.exceptions import NotFoundError
 from pydantic import ValidationError
 import uncurl
@@ -24,7 +25,7 @@ def format_tool(tool: Tool) -> dict:
     }
 
 
-async def generate_tool_from_curl() -> List[Callable[[], Any]]:
+async def generate_tool_from_curl() -> list[Callable[[], Any]]:
     """Create tool from curl command"""
     try:
         return DynamicToolGenerator.read_curl_from_file()
@@ -37,7 +38,7 @@ async def generate_tool_from_curl() -> List[Callable[[], Any]]:
         ) from e
 
 
-async def generate_tool_from_open_api() -> Dict[str, Tuple[Dict[str, Any], Any]]:
+async def generate_tool_from_open_api() -> dict[str, tuple[dict[str, Any], Any]]:
     """Create tool from OpenAPI specification"""
     try:
         return await OpenApiTool.read_openapi_from_file()
@@ -105,7 +106,7 @@ async def tool_from_script(config: dict) -> Callable[[], Any]:
 
 async def tool_from_open_api(
     open_api: dict, auth_config: dict | None = None
-) -> Tuple[str, Any]:
+) -> tuple[str, Any]:
     """Create tool from OpenAPI specification"""
     try:
         # for now, considering only one server
@@ -136,7 +137,7 @@ async def tool_exist(tools: list[str] | str, all_tools: Sequence[Tool]) -> None:
         raise NotFoundError(f"Unknown tool(s):{unknown_tools}")
 
 
-def tool_config(server_tools: Sequence[Tool], key: Optional[str] = None) -> list[dict]:
+def tool_config(server_tools: Sequence[Tool], key: str | None = None) -> list[dict]:
     """
     Get tool configuration details by tool name or server
     """

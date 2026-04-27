@@ -133,17 +133,15 @@ class TestDatabaseInterface:
 
     def test_method_signatures(self):
         """Test that abstract methods have correct signatures"""
-        from typing import List, Dict
-
         # Test load_all_servers
         sig = DatabaseInterface.load_all_servers.__annotations__
         assert "return" in sig
-        assert sig["return"] == List[Dict]
+        assert sig["return"] == list[dict[str, object]]
 
         # Test add_server
         sig = DatabaseInterface.add_server.__annotations__
         assert "config" in sig
-        assert sig["config"] == Dict
+        assert sig["config"] == dict[str, object]
 
         # Test remove_server
         sig = DatabaseInterface.remove_server.__annotations__
@@ -155,7 +153,7 @@ class TestDatabaseInterface:
         assert "server_id" in sig
         assert sig["server_id"] == str  # noqa: E721
         assert "return" in sig
-        assert sig["return"] == Dict
+        assert sig["return"] == dict[str, object]
 
         # Test enable_tools
         sig = DatabaseInterface.enable_tools.__annotations__
@@ -223,17 +221,17 @@ class TestDatabaseInterface:
         # Test update_server_config
         sig = DatabaseInterface.update_server_config.__annotations__
         assert "config" in sig
-        assert sig["config"] == dict  # noqa: E721
+        assert sig["config"] == dict[str, object]
 
         # Test load_all_resources
         sig = DatabaseInterface.load_all_resources.__annotations__
         assert "return" in sig
-        assert sig["return"] == List[Dict]
+        assert sig["return"] == list[dict[str, object]]
 
         # Test upsert_resource
         sig = DatabaseInterface.upsert_resource.__annotations__
         assert "resource" in sig
-        assert sig["resource"] == Dict
+        assert sig["resource"] == dict[str, object]
 
         # Test delete_resource
         sig = DatabaseInterface.delete_resource.__annotations__

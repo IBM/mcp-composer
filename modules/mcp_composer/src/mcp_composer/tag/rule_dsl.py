@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import Any, Dict, List, Optional
+from typing import Any
 import re
 import yaml
 
@@ -10,7 +10,7 @@ except Exception:  # pragma: no cover
 
 
 class Rule:
-    def __init__(self, name: str, when: Dict[str, Any], then: Dict[str, Any]):
+    def __init__(self, name: str, when: dict[str, Any], then: dict[str, Any]) -> None:
         self.name = name
         self.when = when
         self.then = then
@@ -19,7 +19,7 @@ class Rule:
         return re.search(pattern, text or "", flags=re.I) is not None
 
     def _match_jsonpath(
-        self, tool: Dict[str, Any], expr: str, pattern: Optional[str]
+        self, tool: dict[str, Any], expr: str, pattern: str | None
     ) -> bool:
         if not jsonpath_parse:
             return False
@@ -28,7 +28,7 @@ class Rule:
             return bool(values)
         return any(self._match_regex(pattern, str(v)) for v in values)
 
-    def matches(self, tool: Dict[str, Any]) -> bool:
+    def matches(self, tool: dict[str, Any]) -> bool:
         """Support keys: name_regex, desc_regex, input_jsonpath, output_jsonpath, vendor_regex, endpoint_regex"""
         w = self.when or {}
         tests = []
@@ -58,9 +58,9 @@ class Rule:
         return all(tests) if mode == "all" else any(tests)
 
     @staticmethod
-    def load_all(path: str) -> List["Rule"]:
+    def load_all(path: str) -> list["Rule"]:
         data = yaml.safe_load(open(path, encoding="utf-8")) or {}
-        rules: List[Rule] = []
+        rules: list[Rule] = []
         for obj in data.get("rules", []):
             rules.append(
                 Rule(obj.get("name"), obj.get("when", {}), obj.get("then", {}))

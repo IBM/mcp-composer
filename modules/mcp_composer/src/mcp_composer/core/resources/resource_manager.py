@@ -3,8 +3,9 @@
 from __future__ import annotations
 import asyncio
 import logging
-from typing import TYPE_CHECKING, Dict, List, Any, Optional
-from fastmcp.resources import Resource, ResourceTemplate, FunctionResource
+from typing import TYPE_CHECKING, Any
+from fastmcp.resources import Resource, ResourceTemplate
+import asyncio.tasks
 
 from mcp_composer.core.member_servers.member_server import HealthStatus
 from mcp_composer.core.member_servers.server_manager import ServerManager
@@ -38,10 +39,10 @@ class MCPResourceManager:
         self._parent_resources = instance_dict.get("_resources", {})
         self._parent_templates = instance_dict.get("_templates", {})
         # self._fastmcp_resource_manager = fastmcp_resource_manager
-        self._resource_templates: Dict[str, ResourceTemplate] = {}
-        self._resources: Dict[str, Resource] = {}
+        self._resource_templates: dict[str, ResourceTemplate] = {}
+        self._resources: dict[str, Resource] = {}
         self._storage_enabled = database is not None
-        self._restore_task = None
+        self._restore_task: asyncio.tasks.Task[None] | None = None
         self.warn_on_duplicate_resources = True
 
     def schedule_persisted_restore(self) -> None:
@@ -176,11 +177,11 @@ class MCPResourceManager:
         self._resource_templates[template.name] = template
         return template
 
-    def get_resource(self, name: str) -> Optional[Resource]:
+    def get_resource(self, name: str) -> Resource | None:
         """Get resource by name."""
         return self._resources.get(name)
 
-    def get_template(self, name: str) -> Optional[ResourceTemplate]:
+    def get_template(self, name: str) -> ResourceTemplate | None:
         """Get resource template by name."""
         return self._resource_templates.get(name)
 
@@ -474,6 +475,7 @@ class MCPResourceManager:
 
             # If a function is provided, use from_function, else create a static template
             fn = resource_config.get("function")
+            template: ResourceTemplate | Any
             if fn:
                 template = ResourceTemplate.from_function(
                     fn=fn,
@@ -559,6 +561,7 @@ class MCPResourceManager:
 
             # If a function is provided, use from_function, else create a static resource
             fn = resource_config.get("function")
+            resource: Resource | Any
             if fn:
                 resource = Resource.from_function(
                     fn=fn,
@@ -641,7 +644,9 @@ class MCPResourceManager:
 
         return f"Deleted resources/templates: {', '.join(sorted(set(removed)))}"
 
-    async def list_resources_per_server(self, server_id: str) -> List[Dict]:
+    async def list_resources_per_server(
+        self, server_id: str
+    ) -> list[dict[str, object]]:
         """List all resources from a specific server."""
         try:
             if not self._server_manager or not self._server_manager.has_member_server(
@@ -723,7 +728,7 @@ class MCPResourceManager:
             logger.error("Error listing resources for server %s: %s", server_id, e)
             return []
 
-    async def filter_resources(self, filter_criteria: dict) -> List[Dict]:
+    async def filter_resources(self, filter_criteria: dict) -> list[dict[str, object]]:
         """
         Filter both resources and templates based on criteria like name, description, tags, etc.
         """
@@ -740,6 +745,7 @@ class MCPResourceManager:
             # Add resources with type indicator
             for resource in resources:
                 # Handle both Resource objects and dict-like objects
+                resource_data: dict[str, Any]
                 if isinstance(resource, dict):
                     resource_data = {
                         "item": resource,
@@ -763,6 +769,7 @@ class MCPResourceManager:
             # Add templates with type indicator
             for template in templates:
                 # Handle both ResourceTemplate objects and dict-like objects
+                template_data: dict[str, Any]
                 if isinstance(template, dict):
                     template_data = {
                         "item": template,
@@ -790,7 +797,7 @@ class MCPResourceManager:
                 # Filter by name
                 if "name" in filter_criteria and filter_criteria["name"]:
                     search_name = filter_criteria["name"].lower()
-                    item_name = item_data["name"].lower()
+                    item_name = str(item_data["name"]).lower()
                     if search_name not in item_name:
                         match = False
 
@@ -801,14 +808,14 @@ class MCPResourceManager:
                     and filter_criteria["description"]
                 ):
                     search_desc = filter_criteria["description"].lower()
-                    item_desc = item_data["description"].lower()
+                    item_desc = str(item_data["description"]).lower()
                     if search_desc not in item_desc:
                         match = False
 
                 # Filter by tags
                 if match and "tags" in filter_criteria and filter_criteria["tags"]:
                     search_tags = set(tag.lower() for tag in filter_criteria["tags"])
-                    item_tags = set(tag.lower() for tag in item_data["tags"])
+                    item_tags = set(str(tag).lower() for tag in item_data["tags"])
                     if not search_tags.intersection(item_tags):
                         match = False
 
@@ -830,7 +837,8 @@ class MCPResourceManager:
 
                     if (
                         uri
-                        and filter_criteria["uri_pattern"].lower() not in uri.lower()
+                        and filter_criteria["uri_pattern"].lower()
+                        not in str(uri).lower()
                     ):
                         match = False
 

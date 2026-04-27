@@ -1,5 +1,5 @@
 import re
-from typing import Optional, Callable, Dict, Any, List, Iterable
+from typing import Any, Callable, Iterable
 from fastmcp.server.middleware import Middleware, MiddlewareContext, CallNext
 from fastmcp.exceptions import ToolError
 from mcp_composer.core.utils.logger import LoggerFactory
@@ -54,7 +54,7 @@ _PROMPT_MANIPULATION = [
 _URL_REGEX = r"https?://[^\s]+"
 
 
-def _find_matches(patterns: Iterable[str], text: str) -> List[str]:
+def _find_matches(patterns: Iterable[str], text: str) -> list[str]:
     hits = []
     for p in patterns:
         if re.search(p, text, flags=re.IGNORECASE):
@@ -63,8 +63,8 @@ def _find_matches(patterns: Iterable[str], text: str) -> List[str]:
 
 
 def default_heuristic_score(
-    payload_text: str, url_allowlist: Optional[Iterable[str]] = None
-) -> Dict[str, Any]:
+    payload_text: str, url_allowlist: Iterable[str] | None = None
+) -> dict[str, Any]:
     """
     Returns a dict with score in [0,1] and matched indicators for explainability.
     """
@@ -117,7 +117,7 @@ def sanitize_text(payload_text: str) -> str:
     """
     # Remove common directive lines
     lines = payload_text.splitlines()
-    keep: List[str] = []
+    keep: list[str] = []
     all_patterns = (
         _OVERRIDE_PATTERNS + _TOOL_STEERING + _DATA_EXFIL + _PROMPT_MANIPULATION
     )
@@ -156,12 +156,12 @@ class PromptInjectionMiddleware(Middleware):
         *,
         block_on_high_risk: bool = True,
         threshold: float = 0.75,
-        url_allowlist: Optional[Iterable[str]] = None,
-        use_llm_checker: Optional[Callable[[str], Any]] = None,
+        url_allowlist: Iterable[str] | None = None,
+        use_llm_checker: Callable[[str], Any] | None = None,
         sanitize_on_medium: bool = True,
-        inspect_fields: Optional[List[str]] = None,
+        inspect_fields: list[str] | None = None,
         block_prompts: bool = True,
-        prompt_fields: Optional[List[str]] = None,
+        prompt_fields: list[str] | None = None,
     ):
         self.block_on_high_risk = block_on_high_risk
         self.threshold = threshold
@@ -183,8 +183,8 @@ class PromptInjectionMiddleware(Middleware):
             }
         )
 
-    def _collect_text(self, obj: Any) -> List[str]:
-        texts: List[str] = []
+    def _collect_text(self, obj: Any) -> list[str]:
+        texts: list[str] = []
         if isinstance(obj, str):
             texts.append(obj)
         elif isinstance(obj, dict):
@@ -200,9 +200,9 @@ class PromptInjectionMiddleware(Middleware):
                 texts.extend(self._collect_text(v))
         return texts
 
-    def _collect_prompt_text(self, prompt_obj: Any) -> List[str]:
+    def _collect_prompt_text(self, prompt_obj: Any) -> list[str]:
         """Collect text from prompt-specific fields"""
-        texts: List[str] = []
+        texts: list[str] = []
 
         if isinstance(prompt_obj, dict):
             for field in self.prompt_fields:
@@ -223,7 +223,7 @@ class PromptInjectionMiddleware(Middleware):
 
         return texts
 
-    async def _assess(self, text: str) -> Dict[str, Any]:
+    async def _assess(self, text: str) -> dict[str, Any]:
         heur = default_heuristic_score(text, self.url_allowlist)
         score = heur["score"]
         reason = heur["matches"]
@@ -247,7 +247,7 @@ class PromptInjectionMiddleware(Middleware):
 
         return {"score": score, "reason": reason}
 
-    async def _maybe_sanitize_arguments(self, args: Any, risky_texts: List[str]) -> Any:
+    async def _maybe_sanitize_arguments(self, args: Any, risky_texts: list[str]) -> Any:
         # Replace exact risky strings with sanitized versions inside the nested args structure
         def _walk(x):
             if isinstance(x, str) and x in risky_texts:
@@ -261,7 +261,7 @@ class PromptInjectionMiddleware(Middleware):
         return _walk(args)
 
     async def _maybe_sanitize_prompt(
-        self, prompt_obj: Any, risky_texts: List[str]
+        self, prompt_obj: Any, risky_texts: list[str]
     ) -> Any:
         """Sanitize prompt content in-place"""
 
@@ -356,7 +356,7 @@ class PromptInjectionMiddleware(Middleware):
         # Aggregate risk across all texts
         overall_score = 0.0
         worst_reason = None
-        per_text_scores: Dict[str, float] = {}
+        per_text_scores: dict[str, float] = {}
 
         for t in texts:
             assessment = await self._assess(t)

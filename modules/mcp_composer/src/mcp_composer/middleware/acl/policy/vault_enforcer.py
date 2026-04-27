@@ -1,6 +1,6 @@
 import os
 import json
-from typing import Dict, Any, Optional, List, TYPE_CHECKING
+from typing import Any, TYPE_CHECKING
 
 # Lazy import for optional HashiCorp Vault dependency
 try:
@@ -44,7 +44,7 @@ class HashiCorpVaultPolicyEnforcer(BasePolicyEnforcer):
     def __init__(
         self,
         vault_url: str = os.getenv("VAULT_URL", "http://localhost:8200"),
-        token: Optional[str] = os.getenv("VAULT_TOKEN", "root"),
+        token: str | None = os.getenv("VAULT_TOKEN", "root"),
         mount_point: str = os.getenv("VAULT_MOUNT_POINT", "secret"),
         policy_path: str = os.getenv("VAULT_POLICY_PATH", "mcp-policies"),
         **kwargs: Any,
@@ -102,7 +102,7 @@ class HashiCorpVaultPolicyEnforcer(BasePolicyEnforcer):
             logger.error("Failed to initialize Vault client: %s", e)
             self.client = None
 
-    def _get_policy_from_vault(self, role: str) -> Optional[Dict[str, Any]]:
+    def _get_policy_from_vault(self, role: str) -> dict[str, Any] | None:
         """
         Retrieve policy for a specific role from Vault.
 
@@ -150,7 +150,7 @@ class HashiCorpVaultPolicyEnforcer(BasePolicyEnforcer):
             return None
 
     def _evaluate_conditions(
-        self, policy: Dict[str, Any], context_info: Dict[str, Any]
+        self, policy: dict[str, Any], context_info: dict[str, Any]
     ) -> bool:
         """
         Evaluate policy conditions against context.
@@ -216,7 +216,7 @@ class HashiCorpVaultPolicyEnforcer(BasePolicyEnforcer):
 
         return True
 
-    def is_allowed(self, tool_name: str, context: Dict[str, Any]) -> bool:
+    def is_allowed(self, tool_name: str, context: dict[str, Any]) -> bool:
         """
         Check if the tool is allowed based on Vault policy.
 
@@ -269,7 +269,7 @@ class HashiCorpVaultPolicyEnforcer(BasePolicyEnforcer):
 
         return True
 
-    def update_policy(self, role: str, policy_data: Dict[str, Any]) -> bool:
+    def update_policy(self, role: str, policy_data: dict[str, Any]) -> bool:
         """
         Update policy for a role in Vault.
 
@@ -297,7 +297,7 @@ class HashiCorpVaultPolicyEnforcer(BasePolicyEnforcer):
             logger.error("Error updating policy for role %s in Vault: %s", role, e)
             return False
 
-    def list_policies(self) -> List[str]:
+    def list_policies(self) -> list[str]:
         """
         List all available policies in Vault.
 
@@ -321,7 +321,7 @@ class HashiCorpVaultPolicyEnforcer(BasePolicyEnforcer):
             logger.error("Error listing policies in Vault: %s", e)
             return []
 
-    def get_connection_status(self) -> Dict[str, Any]:
+    def get_connection_status(self) -> dict[str, Any]:
         """
         Get the current connection status of the Vault client.
 

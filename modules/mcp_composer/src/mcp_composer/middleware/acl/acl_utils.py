@@ -3,13 +3,13 @@ ACL utilities for policy enforcement and role resolution.
 """
 
 import os
-from typing import Dict, Any
+from typing import Any
 from mcp_composer.core.utils.logger import LoggerFactory
 
 logger = LoggerFactory.get_logger()
 
 
-def resolve_role_from_context(context: Dict[str, Any]) -> str:
+def resolve_role_from_context(context: dict[str, Any]) -> str:
     """
     Resolve the current role from the context.
 
@@ -63,7 +63,7 @@ def resolve_role_from_context(context: Dict[str, Any]) -> str:
     return default_role
 
 
-def extract_context_info(context: Dict[str, Any]) -> Dict[str, Any]:
+def extract_context_info(context: dict[str, Any]) -> dict[str, Any]:
     """
     Extract relevant information from context for policy evaluation.
 
@@ -107,7 +107,7 @@ def extract_context_info(context: Dict[str, Any]) -> Dict[str, Any]:
     return extracted
 
 
-def validate_policy_config(config: Dict[str, Any]) -> bool:
+def validate_policy_config(config: dict[str, Any]) -> bool:
     """
     Validate policy configuration.
 

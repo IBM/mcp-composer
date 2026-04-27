@@ -10,7 +10,7 @@ import shutil
 import subprocess
 import sys
 from pathlib import Path
-from typing import Optional, Dict, Annotated
+from typing import Annotated
 
 import typer
 from typer import Option, Argument
@@ -36,7 +36,7 @@ app = typer.Typer(
 @app.command("init")
 def init_project(
     project_name: Annotated[
-        Optional[str], Argument(help="Name of the project to initialize")
+        str | None, Argument(help="Name of the project to initialize")
     ] = None,
     defaults: Annotated[
         bool,
@@ -53,7 +53,7 @@ def init_project(
         bool, Option("--with-venv", help="Create a virtual environment in the project")
     ] = True,
     adapter: Annotated[
-        Optional[str],
+        str | None,
         Option(
             "--adapter",
             help=(
@@ -70,7 +70,7 @@ def init_project(
         str, Option("--host", help="Default host for HTTP/SSE server")
     ] = "0.0.0.0",
     server_mode: Annotated[
-        Optional[str],
+        str | None,
         Option(
             "--server-mode",
             help=(
@@ -81,7 +81,7 @@ def init_project(
         ),
     ] = None,
     auth_type: Annotated[
-        Optional[str],
+        str | None,
         Option(
             "--auth-type",
             help="Authentication type: oauth or none",
@@ -89,7 +89,7 @@ def init_project(
         ),
     ] = None,
     database: Annotated[
-        Optional[str],
+        str | None,
         Option(
             "--database",
             help="Database type: sqlite, postgres, or none",
@@ -97,10 +97,10 @@ def init_project(
         ),
     ] = None,
     description: Annotated[
-        Optional[str], Option("--description", help="Project description")
+        str | None, Option("--description", help="Project description")
     ] = None,
     directory: Annotated[
-        Optional[str],
+        str | None,
         Option(
             "--directory",
             "-d",
@@ -196,7 +196,9 @@ def init_project(
         }
 
     # Determine target directory
-    target_dir = Path(directory) if directory else Path(config["project_name"])
+    target_dir = (
+        Path(str(directory)) if directory else Path(str(config["project_name"]))
+    )
 
     # Check if directory exists
     if target_dir.exists():
@@ -233,7 +235,9 @@ def init_project(
         _display_validation_results(validation_results)
 
         # Show success message with next steps
-        _show_success_message(config, target_dir, validation_results, venv_created)
+        _show_success_message(
+            config, target_dir, dict(validation_results), venv_created
+        )
 
     except Exception as e:
         rprint(f"[red]❌ Error initializing project: {e}[/red]")
@@ -256,15 +260,15 @@ def _show_welcome_banner() -> None:
 
 
 def _interactive_setup(
-    project_name: Optional[str],
-    adapter: Optional[str],
+    project_name: str | None,
+    adapter: str | None,
     port: int,
     host: str,
-    server_mode: Optional[str],
-    auth_type: Optional[str],
-    database: Optional[str],
-    description: Optional[str],
-) -> Dict:
+    server_mode: str | None,
+    auth_type: str | None,
+    database: str | None,
+    description: str | None,
+) -> dict[str, object]:
     """Run interactive setup prompts."""
 
     rprint("\n[bold cyan]Let's set up your MCP Composer project![/bold cyan]\n")
@@ -346,9 +350,9 @@ def _interactive_setup(
     }
 
 
-def _validate_environment(target_dir: Path) -> Dict[str, Dict]:
+def _validate_environment(target_dir: Path) -> dict[str, dict[str, object]]:
     """Validate environment after project creation."""
-    results = {
+    results: dict[str, dict[str, object]] = {
         "dependencies": {},
         "paths": {},
         "permissions": {},
@@ -415,7 +419,7 @@ def _validate_environment(target_dir: Path) -> Dict[str, Dict]:
     return results
 
 
-def _display_validation_results(results: Dict[str, Dict]) -> None:
+def _display_validation_results(results: dict[str, dict[str, object]]) -> None:
     """Display validation results in a formatted way."""
 
     def _get_status_icon(status: str) -> str:
@@ -426,8 +430,8 @@ def _display_validation_results(results: Dict[str, Dict]) -> None:
     for category, checks in results.items():
         rprint(f"\n[bold cyan]{category.title()}:[/bold cyan]")
         for check in checks.values():
-            icon = _get_status_icon(check["status"])
-            rprint(f"  {icon} {check['message']}")
+            icon = _get_status_icon(check["status"])  # type: ignore[index]
+            rprint(f"  {icon} {check['message']}")  # type: ignore[index]
 
 
 def _create_virtual_environment(target_dir: Path) -> bool:
@@ -471,7 +475,10 @@ def _create_virtual_environment(target_dir: Path) -> bool:
 
 
 def _show_success_message(
-    config: Dict, target_dir: Path, validation_results: Dict, venv_created: bool = False
+    config: dict[str, object],
+    target_dir: Path,
+    validation_results: dict[str, object],
+    venv_created: bool = False,
 ) -> None:
     """Display success message with next steps."""
 
@@ -479,7 +486,7 @@ def _show_success_message(
     has_errors = any(
         check["status"] == "error"
         for category in validation_results.values()
-        for check in category.values()
+        for check in category.values()  # type: ignore[attr-defined]
     )
 
     if has_errors:
@@ -504,7 +511,7 @@ def _show_success_message(
         next_steps.append("uv pip install -e .")
     else:
         next_steps.append("# Create virtual environment:")
-        if validation_results["dependencies"]["uv"]["status"] == "ok":
+        if validation_results["dependencies"]["uv"]["status"] == "ok":  # type: ignore[index]
             next_steps.append("uv venv")
             next_steps.append(
                 "source .venv/bin/activate  # On Windows: .venv\\Scripts\\activate"

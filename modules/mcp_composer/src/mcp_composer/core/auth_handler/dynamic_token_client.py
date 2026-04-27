@@ -65,8 +65,8 @@ class DynamicTokenClient(httpx.AsyncClient):
         if timeout <= 0:
             raise ValueError("timeout must be positive")
 
-        self._access_token = None
-        self._expires_at = 0
+        self._access_token: str | None = None
+        self._expires_at: float = 0
         self.auth_data = auth_data
         self.headers = headers or {}
         self._auth_prefix = (
@@ -123,7 +123,7 @@ class DynamicTokenClient(httpx.AsyncClient):
                         scope=self.auth_data.get(ConfigKey.SCOPE),
                     )
                     self._access_token = access_token
-                    self._expires_at = (
+                    self._expires_at = float(
                         time.time() + DEFAULT_TOKEN_EXPIRY - TOKEN_REFRESH_BUFFER
                     )
                     logger.debug(
@@ -146,7 +146,9 @@ class DynamicTokenClient(httpx.AsyncClient):
 
                     self._access_token = access_token
                     effective = min(expires_in, MAX_TOKEN_LIFETIME)
-                    self._expires_at = time.time() + effective - TOKEN_REFRESH_BUFFER
+                    self._expires_at = float(
+                        time.time() + effective - TOKEN_REFRESH_BUFFER
+                    )
                     logger.debug(
                         "Token via client_credentials, effective expiry %.1f min",
                         effective / 60,
@@ -174,8 +176,8 @@ class DynamicTokenClient(httpx.AsyncClient):
                     "Content-Type": "application/json",
                     "Accept": "application/json",
                 }
-                data = {ConfigKey.APIKEY: apikey}
-                response = await super().post(token_url, headers=headers, json=data)
+                jwt_data: dict[str, Any] = {"apikey": apikey}
+                response = await super().post(token_url, headers=headers, json=jwt_data)
 
             elif (
                 auth_generation_method.lower() == AuthStrategy.BASIC.lower()
@@ -183,14 +185,14 @@ class DynamicTokenClient(httpx.AsyncClient):
             ):
                 headers = self._get_header_for_basic_auth(_id, _secret)
                 headers["Content-Type"] = "application/x-www-form-urlencoded"
-                data = {
+                turbo_data: dict[str, Any] = {
                     "grant_type": "client_credentials",
                     "scope": scope,
                 }
                 try:
                     auth = httpx.BasicAuth(str(_id), str(_secret))
                     response = await super().post(
-                        token_url, headers=headers, auth=auth, data=data
+                        token_url, headers=headers, auth=auth, data=turbo_data
                     )
                 except httpx.HTTPError as exc:
                     logger.error("Turbo Basic auth request failed: %s", exc)
@@ -224,11 +226,11 @@ class DynamicTokenClient(httpx.AsyncClient):
             else:
                 # IAM-style
                 headers = {"Content-Type": "application/x-www-form-urlencoded"}
-                data = {
+                iam_data: dict[str, Any] = {
                     "grant_type": "urn:ibm:params:oauth:grant-type:apikey",
                     "apikey": apikey,
                 }
-                response = await super().post(token_url, headers=headers, data=data)
+                response = await super().post(token_url, headers=headers, data=iam_data)
 
             # Check if we got a valid token even with a 401 status (some APIs do this)
             try:
@@ -286,7 +288,9 @@ class DynamicTokenClient(httpx.AsyncClient):
                     self._access_token = error_token
                     expires_in = int(error_data.get("expires_in", DEFAULT_TOKEN_EXPIRY))
                     effective = min(expires_in, MAX_TOKEN_LIFETIME)
-                    self._expires_at = time.time() + effective - TOKEN_REFRESH_BUFFER
+                    self._expires_at = float(
+                        time.time() + effective - TOKEN_REFRESH_BUFFER
+                    )
                     logger.debug(
                         "Token from error response, effective=%ss (capped at 90 min)",
                         effective,

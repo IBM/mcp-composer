@@ -2,11 +2,11 @@
 
 import json
 import os
-from typing import Dict, Any, Optional
+from typing import Any
 from pathlib import Path
 
 from fastmcp.tools import Tool
-from fastmcp.tools.tool import ToolResult
+from fastmcp.tools import ToolResult
 from mcp.types import TextContent
 
 from mcp_composer.core.utils import LoggerFactory
@@ -22,7 +22,7 @@ class StoreWorkflowConfigTool(Tool):
     the configuration in the src/mcp_composer directory under the workflow name.
     """
 
-    def __init__(self, config: Optional[dict] = None):
+    def __init__(self, config: dict | None = None):
         """Initialize the Store Workflow Config Tool"""
 
         parameters = {
@@ -77,7 +77,7 @@ The configuration will be stored as {workflow_name}.json in the src/mcp_composer
 
         logger.info("Store Workflow Config Tool '%s' initialized", tool_name)
 
-    async def run(self, arguments: Dict[str, Any]) -> ToolResult:
+    async def run(self, arguments: dict[str, Any]) -> ToolResult:
         """
         Store workflow configuration.
 
@@ -178,7 +178,7 @@ class GetWorkflowConfigTool(Tool):
     from the src/mcp_composer directory.
     """
 
-    def __init__(self, config: Optional[dict] = None):
+    def __init__(self, config: dict | None = None):
         """Initialize the Get Workflow Config Tool"""
 
         parameters = {
@@ -232,7 +232,7 @@ the workflow configuration, then follow the steps defined in the returned JSON."
 
         logger.info("Get Workflow Config Tool '%s' initialized", tool_name)
 
-    async def run(self, arguments: Dict[str, Any]) -> ToolResult:
+    async def run(self, arguments: dict[str, Any]) -> ToolResult:
         """
         Retrieve workflow configuration.
 

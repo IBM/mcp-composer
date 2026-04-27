@@ -5,7 +5,6 @@ Factory for creating model provider adapters based on configuration.
 Supports both chat/completion and embedding generation.
 """
 
-from typing import Dict, Any, Optional
 from mcp_composer.core.tools.model_providers.base import ModelProviderAdapter
 from mcp_composer.core.tools.model_providers.litellm_adapter import LiteLLMAdapter
 from mcp_composer.core.tools.model_providers.ollama_adapter import OllamaAdapter
@@ -14,7 +13,7 @@ from mcp_composer.core.utils import LoggerFactory
 logger = LoggerFactory.get_logger()
 
 # Provider registry for chat/completion
-PROVIDER_REGISTRY: Dict[str, type[ModelProviderAdapter]] = {
+PROVIDER_REGISTRY: dict[str, type[ModelProviderAdapter]] = {
     "litellm": LiteLLMAdapter,
     "ollama": OllamaAdapter,
 }
@@ -72,7 +71,7 @@ class ModelProviderFactory:
         adapter_class = PROVIDER_REGISTRY[provider_name]
 
         try:
-            adapter = adapter_class(base_url=base_url)
+            adapter: ModelProviderAdapter = adapter_class(base_url=base_url)  # type: ignore[call-arg]
             logger.info("Created %s adapter with base_url=%s", provider_name, base_url)
             return adapter
         except ImportError as e:
@@ -109,7 +108,7 @@ class ModelProviderFactory:
 
         # Try to create an instance to check availability
         try:
-            adapter = adapter_class(base_url="http://localhost:11434")
+            adapter: ModelProviderAdapter = adapter_class(base_url="http://localhost:11434")  # type: ignore[call-arg]
             return adapter.is_available()
         except Exception:
             return False
@@ -117,10 +116,10 @@ class ModelProviderFactory:
     @staticmethod
     def create_embedding_provider(
         provider_name: str = DEFAULT_EMBEDDING_PROVIDER,
-        model_name: Optional[str] = None,
-        model_provider: Optional[str] = None,
-        api_key: Optional[str] = None,
-        base_url: Optional[str] = None,
+        model_name: str | None = None,
+        model_provider: str | None = None,
+        api_key: str | None = None,
+        base_url: str | None = None,
     ) -> ModelProviderAdapter:
         """
         Create a model provider adapter for embedding generation.
@@ -156,7 +155,7 @@ class ModelProviderFactory:
                 import os
 
                 base_url = base_url or "http://localhost:11434"
-                adapter = LiteLLMAdapter(base_url=base_url)
+                adapter = LiteLLMAdapter(base_url=base_url)  # type: ignore[assignment]
 
                 # Determine the model provider and set appropriate defaults
                 if model_provider:
@@ -224,7 +223,7 @@ class ModelProviderFactory:
                 )
             elif provider_name == "ollama":
                 base_url = base_url or "http://localhost:11434"
-                adapter = OllamaAdapter(base_url=base_url)
+                adapter = OllamaAdapter(base_url=base_url)  # type: ignore[assignment]
                 # Store model name for later use
                 adapter._embedding_model = model_name or "nomic-embed-text"
             else:
@@ -276,9 +275,9 @@ class ModelProviderFactory:
 
                 adapter = SentenceTransformerAdapter(model_name="all-MiniLM-L6-v2")
             elif provider_name == "litellm":
-                adapter = LiteLLMAdapter(base_url="http://localhost:11434")
+                adapter = LiteLLMAdapter(base_url="http://localhost:11434")  # type: ignore[assignment]
             elif provider_name == "ollama":
-                adapter = OllamaAdapter(base_url="http://localhost:11434")
+                adapter = OllamaAdapter(base_url="http://localhost:11434")  # type: ignore[assignment]
             else:
                 return False
             return adapter.is_available()

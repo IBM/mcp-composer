@@ -1,15 +1,14 @@
 # database.py
 from abc import ABC, abstractmethod
-from typing import List, Dict
 
 
 class DatabaseInterface(ABC):
     @abstractmethod
-    def load_all_servers(self) -> List[Dict]:
+    def load_all_servers(self) -> list[dict[str, object]]:
         pass
 
     @abstractmethod
-    def add_server(self, config: Dict) -> None:
+    def add_server(self, config: dict[str, object]) -> None:
         pass
 
     @abstractmethod
@@ -17,7 +16,7 @@ class DatabaseInterface(ABC):
         pass
 
     @abstractmethod
-    def get_document(self, server_id: str) -> Dict:
+    def get_document(self, server_id: str) -> dict[str, object]:
         pass
 
     @abstractmethod
@@ -59,15 +58,15 @@ class DatabaseInterface(ABC):
         pass
 
     @abstractmethod
-    def update_server_config(self, config: dict) -> None:
+    def update_server_config(self, config: dict[str, object]) -> None:
         pass
 
     @abstractmethod
-    def load_all_resources(self) -> List[Dict]:
+    def load_all_resources(self) -> list[dict[str, object]]:
         pass
 
     @abstractmethod
-    def upsert_resource(self, resource: Dict) -> None:
+    def upsert_resource(self, resource: dict[str, object]) -> None:
         pass
 
     @abstractmethod
@@ -75,12 +74,12 @@ class DatabaseInterface(ABC):
         pass
 
     @abstractmethod
-    def load_all_prompts(self) -> List[Dict]:
+    def load_all_prompts(self) -> list[dict[str, object]]:
         """Load all prompts from storage"""
         pass
 
     @abstractmethod
-    def add_prompt(self, prompt: Dict) -> None:
+    def add_prompt(self, prompt: dict[str, object]) -> None:
         """Add or update a prompt in storage"""
         pass
 
@@ -90,6 +89,6 @@ class DatabaseInterface(ABC):
         pass
 
     @abstractmethod
-    def get_prompt(self, prompt_name: str) -> Dict:
+    def get_prompt(self, prompt_name: str) -> dict[str, object]:
         """Get a specific prompt from storage"""
         pass

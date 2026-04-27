@@ -13,9 +13,8 @@ prompts use ``catalog_resources``.
 """
 
 import logging
-from typing import Dict, List, Union, Optional
 
-from fastmcp.prompts.prompt import Prompt
+from fastmcp.prompts import Prompt
 
 from mcp_composer.core.member_servers.member_server import HealthStatus
 from mcp_composer.core.member_servers.server_manager import ServerManager
@@ -35,10 +34,10 @@ class MCPPromptManager:
     ):
         self._server_manager = server_manager
         self._database = database
-        self._prompts: Dict[str, Prompt] = {}
+        self._prompts: dict[str, Prompt] = {}
         self.warn_on_duplicate_prompts = True
 
-    def get_prompt(self, name: str) -> Optional[Prompt]:
+    def get_prompt(self, name: str) -> Prompt | None:
         """Get prompt by name."""
         return self._prompts.get(name)
 
@@ -53,7 +52,7 @@ class MCPPromptManager:
         self._prompts[prompt.name] = prompt
         return prompt
 
-    def add_prompts(self, prompt_config: Union[dict, List[dict]]) -> List[str]:
+    def add_prompts(self, prompt_config: dict | list[dict]) -> list[str]:
         """
         Add one or more prompts based on the provided configuration.
 
@@ -61,7 +60,7 @@ class MCPPromptManager:
             prompt_config: Single prompt dict or list of prompt dicts
 
         Returns:
-            List[str]: List of registered prompt names
+            list[str]: List of registered prompt names
 
         Raises:
             TypeError: If prompt_config is not a dict or list
@@ -114,7 +113,7 @@ class MCPPromptManager:
             logger.error("Failed to save prompt to database: %s", e)
             raise
 
-    def load_prompts_from_db(self) -> List[str]:
+    def load_prompts_from_db(self) -> list[str]:
         """Load all prompts from database and register them."""
         if not self._database:
             logger.info("No database configured, skipping prompt loading")
@@ -143,7 +142,7 @@ class MCPPromptManager:
             logger.error("Failed to load prompts from database: %s", e)
             return []
 
-    def delete_prompts(self, prompt_names: Union[str, List[str]]) -> Dict[str, str]:
+    def delete_prompts(self, prompt_names: str | list[str]) -> dict[str, str]:
         """
         Delete one or more prompts from the composer and database.
 
@@ -151,7 +150,7 @@ class MCPPromptManager:
             prompt_names: Single prompt name or list of prompt names to delete
 
         Returns:
-            Dict[str, str]: Dictionary with prompt names as keys and status messages as values
+            dict[str, str]: Dictionary with prompt names as keys and status messages as values
         """
         if isinstance(prompt_names, str):
             prompt_names = [prompt_names]
@@ -196,7 +195,7 @@ class MCPPromptManager:
 
         return results
 
-    async def list_prompts_per_server(self, server_id: str) -> List[Dict]:
+    async def list_prompts_per_server(self, server_id: str) -> list[dict[str, object]]:
         """List all prompts from a specific server."""
         try:
             if not self._server_manager or not self._server_manager.has_member_server(
@@ -270,6 +269,7 @@ class MCPPromptManager:
         Gets the complete, unfiltered inventory of all prompts and applies filtering.
         """
         return self._filter_disabled_prompts(self._prompts)
+
 
     async def list_prompts(self) -> list[Prompt]:
         """

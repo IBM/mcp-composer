@@ -2,7 +2,7 @@ import ast
 import json
 
 from fastmcp.server.middleware import MiddlewareContext
-from typing import Any, Dict, List
+from typing import Any
 from mcp_composer.core.utils import LoggerFactory
 from mcp_composer.middleware.auth_context_middleware import HEADER_USER_INSTANCES
 
@@ -54,7 +54,7 @@ def ctx_get(context: MiddlewareContext, *names, default=None):
     return default
 
 
-def _normalize_to_instance_list(raw: Any) -> List[Dict]:
+def _normalize_to_instance_list(raw: Any) -> list[dict[str, Any]]:
     """Turn raw header/identity value into a list of instance dicts."""
     if raw is None:
         return []
@@ -73,7 +73,7 @@ def _normalize_to_instance_list(raw: Any) -> List[Dict]:
     return []
 
 
-def extract_user_instances(request: Any) -> List[Dict]:
+def extract_user_instances(request: Any) -> list[dict[str, Any]]:
     """
     Extract user instances from request.
 
@@ -93,7 +93,10 @@ def extract_user_instances(request: Any) -> List[Dict]:
         if token_data and isinstance(token_data, dict):
             raw = token_data.get("user_instances")
             if raw:
-                logger.debug("Extracted %d user instances from token_data", len(raw) if isinstance(raw, list) else 0)
+                logger.debug(
+                    "Extracted %d user instances from token_data",
+                    len(raw) if isinstance(raw, list) else 0,
+                )
                 return _normalize_to_instance_list(raw)
 
     # Fallback to X-User-Instances header
@@ -117,9 +120,15 @@ def extract_user_instances(request: Any) -> List[Dict]:
                 try:
                     raw = ast.literal_eval(raw_header)
                 except (ValueError, SyntaxError) as e:
-                    logger.warning("X-User-Instances header invalid (not JSON or Python literal): %s", e)
+                    logger.warning(
+                        "X-User-Instances header invalid (not JSON or Python literal): %s",
+                        e,
+                    )
 
         if raw:
-            logger.debug("Extracted %d user instances from header", len(raw) if isinstance(raw, list) else 0)
+            logger.debug(
+                "Extracted %d user instances from header",
+                len(raw) if isinstance(raw, list) else 0,
+            )
 
     return _normalize_to_instance_list(raw)

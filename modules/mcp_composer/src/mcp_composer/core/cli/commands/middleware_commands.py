@@ -10,7 +10,7 @@ This module provides commands for managing middleware configurations:
 import importlib
 import json
 from pathlib import Path
-from typing import Optional, List, Annotated
+from typing import Annotated
 
 import typer
 from typer import Option, Argument
@@ -58,7 +58,7 @@ def _print_validation_error(e: ValidationError) -> None:
         _print_error(f"  {i:02d}. {loc} [{typ}] - {msg}")
 
 
-def _parse_csv(value: Optional[str]) -> List[str]:
+def _parse_csv(value: str | None) -> list[str]:
     """Parse comma-separated values."""
     if value is None:
         return []
@@ -217,7 +217,7 @@ def list_middlewares(
     include_disabled = show_all
 
     # Prefer manager for true runtime order (enabled only)
-    items_out: List[dict] = []
+    items_out: list[dict] = []
     if MiddlewareManager is not None:
         mgr = MiddlewareManager(config, ensure_imports=False)
         runtime = {d["name"]: d for d in mgr.describe()}  # enabled only, ordered
@@ -297,11 +297,11 @@ def add_middleware(
         ),
     ],
     description: Annotated[
-        Optional[str],
+        str | None,
         Option("--description", "-d", help="Description of the middleware"),
     ] = None,
     version: Annotated[
-        Optional[str],
+        str | None,
         Option("--version", "-v", help="Version of the middleware (default: 0.0.0)"),
     ] = None,
     mode: Annotated[
@@ -316,45 +316,45 @@ def add_middleware(
         ),
     ] = 100,
     applied_hooks: Annotated[
-        Optional[str],
+        str | None,
         Option(
             "--applied-hooks",
             help="Comma-separated list of hooks (e.g., on_call_tool,on_list_tools)",
         ),
     ] = None,
     include_tools: Annotated[
-        Optional[str],
+        str | None,
         Option(
             "--include-tools",
             help="Comma-separated list of tools to include (default: *)",
         ),
     ] = None,
     exclude_tools: Annotated[
-        Optional[str],
+        str | None,
         Option("--exclude-tools", help="Comma-separated list of tools to exclude"),
     ] = None,
     include_prompts: Annotated[
-        Optional[str],
+        str | None,
         Option("--include-prompts", help="Comma-separated list of prompts to include"),
     ] = None,
     exclude_prompts: Annotated[
-        Optional[str],
+        str | None,
         Option("--exclude-prompts", help="Comma-separated list of prompts to exclude"),
     ] = None,
     include_server_ids: Annotated[
-        Optional[str],
+        str | None,
         Option(
             "--include-server-ids", help="Comma-separated list of server IDs to include"
         ),
     ] = None,
     exclude_server_ids: Annotated[
-        Optional[str],
+        str | None,
         Option(
             "--exclude-server-ids", help="Comma-separated list of server IDs to exclude"
         ),
     ] = None,
     config_file: Annotated[
-        Optional[str],
+        str | None,
         Option(
             "--config-file",
             help="Path to JSON file containing middleware configuration",
@@ -435,7 +435,12 @@ def add_middleware(
         existing = _load_json_file(config)
         cfg = MiddlewareConfig.model_validate(existing)
     except FileNotFoundError:
-        cfg = MiddlewareConfig(middleware=[], middleware_settings=MiddlewareSettings())
+        cfg = MiddlewareConfig(
+            middleware=[],
+            middleware_settings=MiddlewareSettings(
+                middleware_timeout=30, middleware_health_check_interval=60
+            ),
+        )
     except json.JSONDecodeError as je:
         _print_error(f"Invalid JSON in {config}: {je}")
         raise typer.Exit(2)
@@ -470,9 +475,9 @@ def add_middleware(
             description=description or "",
             version=version or "0.0.0",
             kind=kind,
-            mode=mode,
+            mode=mode,  # type: ignore[arg-type]
             priority=priority,
-            applied_hooks=applied_hooks_list,
+            applied_hooks=applied_hooks_list,  # type: ignore[arg-type]
             conditions=Conditions(
                 include_tools=include_tools_list,
                 exclude_tools=exclude_tools_list,
@@ -646,7 +651,10 @@ def init_middleware_config(
 
     # Create default configuration
     default_config = MiddlewareConfig(
-        middleware=[], middleware_settings=MiddlewareSettings()
+        middleware=[],
+        middleware_settings=MiddlewareSettings(
+            middleware_timeout=30, middleware_health_check_interval=60
+        ),
     )
 
     # Save the file

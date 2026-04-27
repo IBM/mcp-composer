@@ -6,7 +6,7 @@ Handles database configuration, unified configuration processing, and config sta
 
 import os
 import sys
-from typing import Any, Dict, Optional, Union
+from typing import Any
 
 from mcp_composer.core.config.config_loader import ConfigLoader
 from mcp_composer.core.settings.version_control_manager import ConfigManager
@@ -29,7 +29,7 @@ class ServerConfigurationManager:
 
     def __init__(
         self,
-        version_adapter_config: Optional[Dict[str, Any]] = None,
+        version_adapter_config: dict[str, Any] | None = None,
     ):
         """Initialize the configuration manager."""
         self._config_manager = ConfigManager(
@@ -37,8 +37,8 @@ class ServerConfigurationManager:
         )
         self._config: list[dict] = []
         self._unified_config_applied = False
-        self._unified_config = None
-        self._unified_config_type = None
+        self._unified_config: Any = None
+        self._unified_config_type: str | None = None
 
     @property
     def config_manager(self) -> ConfigManager:
@@ -67,8 +67,8 @@ class ServerConfigurationManager:
 
     def get_database_from_config(
         self,
-        database_config: Optional[Union[Dict[str, Any], DatabaseInterface]] = None,
-    ) -> Optional[DatabaseInterface]:
+        database_config: dict[str, Any] | DatabaseInterface | None = None,
+    ) -> DatabaseInterface | None:
         """
         Create and return a database instance from configuration.
 
@@ -171,7 +171,7 @@ class ServerConfigurationManager:
                 )
                 return None
 
-    def get_database_config_from_env(self) -> Optional[Dict[str, Any]]:
+    def get_database_config_from_env(self) -> dict[str, Any] | None:
         """
         Get database configuration from environment variables.
 
@@ -317,7 +317,7 @@ class ServerConfigurationManager:
 
     def process_config(
         self,
-        config: Optional[Union[list[dict], str]],
+        config: list[dict] | str | None,
         composer: Any,  # MCPComposer instance
     ) -> None:
         """

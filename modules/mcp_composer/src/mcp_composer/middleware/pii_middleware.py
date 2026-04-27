@@ -5,7 +5,7 @@ import re
 import hashlib
 import logging
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Tuple
 
 from fastmcp.server.middleware import Middleware, MiddlewareContext, CallNext
 
@@ -31,7 +31,7 @@ _DEFAULT_SENSITIVE_KEYS = {
 }
 
 # Conservative, practical detectors (you can add/remove via config)
-_DEFAULT_PATTERNS: List[Tuple[str, re.Pattern]] = [
+_DEFAULT_PATTERNS: list[tuple[str, re.Pattern]] = [
     ("EMAIL", re.compile(r"\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b", re.IGNORECASE)),
     (
         "JWT",
@@ -78,7 +78,7 @@ def _luhn_check(num: str) -> bool:
 @dataclass
 class RedactionStrategy:
     mode: str = "mask"  # "mask" | "hash" | "tokenize"
-    salt: Optional[str] = None
+    salt: str | None = None
     redaction_text: str = "[REDACTED]"
 
     def redact_token(self, text: str, tag: str, idx: int) -> str:
@@ -91,7 +91,7 @@ class RedactionStrategy:
     def redact_mask(self, text: str, tag: str) -> str:
         return self.redaction_text if self.redaction_text else f"[REDACTED:{tag}]"
 
-    def apply(self, text: str, tag: str, token_idx: Optional[int] = None) -> str:
+    def apply(self, text: str, tag: str, token_idx: int | None = None) -> str:
         if self.mode == "hash":
             return self.redact_hash(text, tag)
         if self.mode == "tokenize":
@@ -109,7 +109,7 @@ class RedactionStrategy:
 class Redactor:
     strategy: RedactionStrategy
     sensitive_keys: set = field(default_factory=lambda: set(_DEFAULT_SENSITIVE_KEYS))
-    patterns: List[Tuple[str, re.Pattern]] = field(
+    patterns: list[tuple[str, re.Pattern]] = field(
         default_factory=lambda: list(_DEFAULT_PATTERNS)
     )
     allowlist_fields: set = field(default_factory=set)
@@ -122,7 +122,7 @@ class Redactor:
 
         out = _CC_RE.sub(_repl_cc, s)
 
-        token_counters: Dict[str, int] = {}
+        token_counters: dict[str, int] = {}
         for tag, pat in self.patterns:
 
             def repl(m, tag=tag):
@@ -135,14 +135,14 @@ class Redactor:
             out = pat.sub(repl, out)
         return out
 
-    def _redact_by_key(self, key: str, value: Any) -> Optional[Any]:
+    def _redact_by_key(self, key: str, value: Any) -> Any | None:
         if key.lower() in self.sensitive_keys:
             return self.strategy.apply(str(value), key.upper())
         return None
 
     def redact_obj(self, obj: Any) -> Any:
         if isinstance(obj, dict):
-            out: Dict[str, Any] = {}
+            out: dict[str, Any] = {}
             for k, v in obj.items():
                 if k in self.allowlist_fields:
                     out[k] = v
@@ -182,19 +182,19 @@ class SecretsAndPIIMiddleware(Middleware):
     def __init__(
         self,
         *,
-        strategy: Optional[Dict[str, Any]] = None,
+        strategy: dict[str, Any] | None = None,
         redact_inputs: bool = True,
         redact_outputs: bool = True,
         replace_inputs: bool = False,
-        allowlist_tools: Optional[List[str]] = None,
-        allowlist_fields: Optional[List[str]] = None,
-        sensitive_keys: Optional[Dict[str, List[str]]] = None,
-        patterns: Optional[Dict[str, List[Dict[str, Any]]]] = None,
+        allowlist_tools: list[str] | None = None,
+        allowlist_fields: list[str] | None = None,
+        sensitive_keys: dict[str, list[str]] | None = None,
+        patterns: dict[str, Any] | None = None,
         # Back-compat shorthands:
-        sensitive_keys_add: Optional[List[str]] = None,
-        sensitive_keys_remove: Optional[List[str]] = None,
-        patterns_add: Optional[List[Dict[str, Any]]] = None,
-        patterns_remove: Optional[List[str]] = None,
+        sensitive_keys_add: list[str] | None = None,
+        sensitive_keys_remove: list[str] | None = None,
+        patterns_add: list[dict[str, Any]] | None = None,
+        patterns_remove: list[str] | None = None,
         # Debugging options:
         debug_mode: bool = False,
     ):
@@ -231,11 +231,15 @@ class SecretsAndPIIMiddleware(Middleware):
         self.redactor.sensitive_keys -= rem_keys
 
         # patterns
-        extra_add = []
-        extra_remove = []
+        extra_add: list[dict[str, Any]] = []
+        extra_remove: list[str] = []
         if patterns:
-            extra_add += patterns.get("add", []) or []
-            extra_remove += patterns.get("remove", []) or []
+            add_patterns: list[dict[str, Any]] = patterns.get("add", [])
+            if add_patterns:
+                extra_add += add_patterns
+            remove_patterns: list[str] = patterns.get("remove", [])
+            if remove_patterns:
+                extra_remove += remove_patterns
         if patterns_add:
             extra_add += patterns_add
         if patterns_remove:
@@ -422,7 +426,7 @@ class SecretsAndPIIMiddleware(Middleware):
 
             # Create a copy if possible
             if hasattr(result, "__dict__"):
-                result_copy = type(result).__new__(type(result))
+                result_copy = type(result).__new__(type(result))  # type: ignore[call-overload]
                 result_copy.__dict__.update(result.__dict__)
                 result_copy.content = redacted_content
                 if self.debug_mode:
@@ -449,7 +453,7 @@ class SecretsAndPIIMiddleware(Middleware):
 
             # Create a copy if possible
             if hasattr(result, "__dict__"):
-                result_copy = type(result).__new__(type(result))
+                result_copy = type(result).__new__(type(result))  # type: ignore[call-overload]
                 result_copy.__dict__.update(result.__dict__)
                 result_copy.data = redacted_data
                 if self.debug_mode:
@@ -473,7 +477,7 @@ class SecretsAndPIIMiddleware(Middleware):
 
                 # Create a copy if possible
                 if hasattr(result, "__dict__"):
-                    result_copy = type(result).__new__(type(result))
+                    result_copy = type(result).__new__(type(result))  # type: ignore[call-overload]
                     result_copy.__dict__.update(result.__dict__)
                     result_copy.text = redacted_text
                     if self.debug_mode:
@@ -487,7 +491,7 @@ class SecretsAndPIIMiddleware(Middleware):
             # If text is not a string, use general redaction
             redacted_text = self.redactor.redact_obj(text)
             if hasattr(result, "__dict__"):
-                result_copy = type(result).__new__(type(result))
+                result_copy = type(result).__new__(type(result))  # type: ignore[call-overload]
                 result_copy.__dict__.update(result.__dict__)
                 result_copy.text = redacted_text
                 return result_copy

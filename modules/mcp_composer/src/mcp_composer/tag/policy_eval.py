@@ -20,7 +20,7 @@ class PolicyGate:
                 x.strip("' \"") for x in rule.split("[")[-1].split("]")[0].split(",")
             ]
             disallowed = [
-                r for r in result.reports if str(r["policy"]["pii_risk"]) not in allowed
+                r for r in result.reports if str(r.policy.pii_risk) not in allowed  # type: ignore[attr-defined]
             ]
             return len(disallowed) == 0
         return True

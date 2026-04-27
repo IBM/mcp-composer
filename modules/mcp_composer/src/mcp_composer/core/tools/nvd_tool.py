@@ -4,7 +4,7 @@ import csv
 import re
 import logging
 from io import StringIO
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 import httpx
 from fastmcp import FastMCP
@@ -31,7 +31,7 @@ MAX_CONCURRENT_REQUESTS = int(
 
 
 # Basic CVSS bucket thresholds (v3.x convention)
-def score_to_severity(score: Optional[float]) -> str:
+def score_to_severity(score: float | None) -> str:
     if score is None:
         return "UNKNOWN"
     if score == 0.0:
@@ -48,8 +48,8 @@ def score_to_severity(score: Optional[float]) -> str:
 
 
 def _get_first_metric(
-    metrics: Dict[str, Any], keys_in_preference: List[str]
-) -> Optional[Dict[str, Any]]:
+    metrics: dict[str, Any], keys_in_preference: list[str]
+) -> dict[str, Any] | None:
     """
     NVD typically includes one of:
       - cvssMetricV31 / cvssMetricV30
@@ -67,8 +67,8 @@ def _get_first_metric(
 
 
 def extract_best_cvss(
-    cve: Dict[str, Any],
-) -> Tuple[Optional[float], Optional[str], Optional[str]]:
+    cve: dict[str, Any],
+) -> tuple[float | None, str | None, str | None]:
     """
     Returns (score, severity_label_if_present, version_used)
     - Prefer CVSS v3.1 then v3.0
@@ -112,7 +112,7 @@ def extract_best_cvss(
     return None, None, None
 
 
-async def nvd_get(params: Dict[str, Any]) -> Dict[str, Any]:
+async def nvd_get(params: dict[str, Any]) -> dict[str, Any]:
     headers = {}
     if NVD_API_KEY:
         headers["apiKey"] = (
@@ -125,14 +125,14 @@ async def nvd_get(params: Dict[str, Any]) -> Dict[str, Any]:
         return resp.json()
 
 
-async def fetch_cve_by_id(cve_id: str) -> Dict[str, Any]:
+async def fetch_cve_by_id(cve_id: str) -> dict[str, Any]:
     # cveId parameter :contentReference[oaicite:8]{index=8}
     data = await nvd_get({"cveId": cve_id})
     await asyncio.sleep(DEFAULT_DELAY_SECONDS)
     return data
 
 
-async def _fetch_single_cve(cve_id: str) -> Tuple[str, Dict[str, Any]]:
+async def _fetch_single_cve(cve_id: str) -> tuple[str, dict[str, Any]]:
     """Fetch and process a single CVE. Returns (cve_id, result_dict)."""
     try:
         payload = await fetch_cve_by_id(cve_id)
@@ -166,7 +166,7 @@ async def _fetch_single_cve(cve_id: str) -> Tuple[str, Dict[str, Any]]:
         return cve_id, {"severity": "UNKNOWN", "error": str(e)}
 
 
-async def classify_cves(cve_ids: List[str]) -> Dict[str, Any]:
+async def classify_cves(cve_ids: list[str]) -> dict[str, Any]:
     """
     Classify a set of CVE IDs into severity categories using NVD CVE API 2.0.
     Optimized for large batches with concurrent processing and rate limiting.
@@ -175,7 +175,7 @@ async def classify_cves(cve_ids: List[str]) -> Dict[str, Any]:
       - per_cve: mapping of CVE -> classification detail
       - summary: counts per category
     """
-    results: Dict[str, Any] = {}
+    results: dict[str, Any] = {}
     summary = {"NONE": 0, "LOW": 0, "MEDIUM": 0, "HIGH": 0, "CRITICAL": 0, "UNKNOWN": 0}
 
     total_cves = len(cve_ids)
@@ -187,7 +187,7 @@ async def classify_cves(cve_ids: List[str]) -> Dict[str, Any]:
     # Process CVEs with controlled concurrency
     semaphore = asyncio.Semaphore(MAX_CONCURRENT_REQUESTS)
 
-    async def _fetch_with_semaphore(cve_id: str) -> Tuple[str, Dict[str, Any]]:
+    async def _fetch_with_semaphore(cve_id: str) -> tuple[str, dict[str, Any]]:
         async with semaphore:
             return await _fetch_single_cve(cve_id)
 
@@ -224,7 +224,7 @@ async def list_cves_by_cvss_v3_severity(
     severity: str,
     results_per_page: int = 20,
     start_index: int = 0,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Demonstrates using NVD query parameter:
       ?cvssV3Severity=LOW  (or MEDIUM/HIGH/CRITICAL)
@@ -242,7 +242,7 @@ async def list_cves_by_cvss_v3_severity(
     data = await nvd_get(params)
     await asyncio.sleep(DEFAULT_DELAY_SECONDS)
 
-    cve_ids: List[str] = []
+    cve_ids: list[str] = []
     for v in data.get("vulnerabilities") or []:
         c = v.get("cve") or {}
         cid = c.get("id")
@@ -266,7 +266,7 @@ _CVE_ID_RE = re.compile(r"CVE-\d{4}-\d{4,7}", re.IGNORECASE)
 _SEVERITY_ORDER = ["CRITICAL", "HIGH", "MEDIUM", "LOW", "NONE", "UNKNOWN"]
 
 
-def _extract_cve_id_from_row(row: Dict[str, Any]) -> Optional[str]:
+def _extract_cve_id_from_row(row: dict[str, Any]) -> str | None:
     """Find the first CVE ID in any value of a CSV row."""
     for value in row.values():
         if value is None:
@@ -312,7 +312,7 @@ async def enrich_issues_csv_with_cvss(csv_text: str) -> str:
     logger.info(f"Found {unique_cve_count} unique CVE IDs")
 
     # Fetch CVSS info for CVE IDs (with batching and concurrency control)
-    cvss_map: Dict[str, Dict[str, Any]] = {}
+    cvss_map: dict[str, dict[str, Any]] = {}
     if cve_ids:
         classified = await classify_cves(cve_ids)
         per_cve = classified.get("per_cve", {})
@@ -337,7 +337,7 @@ async def enrich_issues_csv_with_cvss(csv_text: str) -> str:
     # Sort rows by severity order
     logger.info("Sorting rows by severity")
 
-    def _severity_rank(row: Dict[str, Any]) -> int:
+    def _severity_rank(row: dict[str, Any]) -> int:
         sev = str(row.get("cvss_severity") or "UNKNOWN").upper()
         return (
             _SEVERITY_ORDER.index(sev)

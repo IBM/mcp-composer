@@ -1,6 +1,6 @@
 import os
 import time
-from typing import Optional, Dict, Any
+from typing import Any
 
 import httpx
 
@@ -10,7 +10,7 @@ from mcp_composer.core.utils import ConfigKey
 logger = LoggerFactory.get_logger()
 
 
-def resolve_env_value(value: Optional[str]) -> str:
+def resolve_env_value(value: str | None) -> str:
     """Resolve a value from environment variable if it starts with 'ENV_', otherwise return as-is.
 
     Args:
@@ -36,14 +36,14 @@ async def refresh_access_token(
     client_secret: str,
     token_url: str,
     refresh_token: str,
-    scope: Optional[str] = None,
+    scope: str | None = None,
     timeout_seconds: float = 30.0,
 ) -> str:
     """Exchange a refresh token for a new access token.
 
     Returns the access token string or raises RuntimeError on failure.
     """
-    data: Dict[str, Any] = {
+    data: dict[str, Any] = {
         "grant_type": "refresh_token",
         "client_id": client_id,
         "client_secret": client_secret,
@@ -76,7 +76,7 @@ async def get_access_token_client_credentials(
     client_id: str,
     client_secret: str,
     token_url: str,
-    scope: Optional[str] = None,
+    scope: str | None = None,
     timeout_seconds: float = 30.0,
 ) -> tuple[str, int]:
     """Get an access token using OAuth2 client_credentials grant (no refresh token).
@@ -84,7 +84,7 @@ async def get_access_token_client_credentials(
     Returns:
         Tuple of (access_token, expires_in_seconds). Uses 3600 if server omits expires_in.
     """
-    data: Dict[str, Any] = {
+    data: dict[str, Any] = {
         "grant_type": "client_credentials",
         "client_id": client_id,
         "client_secret": client_secret,
@@ -118,7 +118,7 @@ async def get_access_token_client_credentials(
 
 
 async def build_oauth_client(
-    base_url: str, auth_config: Dict[str, Any]
+    base_url: str, auth_config: dict[str, Any]
 ) -> httpx.AsyncClient:
     """Build an httpx.AsyncClient authenticated via OAuth using refresh token.
 
@@ -164,12 +164,12 @@ class OAuthRefreshClient(httpx.AsyncClient):
         client_id: str,
         client_secret: str,
         refresh_token: str,
-        scope: Optional[str] = None,
+        scope: str | None = None,
         timeout: float = 30.0,
         **kwargs: Any,
     ) -> None:
         super().__init__(base_url=base_url, timeout=timeout, **kwargs)
-        self._access_token: Optional[str] = None
+        self._access_token: str | None = None
         self._expires_at: float = 0
         self.token_url = token_url
         self.client_id = client_id

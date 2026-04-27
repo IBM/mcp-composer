@@ -3,11 +3,11 @@
 import time
 import uuid
 import json
-from typing import Dict, Any, List, Optional
+from typing import Any
 from dataclasses import dataclass, field
 
 from fastmcp.tools import Tool
-from fastmcp.tools.tool import ToolResult
+from fastmcp.tools import ToolResult
 from mcp.types import TextContent
 from pydantic import ConfigDict, PrivateAttr
 
@@ -25,9 +25,9 @@ class ThoughtData:
     thought_number: int
     total_thoughts: int
     is_revision: bool = False
-    revises_thought: Optional[int] = None
-    branch_from_thought: Optional[int] = None
-    branch_id: Optional[str] = None
+    revises_thought: int | None = None
+    branch_from_thought: int | None = None
+    branch_id: str | None = None
     needs_more_thoughts: bool = False
 
 
@@ -35,8 +35,8 @@ class ThoughtData:
 class ThoughtHistory:
     """Maintains the history of thoughts for a thinking session"""
 
-    thoughts: List[ThoughtData] = field(default_factory=list)
-    branches: Dict[str, List[ThoughtData]] = field(default_factory=dict)
+    thoughts: list[ThoughtData] = field(default_factory=list)
+    branches: dict[str, list[ThoughtData]] = field(default_factory=dict)
     session_id: str = field(default_factory=lambda: str(uuid.uuid4()))
     created_at: float = field(default_factory=time.time)
     updated_at: float = field(default_factory=time.time)
@@ -50,14 +50,14 @@ class ProcessedThought:
     estimated_total_thoughts: int
     next_thought_needed: bool
     coordinator_response: str
-    branches: List[str]
+    branches: list[str]
     thought_history_length: int
-    branch_details: Dict[str, Any]
+    branch_details: dict[str, Any]
     is_revision: bool
-    revises_thought: Optional[int]
+    revises_thought: int | None
     is_branch: bool
     status: str
-    error: Optional[str] = None
+    error: str | None = None
 
 
 class SequentialThinkingTool(Tool):
@@ -91,8 +91,8 @@ class SequentialThinkingTool(Tool):
     model_config = ConfigDict(extra="allow")
 
     # Private attributes for session management
-    _thinking_sessions: Dict[str, ThoughtHistory] = PrivateAttr(default_factory=dict)
-    _active_sessions: Dict[str, str] = PrivateAttr(
+    _thinking_sessions: dict[str, ThoughtHistory] = PrivateAttr(default_factory=dict)
+    _active_sessions: dict[str, str] = PrivateAttr(
         default_factory=dict
     )  # user_id -> session_id
 
@@ -119,7 +119,7 @@ class SequentialThinkingTool(Tool):
             return
         super().__delattr__(name)
 
-    def __init__(self, config: Optional[dict] = None):
+    def __init__(self, config: dict | None = None):
         """Initialize the Sequential Thinking Tool"""
 
         # Define the tool parameters with enhanced schema for better results
@@ -306,7 +306,7 @@ You should:
 
         logger.info("Sequential Thinking Tool '%s' initialized", tool_name)
 
-    def validate_thought_data(self, data: Dict[str, Any]) -> ThoughtData:
+    def validate_thought_data(self, data: dict[str, Any]) -> ThoughtData:
         """
         Validate and convert input data to ThoughtData structure.
 
@@ -376,7 +376,7 @@ You should:
 
     def format_thought_data(
         self, thought: ThoughtData, session: ThoughtHistory
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Format thought data for response.
 
@@ -699,7 +699,7 @@ You should:
         )
         return session
 
-    async def run(self, arguments: Dict[str, Any]) -> ToolResult:
+    async def run(self, arguments: dict[str, Any]) -> ToolResult:
         """
         Execute the sequential thinking tool.
 

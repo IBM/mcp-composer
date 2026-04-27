@@ -1,6 +1,5 @@
 """Pydantic model for MCP using stdio"""
 
-from typing import Dict, List, Optional
 from pydantic import BaseModel, Field
 
 
@@ -9,10 +8,10 @@ class MCPServerStdio(BaseModel):
 
     id: str = Field(..., description="Name of the mcp server")
     type: str = Field(..., description="Type of mcp server")
-    args: List[str] = Field(..., description="List of arguments, e.g., server.py")
-    env: Optional[Dict[str, str]] = Field(
+    args: list[str] = Field(..., description="List of arguments, e.g., server.py")
+    env: dict[str, str] | None = Field(
         default=None, description="environment variables"
     )
-    cwd: Optional[str] = Field(
+    cwd: str | None = Field(
         default=None, description="Working directory, e.g., /path/to/server"
     )

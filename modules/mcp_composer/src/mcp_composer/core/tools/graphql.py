@@ -2,6 +2,7 @@
 
 import inspect
 import json
+from typing import Any
 
 import httpx
 from fastmcp.tools import Tool
@@ -32,7 +33,7 @@ query IntrospectionQuery {
 """
 
 # Configuration (can be placed in a YAML or .env if needed)
-config = {
+config: dict[str, Any] = {
     "id": "mcp-countries",
     "type": "graphql",
     "graphql": {"endpoint": "https://countries.trevorblades.com/"},
@@ -42,7 +43,7 @@ config = {
 
 
 # Set up the HTTP client
-GRAPHQL_ENDPOINT = config["graphql"]["endpoint"]
+GRAPHQL_ENDPOINT = str(config["graphql"]["endpoint"])
 headers = {}
 
 # If auth is required
@@ -113,7 +114,7 @@ async def create_tools(schema):
                             return response.json()
 
                         dynamic_arg_tool.__name__ = f"{tool_name}_tool"
-                        dynamic_arg_tool.__signature__ = inspect.Signature(
+                        dynamic_arg_tool.__signature__ = inspect.Signature(  # type: ignore[attr-defined]
                             [
                                 inspect.Parameter(
                                     name,

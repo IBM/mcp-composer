@@ -1,6 +1,5 @@
 import json
 import os
-from typing import List
 
 import typer
 from rich import print as rprint
@@ -9,9 +8,10 @@ from mcp_composer.tag.rule_dsl import Rule
 from mcp_composer.tag.engine import TagEngine
 from mcp_composer.tag.scanner.json_file import JsonFileScanner
 from mcp_composer.tag.scanner.mcp_protocol import McpProtocolScanner
+from mcp_composer.tag.scanner.base import Scanner
 from mcp_composer.tag.exporters.backstage import BackstageExporter
 from mcp_composer.tag.policy_eval import PolicyGate
-from mcp_composer.tag.models import TagReport, ToolDescriptor
+from mcp_composer.tag.models import TagReport, ToolDescriptor, ScanResult
 from mcp_composer.core.utils.logger import LoggerFactory
 
 # Initialize logger
@@ -74,14 +74,14 @@ def generate_tag(
                 raise typer.BadParameter("Provide --command for stdio transport")
 
             # Use live MCP endpoint with protocol scanner
-            scanner = McpProtocolScanner(
+            mcp_scanner = McpProtocolScanner(
                 mcp_endpoint,
                 auth_token=mcp_auth_token,
                 transport=mcp_transport,
                 command=command,
                 args=args,
             )
-            tools = scanner.collect()
+            tools = mcp_scanner.collect()
         else:
             raise typer.BadParameter("Provide either --from-json, or --mcp-endpoint")
 
@@ -101,7 +101,7 @@ def generate_tag(
         raise typer.Exit(1)
 
 
-def _load_from_mcp_scan(mcp_scan_output: str) -> List[ToolDescriptor]:
+def _load_from_mcp_scan(mcp_scan_output: str) -> list[ToolDescriptor]:
     """Load tools from MCP-Scan output format"""
     try:
         with open(mcp_scan_output, "r", encoding="utf-8") as f:
@@ -153,9 +153,13 @@ def check(
     with open(report, "r", encoding="utf-8") as f:
         data = json.load(f)
     gate = PolicyGate(require or [])
-    ok, failures = gate.evaluate(
-        type("ScanResultObj", (), {"reports": data["reports"]})
-    )
+
+    # Create a simple object with reports attribute
+    class ScanResultObj:
+        def __init__(self, reports):  # type: ignore[no-untyped-def]
+            self.reports = reports
+
+    ok, failures = gate.evaluate(ScanResultObj(data["reports"]))  # type: ignore[arg-type]
     if not ok:
         rprint("[red]Policy gate failed:[/red]", failures)
         raise typer.Exit(1)

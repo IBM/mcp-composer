@@ -13,7 +13,7 @@ def _noop_add_tool(self, tool):
     return tool
 
 
-MCPToolManager.add_tool = _noop_add_tool
+MCPToolManager.add_tool = _noop_add_tool  # type: ignore[attr-defined]
 
 # pylint: disable=protected-access
 
@@ -388,7 +388,7 @@ async def test_filter_with_empty_criteria():
         await composer._resource_manager.create_resource(resource)
 
     # Test with empty criteria
-    filter_criteria = {}
+    filter_criteria: dict[str, str] = {}
     result = await composer._resource_manager.filter_resources(filter_criteria)
     assert len(result) >= 2
 

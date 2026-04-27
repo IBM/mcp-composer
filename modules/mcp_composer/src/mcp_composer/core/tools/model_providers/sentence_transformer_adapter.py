@@ -4,7 +4,7 @@ SentenceTransformer Embedding Provider Adapter
 Adapter for using sentence-transformers library for embeddings.
 """
 
-from typing import Any, Dict, List, Optional, Union
+from typing import Any
 from .base import ModelProviderAdapter
 from mcp_composer.core.utils import LoggerFactory
 
@@ -59,9 +59,9 @@ class SentenceTransformerAdapter(ModelProviderAdapter):
         prompt: str,
         temperature: float = 0.7,
         max_tokens: int = 1000,
-        options: Optional[Dict[str, Any]] = None,
+        options: dict[str, Any] | None = None,
         **kwargs,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Chat is not supported by SentenceTransformer (embedding-only provider).
 
@@ -73,8 +73,8 @@ class SentenceTransformerAdapter(ModelProviderAdapter):
         )
 
     def encode(
-        self, text: Union[str, List[str]], model_name: Optional[str] = None, **kwargs
-    ) -> Union[List[float], List[List[float]]]:
+        self, text: str | list[str], model_name: str | None = None, **kwargs
+    ) -> list[float] | list[list[float]]:
         """
         Generate embeddings using SentenceTransformer.
 

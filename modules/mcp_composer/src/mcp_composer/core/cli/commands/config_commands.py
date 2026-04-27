@@ -4,7 +4,6 @@ Unified configuration commands for MCP Composer CLI using Typer.
 
 import asyncio
 import json
-from typing import Optional, List
 
 import typer
 from typer import Option, Argument
@@ -61,7 +60,7 @@ def validate_config(
 @app.command("show")
 def show_config(
     configfilepath: str = Argument(..., help="Path to the configuration file to show"),
-    section: Optional[str] = Option(
+    section: str | None = Option(
         None,
         "--section",
         "-s",
@@ -303,7 +302,7 @@ def _show_tools_table(tools: dict) -> None:
     console.print(table)
 
 
-def _show_dry_run(configfilepath: str, sections: Optional[List[ConfigSection]]) -> None:
+def _show_dry_run(configfilepath: str, sections: list[ConfigSection] | None) -> None:
     """Show what would be applied in dry run mode."""
     try:
         config_manager = ConfigManager()

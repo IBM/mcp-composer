@@ -5,7 +5,10 @@ from __future__ import annotations
 import pytest
 from unittest.mock import patch
 
-from mcp_composer.core.catalog import CatalogResourceNotFoundError, CatalogVersionCapError
+from mcp_composer.core.catalog import (
+    CatalogResourceNotFoundError,
+    CatalogVersionCapError,
+)
 from mcp_composer.core.catalog.agent_manager import AgentManager
 from mcp_composer.core.catalog.catalog_manager import CatalogResourceListFilter
 from mcp_composer.core.models.catalog_constants import RegistryResourceKind
@@ -23,8 +26,8 @@ def _agent(
         image="docker.io/example/agent:1",
         language="python",
         framework="langchain",
-        model_provider="openai",
-        model_name="gpt-4",
+        modelProvider="openai",
+        modelName="gpt-4",
         description=description,
         version=version,
     )
@@ -96,9 +99,11 @@ async def test_version_cap(mgr, db):
     # Test with a smaller number to avoid timeout - the actual cap is enforced by the constant
     # We just need to verify the cap mechanism works, not test with the full 10000 versions
     test_cap = 50  # Use a reasonable number for testing
-    
+
     # Mock the constant where it's used in agent_manager
-    with patch('mcp_composer.core.catalog.agent_manager.MAX_VERSIONS_PER_RESOURCE', test_cap):
+    with patch(
+        "mcp_composer.core.catalog.agent_manager.MAX_VERSIONS_PER_RESOURCE", test_cap
+    ):
         for i in range(test_cap):
             await mgr.publish(_agent(name="CapAgent", version=f"{i}.0.0"))
         with pytest.raises(CatalogVersionCapError):

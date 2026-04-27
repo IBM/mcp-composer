@@ -13,7 +13,7 @@ from unittest.mock import patch
 
 import pytest
 
-from fastmcp.tools.tool import ToolResult
+from fastmcp.tools import ToolResult
 from mcp.types import TextContent
 from mcp_composer.core.tools.sequential_thinking_tool import (
     ProcessedThought,

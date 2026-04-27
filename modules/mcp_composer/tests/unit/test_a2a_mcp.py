@@ -2,7 +2,7 @@
 
 import uuid
 from types import SimpleNamespace
-from typing import Any, AsyncIterator, Dict, List
+from typing import Any, AsyncIterator
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -94,7 +94,7 @@ class DummyA2AClient:
                 "message_id": str(uuid.uuid4()),
                 "task_id": "task-123",
             }
-            task_event = Message(**send_params)
+            task_event = Message(**send_params)  # type: ignore[arg-type]
             yield task_event
 
         return gen()
@@ -304,7 +304,7 @@ async def test_unregister_agent_success(monkeypatch):
     module_under_test.registered_agents[url] = agent
     module_under_test.task_agent_mapping.update({"t1": url, "t2": "http://other"})
 
-    saved: Dict[str, Any] = {}
+    saved: dict[str, Any] = {}
 
     def _save(obj, path):
         saved[path] = obj
@@ -526,7 +526,7 @@ def test_load_registered_agents(monkeypatch):
     saved_tasks = {"task-1": "http://agent:10000"}
 
     # First call returns agents, second call returns tasks
-    calls: List[Dict[str, Any]] = [saved_agents, saved_tasks]
+    calls: list[dict[str, Any]] = [saved_agents, saved_tasks]
 
     def _load(_path):
         return calls.pop(0)
@@ -543,9 +543,9 @@ def test_load_registered_agents_with_invalid_data(monkeypatch):
     saved_agents = {
         "http://agent:10000": {"invalid": "data"},
     }
-    saved_tasks = {}
+    saved_tasks: dict[str, Any] = {}
 
-    calls: List[Dict[str, Any]] = [saved_agents, saved_tasks]
+    calls: list[dict[str, Any]] = [saved_agents, saved_tasks]
 
     def _load(_path):
         return calls.pop(0)

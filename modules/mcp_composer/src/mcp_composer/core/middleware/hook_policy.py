@@ -1,5 +1,5 @@
 import re
-from typing import Any, List
+from typing import Any
 
 # FastMCP interfaces
 from fastmcp.server.middleware import MiddlewareContext
@@ -26,12 +26,12 @@ class HookPolicy:
 
     def __init__(
         self,
-        include_tools: List[str] | None = None,
-        exclude_tools: List[str] | None = None,
-        include_prompts: List[str] | None = None,
-        exclude_prompts: List[str] | None = None,
-        include_server_ids: List[str] | None = None,
-        exclude_server_ids: List[str] | None = None,
+        include_tools: list[str] | None = None,
+        exclude_tools: list[str] | None = None,
+        include_prompts: list[str] | None = None,
+        exclude_prompts: list[str] | None = None,
+        include_server_ids: list[str] | None = None,
+        exclude_server_ids: list[str] | None = None,
     ) -> None:
         self.inc_tools = include_tools or ["*"]
         self.exc_tools = exclude_tools or []

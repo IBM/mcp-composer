@@ -36,6 +36,7 @@ from typing import AsyncIterator
 
 try:
     import yaml
+
     _HAS_YAML = True
 except ImportError:
     _HAS_YAML = False
@@ -51,6 +52,7 @@ from mcp_composer.core.catalog.skill_manager import SkillManager
 
 
 # ── helpers ───────────────────────────────────────────────────────────────────
+
 
 def _frontmatter(data: dict) -> str:
     """Render a dict as YAML frontmatter block (--- ... ---).
@@ -94,18 +96,18 @@ def _render_skill_md(payload: dict, official_meta: dict) -> str:
     metadata: dict = payload.get("metadata") or {}
 
     front: dict = {
-        "name":        payload.get("name", ""),
-        "version":     payload.get("version", ""),
-        "status":      official_meta.get("status") or payload.get("status") or "active",
-        "title":       metadata.get("title") or payload.get("name", ""),
-        "category":    metadata.get("category", ""),
-        "products":    metadata.get("products") or [],
-        "tags":        metadata.get("tags") or [],
-        "author":      metadata.get("author", ""),
-        "license":     payload.get("license", ""),
-        "isLatest":    official_meta.get("is_latest", False),
+        "name": payload.get("name", ""),
+        "version": payload.get("version", ""),
+        "status": official_meta.get("status") or payload.get("status") or "active",
+        "title": metadata.get("title") or payload.get("name", ""),
+        "category": metadata.get("category", ""),
+        "products": metadata.get("products") or [],
+        "tags": metadata.get("tags") or [],
+        "author": metadata.get("author", ""),
+        "license": payload.get("license", ""),
+        "isLatest": official_meta.get("is_latest", False),
         "publishedAt": official_meta.get("published_at", ""),
-        "updatedAt":   official_meta.get("updated_at", ""),
+        "updatedAt": official_meta.get("updated_at", ""),
     }
     # Remove empty/falsy values to keep frontmatter tidy
     front = {k: v for k, v in front.items() if v not in (None, "", [], False, 0)}
@@ -153,25 +155,26 @@ def _render_manifest(payload: dict, official_meta: dict) -> str:
     """Render a compact JSON manifest for the skill."""
     metadata: dict = payload.get("metadata") or {}
     manifest = {
-        "name":      payload.get("name"),
-        "version":   payload.get("version"),
-        "status":    official_meta.get("status") or payload.get("status") or "active",
-        "isLatest":  official_meta.get("is_latest", False),
-        "title":     metadata.get("title"),
-        "category":  metadata.get("category"),
-        "products":  metadata.get("products") or [],
-        "tags":      metadata.get("tags") or [],
-        "author":    metadata.get("author"),
-        "license":   payload.get("license"),
+        "name": payload.get("name"),
+        "version": payload.get("version"),
+        "status": official_meta.get("status") or payload.get("status") or "active",
+        "isLatest": official_meta.get("is_latest", False),
+        "title": metadata.get("title"),
+        "category": metadata.get("category"),
+        "products": metadata.get("products") or [],
+        "tags": metadata.get("tags") or [],
+        "author": metadata.get("author"),
+        "license": payload.get("license"),
         "websiteUrl": payload.get("websiteUrl"),
         "allowedTools": payload.get("allowed-tools") or [],
         "publishedAt": official_meta.get("published_at"),
-        "updatedAt":   official_meta.get("updated_at"),
+        "updatedAt": official_meta.get("updated_at"),
     }
     return json.dumps({k: v for k, v in manifest.items() if v is not None}, indent=2)
 
 
 # ── Resource types ────────────────────────────────────────────────────────────
+
 
 class SkillMarkdownResource(TextResource):
     """A skill rendered as a SKILL.md MCP TextResource."""
@@ -182,6 +185,7 @@ class SkillManifestResource(TextResource):
 
 
 # ── Provider ──────────────────────────────────────────────────────────────────
+
 
 class CatalogSkillsProvider(Provider):
     """FastMCP Provider that exposes the skill catalog as MCP resources.
@@ -234,7 +238,11 @@ class CatalogSkillsProvider(Provider):
         resources: list[Resource] = []
         for item in result.skills:
             skill = item.skill
-            official_meta = item.meta.official.model_dump(mode="json") if item.meta else {}
+            official_meta = (
+                item.meta.official.model_dump(mode="json")
+                if item.meta and item.meta.official
+                else {}
+            )
             payload = skill.model_dump(mode="json", by_alias=False, exclude_none=True)
 
             name = skill.name
@@ -242,7 +250,7 @@ class CatalogSkillsProvider(Provider):
 
             resources.append(
                 SkillMarkdownResource(
-                    uri=f"skill://{name}/SKILL.md",
+                    uri=f"skill://{name}/SKILL.md",  # type: ignore[arg-type]
                     name=f"{title} — SKILL.md",
                     description=(
                         f"Full skill spec for {name} (description + instructions). "
@@ -254,7 +262,7 @@ class CatalogSkillsProvider(Provider):
             )
             resources.append(
                 SkillManifestResource(
-                    uri=f"skill://{name}/_manifest",
+                    uri=f"skill://{name}/_manifest",  # type: ignore[arg-type]
                     name=f"{title} — manifest",
                     description=(
                         f"JSON manifest for {name}: name, version, status, products, tags."
@@ -268,7 +276,7 @@ class CatalogSkillsProvider(Provider):
 
     # ── resource retrieval ────────────────────────────────────────────────────
 
-    async def _get_resource(self, uri: str) -> Resource | None:
+    async def _get_resource(self, uri: str, version: str | None = None) -> Resource | None:  # type: ignore[override]
         """Return the resource for *uri*, or None if not found.
 
         Supports:
@@ -279,7 +287,7 @@ class CatalogSkillsProvider(Provider):
             return None
 
         # Parse  skill://{name}/{suffix}
-        rest = uri[len("skill://"):]
+        rest = uri[len("skill://") :]
         parts = rest.split("/", 1)
         if len(parts) != 2:
             return None
@@ -295,16 +303,24 @@ class CatalogSkillsProvider(Provider):
             return None
 
         skill = skill_resp.skill
-        official_meta = skill_resp.meta.official.model_dump(mode="json") if skill_resp.meta else {}
+        official_meta = (
+            skill_resp.meta.official.model_dump(mode="json")
+            if skill_resp.meta and skill_resp.meta.official
+            else {}
+        )
         payload = skill.model_dump(mode="json", by_alias=False, exclude_none=True)
         title = (skill.metadata or {}).get("title") or name
 
         if suffix == "SKILL.md":
             # Prefer stored content column (Level 3 raw asset) if present.
             stored_content = await self._mgr.get_content(name)
-            text = stored_content if stored_content else _render_skill_md(payload, official_meta)
+            text = (
+                stored_content
+                if stored_content
+                else _render_skill_md(payload, official_meta)
+            )
             return SkillMarkdownResource(
-                uri=uri,
+                uri=uri,  # type: ignore[arg-type]
                 name=f"{title} — SKILL.md",
                 description=f"Full skill spec for {name}.",
                 text=text,
@@ -313,7 +329,7 @@ class CatalogSkillsProvider(Provider):
 
         if suffix == "_manifest":
             return SkillManifestResource(
-                uri=uri,
+                uri=uri,  # type: ignore[arg-type]
                 name=f"{title} — manifest",
                 description=f"JSON manifest for {name}.",
                 text=_render_manifest(payload, official_meta),
@@ -324,6 +340,7 @@ class CatalogSkillsProvider(Provider):
 
 
 # ── Convenience factory ───────────────────────────────────────────────────────
+
 
 def build_catalog_mcp() -> FastMCP:
     """Return a FastMCP server with the skill catalog MCP tools AND the skills Provider.
@@ -346,6 +363,7 @@ def build_catalog_mcp() -> FastMCP:
     except AttributeError:
         # Older FastMCP — providers must be passed at construction; warn and skip.
         import warnings
+
         warnings.warn(
             "FastMCP < 3.1 detected — CatalogSkillsProvider requires add_provider(). "
             "Upgrade fastmcp to >=3.1.0 for Level 3 resource support.",

@@ -4,8 +4,8 @@ Follows the adapter pattern to support multiple policy providers.
 """
 
 import time
-from typing import Any, Dict, Optional, Union, List
-
+from typing import Any
+from collections.abc import Sequence
 import mcp.types as mt
 from fastmcp.server.middleware import (
     Middleware,
@@ -43,8 +43,8 @@ class PolicyMiddleware(Middleware):
 
     def __init__(
         self,
-        mode: Optional[Union[str, PolicyMode]] = None,
-        policy_config: Optional[Dict[str, Any]] = None,
+        mode: str | PolicyMode | None = None,
+        policy_config: dict[str, Any] | None = None,
         enable_audit_logging: bool = True,
     ):
         """
@@ -90,7 +90,7 @@ class PolicyMiddleware(Middleware):
             return self.mode.value
         return str(self.mode)
 
-    def _initialize_enforcer(self, config: Dict[str, Any]) -> BasePolicyEnforcer:
+    def _initialize_enforcer(self, config: dict[str, Any]) -> BasePolicyEnforcer:
         """
         Initialize the appropriate policy enforcer based on mode.
 
@@ -438,8 +438,8 @@ class PolicyMiddleware(Middleware):
     async def on_list_tools(
         self,
         context: MiddlewareContext[mt.ListToolsRequest],
-        call_next: CallNext[mt.ListToolsRequest, List],
-    ) -> List:
+        call_next: CallNext[mt.ListToolsRequest, Sequence[Any]],
+    ) -> Sequence[Any]:
         """Filter tools based on authorization."""
         tools = await call_next(context)
         logger.debug("Received tools: %s and len %d", tools, len(tools))
@@ -496,8 +496,8 @@ class PolicyMiddleware(Middleware):
     async def on_list_resources(
         self,
         context: MiddlewareContext[mt.ListResourcesRequest],
-        call_next: CallNext[mt.ListResourcesRequest, list],
-    ) -> list:
+        call_next: CallNext[mt.ListResourcesRequest, Sequence[Any]],
+    ) -> Sequence[Any]:
         """Filter resources based on authorization."""
         resources = await call_next(context)
 
@@ -549,8 +549,8 @@ class PolicyMiddleware(Middleware):
     async def on_list_prompts(
         self,
         context: MiddlewareContext[mt.ListPromptsRequest],
-        call_next: CallNext[mt.ListPromptsRequest, list],
-    ) -> list:
+        call_next: CallNext[mt.ListPromptsRequest, Sequence[Any]],
+    ) -> Sequence[Any]:
         """Filter prompts based on authorization."""
         prompts = await call_next(context)
 
@@ -628,7 +628,7 @@ class PolicyMiddleware(Middleware):
         else:
             logger.warning("Access denied: %s", log_data)
 
-    def get_metrics(self) -> Dict[str, Any]:
+    def get_metrics(self) -> dict[str, Any]:
         """Get middleware metrics."""
         total = self.total_requests
         allowed_rate = (self.allowed_requests / total * 100) if total > 0 else 0
@@ -659,7 +659,7 @@ class PolicyMiddleware(Middleware):
         except Exception as e:
             logger.error("Failed to reload policy: %s", e)
 
-    def get_enforcer_info(self) -> Dict[str, Any]:
+    def get_enforcer_info(self) -> dict[str, Any]:
         """Get information about the current policy enforcer."""
         return {
             "mode": self._get_mode_name(),

@@ -2,7 +2,7 @@
 
 import json
 import os
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from dotenv import find_dotenv, load_dotenv
 
@@ -20,7 +20,7 @@ class FileSecretAdapter(SecretAdapter):
     ):
         self.file_path = file_path
         self.history_limit = history_limit
-        self.history = {}
+        self.history: dict[str, Any] = {}
         self._load()
 
     def _load(self) -> None:
@@ -43,7 +43,7 @@ class FileSecretAdapter(SecretAdapter):
             except OSError as e:
                 logger.warning("Failed to save version history: %s", e)
 
-    def load_config(self, server_id: str) -> Dict[str, Any]:
+    def load_config(self, server_id: str) -> dict[str, Any]:
         """Loads version history from the file into memory."""
         try:
             if self.file_path is not None:
@@ -63,23 +63,23 @@ class FileSecretAdapter(SecretAdapter):
         self.history[server_id] = versions[-self.history_limit :]
         self._save()
 
-    def get_all_versions(self, server_id: str) -> List[Dict[str, Any]]:
+    def get_all_versions(self, server_id: str) -> list[dict[str, Any]]:
         """
         Get all saved versions for a given server.
         Args:
             server_id (str): The ID of the server.
         Returns:
-            List[Dict[str, Any]]: List of version data dictionaries.
+            list[dict[str, Any]]: List of version data dictionaries.
         """
         return self.history.get(server_id, [])
 
-    def get_latest_version(self, server_id: str) -> Optional[Dict[str, Any]]:
+    def get_latest_version(self, server_id: str) -> dict[str, Any] | None:
         """
         Get the most recent version config for a given server.
         Args:
             server_id (str): The ID of the server.
         Returns:
-            Dict[str, Any]: Latest config version, or empty dict if none exist.
+            dict[str, Any]: Latest config version, or empty dict if none exist.
         """
         versions = self.get_all_versions(server_id)
         if versions:
@@ -92,7 +92,7 @@ class FileSecretAdapter(SecretAdapter):
 
     def get_version_by_id(
         self, server_id: str, version_id: str
-    ) -> Optional[Dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         """_summary_
 
         Args:
@@ -100,7 +100,7 @@ class FileSecretAdapter(SecretAdapter):
             version_id (str): _description_
 
         Returns:
-            Optional[Dict[str, Any]]: _description_
+            dict[str, Any] | None: _description_
         """
         for v in self.get_all_versions(server_id):
             if v["version_id"] == version_id:
@@ -114,7 +114,7 @@ class FileSecretAdapter(SecretAdapter):
             server_id (str): The ID of the server.
             version_id (str): The version ID to roll back to.
         Returns:
-            Dict[str, Any]: The config corresponding to the specified version.
+            dict[str, Any]: The config corresponding to the specified version.
         Raises:
             ValueError: If the specified version ID is not found.
         """

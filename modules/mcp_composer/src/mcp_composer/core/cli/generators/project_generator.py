@@ -7,7 +7,7 @@ and example files for new MCP Composer projects.
 
 import json
 from pathlib import Path
-from typing import Dict, Any
+from typing import Any
 
 from rich import print as rprint
 
@@ -19,7 +19,7 @@ logger = LoggerFactory.get_logger()
 class ProjectGenerator:
     """Generates MCP Composer project structure and files."""
 
-    def __init__(self, config: Dict[str, Any], target_dir: Path):
+    def __init__(self, config: dict[str, Any], target_dir: Path):
         """
         Initialize the project generator.
 
@@ -156,11 +156,11 @@ class ProjectGenerator:
             contributing_path = self.target_dir / "CONTRIBUTING.md"
             self._write_text_file(contributing_path, contributing_content)
 
-    def _generate_main_config(self) -> Dict:
+    def _generate_main_config(self) -> dict[str, object]:
         """Generate main configuration file content."""
         mode = self.config["mode"]
 
-        config = {
+        config: dict[str, object] = {
             "project": {
                 "name": self.config["project_name"],
                 "description": self.config["description"],
@@ -170,8 +170,10 @@ class ProjectGenerator:
         }
 
         # Add example server configuration based on mode
+        servers = config["servers"]
+        assert isinstance(servers, list)
         if mode == "stdio":
-            config["servers"].append(
+            servers.append(
                 {
                     "id": "example-server",
                     "type": "stdio",
@@ -182,7 +184,7 @@ class ProjectGenerator:
                 }
             )
         elif mode == "local":
-            config["servers"].append(
+            servers.append(
                 {
                     "id": "example-local-server",
                     "type": "local",
@@ -194,7 +196,7 @@ class ProjectGenerator:
                 }
             )
         elif mode in ["http", "sse"]:
-            config["servers"].append(
+            servers.append(
                 {
                     "id": "example-server",
                     "type": mode,
@@ -204,7 +206,7 @@ class ProjectGenerator:
                 }
             )
         elif mode == "openapi":
-            config["servers"].append(
+            servers.append(
                 {
                     "id": "example-api-server",
                     "type": "openapi",
@@ -217,7 +219,7 @@ class ProjectGenerator:
                 }
             )
         elif mode == "graphql":
-            config["servers"].append(
+            servers.append(
                 {
                     "id": "example-graphql-server",
                     "type": "graphql",
@@ -227,7 +229,7 @@ class ProjectGenerator:
                 }
             )
         elif mode == "client":
-            config["servers"].append(
+            servers.append(
                 {
                     "id": "example-client-server",
                     "type": "client",
@@ -239,7 +241,7 @@ class ProjectGenerator:
 
         return config
 
-    def _generate_middleware_config(self) -> Dict:
+    def _generate_middleware_config(self) -> dict[str, object]:
         """Generate middleware configuration."""
         return {"middleware": [], "middleware_settings": {"enabled": True}}
 
@@ -542,10 +544,10 @@ Example tool for MCP Composer.
 This is a simple example tool that demonstrates how to create custom tools.
 """
 
-from typing import Dict, Any
+from typing import Any
 
 
-def example_tool(name: str = "World") -> Dict[str, Any]:
+def example_tool(name: str = "World") -> dict[str, Any]:
     """
     Example tool that greets a user.
 
@@ -561,7 +563,7 @@ def example_tool(name: str = "World") -> Dict[str, Any]:
     }
 
 
-async def async_example_tool(name: str = "World") -> Dict[str, Any]:
+async def async_example_tool(name: str = "World") -> dict[str, Any]:
     """
     Async example tool that greets a user.
 
@@ -619,7 +621,7 @@ class ExampleMiddleware(BaseMiddleware):
         return result
 '''
 
-    def _generate_example_config(self) -> Dict:
+    def _generate_example_config(self) -> dict[str, object]:
         """Generate example configuration."""
         return {
             "description": "Example configuration for MCP Composer",
@@ -878,7 +880,7 @@ Feel free to open an issue for any questions or concerns.
             f.write(content)
         logger.info("Created file: %s", path)
 
-    def _write_json_file(self, path: Path, content: Dict) -> None:
+    def _write_json_file(self, path: Path, content: dict[str, object]) -> None:
         """Write JSON content to a file."""
         path.parent.mkdir(parents=True, exist_ok=True)
         with open(path, "w", encoding="utf-8") as f:

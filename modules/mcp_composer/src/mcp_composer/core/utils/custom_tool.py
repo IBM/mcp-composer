@@ -5,7 +5,7 @@ import json
 import os
 import textwrap
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Tuple
+from typing import Any, Callable
 from deepdiff import DeepDiff
 
 import httpx
@@ -34,7 +34,7 @@ class ToolPaths:
 class DynamicToolGenerator:
     """Custom Tool generator class"""
 
-    rollback_versions: Dict[str, str] = {}
+    rollback_versions: dict[str, str] = {}
     rollback_file = "curl_rollback_versions.json"
 
     def __init__(self) -> None:
@@ -91,7 +91,7 @@ class DynamicToolGenerator:
             )
 
     @staticmethod
-    def _get_curl_folder_and_file_path() -> Tuple[str, str]:
+    def _get_curl_folder_and_file_path() -> tuple[str, str]:
         """return folder and filepath for writing tools"""
         current_file = os.path.abspath(__file__)
         current_dir = os.path.dirname(current_file)
@@ -103,7 +103,7 @@ class DynamicToolGenerator:
         return folder_path, filepath
 
     @staticmethod
-    def _version_to_tuple(version: str) -> Tuple[int, int, int]:
+    def _version_to_tuple(version: str) -> tuple[int, int, int]:
         parts = version.lstrip("v").split(".")
         if len(parts) != 3:
             raise ValueError(f"Invalid version format: {version}")
@@ -116,11 +116,11 @@ class DynamicToolGenerator:
         return f"v{major}.{minor}.{patch + 1}"
 
     @staticmethod
-    def create_api_request(tool: Dict[str, Any]) -> Callable[[], Any]:
+    def create_api_request(tool: dict[str, Any]) -> Callable[[], Any]:
         """Create API tool"""
         logger.info("Generate tool from API request on the fly:%s", tool)
 
-        async def api_tool() -> Dict[str, Any]:
+        async def api_tool() -> dict[str, Any]:
             data = tool.get("data")
             headers = tool["headers"]
             method = tool["method"]
@@ -251,12 +251,12 @@ class DynamicToolGenerator:
             raise
 
     @staticmethod
-    def read_curl_from_file() -> List[Callable[[], Any]]:
+    def read_curl_from_file() -> list[Callable[[], Any]]:
         """
         Read cURL tools for all APIs from rollback version if present, else latest version.
         Directory structure: custom_tool/curl/<api_name>/vX.Y.Z/tools.json
         """
-        tools_list: List[Callable[[], Any]] = []
+        tools_list: list[Callable[[], Any]] = []
 
         try:
             # Load rollback versions first
@@ -403,7 +403,7 @@ class DynamicToolGenerator:
         """Create a Python function from a Python script string"""
         try:
             if script_model.script_config:
-                script = script_model.script_config["value"]
+                script: str = script_model.script_config["value"]  # type: ignore[assignment]
                 tree = self._parse_script_to_ast(script)
 
                 # Step 1: Detect and install dependencies
@@ -412,7 +412,7 @@ class DynamicToolGenerator:
 
                 # Prepare safe execution context
                 safe_globals = {"__builtins__": __builtins__}
-                local_namespace: Dict[str, Any] = {}
+                local_namespace: dict[str, Any] = {}
 
                 # Compile and execute user script
                 compiled_code = compile(tree, filename="<user_script>", mode="exec")
@@ -446,11 +446,14 @@ class DynamicToolGenerator:
 class OpenApiTool:
     """Custom tool generator for OpenAPI specification"""
 
-    rollback_versions: Dict[str, str] = {}
+    rollback_versions: dict[str, str] = {}
     rollback_file = "rollback_versions.json"
 
     def __init__(
-        self, file_name: str, open_api: Dict, auth_config: Dict | None = None
+        self,
+        file_name: str,
+        open_api: dict[str, object],
+        auth_config: dict[str, object] | None = None,
     ) -> None:
         self.output_dir = "custom_tool"
         self.file_name = f"{file_name}.json"
@@ -557,7 +560,7 @@ class OpenApiTool:
             raise
 
     @staticmethod
-    async def read_openapi_from_file() -> Dict[str, Tuple[Dict[str, Any], Any]]:
+    async def read_openapi_from_file() -> dict[str, tuple[dict[str, Any], Any]]:
         """Read the latest or rollback-specified OpenAPI spec from custom_tool/openapi"""
         try:
             OpenApiTool._load_rollback_versions()
@@ -567,7 +570,7 @@ class OpenApiTool:
             parent_dir = os.path.dirname(current_dir)
             base_path = Path(parent_dir) / "custom_tool" / "openapi"
 
-            server_data: Dict[str, Tuple[Dict[str, Any], Any]] = {}
+            server_data: dict[str, tuple[dict[str, Any], Any]] = {}
 
             if not base_path.exists():
                 return server_data
@@ -705,7 +708,7 @@ class OpenApiTool:
         major, minor, patch = self._version_to_tuple(version_str)
         return f"v{major}.{minor}.{patch + 1}"
 
-    def _version_to_tuple(self, version_str: str) -> Tuple[int, int, int]:
+    def _version_to_tuple(self, version_str: str) -> tuple[int, int, int]:
         """Convert version string to tuple: v1.2.3 -> (1, 2, 3)"""
         parts = version_str.lstrip("v").split(".")
         if len(parts) != 3:

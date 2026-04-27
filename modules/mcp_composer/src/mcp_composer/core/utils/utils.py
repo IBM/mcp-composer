@@ -6,12 +6,12 @@ import json
 import os
 import re
 import subprocess
-from typing import Any, Callable, Dict, Optional, Tuple
+from typing import Any, Callable
 
 import aiohttp
 import httpx
 from aiohttp import ClientConnectorError
-from fastmcp.prompts.prompt import Prompt, PromptArgument
+from fastmcp.prompts import Prompt, PromptArgument
 from fastmcp.server.providers.openapi import MCPType, RouteMap
 from pydantic import HttpUrl
 
@@ -27,7 +27,7 @@ logger = LoggerFactory.get_logger()
 
 async def _get_status(
     session, server: MemberMCPServer, endpoint: str
-) -> Tuple[int, MemberMCPServer]:
+) -> tuple[int, MemberMCPServer]:
     async with session.get(endpoint) as resp:
         return resp.status, server
 
@@ -40,7 +40,7 @@ async def load_custom_mappings_from_json(json_data: str | list[dict]) -> list[Ro
         json_data: JSON string or already-parsed list of dicts
 
     Returns:
-        List[RouteMap]
+        list[RouteMap]
     """
     if isinstance(json_data, str):
         mappings = json.loads(json_data)
@@ -197,7 +197,7 @@ async def get_member_health(
                     else HealthStatus.unhealthy
                 )
                 server.health_status = health
-                server_status["status"] = health
+                server_status["status"] = health.value
                 server_status["server_name"] = server_id
                 status.append(server_status)
             return status
@@ -283,7 +283,7 @@ def build_prompt_from_dict(entry: dict) -> Prompt:
     return prompt
 
 
-def get_version_adapter(config: Optional[Dict[str, Any]] = None) -> SecretAdapter:
+def get_version_adapter(config: dict[str, Any] | None = None) -> SecretAdapter:
     """Return adapter version"""
     if config:
         adapter_type = config.get("type", "file").lower()
@@ -307,7 +307,7 @@ def get_version_adapter(config: Optional[Dict[str, Any]] = None) -> SecretAdapte
     return adapter_factory(**adapter_args)
 
 
-def get_endpoint_from_config(config: Dict[str, Any]) -> Optional[HttpUrl]:
+def get_endpoint_from_config(config: dict[str, Any]) -> HttpUrl | None:
     """Get the endpoint from config for different server types: HTTP, SSE, OpenAPI, etc."""
 
     server_type = config.get("type")
@@ -332,7 +332,7 @@ def get_endpoint_from_config(config: Dict[str, Any]) -> Optional[HttpUrl]:
     return endpoint
 
 
-def load_from_json(filename: str) -> Dict[str, Any]:
+def load_from_json(filename: str) -> dict[str, Any]:
     """
     Load dictionary data from a JSON file.
 
@@ -353,7 +353,7 @@ def load_from_json(filename: str) -> Dict[str, Any]:
         return {}
 
 
-def save_to_json(data: Dict[str, Any], filename: str) -> bool:
+def save_to_json(data: dict[str, Any], filename: str) -> bool:
     """
     Save dictionary data to a JSON file.
 
@@ -395,7 +395,7 @@ def prompt_fn({param_list}):
         raise ValueError(f"Error formatting template: {{e}}")
 """
 
-    namespace = {}
+    namespace: dict[str, Any] = {}
     exec(func_code, namespace)
     return namespace["prompt_fn"]
 

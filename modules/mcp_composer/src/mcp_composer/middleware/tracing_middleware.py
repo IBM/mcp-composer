@@ -5,10 +5,10 @@ import hashlib
 from contextlib import nullcontext
 import json
 import time
-from typing import Any, Dict, Optional
+from typing import Any
 from mcp_composer.core.utils.context_request import ctx_get, _attr
 from fastmcp.server.middleware import Middleware, MiddlewareContext, CallNext
-from fastmcp.tools.tool import ToolResult
+from fastmcp.tools import ToolResult
 from mcp_composer.features.opentelemetry_metrics_registry import (
     tool_calls,
     tool_errors,
@@ -58,7 +58,7 @@ except Exception:  # pragma: no cover
 
             return _NoCtx()
 
-    trace = _NoTrace()
+    trace = _NoTrace()  # type: ignore[assignment]
 
     class Status:  # type: ignore
         def __init__(self, *_a, **_k):
@@ -93,8 +93,6 @@ def _json_sha256(obj: Any) -> str:
     except Exception:
         b = str(obj).encode(errors="ignore")
     return hashlib.sha256(b).hexdigest()
-
-
 
 
 def _split_tool_fullname(tool_name: str) -> tuple[str | None, str]:
@@ -145,7 +143,7 @@ class TracingMiddleware(Middleware):
         trace_results_digest: bool = True,
         trace_payload_sizes: bool = True,
         trace_namespaced_spans: bool = True,
-        **_: Dict[str, Any],
+        **_: dict[str, Any],
     ):
         self.log_tools = bool(log_tools)
         self.log_resources = bool(log_resources)
@@ -164,24 +162,28 @@ class TracingMiddleware(Middleware):
 
     # ---- helpers ----
 
-    def _log(self, ctx: MiddlewareContext, msg: str, level: Optional[str] = None):
+    def _log(self, ctx: MiddlewareContext, msg: str, level: str | None = None):
         logger = _get_logger(ctx)
         lvl = (level or self.level).upper()
         fn = getattr(logger, lvl.lower(), logger.info)
         fn(msg)
 
-    def _span_name(self, base: str, detail: Optional[str] = None) -> str:
+    def _span_name(self, base: str, detail: str | None = None) -> str:
         if not self.trace_namespaced_spans:
             return detail or base
         return f"{base}:{detail}" if detail else base
 
-    def _decorate_common_attrs(self, span, context: MiddlewareContext, op: str, name: str):
+    def _decorate_common_attrs(
+        self, span, context: MiddlewareContext, op: str, name: str
+    ):
         _attr(span, "mcp.operation", op)
         _attr(span, "mcp.name", name)
         server_name, stripped = _split_tool_fullname(name)
 
         # Prefer FastMCP-provided values if present
-        composer_name = ctx_get(context, "fastmcp_context.fastmcp.name", "composer_name")
+        composer_name = ctx_get(
+            context, "fastmcp_context.fastmcp.name", "composer_name"
+        )
         server_ver = ctx_get(context, "server_version")
         session_id = ctx_get(context, "fastmcp_context.session_id", "session_id")
         tenant_id = ctx_get(context, "tenant_id")
@@ -454,7 +456,7 @@ class TracingMiddleware(Middleware):
                 if tool_errors:
                     tool_errors.add(1, {"tool": tool})
                 self._log(context, f" {tool} error: {e}", level="ERROR")
-                raise
+            raise
         finally:
             if self.enable_tracing and span is not None:
                 duration_ms = int((time.time() - start) * 1000)
@@ -639,7 +641,9 @@ class TracingMiddleware(Middleware):
             self._log(context, "list prompts")
 
         span_cm = (
-            _TRACER.start_as_current_span(self._span_name("mcp.prompts.list")) if self.enable_tracing else nullcontext()
+            _TRACER.start_as_current_span(self._span_name("mcp.prompts.list"))
+            if self.enable_tracing
+            else nullcontext()
         )
 
         with span_cm as span:

@@ -14,7 +14,7 @@ Environment-based configuration:
 import os
 import time
 import httpx
-from typing import Optional, Dict, Any, Tuple, List
+from typing import Any
 from starlette.middleware import Middleware
 from starlette.middleware.authentication import AuthenticationMiddleware
 from starlette.authentication import AuthenticationBackend, AuthCredentials, BaseUser
@@ -29,7 +29,7 @@ logger = LoggerFactory.get_logger()
 class ISVUser(AuthenticatedUser):
     """User object for ISV authenticated requests, compatible with MCP's AuthenticatedUser."""
 
-    def __init__(self, token_data: Dict[str, Any]):
+    def __init__(self, token_data: dict[str, Any]):
         # Create an AccessToken object for MCP compatibility
         access_token_obj = AccessToken(
             token=token_data.get("access_token", ""),
@@ -49,7 +49,9 @@ class ISVAuthBackend(AuthenticationBackend):
     def __init__(self, validator: "ISVTokenValidator"):
         self.validator = validator
 
-    async def authenticate(self, conn: HTTPConnection) -> Optional[Tuple[AuthCredentials, BaseUser]]:
+    async def authenticate(
+        self, conn: HTTPConnection
+    ) -> tuple[AuthCredentials, BaseUser] | None:
         """
         Authenticate the request using ISV token validation.
 
@@ -79,10 +81,14 @@ class ISVAuthBackend(AuthenticationBackend):
         headers = dict(scope.get("headers", []))
         for header_name_bytes, header_value_bytes in headers.items():
             header_name = (
-                header_name_bytes.decode("utf-8") if isinstance(header_name_bytes, bytes) else str(header_name_bytes)
+                header_name_bytes.decode("utf-8")
+                if isinstance(header_name_bytes, bytes)
+                else str(header_name_bytes)
             )
             header_value = (
-                header_value_bytes.decode("utf-8") if isinstance(header_value_bytes, bytes) else str(header_value_bytes)
+                header_value_bytes.decode("utf-8")
+                if isinstance(header_value_bytes, bytes)
+                else str(header_value_bytes)
             )
 
             # Redact sensitive headers
@@ -133,7 +139,10 @@ class ISVEnvironmentConfig:
     PROD_URL = "https://aws.login.saas.ibm.com/security/auth/isv/token"
 
     def __init__(
-        self, environment: str = "test", cookie_name: Optional[str] = None, endpoint_url: Optional[str] = None
+        self,
+        environment: str = "test",
+        cookie_name: str | None = None,
+        endpoint_url: str | None = None,
     ):
         """
         Initialize environment configuration.
@@ -147,13 +156,24 @@ class ISVEnvironmentConfig:
         self.environment = environment.lower()
 
         # Cookie name: Priority order: 1) Parameter, 2) Env var, 3) Auto-determined
-        self.cookie_name = cookie_name or os.getenv("ISV_AUTH_COOKIE_NAME") or self._get_default_cookie_name()
+        self.cookie_name = (
+            cookie_name
+            or os.getenv("ISV_AUTH_COOKIE_NAME")
+            or self._get_default_cookie_name()
+        )
 
         # Endpoint URL: Priority order: 1) Parameter, 2) Env var, 3) Auto-determined
-        self.endpoint_url = endpoint_url or os.getenv("ISV_ENDPOINT_URL") or self._get_default_endpoint_url()
+        self.endpoint_url = (
+            endpoint_url
+            or os.getenv("ISV_ENDPOINT_URL")
+            or self._get_default_endpoint_url()
+        )
 
         logger.info(
-            "ISV Environment Config: env=%s, cookie=%s, url=%s", self.environment, self.cookie_name, self.endpoint_url
+            "ISV Environment Config: env=%s, cookie=%s, url=%s",
+            self.environment,
+            self.cookie_name,
+            self.endpoint_url,
         )
 
     def _get_default_cookie_name(self) -> str:
@@ -197,12 +217,12 @@ class ISVTokenCache:
         Args:
             ttl: Time-to-live in seconds (default: 7200 = 2 hours)
         """
-        self._cache: Dict[str, Tuple[str, float]] = {}
-        self._instance_cache: Dict[str, Tuple[List[Dict[str, Any]], float]] = {}
+        self._cache: dict[str, tuple[str, float]] = {}
+        self._instance_cache: dict[str, tuple[list[dict[str, Any]], float]] = {}
         self.ttl = ttl
         logger.debug("ISV Token Cache initialized with TTL: %d seconds", ttl)
 
-    def get(self, session_id: str) -> Optional[str]:
+    def get(self, session_id: str) -> str | None:
         """
         Get cached token if valid.
 
@@ -218,7 +238,9 @@ class ISVTokenCache:
 
             if current_time < expiry:
                 remaining = int(expiry - current_time)
-                logger.debug("Using cached ISV token (expires in %d seconds)", remaining)
+                logger.debug(
+                    "Using cached ISV token (expires in %d seconds)", remaining
+                )
                 return token
 
             # Token expired, remove from cache
@@ -241,9 +263,13 @@ class ISVTokenCache:
         expiry = time.time() + effective_ttl
 
         self._cache[session_id] = (token, expiry)
-        logger.debug("Cached ISV token (TTL: %d seconds, expires at: %.0f)", effective_ttl, expiry)
+        logger.debug(
+            "Cached ISV token (TTL: %d seconds, expires at: %.0f)",
+            effective_ttl,
+            expiry,
+        )
 
-    def get_instances(self, session_id: str) -> Optional[List[Dict[str, Any]]]:
+    def get_instances(self, session_id: str) -> list[dict[str, Any]] | None:
         """
         Get cached user instances if valid.
 
@@ -259,7 +285,9 @@ class ISVTokenCache:
 
             if current_time < expiry:
                 remaining = int(expiry - current_time)
-                logger.debug("Using cached user instances (expires in %d seconds)", remaining)
+                logger.debug(
+                    "Using cached user instances (expires in %d seconds)", remaining
+                )
                 return instances
 
             # Instances expired, remove from cache
@@ -268,7 +296,9 @@ class ISVTokenCache:
 
         return None
 
-    def set_instances(self, session_id: str, instances: List[Dict[str, Any]], expires_in: int):
+    def set_instances(
+        self, session_id: str, instances: list[dict[str, Any]], expires_in: int
+    ):
         """
         Cache user instances with expiration.
 
@@ -282,7 +312,11 @@ class ISVTokenCache:
         expiry = time.time() + effective_ttl
 
         self._instance_cache[session_id] = (instances, expiry)
-        logger.debug("Cached user instances (TTL: %d seconds, expires at: %.0f)", effective_ttl, expiry)
+        logger.debug(
+            "Cached user instances (TTL: %d seconds, expires at: %.0f)",
+            effective_ttl,
+            expiry,
+        )
 
     def clear(self):
         """Clear all cached tokens and instances."""
@@ -290,7 +324,11 @@ class ISVTokenCache:
         instance_count = len(self._instance_cache)
         self._cache.clear()
         self._instance_cache.clear()
-        logger.debug("Cleared %d cached tokens and %d cached instances", token_count, instance_count)
+        logger.debug(
+            "Cleared %d cached tokens and %d cached instances",
+            token_count,
+            instance_count,
+        )
 
 
 class ISVTokenValidator:
@@ -336,17 +374,23 @@ class ISVTokenValidator:
                 "TEMPORARY: Using test Instance API for %s environment due to instability. "
                 "This should be removed once %s Instance API is stable.",
                 environment,
-                environment
+                environment,
             )
         else:
             # For test and prod, use their respective Instance APIs
-            default_instance_url = f"https://api.solis.{environment.lower()}.saas.ibm.com/api/graphql" if environment.lower() == "test" else "https://api.solis.saas.ibm.com/api/graphql"
-        
+            default_instance_url = (
+                f"https://api.solis.{environment.lower()}.saas.ibm.com/api/graphql"
+                if environment.lower() == "test"
+                else "https://api.solis.saas.ibm.com/api/graphql"
+            )
+
         self.instance_api_url = os.getenv("ISV_INSTANCE_API_URL", default_instance_url)
 
         # Derive the correct cookie name for the Instance API environment
         # This is critical: the cookie name must match the API environment, not the ISV token environment
-        self.instance_cookie_name = self._derive_cookie_name_from_url(self.instance_api_url)
+        self.instance_cookie_name = self._derive_cookie_name_from_url(
+            self.instance_api_url
+        )
 
         logger.info("=" * 60)
         logger.info("ISV Token Validator Initialized")
@@ -392,10 +436,13 @@ class ISVTokenValidator:
             return "mcsp-glb-iam"
         else:
             # Default to test for unknown URLs
-            logger.warning("Could not determine environment from URL: %s, defaulting to test", api_url)
+            logger.warning(
+                "Could not determine environment from URL: %s, defaulting to test",
+                api_url,
+            )
             return "mcsp-glb-iam-test"
 
-    def extract_session_cookie(self, cookie_header: str) -> Optional[str]:
+    def extract_session_cookie(self, cookie_header: str) -> str | None:
         """
         Extract platform session cookie from Cookie header.
 
@@ -426,7 +473,11 @@ class ISVTokenValidator:
         session_id = cookies.get(self.config.cookie_name)
 
         if session_id:
-            logger.debug("Extracted session cookie '%s' (length: %d)", self.config.cookie_name, len(session_id))
+            logger.debug(
+                "Extracted session cookie '%s' (length: %d)",
+                self.config.cookie_name,
+                len(session_id),
+            )
         else:
             logger.warning(
                 "Session cookie '%s' not found in request. Available cookies: %s",
@@ -436,7 +487,7 @@ class ISVTokenValidator:
 
         return session_id
 
-    async def exchange_cookie_for_token(self, session_id: str) -> Dict[str, Any]:
+    async def exchange_cookie_for_token(self, session_id: str) -> dict[str, Any]:
         """
         Exchange platform session cookie for ISV token.
 
@@ -452,7 +503,10 @@ class ISVTokenValidator:
             HTTPException(403): Authentication failed
             HTTPException(503): Service unavailable
         """
-        request_body = {"grant_type": "urn:ibm:params:oauth:grant-type:isv-cookie", "cookie": session_id}
+        request_body = {
+            "grant_type": "urn:ibm:params:oauth:grant-type:isv-cookie",
+            "cookie": session_id,
+        }
 
         logger.info("Exchanging cookie for ISV token")
         logger.debug("ISV endpoint: %s", self.config.endpoint_url)
@@ -463,7 +517,10 @@ class ISVTokenValidator:
                 response = await client.post(
                     self.config.endpoint_url,
                     json=request_body,
-                    headers={"Content-Type": "application/json", "Accept": "application/json"},
+                    headers={
+                        "Content-Type": "application/json",
+                        "Accept": "application/json",
+                    },
                 )
 
                 logger.debug("ISV response status: %d", response.status_code)
@@ -476,7 +533,10 @@ class ISVTokenValidator:
                     logger.debug("Response text: %s", response.text[:500])
                     from starlette.exceptions import HTTPException
 
-                    raise HTTPException(status_code=503, detail="Invalid response from authentication service")
+                    raise HTTPException(
+                        status_code=503,
+                        detail="Invalid response from authentication service",
+                    )
 
                 # Check for success response
                 if response.status_code == 200 and "access_token" in response_data:
@@ -501,22 +561,28 @@ class ISVTokenValidator:
 
                 from starlette.exceptions import HTTPException
 
-                raise HTTPException(status_code=403, detail=f"Authentication failed: {error_msg}")
+                raise HTTPException(
+                    status_code=403, detail=f"Authentication failed: {error_msg}"
+                )
 
         except httpx.TimeoutException:
             logger.error("ISV endpoint timeout after %.1f seconds", self.timeout)
             from starlette.exceptions import HTTPException
 
-            raise HTTPException(status_code=503, detail="Authentication service unavailable (timeout)")
+            raise HTTPException(
+                status_code=503, detail="Authentication service unavailable (timeout)"
+            )
         except httpx.RequestError as e:
             logger.error("ISV endpoint request error: %s", e)
             from starlette.exceptions import HTTPException
 
-            raise HTTPException(status_code=503, detail="Authentication service unavailable")
+            raise HTTPException(
+                status_code=503, detail="Authentication service unavailable"
+            )
 
     async def fetch_user_instances(
-        self, session_cookie: str, filter_by_product_id: Optional[List[str]] = None
-    ) -> List[Dict[str, Any]]:
+        self, session_cookie: str, filter_by_product_id: list[str] | None = None
+    ) -> list[dict[str, Any]]:
         """
         Fetch user instances using the platform session cookie via GraphQL API.
 
@@ -575,7 +641,7 @@ class ISVTokenValidator:
         """
 
         # Variables (empty if no filter)
-        variables: Dict[str, Any] = {}
+        variables: dict[str, Any] = {}
         if filter_by_product_id:
             variables["filterByProductId"] = filter_by_product_id
 
@@ -632,25 +698,40 @@ class ISVTokenValidator:
                                         "state": instance.get(
                                             "state", "active"
                                         ),  # Include state field, default to "active"
-                                        "subscriptionId": instance.get("subscriptionId"),
+                                        "subscriptionId": instance.get(
+                                            "subscriptionId"
+                                        ),
                                         "name": instance.get("name"),
                                         "dashboardURL": instance.get("dashboardURL"),
                                         "subscription": {
-                                            "subscriptionName": subscription_data.get("subscriptionName"),
-                                            "productId": subscription_data.get("productId", product_id),
+                                            "subscriptionName": subscription_data.get(
+                                                "subscriptionName"
+                                            ),
+                                            "productId": subscription_data.get(
+                                                "productId", product_id
+                                            ),
                                         },
                                     }
                                     flattened_instances.append(flattened_instance)
 
-                    logger.info("Successfully fetched and flattened %d user instances", len(flattened_instances))
+                    logger.info(
+                        "Successfully fetched and flattened %d user instances",
+                        len(flattened_instances),
+                    )
                     logger.debug(
                         "Flattened instances: %s",
-                        flattened_instances[:2] if len(flattened_instances) > 2 else flattened_instances,
+                        (
+                            flattened_instances[:2]
+                            if len(flattened_instances) > 2
+                            else flattened_instances
+                        ),
                     )
 
                     return flattened_instances
                 else:
-                    logger.error("Failed to fetch instances: status=%d", response.status_code)
+                    logger.error(
+                        "Failed to fetch instances: status=%d", response.status_code
+                    )
                     logger.debug("Response: %s", response.text[:500])
                     return []
 
@@ -664,7 +745,7 @@ class ISVTokenValidator:
             logger.error("Failed to fetch user instances: %s", e)
             return []
 
-    async def validate_request(self, request) -> Dict[str, Any]:
+    async def validate_request(self, request) -> dict[str, Any]:
         """
         Validate incoming request and return ISV token with user instances.
 
@@ -688,7 +769,10 @@ class ISVTokenValidator:
             HTTPException(403): Authentication failed
             HTTPException(503): Service unavailable
         """
-        logger.debug("Validating ISV token request with instance fetching: %s", self.fetch_instances)
+        logger.debug(
+            "Validating ISV token request with instance fetching: %s",
+            self.fetch_instances,
+        )
 
         # Extract Cookie header or check for custom header
         cookie_header = request.headers.get("cookie", "")
@@ -705,14 +789,20 @@ class ISVTokenValidator:
                 from starlette.exceptions import HTTPException
 
                 raise HTTPException(
-                    status_code=401, detail=f"Missing Cookie header or '{self.config.cookie_name}' header"
+                    status_code=401,
+                    detail=f"Missing Cookie header or '{self.config.cookie_name}' header",
                 )
 
         if not session_id:
-            logger.warning("Missing platform session cookie: %s", self.config.cookie_name)
+            logger.warning(
+                "Missing platform session cookie: %s", self.config.cookie_name
+            )
             from starlette.exceptions import HTTPException
 
-            raise HTTPException(status_code=401, detail=f"Missing platform session cookie: {self.config.cookie_name}")
+            raise HTTPException(
+                status_code=401,
+                detail=f"Missing platform session cookie: {self.config.cookie_name}",
+            )
 
         # Check cache for token
         token_cached = False
@@ -720,14 +810,20 @@ class ISVTokenValidator:
             cached_token = self.cache.get(session_id)
             if cached_token:
                 logger.debug("Using cached ISV token")
-                token_response = {"access_token": cached_token, "token_type": "Bearer", "cached": True}
+                token_response = {
+                    "access_token": cached_token,
+                    "token_type": "Bearer",
+                    "cached": True,
+                }
                 token_cached = True
             else:
                 # Exchange cookie for ISV token
                 token_response = await self.exchange_cookie_for_token(session_id)
                 # Cache the token
                 if "expires_in" in token_response:
-                    self.cache.set(session_id, token_response["access_token"], token_response["expires_in"])
+                    access_token: str = token_response["access_token"]  # type: ignore[assignment]
+                    expires_in: int = token_response["expires_in"]  # type: ignore[assignment]
+                    self.cache.set(session_id, access_token, expires_in)
                 token_response["cached"] = False
         else:
             # No cache, exchange directly
@@ -735,7 +831,7 @@ class ISVTokenValidator:
             token_response["cached"] = False
 
         # Fetch user instances if enabled
-        user_instances: List[Dict[str, Any]] = []
+        user_instances: list[dict[str, Any]] = []
         if self.fetch_instances:
             # Check cache for instances
             if self.cache:
@@ -749,13 +845,13 @@ class ISVTokenValidator:
 
                     # Cache instances (same TTL as token)
                     if user_instances and "expires_in" in token_response:
-                        expires_in = token_response.get("expires_in", 7200)
+                        expires_in_value = token_response.get("expires_in", 7200)
                         # Ensure expires_in is an integer
-                        if isinstance(expires_in, (int, float)):
+                        if isinstance(expires_in_value, (int, float)):
                             self.cache.set_instances(
                                 session_id,
                                 user_instances,  # type: ignore
-                                int(expires_in),
+                                int(expires_in_value),
                             )
             else:
                 # No cache, fetch directly
@@ -765,7 +861,9 @@ class ISVTokenValidator:
         token_response["user_instances"] = user_instances  # type: ignore
 
         if user_instances:
-            logger.info("Authentication complete with %d user instances", len(user_instances))
+            logger.info(
+                "Authentication complete with %d user instances", len(user_instances)
+            )
         else:
             logger.info("Authentication complete (no instances fetched)")
 
@@ -791,7 +889,7 @@ class ISVTokenVerifier:
         cache_enabled: bool = True,
         cache_ttl: int = 7200,
         timeout: float = 30.0,
-        required_scopes: Optional[List[str]] = None,
+        required_scopes: list[str] | None = None,
         fetch_instances: bool = True,
     ):
         """
@@ -823,7 +921,7 @@ class ISVTokenVerifier:
 
         logger.info("ISVTokenVerifier ready for FastMCP integration")
 
-    def get_middleware(self) -> List[Middleware]:
+    def get_middleware(self) -> list[Middleware]:
         """
         Get HTTP application-level middleware for ISV authentication.
 
@@ -841,7 +939,9 @@ class ISVTokenVerifier:
         from mcp.server.auth.middleware.auth_context import AuthContextMiddleware
 
         return [
-            Middleware(AuthenticationMiddleware, backend=ISVAuthBackend(self.validator)),
+            Middleware(
+                AuthenticationMiddleware, backend=ISVAuthBackend(self.validator)
+            ),
             Middleware(AuthContextMiddleware),
         ]
 
@@ -860,10 +960,12 @@ class ISVTokenVerifier:
         Returns:
             Empty list (no additional routes needed for cookie-based auth)
         """
-        logger.debug("ISV authentication uses cookie-based auth, no additional routes needed")
+        logger.debug(
+            "ISV authentication uses cookie-based auth, no additional routes needed"
+        )
         return []
 
-    def _get_resource_url(self, path: Optional[str] = None):
+    def _get_resource_url(self, path: str | None = None):
         """
         Get the resource URL for the protected endpoint.
 
@@ -880,7 +982,7 @@ class ISVTokenVerifier:
         logger.debug("ISV authentication doesn't require resource URL advertisement")
         return None
 
-    async def __call__(self, request) -> Dict[str, Any]:
+    async def __call__(self, request) -> dict[str, Any]:
         """
         Verify request using ISV token validation.
 

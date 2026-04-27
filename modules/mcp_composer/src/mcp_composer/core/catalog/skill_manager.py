@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from mcp_composer.core.catalog.catalog_helpers import (
     registry_list_metadata_for_page,
@@ -39,7 +39,9 @@ _SKILL_KIND = RegistryResourceKind.SKILL.value
 # ── Private helpers ───────────────────────────────────────────────────────────
 
 
-def _public_resource_metadata(private_meta: dict | None) -> dict | None:
+def _public_resource_metadata(
+    private_meta: dict[str, Any] | None,
+) -> dict[str, Any] | None:
     """Return DB ``data`` keys safe to expose under ``_meta.metadata``.
 
     ``remotes_config`` is omitted: transport and headers are merged into
@@ -52,7 +54,7 @@ def _public_resource_metadata(private_meta: dict | None) -> dict | None:
 
 
 def _row_to_skill_response(
-    row: dict, private_meta: dict | None = None
+    row: dict[str, Any], private_meta: dict[str, Any] | None = None
 ) -> SkillResponse:
     """Map a catalog DB row to a SkillResponse.
 
@@ -66,15 +68,15 @@ def _row_to_skill_response(
     """
     skill = SkillJSON(**row["payload"])
 
-    official_meta_data: dict = row.get("official_meta") or {}
+    official_meta_data: dict[str, Any] = row.get("official_meta") or {}
 
     if skill.remotes:
-        official_remotes_cfg: Dict[str, Any] = (
+        official_remotes_cfg: dict[str, Any] = (
             official_meta_data.get("remotes_config") or {}
         )
-        private_remotes_cfg: Dict[str, Any] = (
-            (private_meta or {}).get("remotes_config") or {}
-        )
+        private_remotes_cfg: dict[str, Any] = (private_meta or {}).get(
+            "remotes_config"
+        ) or {}
         enriched = []
         for remote in skill.remotes:
             url = remote.url
@@ -97,11 +99,13 @@ def _row_to_skill_response(
 
     official = registry_official_extensions_from_row(row)
 
-    meta = SkillResponseMeta(
-        official=official,
-        metadata=_public_resource_metadata(private_meta),
+    meta = SkillResponseMeta.model_validate(
+        {
+            "official": official,
+            "metadata": _public_resource_metadata(private_meta),
+        }
     )
-    return SkillResponse(skill=skill, meta=meta)
+    return SkillResponse(skill=skill, _meta=meta)
 
 
 # ── SkillManager ──────────────────────────────────────────────────────────────
@@ -130,7 +134,7 @@ class SkillManager(CatalogManager):
     async def publish(
         self,
         skill_json: SkillJSON,
-        tenant_ids: Optional[List[str]] = None,
+        tenant_ids: list[str] | None = None,
     ) -> SkillResponse:
         """Publish (create or update) a skill version.
 
@@ -162,16 +166,14 @@ class SkillManager(CatalogManager):
 
         # Step 4–5 — build row; strip private remote fields from public payload
         now = utc_now_iso()
-        payload = skill_json.model_dump(
-            mode="json", by_alias=False, exclude_none=True
-        )
+        payload = skill_json.model_dump(mode="json", by_alias=False, exclude_none=True)
 
         # Split remotes across three layers:
         #   payload         → [{ url }] only             (agent-readable, spec-aligned)
         #   official_meta   → { url: { transport_type } } (non-sensitive, in _meta response)
         #   resource_metadata → { url: { transport_type, headers } } (private, never in API)
-        official_remotes_config: Dict[str, Any] = {}
-        private_remotes_config: Dict[str, Any] = {}
+        official_remotes_config: dict[str, Any] = {}
+        private_remotes_config: dict[str, Any] = {}
         if payload.get("remotes"):
             public_remotes = []
             for r in payload["remotes"]:
@@ -185,7 +187,7 @@ class SkillManager(CatalogManager):
                 public_remotes.append({"url": url})
             payload["remotes"] = public_remotes
 
-        official_meta: Dict[str, Any] = {
+        official_meta: dict[str, Any] = {
             "status": skill_json.status or "active",
             "published_at": now,
             "updated_at": now,
@@ -220,8 +222,8 @@ class SkillManager(CatalogManager):
     async def publish_with_resource_metadata(
         self,
         skill_json: SkillJSON,
-        tenant_ids: Optional[List[str]] = None,
-        resource_metadata: Optional[Dict[str, Any]] = None,
+        tenant_ids: list[str] | None = None,
+        resource_metadata: dict[str, Any] | None = None,
     ) -> SkillResponse:
         """Publish a skill and upsert ``catalog_resource_metadata.data`` in one step.
 
@@ -241,8 +243,8 @@ class SkillManager(CatalogManager):
                 _SKILL_KIND, skill_json.name, skill_json.version
             )
         existing_raw = await self._db.get_resource_metadata(str(row["id"]))
-        existing: Dict[str, Any] = dict(existing_raw or {})
-        merged: Dict[str, Any] = {**existing, **resource_metadata}
+        existing: dict[str, Any] = dict(existing_raw or {})
+        merged: dict[str, Any] = {**existing, **resource_metadata}
         await self._db.save_resource_metadata(str(row["id"]), merged)
         private_meta = await self._db.get_resource_metadata(str(row["id"]))
         return _row_to_skill_response(row, private_meta)
@@ -326,9 +328,7 @@ class SkillManager(CatalogManager):
 
     # ── get_content ───────────────────────────────────────────────────────────
 
-    async def get_content(
-        self, name: str, version: Optional[str] = None
-    ) -> str | None:
+    async def get_content(self, name: str, version: str | None = None) -> str | None:
         """Return the raw content for a skill version, or None if not stored.
 
         When *version* is omitted the ``is_latest`` version is resolved first.
@@ -338,31 +338,9 @@ class SkillManager(CatalogManager):
         """
         await self._ensure_initialized()
         if version is None:
-            row = await self._db.get_resource_by_filter(_SKILL_KIND, name, is_latest=True)
-            if row is None:
-                raise CatalogResourceNotFoundError(_SKILL_KIND, name, "latest")
-            version = row["version"]
-        else:
-            row = await self._db.get_resource(_SKILL_KIND, name, version)
-            if row is None:
-                raise CatalogResourceNotFoundError(_SKILL_KIND, name, version)
-        return await self._db.get_resource_content(_SKILL_KIND, name, version)
-
-    # ── get_content ───────────────────────────────────────────────────────────
-
-    async def get_content(
-        self, name: str, version: Optional[str] = None
-    ) -> str | None:
-        """Return the raw content for a skill version, or None if not stored.
-
-        When *version* is omitted the ``is_latest`` version is resolved first.
-
-        Raises:
-            SkillNotFoundError: when the skill (or its latest version) does not exist.
-        """
-        await self._ensure_initialized()
-        if version is None:
-            row = await self._db.get_resource_by_filter(_SKILL_KIND, name, is_latest=True)
+            row = await self._db.get_resource_by_filter(
+                _SKILL_KIND, name, is_latest=True
+            )
             if row is None:
                 raise CatalogResourceNotFoundError(_SKILL_KIND, name, "latest")
             version = row["version"]
@@ -374,9 +352,7 @@ class SkillManager(CatalogManager):
 
     # ── update_status ─────────────────────────────────────────────────────────
 
-    async def update_status(
-        self, name: str, version: str, status: str
-    ) -> None:
+    async def update_status(self, name: str, version: str, status: str) -> None:
         """Update the status of a skill version.
 
         The status is written to both ``payload["status"]`` and

@@ -1,8 +1,7 @@
 from __future__ import annotations
-from typing import List
 from ..models import ToolDescriptor
 
 
 class Scanner:
-    def collect(self) -> List[ToolDescriptor]:
+    def collect(self) -> list[ToolDescriptor]:
         raise NotImplementedError

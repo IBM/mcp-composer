@@ -1,4 +1,4 @@
-from typing import Dict, Any, Optional, List
+from typing import Any
 import jwt  # type: ignore
 from mcp_composer.middleware.acl.policy.base_policy_enforcer import BasePolicyEnforcer
 from mcp_composer.middleware.acl.acl_utils import extract_context_info
@@ -22,8 +22,8 @@ class JWEJWTPolicyEnforcer(BasePolicyEnforcer):
 
     def __init__(
         self,
-        secret_key: Optional[str] = None,
-        algorithms: Optional[List[str]] = None,
+        secret_key: str | None = None,
+        algorithms: list[str] | None = None,
         **kwargs: Any,
     ):
         """
@@ -42,7 +42,7 @@ class JWEJWTPolicyEnforcer(BasePolicyEnforcer):
             "Initialized JWT policy enforcer with algorithms: %s", self.algorithms
         )
 
-    def _extract_jwt_from_context(self, context: Dict[str, Any]) -> Optional[str]:
+    def _extract_jwt_from_context(self, context: dict[str, Any]) -> str | None:
         """
         Extract JWT token from context.
 
@@ -72,7 +72,7 @@ class JWEJWTPolicyEnforcer(BasePolicyEnforcer):
 
         return None
 
-    def _decode_jwt(self, token: str) -> Optional[Dict[str, Any]]:
+    def _decode_jwt(self, token: str) -> dict[str, Any] | None:
         """
         Decode and verify JWT token.
 
@@ -110,7 +110,7 @@ class JWEJWTPolicyEnforcer(BasePolicyEnforcer):
             logger.error("Error decoding JWT: %s", e)
             return None
 
-    def is_allowed(self, tool_name: str, context: Dict[str, Any]) -> bool:
+    def is_allowed(self, tool_name: str, context: dict[str, Any]) -> bool:
         """
         Check if the tool is allowed based on JWT claims.
 
@@ -162,8 +162,8 @@ class JWEJWTPolicyEnforcer(BasePolicyEnforcer):
         return is_allowed
 
     def get_claims_from_context(
-        self, context: Dict[str, Any]
-    ) -> Optional[Dict[str, Any]]:
+        self, context: dict[str, Any]
+    ) -> dict[str, Any] | None:
         """
         Get JWT claims from context for debugging/inspection.
 

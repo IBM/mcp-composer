@@ -12,7 +12,7 @@ Example:
         raise
 """
 
-from typing import Any, Dict, Optional
+from typing import Any
 
 
 class MCPComposerError(Exception):
@@ -30,7 +30,7 @@ class MCPComposerError(Exception):
         context: Dictionary containing error context (empty if not provided)
     """
     
-    def __init__(self, message: str, context: Optional[Dict[str, Any]] = None):
+    def __init__(self, message: str, context: dict[str, Any] | None = None):
         self.message = message
         self.context = context or {}
         super().__init__(message)

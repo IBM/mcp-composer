@@ -13,7 +13,7 @@ Key Features:
 - Supports token caching via ISVTokenValidator
 """
 
-from typing import TYPE_CHECKING, Any, Callable, Dict, Optional
+from typing import TYPE_CHECKING, Any, Callable
 from fastmcp.server.middleware import Middleware, MiddlewareContext, CallNext
 from starlette.exceptions import HTTPException
 from mcp_composer.core.utils import LoggerFactory
@@ -56,8 +56,8 @@ class ToolAuthenticationMiddleware(Middleware):
     def __init__(
         self,
         validator: "ISVTokenValidator",
-        exempt_tools: Optional[list[str]] = None,
-        is_iam_enabled_for_tool: Optional[Callable[[str], bool]] = None,
+        exempt_tools: list[str] | None = None,
+        is_iam_enabled_for_tool: Callable[[str], bool] | None = None,
         **kwargs,
     ):
         """
@@ -83,7 +83,9 @@ class ToolAuthenticationMiddleware(Middleware):
         logger.info("Authentication enforcement: Tool execution time")
         logger.info("Token validator: ISVTokenValidator")
         if self.is_iam_enabled_for_tool is not None:
-            logger.info("IAM gate: enabled (auth only for tools whose server has solis_config.isIamEnabled)")
+            logger.info(
+                "IAM gate: enabled (auth only for tools whose server has solis_config.isIamEnabled)"
+            )
         if self.exempt_tools:
             logger.info("Exempt tools: %s", ", ".join(self.exempt_tools))
         else:
@@ -118,7 +120,9 @@ class ToolAuthenticationMiddleware(Middleware):
         """
         return tool_name in self.exempt_tools
 
-    def _extract_user_identity(self, token_data: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    def _extract_user_identity(
+        self, token_data: dict[str, Any]
+    ) -> dict[str, Any] | None:
         """
         Extract user identity from token data if available.
 
@@ -132,7 +136,9 @@ class ToolAuthenticationMiddleware(Middleware):
         # This can be extended based on actual token structure
         return token_data.get("identity") or token_data.get("user_identity")
 
-    def _build_auth_context(self, token_data: Dict[str, Any], request: Any) -> Dict[str, Any]:
+    def _build_auth_context(
+        self, token_data: dict[str, Any], request: Any
+    ) -> dict[str, Any]:
         """
         Build authentication context from validated token data.
 
@@ -146,7 +152,7 @@ class ToolAuthenticationMiddleware(Middleware):
         # Extract user instances from token_data
         user_instances = token_data.get("user_instances", [])
 
-        auth_context: Dict[str, Any] = {
+        auth_context: dict[str, Any] = {
             AUTH_KEY_ISV_TOKEN: token_data.get("access_token"),
             AUTH_KEY_AUTHENTICATED: True,
             AUTH_KEY_COOKIES: {},
@@ -196,8 +202,13 @@ class ToolAuthenticationMiddleware(Middleware):
         tool_name = getattr(context.message, "name", "unknown")
 
         # Skip auth when IAM is disabled for the tool's server or when tool is a discovery tool (no backend call)
-        iam_disabled = self.is_iam_enabled_for_tool is not None and not self.is_iam_enabled_for_tool(tool_name)
-        is_discovery_tool = tool_name.endswith("_get_service_info") or tool_name.endswith("_get_type_info")
+        iam_disabled = (
+            self.is_iam_enabled_for_tool is not None
+            and not self.is_iam_enabled_for_tool(tool_name)
+        )
+        is_discovery_tool = tool_name.endswith(
+            "_get_service_info"
+        ) or tool_name.endswith("_get_type_info")
         if iam_disabled or is_discovery_tool:
             logger.debug(
                 "Tool '%s' skipping authentication (IAM disabled=%s, discovery tool=%s)",
@@ -209,14 +220,22 @@ class ToolAuthenticationMiddleware(Middleware):
 
         # Check if tool is exempt from authentication
         if self._is_tool_exempt(tool_name):
-            logger.info("Tool '%s' is exempt from authentication, skipping validation", tool_name)
+            logger.info(
+                "Tool '%s' is exempt from authentication, skipping validation",
+                tool_name,
+            )
             return await call_next(context)
 
         # Get HTTP request
         request = self._get_request(context)
         if request is None:
-            logger.warning("Unable to extract HTTP request from context for tool '%s'", tool_name)
-            raise HTTPException(status_code=500, detail="Internal error: Unable to access request context")
+            logger.warning(
+                "Unable to extract HTTP request from context for tool '%s'", tool_name
+            )
+            raise HTTPException(
+                status_code=500,
+                detail="Internal error: Unable to access request context",
+            )
 
         # Validate token
         logger.info("Validating authentication for tool '%s'", tool_name)
@@ -230,7 +249,11 @@ class ToolAuthenticationMiddleware(Middleware):
 
             # Log success
             token_status = "cached" if token_data.get("cached") else "fresh"
-            logger.info("✓ Tool '%s' authentication successful (token: %s)", tool_name, token_status)
+            logger.info(
+                "✓ Tool '%s' authentication successful (token: %s)",
+                tool_name,
+                token_status,
+            )
 
             # Continue to next middleware/tool
             try:
@@ -241,9 +264,18 @@ class ToolAuthenticationMiddleware(Middleware):
 
         except HTTPException as e:
             # Authentication failed - log and re-raise
-            logger.warning("✗ Tool '%s' authentication failed: %s (status: %d)", tool_name, e.detail, e.status_code)
+            logger.warning(
+                "✗ Tool '%s' authentication failed: %s (status: %d)",
+                tool_name,
+                e.detail,
+                e.status_code,
+            )
             raise
         except Exception as e:
             # Unexpected error during authentication
-            logger.error("✗ Tool '%s' authentication error: %s", tool_name, str(e), exc_info=True)
-            raise HTTPException(status_code=500, detail=f"Authentication error: {str(e)}")
+            logger.error(
+                "✗ Tool '%s' authentication error: %s", tool_name, str(e), exc_info=True
+            )
+            raise HTTPException(
+                status_code=500, detail=f"Authentication error: {str(e)}"
+            )

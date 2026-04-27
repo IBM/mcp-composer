@@ -124,7 +124,6 @@ def _get_free_port() -> int:
 
 async def wait_for_callback(expected_path="/callback", listen_port=9000, timeout=120):
     """Runs a local aiohttp server to listen for the callback, returns code and state."""
-    result = {}
     result: dict[str, str] = {}
     path = expected_path if expected_path.startswith("/") else f"/{expected_path}"
     port = listen_port or _get_free_port()

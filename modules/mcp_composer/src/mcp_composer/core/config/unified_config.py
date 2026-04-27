@@ -1,6 +1,6 @@
 """Unified configuration schema for MCP Composer."""
 
-from typing import Dict, List, Optional, Any, Union
+from typing import Any
 from pydantic import BaseModel, Field, field_validator, ConfigDict
 from enum import Enum
 
@@ -21,22 +21,22 @@ class ServerConfig(BaseModel):
 
     id: str = Field(..., description="Unique identifier for the server")
     type: str = Field(..., description="Server type (http, sse, openapi, stdio, etc.)")
-    endpoint: Optional[str] = Field(None, description="Server endpoint URL")
-    open_api: Optional[Dict[str, Any]] = Field(
+    endpoint: str | None = Field(None, description="Server endpoint URL")
+    open_api: dict[str, Any] | None = Field(
         None, description="OpenAPI configuration"
     )
-    auth_strategy: Optional[str] = Field(None, description="Authentication strategy")
-    auth: Optional[Dict[str, Any]] = Field(
+    auth_strategy: str | None = Field(None, description="Authentication strategy")
+    auth: dict[str, Any] | None = Field(
         None, description="Authentication configuration"
     )
-    command: Optional[str] = Field(None, description="Command for stdio servers")
-    args: Optional[List[str]] = Field(
+    command: str | None = Field(None, description="Command for stdio servers")
+    args: list[str] | None = Field(
         None, description="Command arguments for stdio servers"
     )
-    env: Optional[Dict[str, str]] = Field(None, description="Environment variables")
-    cwd: Optional[str] = Field(None, description="Working directory")
-    label: Optional[str] = Field(None, description="Human-readable label")
-    tags: Optional[List[str]] = Field(None, description="Tags for categorization")
+    env: dict[str, str] | None = Field(None, description="Environment variables")
+    cwd: str | None = Field(None, description="Working directory")
+    label: str | None = Field(None, description="Human-readable label")
+    tags: list[str] | None = Field(None, description="Tags for categorization")
 
     @field_validator("id")
     @classmethod
@@ -63,14 +63,14 @@ class MiddlewareConfig(BaseModel):
     kind: str = Field(..., description="Python import path to middleware class")
     mode: str = Field("enabled", description="Middleware mode (enabled/disabled)")
     priority: int = Field(100, ge=0, le=10000, description="Execution priority")
-    applied_hooks: List[str] = Field(
+    applied_hooks: list[str] = Field(
         ..., description="Hooks where middleware is applied"
     )
-    config: Optional[Dict[str, Any]] = Field(
+    config: dict[str, Any] | None = Field(
         None, description="Middleware-specific configuration"
     )
-    description: Optional[str] = Field(None, description="Middleware description")
-    version: Optional[str] = Field("0.0.0", description="Middleware version")
+    description: str | None = Field(None, description="Middleware description")
+    version: str | None = Field("0.0.0", description="Middleware version")
 
     @field_validator("name")
     @classmethod
@@ -100,7 +100,7 @@ class PromptArgument(BaseModel):
     name: str = Field(..., description="Argument name")
     type: str = Field(..., description="Argument type")
     required: bool = Field(True, description="Whether argument is required")
-    description: Optional[str] = Field(None, description="Argument description")
+    description: str | None = Field(None, description="Argument description")
 
 
 class PromptConfig(BaseModel):
@@ -109,7 +109,7 @@ class PromptConfig(BaseModel):
     name: str = Field(..., description="Unique name for the prompt")
     description: str = Field(..., description="Prompt description")
     template: str = Field(..., description="Prompt template")
-    arguments: Optional[List[PromptArgument]] = Field(
+    arguments: list[PromptArgument] | None = Field(
         None, description="Prompt arguments"
     )
 
@@ -133,37 +133,37 @@ class ToolConfig(BaseModel):
 
     model_config = ConfigDict(extra="allow")
 
-    openapi: Optional[str] = Field(None, description="OpenAPI specification version")
-    info: Optional[Dict[str, Any]] = Field(None, description="API information")
-    servers: Optional[List[Dict[str, Any]]] = Field(None, description="API servers")
-    paths: Optional[Dict[str, Any]] = Field(None, description="API paths")
+    openapi: str | None = Field(None, description="OpenAPI specification version")
+    info: dict[str, Any] | None = Field(None, description="API information")
+    servers: list[dict[str, Any]] | None = Field(None, description="API servers")
+    paths: dict[str, Any] | None = Field(None, description="API paths")
 
 
 class ResourceConfig(BaseModel):
     """Resource configuration schema."""
 
     name: str = Field(..., description="Unique name for the resource")
-    description: Optional[str] = Field(default=None, description="Resource description")
-    uri: Optional[str] = Field(
+    description: str | None = Field(default=None, description="Resource description")
+    uri: str | None = Field(
         default=None, description="Resource URI (for static resources)"
     )
-    uri_template: Optional[str] = Field(
+    uri_template: str | None = Field(
         default=None, description="Resource URI template (for dynamic resources)"
     )
-    text: Optional[str] = Field(default=None, description="Resource content/text")
-    template: Optional[str] = Field(
+    text: str | None = Field(default=None, description="Resource content/text")
+    template: str | None = Field(
         default=None, description="Template content (alias for text)"
     )
-    mime_type: Optional[str] = Field(
+    mime_type: str | None = Field(
         default="text/plain", description="MIME type of the resource"
     )
-    tags: Optional[List[str]] = Field(
+    tags: list[str] | None = Field(
         default=None, description="Tags for categorization"
     )
-    enabled: Optional[bool] = Field(
+    enabled: bool | None = Field(
         default=True, description="Whether the resource is enabled"
     )
-    parameters: Optional[Dict[str, Any]] = Field(
+    parameters: dict[str, Any] | None = Field(
         default=None, description="Template parameters"
     )
 
@@ -176,7 +176,7 @@ class ResourceConfig(BaseModel):
 
     @field_validator("uri", "uri_template")
     @classmethod
-    def validate_uri_fields(cls, v: Optional[str]) -> Optional[str]:
+    def validate_uri_fields(cls, v: str | None) -> str | None:
         if v is not None and not v.strip():
             raise ValueError("URI/URI template cannot be empty string")
         return v.strip() if v else None
@@ -191,27 +191,27 @@ class ResourceConfig(BaseModel):
 class UnifiedConfig(BaseModel):
     """Unified configuration schema for MCP Composer."""
 
-    servers: Optional[List[ServerConfig]] = Field(
+    servers: list[ServerConfig] | None = Field(
         None, description="List of server configurations"
     )
-    middleware: Optional[List[MiddlewareConfig]] = Field(
+    middleware: list[MiddlewareConfig] | None = Field(
         None, description="List of middleware configurations"
     )
-    prompts: Optional[List[PromptConfig]] = Field(
+    prompts: list[PromptConfig] | None = Field(
         None, description="List of prompt configurations"
     )
-    tools: Optional[Dict[str, ToolConfig]] = Field(
+    tools: dict[str, ToolConfig] | None = Field(
         None, description="Dictionary of tool configurations"
     )
-    resources: Optional[List[ResourceConfig]] = Field(
+    resources: list[ResourceConfig] | None = Field(
         None, description="List of resource configurations"
     )
 
     @field_validator("servers")
     @classmethod
     def validate_servers(
-        cls, v: Optional[List[ServerConfig]]
-    ) -> Optional[List[ServerConfig]]:
+        cls, v: list[ServerConfig] | None
+    ) -> list[ServerConfig] | None:
         if v is not None:
             # Check for duplicate server IDs
             server_ids = [server.id for server in v]
@@ -222,8 +222,8 @@ class UnifiedConfig(BaseModel):
     @field_validator("middleware")
     @classmethod
     def validate_middleware(
-        cls, v: Optional[List[MiddlewareConfig]]
-    ) -> Optional[List[MiddlewareConfig]]:
+        cls, v: list[MiddlewareConfig] | None
+    ) -> list[MiddlewareConfig] | None:
         if v is not None:
             # Check for duplicate middleware names
             middleware_names = [mw.name for mw in v]
@@ -234,8 +234,8 @@ class UnifiedConfig(BaseModel):
     @field_validator("prompts")
     @classmethod
     def validate_prompts(
-        cls, v: Optional[List[PromptConfig]]
-    ) -> Optional[List[PromptConfig]]:
+        cls, v: list[PromptConfig] | None
+    ) -> list[PromptConfig] | None:
         if v is not None:
             # Check for duplicate prompt names
             prompt_names = [prompt.name for prompt in v]
@@ -246,8 +246,8 @@ class UnifiedConfig(BaseModel):
     @field_validator("resources")
     @classmethod
     def validate_resources(
-        cls, v: Optional[List[ResourceConfig]]
-    ) -> Optional[List[ResourceConfig]]:
+        cls, v: list[ResourceConfig] | None
+    ) -> list[ResourceConfig] | None:
         if v is not None:
             # Check for duplicate resource names
             resource_names = [resource.name for resource in v]
@@ -265,7 +265,7 @@ class ConfigValidationError(Exception):
 class UnifiedConfigValidator:
     """Validator for unified configuration."""
 
-    def __init__(self, config: Union[Dict[str, Any], UnifiedConfig]):
+    def __init__(self, config: dict[str, Any] | UnifiedConfig):
         if isinstance(config, dict):
             self.config = UnifiedConfig.model_validate(config)
         else:

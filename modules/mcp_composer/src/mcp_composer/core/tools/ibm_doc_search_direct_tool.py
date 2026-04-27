@@ -3,13 +3,13 @@
 import asyncio
 import re
 import time
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 from urllib.parse import urlparse
 
 import httpx
-from bs4 import BeautifulSoup
+from bs4 import BeautifulSoup  # type: ignore[import-untyped]
 from fastmcp.tools import Tool
-from fastmcp.tools.tool import ToolResult
+from fastmcp.tools import ToolResult
 from mcp.types import TextContent
 from pydantic import BaseModel, ConfigDict, Field, PrivateAttr
 from markdownify import markdownify as md
@@ -55,20 +55,20 @@ class IBMDocSearchDirectTool(Tool):
     Uses IBM docs search API and content API directly.
     """
 
-    _products: List[str] = PrivateAttr(default_factory=list)
+    _products: list[str] = PrivateAttr(default_factory=list)
     _lang: str = PrivateAttr(default="en")
     _timeout: int = PrivateAttr(default=50)
-    _preferred_product_paths: List[str] = PrivateAttr(default_factory=list)
+    _preferred_product_paths: list[str] = PrivateAttr(default_factory=list)
 
     def __init__(
         self,
-        config: Optional[Dict[str, Any]] = None,
+        config: dict[str, Any] | None = None,
         name: str = "ibm_doc_search_direct",
-        products: Optional[str] = None,
+        products: str | None = None,
         max_results: int = 3,
         language: str = "en",
         timeout: int = 50,
-        preferred_product_paths: Optional[List[str]] = None,
+        preferred_product_paths: list[str] | None = None,
     ):
         config = config or {}
         products_raw = products or config.get("products", "")
@@ -94,7 +94,7 @@ class IBMDocSearchDirectTool(Tool):
             list(raw) if isinstance(raw, list) and raw else ["watsonx/w-and-w", "2.3"]
         )
 
-    def _score_url_version(self, url: str) -> Tuple[int, int, int]:
+    def _score_url_version(self, url: str) -> tuple[int, int, int]:
         """Return sort key (higher = preferred). Prefer newer versions and preferred product paths."""
         path = urlparse(url).path.lower()
         has_preferred = (
@@ -104,7 +104,7 @@ class IBMDocSearchDirectTool(Tool):
         major, minor = (int(match.group(1)), int(match.group(2))) if match else (0, 0)
         return (has_preferred, major, minor)
 
-    def _extract_link(self, t: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    def _extract_link(self, t: dict[str, Any]) -> dict[str, Any] | None:
         """Extract link dict from topic with safe access."""
         url = t.get("fullurl") or t.get("url")
         if not url:
@@ -175,7 +175,7 @@ class IBMDocSearchDirectTool(Tool):
         )
 
         seen: set[str] = set()
-        unique: List[Dict[str, Any]] = []
+        unique: list[dict[str, Any]] = []
         for link in links:
             url = link.get("url")
             if not url:
@@ -212,7 +212,7 @@ class IBMDocSearchDirectTool(Tool):
             return "No results found."
 
         async def fetch_one(
-            client: httpx.AsyncClient, link: Dict[str, Any]
+            client: httpx.AsyncClient, link: dict[str, Any]
         ) -> tuple[str, str]:
             url = link.get("url", "")
             href = link.get("href", "")
@@ -266,7 +266,7 @@ class IBMDocSearchDirectTool(Tool):
         )
         return header + context
 
-    async def run(self, arguments: Dict[str, Any]) -> ToolResult:
+    async def run(self, arguments: dict[str, Any]) -> ToolResult:
         try:
             validated = IBMDocSearchInput.model_validate(arguments)
         except Exception as e:

@@ -5,7 +5,7 @@ Adapter for using LiteLLM as the model provider.
 Supports both chat/completion and embedding generation.
 """
 
-from typing import Dict, Any, Optional, List, Union
+from typing import Any
 from mcp_composer.core.tools.model_providers.base import ModelProviderAdapter
 from mcp_composer.core.utils import LoggerFactory
 
@@ -67,9 +67,9 @@ class LiteLLMAdapter(ModelProviderAdapter):
         prompt: str,
         temperature: float = 0.7,
         max_tokens: int = 1000,
-        options: Optional[Dict[str, Any]] = None,
+        options: dict[str, Any] | None = None,
         **kwargs,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Send a chat request via LiteLLM.
 
@@ -162,8 +162,8 @@ class LiteLLMAdapter(ModelProviderAdapter):
         return result
 
     def encode(
-        self, text: Union[str, List[str]], model_name: Optional[str] = None, **kwargs
-    ) -> Union[List[float], List[List[float]]]:
+        self, text: str | list[str], model_name: str | None = None, **kwargs
+    ) -> list[float] | list[list[float]]:
         """
         Generate embeddings using LiteLLM.
 

@@ -1,7 +1,7 @@
 """cloudant_adapter.py"""
 
 from __future__ import annotations
-from typing import TYPE_CHECKING, Dict, List, Any
+from typing import TYPE_CHECKING, Any
 
 # Lazy import for optional IBM Cloud dependencies
 try:
@@ -9,6 +9,7 @@ try:
     from ibm_cloud_sdk_core.authenticators import IAMAuthenticator
     from ibmcloudant import CloudantV1
     from ibmcloudant.cloudant_v1 import Document
+
     _CLOUDANT_AVAILABLE = True
 except ImportError:
     _CLOUDANT_AVAILABLE = False
@@ -30,7 +31,9 @@ if TYPE_CHECKING:
 
 
 class CloudantAdapter(DatabaseInterface):
-    def __init__(self, api_key: str, service_url: str, db_name: str = "mcp_servers"):
+    def __init__(
+        self, api_key: str, service_url: str, db_name: str = "mcp_servers"
+    ) -> None:
         if not _CLOUDANT_AVAILABLE:
             raise ImportError(
                 "Cloudant support requires 'ibm-cloud' extras. "
@@ -58,7 +61,9 @@ class CloudantAdapter(DatabaseInterface):
             client.put_database(self._resources_db_name)
         if self._prompts_db_name not in existing_dbs:
             client.put_database(self._prompts_db_name)
-            logger.info("Created Cloudant database '%s' for prompts", self._prompts_db_name)
+            logger.info(
+                "Created Cloudant database '%s' for prompts", self._prompts_db_name
+            )
 
         return client
 
@@ -137,7 +142,7 @@ class CloudantAdapter(DatabaseInterface):
             else:
                 logger.error("Failed to save disabled tool list: %s", str(e))
 
-    def load_all_servers(self) -> List[Dict]:
+    def load_all_servers(self) -> list[dict[str, object]]:
         try:
             result = self._client.post_all_docs(
                 db=self._db_name, include_docs=True
@@ -147,7 +152,7 @@ class CloudantAdapter(DatabaseInterface):
             logger.error("Cloudant read failed: %s", exc)
             return []
 
-    def add_server(self, config: Dict) -> None:
+    def add_server(self, config: dict[str, object]) -> None:
         doc_id = config["id"]
         try:
             existing = self._client.get_document(
@@ -451,7 +456,7 @@ class CloudantAdapter(DatabaseInterface):
         except Exception as e:
             logger.error("Failed to save disabled resource list:%s", str(e))
 
-    def get_document(self, server_id: str) -> Dict:
+    def get_document(self, server_id: str) -> dict[str, object]:
         # get the server config details of a single server
         server_doc = {}
         try:
@@ -548,7 +553,7 @@ class CloudantAdapter(DatabaseInterface):
             logger.error("Failed to update server '%s': %s", server_id, e)
             raise
 
-    def load_all_resources(self) -> List[Dict]:
+    def load_all_resources(self) -> list[dict[str, object]]:
         try:
             result = self._client.post_all_docs(
                 db=self._resources_db_name, include_docs=True
@@ -558,7 +563,7 @@ class CloudantAdapter(DatabaseInterface):
             logger.error("Cloudant resource read failed: %s", exc)
             return []
 
-    def upsert_resource(self, resource: Dict) -> None:
+    def upsert_resource(self, resource: dict[str, object]) -> None:
         doc_id = resource["storage_id"]
         resource_doc = dict(resource)
         resource_doc["_id"] = doc_id
@@ -599,10 +604,12 @@ class CloudantAdapter(DatabaseInterface):
                 logger.error("Failed to delete resource '%s': %s", resource_id, e)
                 raise
 
-    def load_all_prompts(self) -> List[Dict]:
+    def load_all_prompts(self) -> list[dict[str, object]]:
         """Load all prompts from Cloudant prompts database"""
         try:
-            result = self._client.post_all_docs(db=self._prompts_db_name, include_docs=True).get_result()
+            result = self._client.post_all_docs(
+                db=self._prompts_db_name, include_docs=True
+            ).get_result()
             prompts = [row["doc"] for row in result.get("rows", []) if "doc" in row]
             logger.info("Loaded %d prompts from Cloudant", len(prompts))
             return prompts
@@ -610,7 +617,7 @@ class CloudantAdapter(DatabaseInterface):
             logger.error("Cloudant prompt read failed: %s", exc)
             return []
 
-    def add_prompt(self, prompt: Dict) -> None:
+    def add_prompt(self, prompt: dict[str, object]) -> None:
         """Add or update a prompt in Cloudant prompts database"""
         if "name" not in prompt:
             logger.error("Prompt must have a 'name' field")
@@ -622,14 +629,20 @@ class CloudantAdapter(DatabaseInterface):
 
         try:
             # Try to get existing document to update it
-            existing = self._client.get_document(db=self._prompts_db_name, doc_id=doc_id).get_result()
+            existing = self._client.get_document(
+                db=self._prompts_db_name, doc_id=doc_id
+            ).get_result()
             prompt_doc["_rev"] = existing["_rev"]
-            self._client.post_document(db=self._prompts_db_name, document=Document(**prompt_doc)).get_result()
+            self._client.post_document(
+                db=self._prompts_db_name, document=Document(**prompt_doc)
+            ).get_result()
             logger.info("Updated prompt '%s' in Cloudant", doc_id)
         except ApiException as e:
             if e.status_code == 404:
                 # Document doesn't exist, create new one
-                self._client.post_document(db=self._prompts_db_name, document=Document(**prompt_doc)).get_result()
+                self._client.post_document(
+                    db=self._prompts_db_name, document=Document(**prompt_doc)
+                ).get_result()
                 logger.info("Saved new prompt '%s' to Cloudant", doc_id)
             else:
                 logger.error("Failed to upsert prompt '%s': %s", doc_id, e)
@@ -638,7 +651,9 @@ class CloudantAdapter(DatabaseInterface):
     def remove_prompt(self, prompt_name: str) -> None:
         """Remove a prompt from Cloudant prompts database"""
         try:
-            existing = self._client.get_document(db=self._prompts_db_name, doc_id=prompt_name).get_result()
+            existing = self._client.get_document(
+                db=self._prompts_db_name, doc_id=prompt_name
+            ).get_result()
             self._client.delete_document(
                 db=self._prompts_db_name,
                 doc_id=existing["_id"],
@@ -652,10 +667,12 @@ class CloudantAdapter(DatabaseInterface):
                 logger.error("Failed to delete prompt '%s': %s", prompt_name, e)
                 raise
 
-    def get_prompt(self, prompt_name: str) -> Dict:
+    def get_prompt(self, prompt_name: str) -> dict[str, object]:
         """Get a specific prompt from Cloudant prompts database"""
         try:
-            doc = self._client.get_document(db=self._prompts_db_name, doc_id=prompt_name).get_result()
+            doc = self._client.get_document(
+                db=self._prompts_db_name, doc_id=prompt_name
+            ).get_result()
             logger.info("Retrieved prompt '%s' from Cloudant", prompt_name)
             return doc
         except ApiException as e:

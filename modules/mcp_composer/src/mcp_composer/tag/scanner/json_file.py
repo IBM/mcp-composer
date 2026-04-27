@@ -1,15 +1,14 @@
 from __future__ import annotations
-from typing import List
 import json
 from ..models import ToolDescriptor
 from .base import Scanner
 
 
 class JsonFileScanner(Scanner):
-    def __init__(self, path: str):
+    def __init__(self, path: str) -> None:
         self.path = path
 
-    def collect(self) -> List[ToolDescriptor]:
+    def collect(self) -> list[ToolDescriptor]:
         data = json.load(open(self.path, encoding="utf-8"))
         tools = []
         for obj in data:

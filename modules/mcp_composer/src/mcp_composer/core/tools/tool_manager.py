@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 import inspect
-from typing import TYPE_CHECKING, Optional, Sequence, Any
+from collections.abc import Sequence
+from typing import TYPE_CHECKING, Any
 
 # Lazy import for optional scikit-learn dependency
 try:
     from sklearn.feature_extraction.text import TfidfVectorizer
     from sklearn.metrics.pairwise import cosine_similarity
+
     _SKLEARN_AVAILABLE = True
 except ImportError:
     _SKLEARN_AVAILABLE = False
@@ -16,7 +18,7 @@ except ImportError:
         cosine_similarity = None  # type: ignore
 
 
-from fastmcp.tools.tool import Tool
+from fastmcp.tools import Tool
 from fastmcp.server.providers import LocalProvider
 
 from mcp_composer.core.member_servers.member_server import HealthStatus, MemberMCPServer
@@ -38,7 +40,7 @@ if TYPE_CHECKING:
     from mcp_composer.core.composer import MCPComposer
 
 try:
-    from mcp_composer.core.custom_tool import tools as custom_tools
+    from mcp_composer.core.utils.custom_tool import tools as custom_tools  # type: ignore
 except ImportError:
     custom_tools = None
 
@@ -53,7 +55,7 @@ class MCPToolManager:
         self,
         composer: MCPComposer,
         server_manager: ServerManager,
-        database: Optional[DatabaseInterface] = None,
+        database: DatabaseInterface | None = None,
     ):
         # Note: ToolManager doesn't exist in FastMCP 3.0, so we don't inherit from it
         self._composer = composer
@@ -110,7 +112,7 @@ class MCPToolManager:
         tool_names = {tool.name for tool in tools}
         return any(k in tool_names for k in key)
 
-    def _get_instance_product_id(self, instance: dict[str, Any]) -> Optional[str]:
+    def _get_instance_product_id(self, instance: dict[str, Any]) -> str | None:
         """Get productId from an instance (subscription.productId or product_id)."""
         sub = instance.get("subscription")
         if isinstance(sub, dict):
@@ -122,7 +124,7 @@ class MCPToolManager:
     def filter_tools(
         self,
         tools: Sequence[Tool],
-        user_instances: Optional[list[dict[str, Any]]] = None,
+        user_instances: list[dict[str, Any]] | None = None,
     ) -> Sequence[Tool]:
         """
         Filters and updates a dictionary of tools based on server configuration and
@@ -174,7 +176,7 @@ class MCPToolManager:
 
             # 4. Product-based filter: when user_instances is provided, keep only tools
             # whose server's product_id is in the user's instances (or server has no product_id)
-            server_to_product: dict[str, Optional[str]] = {
+            server_to_product: dict[str, str | None] = {
                 member.id: (member.config.get("solis_config") or {}).get("product_id")
                 for member in server_config
             }
@@ -235,11 +237,11 @@ class MCPToolManager:
     async def fetch_server_tools(
         self,
         server: MemberMCPServer,
-        remove: Optional[list[str]] = None,
-        description: Optional[dict[str, str]] = None,
+        remove: list[str] | None = None,
+        description: dict[str, str] | None = None,
     ) -> Sequence[Tool]:
         """Fetch member server tools"""
-        result = []
+        result: list[Tool] = []
         # Find the matching mounted server and get its tools
         mounted_servers = self._server_manager._member_servers
         if not mounted_servers:
@@ -268,11 +270,11 @@ class MCPToolManager:
 
     async def get_all_tools(
         self,
-        server_id: Optional[str] = None,
+        server_id: str | None = None,
     ) -> Sequence[Tool]:
         """Get all tools by key."""
-        tools: Sequence[Tool] = []
-        remove = []
+        tools: list[Tool] = []
+        remove: list[str] = []
         composer_doc = self._server_manager.get_document(self._composer.name)
         if composer_doc:
             remove, description = get_server_doc_info(composer_doc)
@@ -297,7 +299,9 @@ class MCPToolManager:
             _tools = await self._composer.list_tools()
             if _tools and len(_tools) > 0:
                 tools.extend(_tools)
-                logger.info("Default Case: Fetch all tools from member servers and composer")
+                logger.info(
+                    "Default Case: Fetch all tools from member servers and composer"
+                )
                 return tools
             else:
                 return []
@@ -435,10 +439,10 @@ class MCPToolManager:
         Returns tools sorted by similarity score (highest first).
         """
         logger.info("Filter tools by using keyword: %s", keyword)
-        tools = self.filter_tools(
+        tools_seq = self.filter_tools(
             await self._composer.list_tools()
         )  # Get dict of tools: {name: tool}
-        tools = {t.name: t for t in tools}  # Ensure valid names
+        tools: dict[str, Tool] = {t.name: t for t in tools_seq}  # Ensure valid names
         tool_names = [t.name for t in tools.values()]  # Extract tool names
 
         # Create corpus: keyword + all tool names
@@ -447,7 +451,9 @@ class MCPToolManager:
         # TF-IDF vectorization when scikit-learn is available,
         # otherwise fall back to simple substring matching.
         if _SKLEARN_AVAILABLE:
-            vectorizer = TfidfVectorizer(analyzer="char_wb", ngram_range=(2, 4)).fit(corpus)
+            vectorizer = TfidfVectorizer(analyzer="char_wb", ngram_range=(2, 4)).fit(
+                corpus
+            )
             vectors = vectorizer.transform(corpus)
 
             # Compute cosine similarity between keyword and all tool names
@@ -462,7 +468,10 @@ class MCPToolManager:
                 tool_parts = tool_name_lower.replace("-", "_").split("_")
                 if keyword_lower in tool_name_lower:
                     similarities.append(1.0)
-                elif any(keyword_lower in part or part in keyword_lower for part in tool_parts):
+                elif any(
+                    keyword_lower in part or part in keyword_lower
+                    for part in tool_parts
+                ):
                     similarities.append(0.8)
                 else:
                     similarities.append(0.0)
@@ -484,7 +493,7 @@ class MCPToolManager:
         )
         return filtered_tools
 
-    async def disable_composer_tool(self, tools: Optional[list[str]] = None) -> str:
+    async def disable_composer_tool(self, tools: list[str] | None = None) -> str:
         """
         Disable specified composer tools, or all composer tools if none are specified.
         """

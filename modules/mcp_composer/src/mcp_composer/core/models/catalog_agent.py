@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
@@ -24,10 +24,10 @@ class AgentRegistryRepository(BaseModel):
 
     model_config = ConfigDict(extra="forbid", populate_by_name=True)
 
-    url: Optional[str] = None
-    source: Optional[str] = None
-    id: Optional[str] = None
-    subfolder: Optional[str] = None
+    url: str | None = None
+    source: str | None = None
+    id: str | None = None
+    subfolder: str | None = None
 
 
 class AgentRegistryTransport(BaseModel):
@@ -36,8 +36,8 @@ class AgentRegistryTransport(BaseModel):
     model_config = ConfigDict(extra="allow", populate_by_name=True)
 
     transport_type: str = Field(..., alias="type")
-    url: Optional[str] = None
-    headers: Optional[List[Dict[str, Any]]] = None
+    url: str | None = None
+    headers: list[dict[str, Any]] | None = None
 
 
 class AgentSemanticMeta(BaseModel):
@@ -54,10 +54,10 @@ class DeploymentSummary(BaseModel):
     model_config = ConfigDict(extra="forbid", populate_by_name=True)
 
     id: str
-    provider_id: Optional[str] = Field(default=None, alias="providerId")
+    provider_id: str | None = Field(default=None, alias="providerId")
     status: str
     origin: str
-    version: Optional[str] = None
+    version: str | None = None
     deployed_at: datetime = Field(alias="deployedAt")
     updated_at: datetime = Field(alias="updatedAt")
 
@@ -67,45 +67,57 @@ class ResourceDeploymentsMeta(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    deployments: List[DeploymentSummary]
+    deployments: list[DeploymentSummary]
     count: int
 
 
 class SkillRef(BaseModel):
-    model_config = ConfigDict(extra="forbid", populate_by_name=True, str_strip_whitespace=True)
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, str_strip_whitespace=True
+    )
 
     name: str
-    image: Optional[str] = None
-    registry_url: Optional[str] = Field(default=None, alias="registryURL")
-    registry_skill_name: Optional[str] = Field(default=None, alias="registrySkillName")
-    registry_skill_version: Optional[str] = Field(default=None, alias="registrySkillVersion")
+    image: str | None = None
+    registry_url: str | None = Field(default=None, alias="registryURL")
+    registry_skill_name: str | None = Field(default=None, alias="registrySkillName")
+    registry_skill_version: str | None = Field(
+        default=None, alias="registrySkillVersion"
+    )
 
 
 class PromptRef(BaseModel):
-    model_config = ConfigDict(extra="forbid", populate_by_name=True, str_strip_whitespace=True)
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, str_strip_whitespace=True
+    )
 
     name: str
-    registry_url: Optional[str] = Field(default=None, alias="registryURL")
-    registry_prompt_name: Optional[str] = Field(default=None, alias="registryPromptName")
-    registry_prompt_version: Optional[str] = Field(default=None, alias="registryPromptVersion")
+    registry_url: str | None = Field(default=None, alias="registryURL")
+    registry_prompt_name: str | None = Field(default=None, alias="registryPromptName")
+    registry_prompt_version: str | None = Field(
+        default=None, alias="registryPromptVersion"
+    )
 
 
 class McpServerType(BaseModel):
-    model_config = ConfigDict(extra="forbid", populate_by_name=True, str_strip_whitespace=True)
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, str_strip_whitespace=True
+    )
 
     server_type: str = Field(..., alias="type")
     name: str
-    image: Optional[str] = None
-    build: Optional[str] = None
-    command: Optional[str] = None
-    args: Optional[List[str]] = None
-    env: Optional[List[str]] = None
-    url: Optional[str] = None
-    headers: Optional[dict[str, str]] = None
-    registry_url: Optional[str] = Field(default=None, alias="registryURL")
-    registry_server_name: Optional[str] = Field(default=None, alias="registryServerName")
-    registry_server_version: Optional[str] = Field(default=None, alias="registryServerVersion")
-    registry_server_prefer_remote: Optional[bool] = Field(
+    image: str | None = None
+    build: str | None = None
+    command: str | None = None
+    args: list[str] | None = None
+    env: list[str] | None = None
+    url: str | None = None
+    headers: dict[str, str] | None = None
+    registry_url: str | None = Field(default=None, alias="registryURL")
+    registry_server_name: str | None = Field(default=None, alias="registryServerName")
+    registry_server_version: str | None = Field(
+        default=None, alias="registryServerVersion"
+    )
+    registry_server_prefer_remote: bool | None = Field(
         default=None, alias="registryServerPreferRemote"
     )
 
@@ -116,7 +128,9 @@ class AgentJSON(BaseModel):
     JSON carries a single ``version`` key (manifest ``version`` and outer ``version`` coincide).
     """
 
-    model_config = ConfigDict(extra="forbid", populate_by_name=True, str_strip_whitespace=True)
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, str_strip_whitespace=True
+    )
 
     name: str
     image: str
@@ -126,17 +140,17 @@ class AgentJSON(BaseModel):
     model_name: str = Field(alias="modelName")
     description: str
     version: str
-    telemetry_endpoint: Optional[str] = Field(default=None, alias="telemetryEndpoint")
-    mcp_servers: Optional[List[McpServerType]] = Field(default=None, alias="mcpServers")
-    skills: Optional[List[SkillRef]] = None
-    prompts: Optional[List[PromptRef]] = None
-    updated_at: Optional[datetime] = Field(default=None, alias="updatedAt")
-    title: Optional[str] = None
-    status: Optional[str] = None
-    website_url: Optional[str] = Field(default=None, alias="websiteUrl")
-    repository: Optional[AgentRegistryRepository] = None
-    references: Optional[List[SkillCatalogReference]] = None
-    remotes: Optional[List[AgentRegistryTransport]] = None
+    telemetry_endpoint: str | None = Field(default=None, alias="telemetryEndpoint")
+    mcp_servers: list[McpServerType] | None = Field(default=None, alias="mcpServers")
+    skills: list[SkillRef] | None = None
+    prompts: list[PromptRef] | None = None
+    updated_at: datetime | None = Field(default=None, alias="updatedAt")
+    title: str | None = None
+    status: str | None = None
+    website_url: str | None = Field(default=None, alias="websiteUrl")
+    repository: AgentRegistryRepository | None = None
+    references: list[SkillCatalogReference] | None = None
+    remotes: list[AgentRegistryTransport] | None = None
 
     @field_validator("name", mode="before")
     @classmethod
@@ -165,20 +179,20 @@ class AgentJSON(BaseModel):
 class AgentResponseMeta(BaseModel):
     model_config = ConfigDict(extra="forbid", populate_by_name=True)
 
-    official: Optional[RegistryOfficialExtensions] = Field(
+    official: RegistryOfficialExtensions | None = Field(
         default=None,
         alias="io.modelcontextprotocol.registry/official",
     )
-    semantic: Optional[AgentSemanticMeta] = Field(
+    semantic: AgentSemanticMeta | None = Field(
         default=None,
         alias="aregistry.ai/semantic",
     )
-    deployments: Optional[ResourceDeploymentsMeta] = Field(
+    deployments: ResourceDeploymentsMeta | None = Field(
         default=None,
         alias="aregistry.ai/deployments",
     )
     #: Private fields from ``catalog_resource_metadata.data`` (not ``remotes_config``).
-    metadata: Optional[Dict[str, Any]] = None
+    metadata: dict[str, Any] | None = None
 
 
 class AgentResponse(BaseModel):
@@ -191,5 +205,5 @@ class AgentResponse(BaseModel):
 class AgentListResponse(BaseModel):
     model_config = ConfigDict(extra="forbid", populate_by_name=True)
 
-    agents: List[AgentResponse]
+    agents: list[AgentResponse]
     metadata: RegistryListMetadata

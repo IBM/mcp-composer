@@ -11,7 +11,7 @@ Tests cover:
 
 import pytest
 import time
-from typing import Dict, Any
+from typing import Any
 
 from mcp_composer.core.models.config import (
     AuthConfig,

@@ -1,6 +1,6 @@
 # config_models.py
 import re
-from typing import Any, Dict, List, Optional, Literal
+from typing import Any, Literal
 from pydantic import BaseModel, Field, field_validator, model_validator
 
 AllowedHook = Literal[
@@ -16,25 +16,25 @@ ModeEnum = Literal["enabled", "disabled"]
 
 
 class Conditions(BaseModel):
-    include_tools: List[str] = Field(default_factory=lambda: ["*"])
-    exclude_tools: List[str] = Field(default_factory=list)
-    include_prompts: List[str] = Field(default_factory=list)
-    exclude_prompts: List[str] = Field(default_factory=list)
-    include_server_ids: List[str] = Field(default_factory=list)
-    exclude_server_ids: List[str] = Field(default_factory=list)
+    include_tools: list[str] = Field(default_factory=lambda: ["*"])
+    exclude_tools: list[str] = Field(default_factory=list)
+    include_prompts: list[str] = Field(default_factory=list)
+    exclude_prompts: list[str] = Field(default_factory=list)
+    include_server_ids: list[str] = Field(default_factory=list)
+    exclude_server_ids: list[str] = Field(default_factory=list)
 
 
 # Optional future-proof “logic steps” (not required by your current design)
 class LogicStep(BaseModel):
     use: str
-    params: Dict[str, Any] = Field(default_factory=dict)
+    params: dict[str, Any] = Field(default_factory=dict)
     # allow “if” in JSON with a safe alias
-    if_: Optional[Conditions] = Field(default=None, alias="if")
+    if_: Conditions | None = Field(default=None, alias="if")
 
 
 class HookLogic(BaseModel):
-    pre: List[LogicStep] = Field(default_factory=list)
-    post: List[LogicStep] = Field(default_factory=list)
+    pre: list[LogicStep] = Field(default_factory=list)
+    post: list[LogicStep] = Field(default_factory=list)
 
 
 class MiddlewareEntry(BaseModel):
@@ -44,11 +44,11 @@ class MiddlewareEntry(BaseModel):
     kind: str
     mode: ModeEnum = "enabled"
     priority: int = Field(100, ge=0, le=10000)
-    applied_hooks: List[AllowedHook]
+    applied_hooks: list[AllowedHook]
     conditions: Conditions = Field(default_factory=Conditions)
-    config: Dict[str, Any] = Field(default_factory=dict)
+    config: dict[str, Any] = Field(default_factory=dict)
     # Map each hook to a HookLogic (optional)
-    logic: Dict[AllowedHook, HookLogic] = Field(default_factory=dict)
+    logic: dict[AllowedHook, HookLogic] = Field(default_factory=dict)
 
     @field_validator("kind")
     @classmethod
@@ -65,7 +65,7 @@ class MiddlewareEntry(BaseModel):
 
     @field_validator("applied_hooks")
     @classmethod
-    def _hooks_non_empty_unique(cls, v: List[str]) -> List[str]:
+    def _hooks_non_empty_unique(cls, v: list[str]) -> list[str]:
         if not v:
             raise ValueError("applied_hooks cannot be empty.")
         if len(set(v)) != len(v):
@@ -81,8 +81,8 @@ class MiddlewareSettings(BaseModel):
 
 
 class MiddlewareConfig(BaseModel):
-    middleware: List[MiddlewareEntry]
-    middleware_settings: MiddlewareSettings = Field(default_factory=MiddlewareSettings)
+    middleware: list[MiddlewareEntry]
+    middleware_settings: MiddlewareSettings = Field(default_factory=MiddlewareSettings)  # type: ignore[arg-type]
 
     @model_validator(mode="after")
     def _unique_names(self):
@@ -95,7 +95,7 @@ class MiddlewareConfig(BaseModel):
 # ---- helpers to export JSON Schema and load/validate configs -----------------
 
 
-def export_json_schema() -> Dict[str, Any]:
+def export_json_schema() -> dict[str, Any]:
     """Return a JSON Schema (Draft 2020-12) for the whole config."""
     return MiddlewareConfig.model_json_schema()
 

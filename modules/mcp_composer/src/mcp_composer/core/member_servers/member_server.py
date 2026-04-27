@@ -1,6 +1,6 @@
 # composer/member_server.py
 from enum import Enum
-from typing import Optional, Dict, Any, Annotated
+from typing import Any, Annotated
 import pydantic_core
 from pydantic import BaseModel, Field, BeforeValidator, HttpUrl
 from fastmcp import FastMCP
@@ -31,15 +31,15 @@ class MemberMCPServer(BaseModel):
 
     id: str = Field(..., description="Unique ID of the mounted MCP server")
     type: str = Field(..., description="Server type: openapi, client, fastapi, etc.")
-    endpoint: Optional[HttpUrl] = Field(None, description="URL of the MCP server")
-    label: Optional[str] = Field(None, description="Human-friendly label")
+    endpoint: HttpUrl | None = Field(None, description="URL of the MCP server")
+    label: str | None = Field(None, description="Human-friendly label")
     tags: Annotated[set[str], BeforeValidator(_convert_set_default_none)] = Field(
         default_factory=set, description="Tags for the tool"
     )
-    config: Dict[str, Any] = Field(
+    config: dict[str, Any] = Field(
         ..., description="Original config used to build the server"
     )
-    tool_count: Optional[int] = Field(None, description="Number of tools registered")
+    tool_count: int | None = Field(None, description="Number of tools registered")
     disabled_tools: list[str] = Field(default_factory=list, description="Removed tools")
     tools_description: dict[str, str] = Field(
         default_factory=dict, description="Removed tools"
@@ -61,7 +61,7 @@ class MemberMCPServer(BaseModel):
     )
 
     # Runtime-only field (not serialized)
-    server: Optional[FastMCP] = Field(default=None, exclude=True)
+    server: FastMCP | None = Field(default=None, exclude=True)
     model_config = {"arbitrary_types_allowed": True}
 
     def set_server(self, mcp: FastMCP):
@@ -72,5 +72,5 @@ class MemberMCPServer(BaseModel):
             raise RuntimeError("Server instance has not been set.")
         return self.server
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return self.model_dump(exclude={"server"})

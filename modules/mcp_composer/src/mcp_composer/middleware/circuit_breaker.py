@@ -2,7 +2,7 @@ import asyncio
 import time
 from collections import deque
 from dataclasses import dataclass, field
-from typing import Deque, Dict, Optional
+from typing import Deque
 
 from fastmcp.server.middleware import Middleware
 from fastmcp.exceptions import ToolError
@@ -15,9 +15,9 @@ logger = LoggerFactory.get_logger()
 class CircuitState:
     state: str = "CLOSED"  # CLOSED | OPEN | HALF_OPEN
     failures: Deque[float] = field(default_factory=deque)  # timestamps of failures
-    opened_at: Optional[float] = None
+    opened_at: float | None = None
     half_open_probe_in_flight: bool = False
-    last_error: Optional[str] = None
+    last_error: str | None = None
     lock: asyncio.Lock = field(default_factory=asyncio.Lock)
 
 
@@ -34,13 +34,13 @@ class CircuitBreakerMiddleware(Middleware):
         failure_threshold: int = 5,
         open_timeout: float = 30.0,
         window_seconds: float = 60.0,
-        exempt_tools: Optional[set] = None,
+        exempt_tools: set | None = None,
     ):
         self.failure_threshold = failure_threshold
         self.open_timeout = open_timeout
         self.window_seconds = window_seconds
         self.exempt_tools = exempt_tools or set()
-        self._circuits: Dict[str, CircuitState] = {}
+        self._circuits: dict[str, CircuitState] = {}
         self._global_lock = asyncio.Lock()
 
     def _now(self) -> float:

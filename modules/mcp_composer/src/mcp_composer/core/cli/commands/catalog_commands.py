@@ -9,7 +9,7 @@ import asyncio
 import json
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Annotated, Any, Dict, List, Optional
+from typing import Annotated, Any
 from urllib.parse import urlparse
 
 import typer
@@ -101,7 +101,7 @@ async def _generate_catalog_async(
     mcp_url: str,
     output_dir: Path,
     dry_run: bool,
-    mcp_scan_output: Optional[str] = None,
+    mcp_scan_output: str | None = None,
 ) -> None:
     """Async implementation of catalog generation."""
 
@@ -239,9 +239,7 @@ async def _generate_catalog_async(
         raise
 
 
-def _create_mcp_client(
-    mcp_url: str, transport: str, auth_token: Optional[str]
-) -> Client:
+def _create_mcp_client(mcp_url: str, transport: str, auth_token: str | None) -> Client:
     """Create a fastmcp client for the given URL and transport."""
 
     headers = {}
@@ -252,7 +250,9 @@ def _create_mcp_client(
         # Ensure URL ends with /mcp for HTTP transport
         if not mcp_url.endswith("/mcp"):
             mcp_url = f"{mcp_url.rstrip('/')}/mcp"
-        transport_obj = StreamableHttpTransport(mcp_url, headers=headers)
+        transport_obj: StreamableHttpTransport | SSETransport = StreamableHttpTransport(
+            mcp_url, headers=headers
+        )
     elif transport == "sse":
         # Ensure URL ends with /sse for SSE transport
         if not mcp_url.endswith("/sse"):
@@ -264,7 +264,7 @@ def _create_mcp_client(
     return Client(transport_obj)
 
 
-async def _discover_tools(client: Client) -> List[Dict[str, Any]]:
+async def _discover_tools(client: Client) -> list[dict[str, Any]]:
     """Discover tools from MCP server - MVP version."""
     try:
         tools_result = await client.list_tools()
@@ -298,7 +298,7 @@ async def _discover_tools(client: Client) -> List[Dict[str, Any]]:
         ]
 
 
-async def _discover_resources(client: Client) -> List[Dict[str, Any]]:
+async def _discover_resources(client: Client) -> list[dict[str, Any]]:
     """Discover resources from MCP server - MVP version."""
     try:
         resources_result = await client.list_resources()
@@ -336,7 +336,7 @@ async def _discover_resources(client: Client) -> List[Dict[str, Any]]:
         ]
 
 
-async def _discover_prompts(client: Client) -> List[Dict[str, Any]]:
+async def _discover_prompts(client: Client) -> list[dict[str, Any]]:
     """Discover prompts from MCP server - MVP version."""
     try:
         prompts_result = await client.list_prompts()
@@ -382,9 +382,9 @@ def _create_backstage_component(
     owner: str,
     system: str,
     product_name: str,
-    tags: List[str],
-    metadata: Dict[str, Any],
-) -> Dict[str, Any]:
+    tags: list[str],
+    metadata: dict[str, Any],
+) -> dict[str, Any]:
     """Create a Backstage-compatible component definition."""
 
     try:
@@ -392,7 +392,7 @@ def _create_backstage_component(
         # Sanitize name for Backstage (lowercase, hyphens instead of underscores)
         sanitized_name = name.lower().replace("_", "-").replace(" ", "-")
 
-        component = {
+        component: dict[str, Any] = {
             "apiVersion": "backstage.io/v1alpha1",
             "kind": "Component",
             "metadata": {
@@ -418,25 +418,23 @@ def _create_backstage_component(
         }
 
         # Add MCP-specific metadata
+        annotations: dict[str, Any] = component["metadata"]["annotations"]  # type: ignore[assignment]
         for key, value in metadata.items():
             if isinstance(value, str):  # Only add non-empty string values
-                component["metadata"]["annotations"][f"mcp-composer/{key}"] = str(value)
+                annotations[f"mcp-composer/{key}"] = str(value)
             elif isinstance(value, dict) and key in [
                 "annotations",
                 "scan_report",
                 "capabilities",
                 "policy",
             ]:
-                for k, v in value.items():
+                value_dict = dict(value)
+                for k, v in value_dict.items():
                     if isinstance(v, dict) or isinstance(v, list):
                         v_str = json.dumps(v, ensure_ascii=False)
-                        component["metadata"]["annotations"][
-                            f"mcp-composer/{key}/{k}"
-                        ] = v_str
+                        annotations[f"mcp-composer/{key}/{k}"] = v_str
                     else:
-                        component["metadata"]["annotations"][
-                            f"mcp-composer/{key}/{k}"
-                        ] = str(v)
+                        annotations[f"mcp-composer/{key}/{k}"] = str(v)
 
         return component
     except Exception as error:  # pylint: disable=broad-exception-caught
@@ -445,7 +443,7 @@ def _create_backstage_component(
 
 
 async def _write_components_to_files(
-    components: List[Dict[str, Any]], output_dir: Path, catalog_format: str
+    components: list[dict[str, Any]], output_dir: Path, catalog_format: str
 ) -> None:
     """Write components to individual files."""
     try:
@@ -489,7 +487,7 @@ async def _write_components_to_files(
 
 
 def _display_dry_run_results(
-    components: List[Dict[str, Any]], catalog_format: str
+    components: list[dict[str, Any]], catalog_format: str
 ) -> None:
     """Display dry run results."""
 
@@ -522,7 +520,7 @@ def _display_dry_run_results(
             typer.echo(json.dumps(components[0], indent=2, ensure_ascii=False))
 
 
-def _load_from_mcp_scan(mcp_scan_output: str) -> Dict[str, Any]:
+def _load_from_mcp_scan(mcp_scan_output: str) -> dict[str, Any]:
     """Load tools from MCP-Scan output format"""
     try:
         with open(mcp_scan_output, "r") as f:

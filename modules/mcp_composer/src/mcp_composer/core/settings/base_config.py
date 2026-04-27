@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -14,23 +14,23 @@ class AppConfig(BaseSettings):
 
 class SecretAdapter(ABC):
     @abstractmethod
-    def load_config(self, server_id: str) -> Dict[str, Any]:
+    def load_config(self, server_id: str) -> dict[str, Any]:
         pass
 
     @abstractmethod
-    def save_config(self, server_id: str, versions: List[Dict[str, Any]]) -> None:
+    def save_config(self, server_id: str, versions: list[dict[str, Any]]) -> None:
         pass
 
     @abstractmethod
-    def get_all_versions(self, server_id: str) -> List[Dict[str, Any]]:
+    def get_all_versions(self, server_id: str) -> list[dict[str, Any]]:
         pass
 
     @abstractmethod
-    def get_latest_version(self, server_id: str) -> Optional[Dict[str, Any]]:
+    def get_latest_version(self, server_id: str) -> dict[str, Any] | None:
         pass
 
     @abstractmethod
     def get_version_by_id(
         self, server_id: str, version_id: str
-    ) -> Optional[Dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         pass

@@ -3,7 +3,7 @@
 from __future__ import annotations
 import json
 import asyncio
-from typing import TYPE_CHECKING, Dict, List, Any, Union, Optional
+from typing import TYPE_CHECKING, Any
 from urllib.parse import urlparse
 import concurrent.futures
 
@@ -30,13 +30,13 @@ if TYPE_CHECKING:
 class PostgresAdapter(DatabaseInterface):
     def __init__(
         self,
-        host: Optional[str] = None,
-        port: Optional[int] = None,
-        database: Optional[str] = None,
-        user: Optional[str] = None,
-        password: Optional[str] = None,
+        host: str | None = None,
+        port: int | None = None,
+        database: str | None = None,
+        user: str | None = None,
+        password: str | None = None,
         table_name: str = "mcp_servers",
-        url: Optional[str] = None,
+        url: str | None = None,
         min_size: int = 1,
         max_size: int = 10,
     ):
@@ -62,7 +62,7 @@ class PostgresAdapter(DatabaseInterface):
         self._table_name = table_name
         self._resources_table_name = f"{table_name}_resources"
         self._prompts_table_name = f"{table_name}_prompts"
-        self._pool: Optional[asyncpg.Pool] = None
+        self._pool: asyncpg.Pool | None = None
         self._min_size = min_size
         self._max_size = max_size
 
@@ -87,7 +87,7 @@ class PostgresAdapter(DatabaseInterface):
         # Initialize database synchronously
         self._initialize_database()
 
-    def _parse_postgres_url(self, url: str) -> Dict[str, Any]:
+    def _parse_postgres_url(self, url: str) -> dict[str, Any]:
         """
         Parse PostgreSQL connection URL and return connection parameters.
 
@@ -301,7 +301,7 @@ class PostgresAdapter(DatabaseInterface):
             # No event loop running, safe to use asyncio.run
             return asyncio.run(coro)
 
-    def _parse_config(self, config_data: Union[str, Dict[str, Any]]) -> Dict[str, Any]:
+    def _parse_config(self, config_data: str | dict[str, Any]) -> dict[str, Any]:
         """Parse config data from database, handling both string and dict formats."""
         if isinstance(config_data, str):
             return json.loads(config_data)
@@ -342,7 +342,7 @@ class PostgresAdapter(DatabaseInterface):
                     config["disabled_tools"] = tools  # type: ignore
                 else:
                     if len(tools) == 1 and tools[0].lower() == "all":
-                        existing_tools: List[str] = []
+                        existing_tools: list[str] = []
                     else:
                         existing_tools_raw = config.get("disabled_tools", [])
                         if not isinstance(existing_tools_raw, list):
@@ -394,11 +394,11 @@ class PostgresAdapter(DatabaseInterface):
             logger.error("Failed to save disabled tool list: %s", str(e))
             raise
 
-    def load_all_servers(self) -> List[Dict[str, Any]]:
+    def load_all_servers(self) -> list[dict[str, Any]]:
         """Load all servers synchronously."""
         return self._run_async(self._async_load_all_servers())
 
-    async def _async_load_all_servers(self) -> List[Dict[str, Any]]:
+    async def _async_load_all_servers(self) -> list[dict[str, Any]]:
         """Async implementation of loading all servers."""
         try:
             conn = await self._get_connection()
@@ -415,11 +415,11 @@ class PostgresAdapter(DatabaseInterface):
             logger.error("PostgreSQL read failed: %s", exc)
             return []
 
-    def add_server(self, config: Dict[str, Any]) -> None:
+    def add_server(self, config: dict[str, Any]) -> None:
         """Add server synchronously."""
         self._run_async(self._async_add_server(config))
 
-    async def _async_add_server(self, config: Dict[str, Any]) -> None:
+    async def _async_add_server(self, config: dict[str, Any]) -> None:
         """Async implementation of adding server."""
         doc_id = config["id"]
         try:
@@ -798,11 +798,11 @@ class PostgresAdapter(DatabaseInterface):
             logger.error("Failed to save disabled resource list: %s", str(e))
             raise
 
-    def get_document(self, server_id: str) -> Dict[str, Any]:
+    def get_document(self, server_id: str) -> dict[str, Any]:
         """Get document synchronously."""
         return self._run_async(self._async_get_document(server_id))
 
-    async def _async_get_document(self, server_id: str) -> Dict[str, Any]:
+    async def _async_get_document(self, server_id: str) -> dict[str, Any]:
         """Async implementation of getting document."""
         # get the server config details of a single server
         server_doc = {}
@@ -898,11 +898,11 @@ class PostgresAdapter(DatabaseInterface):
             logger.error("Error retrieving server status for '%s': %s", server_id, e)
             return "unknown"
 
-    def update_server_config(self, config: Dict[str, Any]) -> None:
+    def update_server_config(self, config: dict[str, Any]) -> None:
         """Update server config synchronously."""
         self._run_async(self._async_update_server_config(config))
 
-    async def _async_update_server_config(self, config: Dict[str, Any]) -> None:
+    async def _async_update_server_config(self, config: dict[str, Any]) -> None:
         """Async implementation of updating server config.
         Update the configuration of an existing server.
         If the document does not exist, raise an error.
@@ -941,17 +941,17 @@ class PostgresAdapter(DatabaseInterface):
             logger.error("Failed to update server '%s': %s", server_id, e)
             raise
 
-    def load_all_resources(self) -> List[Dict[str, Any]]:
+    def load_all_resources(self) -> list[dict[str, Any]]:
         return self._run_async(self._async_load_all_resources())
 
-    async def _async_load_all_resources(self) -> List[Dict[str, Any]]:
+    async def _async_load_all_resources(self) -> list[dict[str, Any]]:
         try:
             conn = await self._get_connection()
             try:
                 result = await conn.fetch(
                     f"SELECT data FROM {self._resources_table_name}"
                 )
-                resources: List[Dict[str, Any]] = []
+                resources: list[dict[str, Any]] = []
                 for row in result:
                     resources.append(self._parse_config(row["data"]))
                 return resources
@@ -961,10 +961,10 @@ class PostgresAdapter(DatabaseInterface):
             logger.error("PostgreSQL resource load failed: %s", exc)
             return []
 
-    def upsert_resource(self, resource: Dict[str, Any]) -> None:
+    def upsert_resource(self, resource: dict[str, Any]) -> None:
         self._run_async(self._async_upsert_resource(resource))
 
-    async def _async_upsert_resource(self, resource: Dict[str, Any]) -> None:
+    async def _async_upsert_resource(self, resource: dict[str, Any]) -> None:
         storage_id = resource["storage_id"]
         try:
             conn = await self._get_connection()
@@ -1018,11 +1018,11 @@ class PostgresAdapter(DatabaseInterface):
         # With direct connections, there's no persistent pool to close
         # This method is kept for compatibility
 
-    def load_all_prompts(self) -> List[Dict]:
+    def load_all_prompts(self) -> list[dict[str, object]]:
         """Load all prompts from PostgreSQL"""
         return self._run_async(self._async_load_all_prompts())
 
-    async def _async_load_all_prompts(self) -> List[Dict]:
+    async def _async_load_all_prompts(self) -> list[dict[str, object]]:
         """Async implementation of loading all prompts"""
         try:
             conn = await self._get_connection()
@@ -1037,11 +1037,11 @@ class PostgresAdapter(DatabaseInterface):
             logger.error("Failed to load prompts from PostgreSQL: %s", e)
             return []
 
-    def add_prompt(self, prompt: Dict) -> None:
+    def add_prompt(self, prompt: dict[str, object]) -> None:
         """Add or update a prompt in PostgreSQL"""
         self._run_async(self._async_add_prompt(prompt))
 
-    async def _async_add_prompt(self, prompt: Dict) -> None:
+    async def _async_add_prompt(self, prompt: dict[str, object]) -> None:
         """Async implementation of adding/updating a prompt"""
         prompt_name = prompt.get("name")
         if not prompt_name:
@@ -1090,11 +1090,11 @@ class PostgresAdapter(DatabaseInterface):
         except Exception as e:
             logger.error("Failed to delete prompt '%s' from PostgreSQL: %s", prompt_name, e)
 
-    def get_prompt(self, prompt_name: str) -> Dict:
+    def get_prompt(self, prompt_name: str) -> dict[str, object]:
         """Get a specific prompt from PostgreSQL"""
         return self._run_async(self._async_get_prompt(prompt_name))
 
-    async def _async_get_prompt(self, prompt_name: str) -> Dict:
+    async def _async_get_prompt(self, prompt_name: str) -> dict[str, object]:
         """Async implementation of getting a specific prompt"""
         try:
             conn = await self._get_connection()

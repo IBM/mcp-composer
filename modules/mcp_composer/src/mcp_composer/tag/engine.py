@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import List, Dict, Any
+from typing import Any
 from .models import ToolDescriptor, TagReport, ScanResult
 from .taxonomy import Capability, PiiRisk, Region
 from .rule_dsl import Rule
@@ -28,11 +28,11 @@ PHI_HINTS = {
 
 
 class TagEngine:
-    def __init__(self, rules: List[Rule], policy_cfg: Dict[str, Any] | None = None):
+    def __init__(self, rules: list[Rule], policy_cfg: dict[str, Any] | None = None):
         self.rules = rules
         self.policy_cfg = policy_cfg or {}
 
-    def _infer_residency(self, endpoint: str | None) -> Dict[str, Any]:
+    def _infer_residency(self, endpoint: str | None) -> dict[str, Any]:
         if not endpoint:
             return {
                 "required_region": str(Region.GLOBAL),
@@ -56,7 +56,7 @@ class TagEngine:
             "cross_border": False,
         }
 
-    def _pii_risk_from_schema(self, schema: Dict[str, Any]) -> PiiRisk:
+    def _pii_risk_from_schema(self, schema: dict[str, Any]) -> PiiRisk:
         text = str(schema).lower()
         hits = sum(1 for k in PII_FIELD_HINTS if k in text)
         if hits >= 3:
@@ -72,7 +72,7 @@ class TagEngine:
         return any(h in tl for h in PHI_HINTS)
 
     def tag_tool(
-        self, tool: ToolDescriptor, rules: List[Rule] | None = None
+        self, tool: ToolDescriptor, rules: list[Rule] | None = None
     ) -> TagReport:
         r = TagReport(tool=tool)
         rules = rules or self.rules
@@ -127,26 +127,27 @@ class TagEngine:
 
         # 4) HIPAA heuristics
         if self._phi_hint(tool.description):
+            hipaa_value = r.policy.hipaa  # pylint: disable=no-member
             r.policy.hipaa = (
-                "possible" if r.policy.hipaa == "none" else r.policy.hipaa
+                "possible" if str(hipaa_value) == "none" else hipaa_value  # type: ignore[assignment]
             )  # pylint: disable=no-member
 
         return r
 
-    def scan(self, tools: List[ToolDescriptor]) -> ScanResult:
+    def scan(self, tools: list[ToolDescriptor]) -> ScanResult:
         reports = [self.tag_tool(t) for t in tools]
-        summary = {
+        summary: dict[str, Any] = {
             "count": len(reports),
             "capability_counts": {},
             "pii_risk_counts": {},
         }
         for rep in reports:
             for c in rep.capabilities:
-                summary["capability_counts"][str(c)] = (
-                    summary["capability_counts"].get(str(c), 0) + 1
-                )
+                cap_counts = summary["capability_counts"]
+                if isinstance(cap_counts, dict):
+                    cap_counts[str(c)] = cap_counts.get(str(c), 0) + 1
             pr = rep.policy.pii_risk  # pylint: disable=no-member
-            summary["pii_risk_counts"][str(pr)] = (
-                summary["pii_risk_counts"].get(str(pr), 0) + 1
-            )
+            pii_counts = summary["pii_risk_counts"]
+            if isinstance(pii_counts, dict):
+                pii_counts[str(pr)] = pii_counts.get(str(pr), 0) + 1
         return ScanResult(reports=reports, summary=summary)

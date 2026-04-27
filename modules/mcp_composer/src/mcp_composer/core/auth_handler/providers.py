@@ -1,4 +1,4 @@
-from typing import Type, Dict, Any
+from typing import Type, Any
 from pydantic import AnyHttpUrl
 from key_value.aio.protocols import AsyncKeyValue
 from fastmcp.server.auth.providers.github import GitHubProvider
@@ -63,7 +63,7 @@ class OAuthProviderFactory:
         self.client_storage = client_storage
         self.token_endpoint_auth_method = token_endpoint_auth_method
 
-    def _get_provider_config(self) -> Dict[str, Any]:
+    def _get_provider_config(self) -> dict[str, Any]:
         """
         Generates common configuration arguments for all providers.
         """
@@ -86,7 +86,7 @@ class OAuthProviderFactory:
         """
         # Define a dictionary mapping provider name to a tuple: (ProviderClass, extra_args_dict)
         try:
-            provider_map: Dict[str, Type] = {
+            provider_map: dict[str, Type] = {
                 "github": GitHubProvider,
                 "google": GoogleProvider,
             }

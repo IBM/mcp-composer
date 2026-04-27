@@ -36,6 +36,7 @@ import os
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import NoReturn
 
 from dotenv import find_dotenv, load_dotenv
 
@@ -63,7 +64,7 @@ def _expect_kind(kind: str) -> str:
     return kind
 
 
-def _reject_unknown_kind(kind: str) -> None:
+def _reject_unknown_kind(kind: str) -> NoReturn:
     """Fail fast if *kind* is not one of the supported registry kinds."""
     raise ValueError(f"unsupported catalog kind: {kind!r}")
 
@@ -84,7 +85,7 @@ class CatalogLocalFileAdapter(CatalogDatabaseInterface):
         self._agents_dir = self._root / "agents"
         self._workflows_dir = self._root / "workflows"
         self._metadata_dir = self._root / "metadata"
-        
+
         # Create dispatch tables for O(1) kind-based routing
         self._file_getters = {
             _SKILL: self._skill_file,
@@ -110,7 +111,7 @@ class CatalogLocalFileAdapter(CatalogDatabaseInterface):
             _AGENT: self._clear_agent_latest_marker,
             _WORKFLOW: self._clear_workflow_latest_marker,
         }
-        
+
         logger.info(
             "CatalogLocalFileAdapter configured with root: %s", self._root.resolve()
         )
@@ -268,7 +269,9 @@ class CatalogLocalFileAdapter(CatalogDatabaseInterface):
             return reader(name)
         _reject_unknown_kind(kind)
 
-    def _write_latest_version_for_kind(self, kind: str, name: str, version: str) -> None:
+    def _write_latest_version_for_kind(
+        self, kind: str, name: str, version: str
+    ) -> None:
         writer = self._latest_writers.get(kind)
         if writer:
             writer(name, version)
@@ -405,7 +408,11 @@ class CatalogLocalFileAdapter(CatalogDatabaseInterface):
                     continue
                 if is_latest_only and not row.get("is_latest"):
                     continue
-                if status_filter and (row.get("official_meta", {}).get("status") or "active") != status_filter:
+                if (
+                    status_filter
+                    and (row.get("official_meta", {}).get("status") or "active")
+                    != status_filter
+                ):
                     continue
                 if keywords and kind == _SKILL:
                     meta = row.get("payload", {}).get("metadata") or {}
@@ -572,7 +579,9 @@ class CatalogLocalFileAdapter(CatalogDatabaseInterface):
     def _metadata_file_for_resource_id(self, resource_id: str) -> Path:
         return self._metadata_dir / f"{resource_id}.json"
 
-    async def save_resource_metadata(self, resource_id: str, private_meta: dict) -> None:
+    async def save_resource_metadata(
+        self, resource_id: str, private_meta: dict
+    ) -> None:
         path = self._metadata_file_for_resource_id(resource_id)
         path.parent.mkdir(parents=True, exist_ok=True)
         self._write_row(path, private_meta)

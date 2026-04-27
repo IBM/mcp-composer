@@ -8,7 +8,7 @@ from mcp_composer.middleware.tool_filter import ListFilteredTool
 mcp = MCPComposer("composer")
 
 
-async def run(mode: str, host: str, port: int, log_level: str, path: str):
+async def run(mode: str, host: str, port: int, log_level: str, path: str) -> None:
     mcp.add_middleware(ListFilteredTool(mcp))
     await mcp.setup_member_servers()
 
@@ -20,7 +20,7 @@ async def run(mode: str, host: str, port: int, log_level: str, path: str):
         raise ValueError(f"Unsupported MCP_MODE: {mode}")
 
 
-def main():
+def main() -> None:
     parser = argparse.ArgumentParser(description="Run MCP Composer")
 
     parser.add_argument(

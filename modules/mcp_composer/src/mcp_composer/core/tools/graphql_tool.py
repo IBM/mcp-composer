@@ -1,11 +1,11 @@
 # graphql_tool.py
 
 import ast
-from typing import Dict, Any
+from typing import Any
 
 import requests
 from fastmcp.tools import Tool
-from fastmcp.tools.tool import ToolResult
+from fastmcp.tools import ToolResult
 from mcp.types import TextContent
 from pydantic import PrivateAttr
 from starlette.exceptions import HTTPException
@@ -18,7 +18,7 @@ logger = LoggerFactory.get_logger()
 
 class GraphQLTool(Tool):
     _endpoint: str = PrivateAttr()
-    _headers: Dict[str, str] = PrivateAttr(default_factory=dict)
+    _headers: dict[str, str] = PrivateAttr(default_factory=dict)
 
     def __init__(self, config: dict):
         self._endpoint = config[ConfigKey.GRAPHQL][ConfigKey.ENDPOINT]
@@ -67,7 +67,7 @@ class GraphQLTool(Tool):
                 auth.get(ConfigKey.AUTH_PREFIX, ""): auth.get(ConfigKey.TOKEN, "")
             }
 
-    async def run(self, arguments: Dict[str, Any]) -> ToolResult:
+    async def run(self, arguments: dict[str, Any]) -> ToolResult:
         raw_query = arguments["query"]
 
         # 🔧 Unescape if it came in escaped (Claude-style)

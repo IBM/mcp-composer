@@ -1,6 +1,6 @@
 import json
 import time
-from typing import Any, Optional
+from typing import Any
 import urllib.parse
 import httpx
 import jwt
@@ -45,10 +45,10 @@ class AsperaJWTClient(httpx.AsyncClient):
         if timeout <= 0:
             raise ValueError("timeout must be positive")
 
-        self._access_token: Optional[str] = None
+        self._access_token: str | None = None
         self._expires_at: float = 0.0
         self.auth_data = auth_data or {}
-        self._resolved_token_url: Optional[str] = None
+        self._resolved_token_url: str | None = None
 
         super().__init__(
             base_url=base_url, timeout=timeout, headers=headers or {}, **kwargs

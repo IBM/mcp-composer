@@ -3,7 +3,7 @@
 import os
 import json
 from pathlib import Path
-from typing import List, Dict
+from typing import Any
 from dotenv import load_dotenv, find_dotenv
 
 from mcp_composer.core.utils import LoggerFactory
@@ -111,7 +111,7 @@ class LocalFileAdapter(DatabaseInterface):
         else:
             self._prompts_file_available = True
 
-    def _read_data(self) -> List[Dict]:
+    def _read_data(self) -> list[dict[str, object]]:
         if not self._file_available:
             logger.debug("File not available, returning empty data")
             return []
@@ -127,7 +127,7 @@ class LocalFileAdapter(DatabaseInterface):
             self._file_available = False
             return []
 
-    def _write_data(self, data: List[Dict]) -> None:
+    def _write_data(self, data: list[dict[str, object]]) -> None:
         if not self._file_available:
             logger.debug("File not available, skipping write operation")
             return
@@ -140,7 +140,7 @@ class LocalFileAdapter(DatabaseInterface):
             # Mark file as unavailable for future operations
             self._file_available = False
 
-    def _read_resources_data(self) -> List[Dict]:
+    def _read_resources_data(self) -> list[dict[str, object]]:
         if not self._resources_file_available:
             return []
 
@@ -154,7 +154,7 @@ class LocalFileAdapter(DatabaseInterface):
             self._resources_file_available = False
             return []
 
-    def _write_resources_data(self, data: List[Dict]) -> None:
+    def _write_resources_data(self, data: list[dict[str, object]]) -> None:
         if not self._resources_file_available:
             return
 
@@ -165,7 +165,7 @@ class LocalFileAdapter(DatabaseInterface):
             logger.warning("Failed to write to composer resources storage file: %s", e)
             self._resources_file_available = False
 
-    def _read_prompts_data(self) -> List[Dict]:
+    def _read_prompts_data(self) -> list[dict[str, object]]:
         """Read prompts data from file"""
         if not self._prompts_file_available:
             return []
@@ -176,13 +176,11 @@ class LocalFileAdapter(DatabaseInterface):
         except (json.JSONDecodeError, FileNotFoundError):
             return []
         except Exception as e:
-            logger.warning(
-                "Failed to read from composer prompts storage file: %s", e
-            )
+            logger.warning("Failed to read from composer prompts storage file: %s", e)
             self._prompts_file_available = False
             return []
 
-    def _write_prompts_data(self, data: List[Dict]) -> None:
+    def _write_prompts_data(self, data: list[dict[str, object]]) -> None:
         """Write prompts data to file"""
         if not self._prompts_file_available:
             return
@@ -191,16 +189,14 @@ class LocalFileAdapter(DatabaseInterface):
             with open(self._prompts_file_path, "w", encoding="utf-8") as f:
                 json.dump(data, f, indent=2)
         except Exception as e:
-            logger.warning(
-                "Failed to write to composer prompts storage file: %s", e
-            )
+            logger.warning("Failed to write to composer prompts storage file: %s", e)
             self._prompts_file_available = False
 
-    def load_all_servers(self) -> List[Dict]:
+    def load_all_servers(self) -> list[dict[str, object]]:
         """Fetch all member server from file storage"""
         return self._read_data()
 
-    def add_server(self, config: Dict) -> None:
+    def add_server(self, config: dict[str, object]) -> None:
         """Add members server"""
         data = self._read_data()
         server_id = config["id"]
@@ -230,7 +226,7 @@ class LocalFileAdapter(DatabaseInterface):
         else:
             logger.info("Server '%s' not found in local file", server_id)
 
-    def get_document(self, server_id: str) -> Dict:
+    def get_document(self, server_id: str) -> dict[str, object]:
         """get the server config details of a single server"""
         data = self._read_data()
         for server_cfg in data:
@@ -264,9 +260,14 @@ class LocalFileAdapter(DatabaseInterface):
                 )
             else:
                 if len(tools) == 1 and tools[0].lower() == "all":
-                    existing_tools = []
+                    existing_tools: list[Any] = []
                 else:
-                    existing_tools = server.get("disabled_tools", [])
+                    existing_tools_obj = server.get("disabled_tools", [])
+                    existing_tools = (
+                        list(existing_tools_obj)
+                        if isinstance(existing_tools_obj, list)
+                        else []
+                    )
 
                 duplicate_tool = check_duplicate_tool(existing_tools, tools)
                 if duplicate_tool:
@@ -275,7 +276,9 @@ class LocalFileAdapter(DatabaseInterface):
                     )
 
                 if existing_tools:
-                    server["disabled_tools"].extend(tools)
+                    disabled_tools = server["disabled_tools"]
+                    if isinstance(disabled_tools, list):
+                        disabled_tools.extend(tools)
                     logger.info("Updated remove tool list for server:%s", server_id)
                     logger.info("Previous tools:%s", existing_tools)
                 else:
@@ -316,7 +319,7 @@ class LocalFileAdapter(DatabaseInterface):
                 tools_description = server.get("tools_description")
                 # if tools description already found, update it
                 # if not add the tools description
-                if tools_description:
+                if tools_description and isinstance(tools_description, dict):
                     tools_description.update({tool: description})
                     logger.info(
                         "Tool description:%s is updated for server: %s",
@@ -333,18 +336,21 @@ class LocalFileAdapter(DatabaseInterface):
 
         self._write_data(data)
 
-    def _find_resource_index(self, storage_id: str, data: List[Dict]) -> int:
+    def _find_resource_index(
+        self, storage_id: str, data: list[dict[str, object]]
+    ) -> int:
         for idx, record in enumerate(data):
             if record.get("storage_id") == storage_id:
                 return idx
         return -1
 
-    def load_all_resources(self) -> List[Dict]:
+    def load_all_resources(self) -> list[dict[str, object]]:
         return self._read_resources_data()
 
-    def upsert_resource(self, resource: Dict) -> None:
+    def upsert_resource(self, resource: dict[str, object]) -> None:
         data = self._read_resources_data()
-        idx = self._find_resource_index(resource["storage_id"], data)
+        storage_id = str(resource["storage_id"])
+        idx = self._find_resource_index(storage_id, data)
         if idx >= 0:
             data[idx] = resource
         else:
@@ -366,7 +372,12 @@ class LocalFileAdapter(DatabaseInterface):
             if server.get("id") != server_id:
                 continue
 
-            existing_prompts = server.get("disabled_prompts", [])
+            existing_prompts_obj = server.get("disabled_prompts", [])
+            existing_prompts = (
+                list(existing_prompts_obj)
+                if isinstance(existing_prompts_obj, list)
+                else []
+            )
             prompts_description = server.get("prompts_description", {})
 
             duplicate_prompt = check_duplicate_tool(existing_prompts, prompts)
@@ -377,7 +388,9 @@ class LocalFileAdapter(DatabaseInterface):
 
             # Update disabled_prompts
             if existing_prompts:
-                server["disabled_prompts"].extend(prompts)
+                disabled_prompts = server["disabled_prompts"]
+                if isinstance(disabled_prompts, list):
+                    disabled_prompts.extend(prompts)
                 logger.info("Updated disabled prompt list for server:%s", server_id)
                 logger.info("Previous prompts:%s", existing_prompts)
             else:
@@ -389,9 +402,15 @@ class LocalFileAdapter(DatabaseInterface):
                 )
 
             # Remove prompt descriptions if they exist
-            if server["disabled_prompts"] and prompts_description:
-                for prompt in server["disabled_prompts"]:
-                    prompts_description.pop(prompt, None)
+            disabled_prompts_obj = server["disabled_prompts"]
+            if (
+                disabled_prompts_obj
+                and prompts_description
+                and isinstance(prompts_description, dict)
+            ):
+                if isinstance(disabled_prompts_obj, list):
+                    for prompt in disabled_prompts_obj:
+                        prompts_description.pop(prompt, None)
 
             break
 
@@ -424,7 +443,12 @@ class LocalFileAdapter(DatabaseInterface):
             if server.get("id") != server_id:
                 continue
 
-            existing_resources = server.get("disabled_resources", [])
+            existing_resources_obj = server.get("disabled_resources", [])
+            existing_resources = (
+                list(existing_resources_obj)
+                if isinstance(existing_resources_obj, list)
+                else []
+            )
             resources_description = server.get("resources_description", {})
 
             duplicate_resource = check_duplicate_tool(existing_resources, resources)
@@ -435,7 +459,9 @@ class LocalFileAdapter(DatabaseInterface):
 
             # Update disabled_resources
             if existing_resources:
-                server["disabled_resources"].extend(resources)
+                disabled_resources = server["disabled_resources"]
+                if isinstance(disabled_resources, list):
+                    disabled_resources.extend(resources)
                 logger.info("Updated disabled resource list for server:%s", server_id)
                 logger.info("Previous resources:%s", existing_resources)
             else:
@@ -447,9 +473,15 @@ class LocalFileAdapter(DatabaseInterface):
                 )
 
             # Remove resource descriptions if they exist
-            if server["disabled_resources"] and resources_description:
-                for resource in server["disabled_resources"]:
-                    resources_description.pop(resource, None)
+            disabled_resources_obj = server["disabled_resources"]
+            if (
+                disabled_resources_obj
+                and resources_description
+                and isinstance(resources_description, dict)
+            ):
+                if isinstance(disabled_resources_obj, list):
+                    for resource in disabled_resources_obj:
+                        resources_description.pop(resource, None)
 
             break
 
@@ -488,7 +520,8 @@ class LocalFileAdapter(DatabaseInterface):
         data = self._read_data()
         for server in data:
             if server.get("id") == server_id:
-                return server.get("status", "active")
+                status = server.get("status", "active")
+                return str(status)
         return "unknown"
 
     def update_server_config(self, config: dict) -> None:
@@ -514,11 +547,11 @@ class LocalFileAdapter(DatabaseInterface):
         self._write_data(data)
         logger.info("Updated local config for server %s", server_id)
 
-    def load_all_prompts(self) -> List[Dict]:
+    def load_all_prompts(self) -> list[dict[str, object]]:
         """Load all prompts from storage"""
         return self._read_prompts_data()
 
-    def add_prompt(self, prompt: Dict) -> None:
+    def add_prompt(self, prompt: dict[str, object]) -> None:
         """Add or update a prompt in storage"""
         data = self._read_prompts_data()
         prompt_name = prompt.get("name")
@@ -553,7 +586,7 @@ class LocalFileAdapter(DatabaseInterface):
         else:
             logger.info("Prompt '%s' not found in local file", prompt_name)
 
-    def get_prompt(self, prompt_name: str) -> Dict:
+    def get_prompt(self, prompt_name: str) -> dict[str, object]:
         """Get a specific prompt from storage"""
         data = self._read_prompts_data()
         for prompt in data:

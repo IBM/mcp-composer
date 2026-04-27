@@ -1,6 +1,6 @@
 """JWT authentication provider wrapper for FastMCP."""
 
-from typing import Optional, Any, Dict
+from typing import Any
 from fastmcp.server.auth.providers.jwt import JWTVerifier
 from .jwt_config import JWTConfig
 from mcp_composer.core.utils import LoggerFactory
@@ -31,7 +31,7 @@ class JWTAuthProvider:
         >>> composer = MCPComposer("my-app", auth=provider.get_verifier())
     """
 
-    def __init__(self, config: Optional[JWTConfig] = None, **kwargs: Any):
+    def __init__(self, config: JWTConfig | None = None, **kwargs: Any):
         """
         Initialize JWT authentication provider.
 
@@ -64,7 +64,7 @@ class JWTAuthProvider:
                 logger.debug("Overriding config.%s = %s", key, value)
 
         self.config = config
-        self._verifier: Optional[JWTVerifier] = None
+        self._verifier: JWTVerifier | None = None
 
         logger.info(
             "Initialized JWT auth provider with algorithm: %s, verify_exp: %s",
@@ -94,7 +94,7 @@ class JWTAuthProvider:
             self._verifier = self._create_verifier()
         return self._verifier
 
-    def _sanitize_kwargs_for_logging(self, kwargs: Dict[str, Any]) -> Dict[str, Any]:
+    def _sanitize_kwargs_for_logging(self, kwargs: dict[str, Any]) -> dict[str, Any]:
         """
         Sanitize kwargs by masking sensitive fields before logging.
 

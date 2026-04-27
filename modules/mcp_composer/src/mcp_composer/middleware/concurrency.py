@@ -17,7 +17,7 @@ app.add_middleware(
 
 import asyncio
 from dataclasses import dataclass
-from typing import Dict, Optional, Any, Callable
+from typing import Any, Callable
 
 from fastmcp.exceptions import ToolError
 from fastmcp.server.middleware import Middleware
@@ -48,10 +48,10 @@ class ConcurrencyLimiterMiddleware(Middleware):
     def __init__(
         self,
         *,
-        per_tool_limits: Optional[Dict[str, int]] = None,
-        per_tenant_limits: Optional[Dict[str, int]] = None,
-        acquire_timeout: Optional[float] = 2.0,
-        get_tenant: Optional[Callable[[Any], str]] = None,
+        per_tool_limits: dict[str, int] | None = None,
+        per_tenant_limits: dict[str, int] | None = None,
+        acquire_timeout: float | None = 2.0,
+        get_tenant: Callable[[Any], str] | None = None,
     ):
         self.per_tool_limits = per_tool_limits or {}
         self.per_tenant_limits = per_tenant_limits or {}
@@ -60,18 +60,18 @@ class ConcurrencyLimiterMiddleware(Middleware):
             lambda ctx: getattr(ctx, "tenant_id", "unknown")
         )
 
-        self._tool_gates: Dict[str, Gate] = {}
-        self._tenant_gates: Dict[str, Gate] = {}
+        self._tool_gates: dict[str, Gate] = {}
+        self._tenant_gates: dict[str, Gate] = {}
         self._lock = asyncio.Lock()
 
-    async def _get_gate(self, table: Dict[str, Gate], key: str, limit: int) -> Gate:
+    async def _get_gate(self, table: dict[str, Gate], key: str, limit: int) -> Gate:
         g = table.get(key)
         if g:
             return g
         async with self._lock:
             return table.setdefault(key, Gate(asyncio.Semaphore(limit)))
 
-    async def _try_acquire(self, gate: Gate, timeout: Optional[float]) -> bool:
+    async def _try_acquire(self, gate: Gate, timeout: float | None) -> bool:
         if timeout is None or timeout <= 0:
             ok = gate.sem.locked() and gate.sem._value <= 0  # quick check
             if ok:

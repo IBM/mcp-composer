@@ -1,12 +1,19 @@
 # ibm_document_search_tool.py
 
 import json
-from typing import Dict, Any, Optional, List, Literal
+from typing import Any, Literal
 
 from fastmcp.tools import Tool
-from fastmcp.tools.tool import ToolResult
+from fastmcp.tools import ToolResult
 from mcp.types import TextContent
-from pydantic import BaseModel, Field, ConfigDict, PrivateAttr, ValidationError, field_validator
+from pydantic import (
+    BaseModel,
+    Field,
+    ConfigDict,
+    PrivateAttr,
+    ValidationError,
+    field_validator,
+)
 
 from mcp_composer.core.utils import LoggerFactory
 
@@ -18,17 +25,20 @@ class IBMDocumentSearchInput(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    question: str = Field(description="Main research question to investigate.", min_length=1)
+    question: str = Field(
+        description="Main research question to investigate.", min_length=1
+    )
     stage: Literal["planning", "citation", "summarization", "complete"] = Field(
         default="complete", description="Current research stage you're working on."
     )
-    sub_questions: Optional[List[str]] = Field(
-        None, description="List of sub-questions you've identified (for planning stage)."
+    sub_questions: list[str] | None = Field(
+        None,
+        description="List of sub-questions you've identified (for planning stage).",
     )
-    sources_count: Optional[int] = Field(
+    sources_count: int | None = Field(
         None, ge=0, description="Optional count of sources found so far."
     )
-    gaps: Optional[List[str]] = Field(
+    gaps: list[str] | None = Field(
         None,
         description=(
             "Optional list of information gaps identified. "
@@ -36,10 +46,10 @@ class IBMDocumentSearchInput(BaseModel):
             "(objects will be converted to strings automatically)."
         ),
     )
-    additional_context: Optional[str] = Field(
+    additional_context: str | None = Field(
         None, description="Extra guidance or constraints for the research."
     )
-    search_query: Optional[str] = Field(
+    search_query: str | None = Field(
         None,
         description=(
             "Optional suggested search query. This is a hint for the agent to use when searching available "
@@ -48,22 +58,35 @@ class IBMDocumentSearchInput(BaseModel):
         min_length=1,
     )
     max_results: int = Field(
-        default=5, ge=1, le=10,
-        description="Optional hint for maximum number of results to consider (default: 5, max: 10)."
+        default=5,
+        ge=1,
+        le=10,
+        description="Optional hint for maximum number of results to consider (default: 5, max: 10).",
     )
 
     @field_validator("gaps", mode="before")
     @classmethod
-    def normalize_gaps(cls, v: Any) -> Optional[List[str]]:
+    def normalize_gaps(cls, v: Any) -> list[str] | None:
         """Normalize gaps field to handle both string lists and object lists."""
         if v is None:
             return None
         if not isinstance(v, list):
             return [str(v)]
         return [
-            gap if isinstance(gap, str)
-            else (gap.get("title") or gap.get("url") or gap.get("description") or str(gap))
-            if isinstance(gap, dict) else str(gap)
+            (
+                gap
+                if isinstance(gap, str)
+                else (
+                    (
+                        gap.get("title")
+                        or gap.get("url")
+                        or gap.get("description")
+                        or str(gap)
+                    )
+                    if isinstance(gap, dict)
+                    else str(gap)
+                )
+            )
             for gap in v
         ]
 
@@ -81,7 +104,7 @@ class IBMDocumentSearchTool(Tool):
     model_config = ConfigDict(extra="allow")
 
     # Private attributes for resource manager integration
-    _resource_manager: Optional[Any] = PrivateAttr(default=None)
+    _resource_manager: Any | None = PrivateAttr(default=None)
 
     def __setattr__(self, name: str, value: Any) -> None:
         """
@@ -106,7 +129,7 @@ class IBMDocumentSearchTool(Tool):
             return
         super().__delattr__(name)
 
-    def __init__(self, config: Optional[dict] = None):
+    def __init__(self, config: dict | None = None):
         """Initialize the IBM Document Search Tool"""
 
         # Generate parameters from Pydantic model
@@ -411,12 +434,19 @@ surface-level responses. Always discover current documentation dynamically via `
 
         if config:
             resource_manager = (
-                config.get("resource_manager") if isinstance(config, dict)
-                else getattr(config, "resource_manager", None) if hasattr(config, "resource_manager") else None
+                config.get("resource_manager")
+                if isinstance(config, dict)
+                else (
+                    getattr(config, "resource_manager", None)
+                    if hasattr(config, "resource_manager")
+                    else None
+                )
             )
             if resource_manager:
                 self._resource_manager = resource_manager
-                logger.info("IBM Document Search Tool configured with resource manager integration")
+                logger.info(
+                    "IBM Document Search Tool configured with resource manager integration"
+                )
 
         logger.info("IBM Document Search Tool '%s' initialized", tool_name)
 
@@ -427,41 +457,58 @@ surface-level responses. Always discover current documentation dynamically via `
             return False
         return uri.lower().strip().startswith(("http://", "https://"))
 
-    async def _get_available_resources(self) -> List[Dict[str, Any]]:
+    async def _get_available_resources(self) -> list[dict[str, Any]]:
         """Get available resources from resource manager, filtering for HTTP/HTTPS URLs only."""
         if not self._resource_manager:
             return []
-        
+
         try:
             resource_list = await self._resource_manager.list_resources()
             resources = []
-            
+
             for resource in resource_list:
                 uri = str(getattr(resource, "uri", ""))
                 if not self._is_valid_http_url(uri):
-                    logger.debug("Filtered out non-HTTP resource: %s", getattr(resource, "name", "unknown"))
+                    logger.debug(
+                        "Filtered out non-HTTP resource: %s",
+                        getattr(resource, "name", "unknown"),
+                    )
                     continue
-                
-                resources.append({
-                    "name": getattr(resource, "name", ""),
-                    "description": getattr(resource, "description", ""),
-                    "uri": uri,
-                    "mime_type": getattr(resource, "mime_type", ""),
-                    "text": getattr(resource, "text", ""),
-                    "tags": list(getattr(resource, "tags", [])) if hasattr(resource, "tags") else [],
-                })
 
-            logger.info("Retrieved %s valid HTTP/HTTPS resources (filtered from %s total)", len(resources), len(resource_list))
+                resources.append(
+                    {
+                        "name": getattr(resource, "name", ""),
+                        "description": getattr(resource, "description", ""),
+                        "uri": uri,
+                        "mime_type": getattr(resource, "mime_type", ""),
+                        "text": getattr(resource, "text", ""),
+                        "tags": (
+                            list(getattr(resource, "tags", []))
+                            if hasattr(resource, "tags")
+                            else []
+                        ),
+                    }
+                )
+
+            logger.info(
+                "Retrieved %s valid HTTP/HTTPS resources (filtered from %s total)",
+                len(resources),
+                len(resource_list),
+            )
             return resources
         except Exception as e:
             logger.warning("Failed to retrieve resources from resource manager: %s", e)
             return []
 
-    async def _search_resources(self, query: str, max_results: int = 5) -> List[Dict[str, Any]]:
+    async def _search_resources(
+        self, query: str, max_results: int = 5
+    ) -> list[dict[str, Any]]:
         """Search resources using tag-based matching."""
         try:
             max_results = min(max(1, max_results), 10)
-            logger.info("Searching resources for: %s (max_results: %s)", query, max_results)
+            logger.info(
+                "Searching resources for: %s (max_results: %s)", query, max_results
+            )
 
             available_resources = await self._get_available_resources()
             if not available_resources:
@@ -511,14 +558,17 @@ surface-level responses. Always discover current documentation dynamically via `
                     scored_resources.append((score, resource))
 
             scored_resources.sort(key=lambda x: x[0], reverse=True)
-            results = [{
-                "title": r.get("name", "Unknown Resource"),
-                "url": r.get("uri", ""),
-                "snippet": r.get("description") or r.get("text", "")[:200],
-                "mime_type": r.get("mime_type", ""),
-                "tags": r.get("tags", []),
-                "relevance_score": score,
-            } for score, r in scored_resources[:max_results]]
+            results = [
+                {
+                    "title": r.get("name", "Unknown Resource"),
+                    "url": r.get("uri", ""),
+                    "snippet": r.get("description") or r.get("text", "")[:200],
+                    "mime_type": r.get("mime_type", ""),
+                    "tags": r.get("tags", []),
+                    "relevance_score": score,
+                }
+                for score, r in scored_resources[:max_results]
+            ]
 
             logger.info("Found %s matching HTTP/HTTPS resources", len(results))
             return results
@@ -527,15 +577,15 @@ surface-level responses. Always discover current documentation dynamically via `
             return []
 
     def _match_resources_by_tags(
-        self, question: str, available_resources: List[Dict[str, Any]]
-    ) -> List[Dict[str, Any]]:
+        self, question: str, available_resources: list[dict[str, Any]]
+    ) -> list[dict[str, Any]]:
         """Match resources to a question using tag-based matching."""
         if not available_resources:
             return []
 
         question_terms = set(question.lower().split())
         scored = []
-        
+
         for resource in available_resources:
             tags = set(tag.lower() for tag in resource.get("tags", []))
             name = resource.get("name", "").lower()
@@ -559,14 +609,13 @@ surface-level responses. Always discover current documentation dynamically via `
 
         scored.sort(key=lambda x: x[0], reverse=True)
         matched = [r for _, r in scored]
-        
+
         if matched:
             logger.info("Tag-based matching found %s relevant resources", len(matched))
         return matched
 
-
     async def _generate_stage_guidance(
-        self, params: IBMDocumentSearchInput, available_resources: List[Dict[str, Any]]
+        self, params: IBMDocumentSearchInput, available_resources: list[dict[str, Any]]
     ) -> str:
         """
         Generate concise guidance for the current document search stage.
@@ -588,7 +637,7 @@ surface-level responses. Always discover current documentation dynamically via `
             resources_info = "\n\n**Note:** No HTTP/HTTPS resources currently available. Use other available tools to find documentation."
 
         question = params.question
-        
+
         guidance = f"""**Document Search Guidance**
 
 **Question:** {question}
@@ -615,15 +664,19 @@ surface-level responses. Always discover current documentation dynamically via `
 - Stay within IBM documentation domains"""
 
         if params.sub_questions:
-            guidance += f"\n\n**Your Sub-questions:**\n" + "\n".join(f"  {i+1}. {q}" for i, q in enumerate(params.sub_questions))
+            guidance += f"\n\n**Your Sub-questions:**\n" + "\n".join(
+                f"  {i+1}. {q}" for i, q in enumerate(params.sub_questions)
+            )
         if params.sources_count is not None:
             guidance += f"\n\n**Sources Found So Far:** {params.sources_count}"
         if params.gaps:
-            guidance += "\n\n**Information Gaps:**\n" + "\n".join(f"  - {g}" for g in params.gaps)
-        
+            guidance += "\n\n**Information Gaps:**\n" + "\n".join(
+                f"  - {g}" for g in params.gaps
+            )
+
         return guidance
 
-    def _format_resources_list(self, resources: List[Dict[str, Any]]) -> str:
+    def _format_resources_list(self, resources: list[dict[str, Any]]) -> str:
         """Format resources list for display with emphasis on tags."""
         if not resources:
             return "No HTTP/HTTPS resources available."
@@ -636,7 +689,11 @@ surface-level responses. Always discover current documentation dynamically via `
             if tags := r.get("tags"):
                 parts.append(f"   Tags: {', '.join(tags)}")
                 parts.append("   💡 Match these tags to your question for best results")
-            desc = r.get("description") or (r.get("text", "")[:150] + "..." if len(r.get("text", "")) > 150 else r.get("text", ""))
+            desc = r.get("description") or (
+                r.get("text", "")[:150] + "..."
+                if len(r.get("text", "")) > 150
+                else r.get("text", "")
+            )
             if desc:
                 parts.append(f"   Description: {desc}")
             if mime := r.get("mime_type"):
@@ -645,37 +702,38 @@ surface-level responses. Always discover current documentation dynamically via `
         return "\n\n".join(formatted)
 
     @staticmethod
-    def _extract_json_from_string(text: str) -> Dict[str, Any]:
+    def _extract_json_from_string(text: str) -> dict[str, Any]:
         """Extract JSON object from string that may contain text before JSON."""
         if not isinstance(text, str):
             raise ValueError("Input must be a string")
-        
+
         # Find the last '{' that likely starts a JSON object
-        start_idx = text.rfind('{')
+        start_idx = text.rfind("{")
         if start_idx == -1:
             raise ValueError("No JSON object found in string")
-        
+
         # Extract JSON substring and find balanced braces
         json_str = text[start_idx:]
         brace_count = 0
         end_idx = len(json_str)
-        
+
         for i, char in enumerate(json_str):
-            if char == '{':
+            if char == "{":
                 brace_count += 1
-            elif char == '}':
+            elif char == "}":
                 brace_count -= 1
                 if brace_count == 0:
                     end_idx = i + 1
                     break
-        
+
         # Try to parse the balanced JSON
         try:
             return json.loads(json_str[:end_idx])
         except json.JSONDecodeError:
             # Fallback: try regex to find any JSON-like structure
             import re
-            json_match = re.search(r'\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}', text)
+
+            json_match = re.search(r"\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}", text)
             if json_match:
                 try:
                     return json.loads(json_match.group())
@@ -684,13 +742,17 @@ surface-level responses. Always discover current documentation dynamically via `
             raise ValueError(f"Could not extract valid JSON from string")
 
     @staticmethod
-    def _extract_question_from_args(arguments: Dict[str, Any]) -> str:
+    def _extract_question_from_args(arguments: dict[str, Any]) -> str:
         """Extract question from arguments."""
         question = arguments.get("question") or arguments.get("search_query")
-        return question.strip() if question and isinstance(question, str) else "Unknown question"
+        return (
+            question.strip()
+            if question and isinstance(question, str)
+            else "Unknown question"
+        )
 
     def _handle_validation_error(
-        self, error: ValidationError, raw_arguments: Dict[str, Any]
+        self, error: ValidationError, raw_arguments: dict[str, Any]
     ) -> ToolResult:
         """
         Handle Pydantic validation errors gracefully.
@@ -722,7 +784,7 @@ surface-level responses. Always discover current documentation dynamically via `
             ]
         )
 
-    async def run(self, arguments: Dict[str, Any]) -> ToolResult:
+    async def run(self, arguments: dict[str, Any]) -> ToolResult:
         """
         Execute the IBM document search tool.
 
@@ -739,21 +801,25 @@ surface-level responses. Always discover current documentation dynamically via `
             if isinstance(arguments, str):
                 logger.debug("Arguments received as string, attempting to extract JSON")
                 try:
-                    arguments = IBMDocumentSearchTool._extract_json_from_string(arguments)
+                    arguments = IBMDocumentSearchTool._extract_json_from_string(
+                        arguments
+                    )
                 except ValueError as e:
                     logger.error("Failed to extract JSON from string arguments: %s", e)
                     # Fallback: create minimal valid arguments from the string
                     arg_str = str(arguments)
                     question_text = arg_str[:200] if len(arg_str) > 200 else arg_str
                     arguments = {"question": question_text}
-            
+
             # Clean argument values that might contain mixed content
-            cleaned_args = {}
+            cleaned_args: dict[str, Any] = {}
             for key, value in arguments.items():
-                if isinstance(value, str) and '{' in value:
-                    if not value.strip().startswith('{'):
+                if isinstance(value, str) and "{" in value:
+                    if not value.strip().startswith("{"):
                         try:
-                            cleaned_args[key] = IBMDocumentSearchTool._extract_json_from_string(value)
+                            cleaned_args[key] = (
+                                IBMDocumentSearchTool._extract_json_from_string(value)
+                            )
                         except (ValueError, json.JSONDecodeError):
                             cleaned_args[key] = value
                     else:
@@ -763,7 +829,7 @@ surface-level responses. Always discover current documentation dynamically via `
                             cleaned_args[key] = value
                 else:
                     cleaned_args[key] = value
-            
+
             params = IBMDocumentSearchInput(**cleaned_args)
 
             # Get available resources (filtered for HTTP/HTTPS only)
@@ -789,7 +855,7 @@ surface-level responses. Always discover current documentation dynamically via `
             next_stage = stage_flow.get(params.stage, "citation")
 
             # Create simplified response
-            response = {
+            response_data = {
                 "stage": params.stage,
                 "question": question,
                 "guidance": guidance,
@@ -800,7 +866,7 @@ surface-level responses. Always discover current documentation dynamically via `
 
             # Add search query hint if provided
             if params.search_query:
-                response["suggestedSearchQuery"] = params.search_query
+                response_data["suggestedSearchQuery"] = params.search_query
 
             question_display = question[:50] + "..." if len(question) > 50 else question
             logger.info(
@@ -809,11 +875,13 @@ surface-level responses. Always discover current documentation dynamically via `
                 question_display,
             )
 
-            response = ToolResult(
-                content=[TextContent(type="text", text=json.dumps(response, indent=2))]
+            result = ToolResult(
+                content=[
+                    TextContent(type="text", text=json.dumps(response_data, indent=2))
+                ]
             )
-            logger.debug("IBM document search tool response: %s", response)
-            return response
+            logger.debug("IBM document search tool response: %s", result)
+            return result
         except ValidationError as e:
             return self._handle_validation_error(e, arguments)
 

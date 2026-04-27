@@ -2,7 +2,7 @@ import os
 import time
 import base64
 import json
-from typing import Any, Optional
+from typing import Any
 import httpx
 from mcp_composer.core.utils import ConfigKey, LoggerFactory
 from mcp_composer.core.auth_handler.oauth_handler import resolve_env_value
@@ -28,8 +28,8 @@ class SolisJWTTokenGenerator:
 
     def __init__(self, auth_data: dict[str, Any] | None = None):
         self.auth_data = auth_data or {}
-        self._cache_path: Optional[str] = None
-        self._jwt_token: Optional[str] = None
+        self._cache_path: str | None = None
+        self._jwt_token: str | None = None
         self._expires_at: float = 0.0
 
     def _get_cache_path(self) -> str:
@@ -39,7 +39,7 @@ class SolisJWTTokenGenerator:
             self._cache_path = os.path.join(cache_dir, ".solis_jwt_cache.json")
         return self._cache_path
 
-    def _load_cached_jwt(self) -> Optional[str]:
+    def _load_cached_jwt(self) -> str | None:
         """Load JWT from cache if valid."""
         cache_path = self._get_cache_path()
         if not os.path.isfile(cache_path):
@@ -90,7 +90,7 @@ class SolisJWTTokenGenerator:
         except Exception as e:
             logger.warning("Failed to save JWT to cache: %s", e)
 
-    def _parse_jwt_expiration(self, jwt_token: str) -> Optional[float]:
+    def _parse_jwt_expiration(self, jwt_token: str) -> float | None:
         """Parse expiration time from JWT token."""
         try:
             payload = jwt_token.split(".")[1]
@@ -111,7 +111,7 @@ class SolisJWTTokenGenerator:
         """Get the current token expiry time (buffered)."""
         return self._expires_at
 
-    def get_current_token(self) -> Optional[str]:
+    def get_current_token(self) -> str | None:
         """Get the current cached token."""
         return self._jwt_token
 
@@ -272,7 +272,7 @@ class SolisJWTClient(httpx.AsyncClient):
 
         self.auth_data = auth_data or {}
         self._token_generator = SolisJWTTokenGenerator(auth_data=auth_data)
-        self._resolved_login_url: Optional[str] = None
+        self._resolved_login_url: str | None = None
 
         super().__init__(
             base_url=base_url, timeout=timeout, headers=headers or {}, **kwargs

@@ -3,11 +3,11 @@ Layered MCP Factory for native MCP protocol servers.
 Provides a discovery layer on top of MCP protocol servers that don't have OpenAPI specs.
 """
 
-from typing import Any, Dict, List, Optional
+from typing import Any
 from fastmcp import FastMCP, Client  # type: ignore
 from fastmcp.exceptions import ToolError  # type: ignore
 from fastmcp.server import create_proxy  # type: ignore
-from fastmcp.tools.tool import Tool  # type: ignore
+from fastmcp.tools import Tool  # type: ignore
 from mcp_composer.core.utils import LoggerFactory
 
 logger = LoggerFactory.get_logger()
@@ -58,7 +58,7 @@ class LayeredMCPFactory(FastMCP):
         self.server_id = server_id
         self.product_id = product_id
         self._tool_descriptions = tool_descriptions or {}
-        self._cached_tools: Optional[List[Dict[str, Any]]] = None
+        self._cached_tools: list[dict[str, Any]] | None = None
 
         # Initialize the parent FastMCP class
         super().__init__(
@@ -124,7 +124,7 @@ All tools are proxied from the underlying MCP server.""",
             value = ""
         return value.strip() or fallback
 
-    def _get_input_schema(self, tool_dict: Dict[str, Any], tool: Any) -> Any:
+    def _get_input_schema(self, tool_dict: dict[str, Any], tool: Any) -> Any:
         """Resolve a tool's input schema from normalized dict or tool object."""
         if "inputSchema" in tool_dict:
             return tool_dict["inputSchema"]
@@ -140,9 +140,9 @@ All tools are proxied from the underlying MCP server.""",
             return getattr(tool, "parameters")
         return None
 
-    def _normalize_tool_dict(self, tool: Any) -> Dict[str, Any]:
+    def _normalize_tool_dict(self, tool: Any) -> dict[str, Any]:
         """Convert a proxied or native tool object into a normalized dict."""
-        tool_dict: Dict[str, Any] = {}
+        tool_dict: dict[str, Any] = {}
 
         # Try dict conversion first if tool is already a dict
         if isinstance(tool, dict):
@@ -200,7 +200,7 @@ All tools are proxied from the underlying MCP server.""",
 
     def _extract_instances_from_context(
         self, auth_context: Any
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """
         Extract user instances from auth context, handling different context formats.
 
@@ -230,7 +230,7 @@ All tools are proxied from the underlying MCP server.""",
 
         return instances
 
-    def _get_instance_product_id(self, instance: Dict[str, Any]) -> Optional[str]:
+    def _get_instance_product_id(self, instance: dict[str, Any]) -> str | None:
         """
         Get productId from an instance. Supports full shape (subscription.productId/product_id),
         normalized shape (top-level productId/product_id), and snake_case keys.
@@ -245,9 +245,9 @@ All tools are proxied from the underlying MCP server.""",
 
     def _authorize_and_select_instance(
         self,
-        instances: List[Dict[str, Any]],
+        instances: list[dict[str, Any]],
         server_id: str,
-    ) -> Optional[Dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         """
         Authorize user access by matching productId with instance productId.
         Returns the first matching active instance or None if unauthorized.
@@ -303,7 +303,7 @@ All tools are proxied from the underlying MCP server.""",
         )
         return None
 
-    async def _fetch_tools(self) -> List[Dict[str, Any]]:
+    async def _fetch_tools(self) -> list[dict[str, Any]]:
         """Fetch tools from the underlying MCP server and cache them."""
         if self._cached_tools is not None:
             logger.debug("Returning cached tools (%d tools)", len(self._cached_tools))
@@ -583,7 +583,7 @@ All tools are proxied from the underlying MCP server.""",
         return parameters
 
     async def make_tool_call(
-        self, tool_name: str, arguments: Optional[Dict[str, Any]] = None
+        self, tool_name: str, arguments: dict[str, Any] | None = None
     ) -> str:
         """
         Execute a tool call on the underlying MCP server.

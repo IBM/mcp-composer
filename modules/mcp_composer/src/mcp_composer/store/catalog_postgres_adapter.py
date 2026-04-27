@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 import os
-from typing import Any, Dict, Optional
+from typing import Any
 from urllib.parse import urlparse
 
 import asyncpg
@@ -29,6 +29,7 @@ def _expect_resource_kind(kind: str) -> str:
     if kind not in _KNOWN_RESOURCE_KINDS:
         raise ValueError(f"unsupported catalog kind: {kind!r}")
     return kind
+
 
 # Columns returned for every resource SELECT
 _SKILL_COLUMNS = """
@@ -74,12 +75,12 @@ class CatalogPostgresAdapter(CatalogDatabaseInterface):
 
     def __init__(
         self,
-        host: Optional[str] = None,
-        port: Optional[int] = None,
-        database: Optional[str] = None,
-        user: Optional[str] = None,
-        password: Optional[str] = None,
-        url: Optional[str] = None,
+        host: str | None = None,
+        port: int | None = None,
+        database: str | None = None,
+        user: str | None = None,
+        password: str | None = None,
+        url: str | None = None,
         min_size: int = 1,
         max_size: int = 10,
     ) -> None:
@@ -95,10 +96,11 @@ class CatalogPostgresAdapter(CatalogDatabaseInterface):
             min_size: Minimum connections kept in the asyncpg pool.
             max_size: Maximum connections allowed in the asyncpg pool.
         """
-        self._pool: Optional[asyncpg.Pool] = None
+        self._pool: asyncpg.Pool | None = None
         self._min_size = min_size
         self._max_size = max_size
 
+        self._connection_params: dict[str, Any]
         if url:
             self._connection_params = self._parse_postgres_url(url)
         else:
@@ -106,7 +108,7 @@ class CatalogPostgresAdapter(CatalogDatabaseInterface):
                 raise ValueError(
                     "Either 'url' or all of 'host', 'database', 'user', 'password' must be provided"
                 )
-            self._connection_params: Dict[str, Any] = {
+            self._connection_params = {
                 "host": host,
                 "port": port or 5432,
                 "database": database,
@@ -130,7 +132,7 @@ class CatalogPostgresAdapter(CatalogDatabaseInterface):
     # ── lifecycle ──────────────────────────────────────────────────────────────
 
     @staticmethod
-    def _parse_postgres_url(url: str) -> Dict[str, Any]:
+    def _parse_postgres_url(url: str) -> dict[str, Any]:
         """Parse a postgresql:// URL into a connection-params dict.
 
         Raises:
@@ -181,7 +183,9 @@ class CatalogPostgresAdapter(CatalogDatabaseInterface):
     def _get_pool(self) -> asyncpg.Pool:
         """Return the active pool, raising RuntimeError if initialize() was not called."""
         if self._pool is None:
-            raise RuntimeError("CatalogPostgresAdapter.initialize() has not been called")
+            raise RuntimeError(
+                "CatalogPostgresAdapter.initialize() has not been called"
+            )
         return self._pool
 
     # ── kind-aware catalog resources ───────────────────────────────────────────
@@ -215,9 +219,14 @@ class CatalogPostgresAdapter(CatalogDatabaseInterface):
                             updated_at    = now()
                     RETURNING {_SKILL_COLUMNS}
                     """,
-                    kind, row["name"], row["version"],
-                    payload, official_meta,
-                    row.get("is_latest", False), tenant_ids, content,
+                    kind,
+                    row["name"],
+                    row["version"],
+                    payload,
+                    official_meta,
+                    row.get("is_latest", False),
+                    tenant_ids,
+                    content,
                 )
             else:
                 record = await conn.fetchrow(
@@ -233,9 +242,13 @@ class CatalogPostgresAdapter(CatalogDatabaseInterface):
                             updated_at    = now()
                     RETURNING {_SKILL_COLUMNS}
                     """,
-                    kind, row["name"], row["version"],
-                    payload, official_meta,
-                    row.get("is_latest", False), tenant_ids,
+                    kind,
+                    row["name"],
+                    row["version"],
+                    payload,
+                    official_meta,
+                    row.get("is_latest", False),
+                    tenant_ids,
                 )
         return _row_to_dict(record)
 
@@ -250,7 +263,9 @@ class CatalogPostgresAdapter(CatalogDatabaseInterface):
                 FROM {self.TABLE}
                 WHERE kind=$1 AND name=$2 AND version=$3
                 """,
-                kind, name, version,
+                kind,
+                name,
+                version,
             )
         return _row_to_dict(record) if record else None
 
@@ -267,7 +282,9 @@ class CatalogPostgresAdapter(CatalogDatabaseInterface):
                 FROM {self.TABLE}
                 WHERE kind=$1 AND name=$2 AND is_latest=$3
                 """,
-                kind, name, is_latest,
+                kind,
+                name,
+                is_latest,
             )
         return _row_to_dict(record) if record else None
 
@@ -351,7 +368,8 @@ class CatalogPostgresAdapter(CatalogDatabaseInterface):
         async with pool.acquire() as conn:
             count = await conn.fetchval(
                 f"SELECT count(*) FROM {self.TABLE} WHERE kind=$1 AND name=$2",
-                kind, name,
+                kind,
+                name,
             )
         return int(count or 0)
 
@@ -362,7 +380,9 @@ class CatalogPostgresAdapter(CatalogDatabaseInterface):
         async with pool.acquire() as conn:
             await conn.execute(
                 f"DELETE FROM {self.TABLE} WHERE kind=$1 AND name=$2 AND version=$3",
-                kind, name, version,
+                kind,
+                name,
+                version,
             )
 
     async def update_resource_row(
@@ -415,7 +435,9 @@ class CatalogPostgresAdapter(CatalogDatabaseInterface):
         async with pool.acquire() as conn:
             val = await conn.fetchval(
                 f"SELECT content FROM {self.TABLE} WHERE kind=$1 AND name=$2 AND version=$3",
-                kind, name, version,
+                kind,
+                name,
+                version,
             )
         return val  # already str or None
 
@@ -432,14 +454,19 @@ class CatalogPostgresAdapter(CatalogDatabaseInterface):
                        updated_at = now()
                  WHERE kind=$1 AND name=$2 AND version=$3
                 """,
-                kind, name, version, content,
+                kind,
+                name,
+                version,
+                content,
             )
 
     # ── resource metadata methods ──────────────────────────────────────────────
 
     METADATA_TABLE = "catalog_resource_metadata"
 
-    async def save_resource_metadata(self, resource_id: str, private_meta: dict) -> None:
+    async def save_resource_metadata(
+        self, resource_id: str, private_meta: dict
+    ) -> None:
         """Upsert private metadata for a catalog resource row (see ``_metadata_json_column``)."""
         pool = self._get_pool()
         col = self._metadata_json_column
@@ -452,7 +479,8 @@ class CatalogPostgresAdapter(CatalogDatabaseInterface):
                     SET {col}       = EXCLUDED.{col},
                         updated_at = now()
                 """,
-                resource_id, json.dumps(private_meta),
+                resource_id,
+                json.dumps(private_meta),
             )
 
     async def get_resource_metadata(self, resource_id: str) -> dict | None:

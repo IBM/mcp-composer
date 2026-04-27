@@ -5,7 +5,6 @@ All settings can be configured via environment variables with sensible defaults.
 Inspired by permit-fastmcp's comprehensive configuration approach.
 """
 
-from typing import List
 from enum import Enum
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -49,7 +48,7 @@ class Settings(BaseSettings):
     mode: PolicyMode = PolicyMode.optimized
 
     # Methods recognized for resource/action mapping
-    known_methods: List[str] = [
+    known_methods: list[str] = [
         "tools/list",
         "prompts/list",
         "resources/list",
@@ -59,7 +58,7 @@ class Settings(BaseSettings):
     ]
 
     # Methods that bypass authorization checks
-    bypassed_methods: List[str] = [
+    bypassed_methods: list[str] = [
         "initialize",
         "ping",
         "notifications/*",
@@ -95,7 +94,7 @@ class Settings(BaseSettings):
     api_key_header: str = "X-API-Key"
 
     # Allowed JWT algorithms (for 'jwt' mode)
-    jwt_algorithms: List[str] = ["HS256", "RS256"]
+    jwt_algorithms: list[str] = ["HS256", "RS256"]
 
     # Whether to prefix resources with the MCP server name
     prefix_resource_with_server_name: bool = True

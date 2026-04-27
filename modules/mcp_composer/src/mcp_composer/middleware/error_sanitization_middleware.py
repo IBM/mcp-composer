@@ -8,10 +8,10 @@ platform or configuration details.
 import re
 import traceback
 from collections import defaultdict
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Tuple
 from fastmcp.server.middleware import Middleware, MiddlewareContext, CallNext
 from fastmcp.exceptions import ToolError
-from fastmcp.tools.tool import ToolResult
+from fastmcp.tools import ToolResult
 from mcp.types import TextContent, CallToolResult
 
 from mcp_composer.core.utils.logger import LoggerFactory
@@ -56,7 +56,7 @@ class ErrorSanitizationMiddleware(Middleware):
     def __init__(
         self,
         enable_sanitization: bool = True,
-        exempt_tools: Optional[set[str]] = None,
+        exempt_tools: set[str] | None = None,
         log_full_traceback: bool = True,
         track_statistics: bool = True,
     ):
@@ -73,9 +73,9 @@ class ErrorSanitizationMiddleware(Middleware):
         self.exempt_tools = exempt_tools or set()
         self.log_full_traceback = log_full_traceback
         self.track_statistics = track_statistics
-        self.error_counts: Dict[str, int] = defaultdict(int)
+        self.error_counts: dict[str, int] = defaultdict(int)
 
-    def _categorize_error(self, error: Exception) -> Tuple[str, str, Optional[str]]:
+    def _categorize_error(self, error: Exception) -> tuple[str, str, str | None]:
         """Categorize error and generate user-friendly message.
 
         Returns:
@@ -338,7 +338,7 @@ class ErrorSanitizationMiddleware(Middleware):
 
     ERROR_STATUS_CODES = (401, 403, 404, 429, 500, 502, 503, 504)
 
-    def _is_error_result(self, result: Dict[str, Any]) -> bool:
+    def _is_error_result(self, result: dict[str, Any]) -> bool:
         """True if the tool result represents an error (should be sanitized and isError=True)."""
         if result.get("error"):
             return True
@@ -350,7 +350,7 @@ class ErrorSanitizationMiddleware(Middleware):
             return True
         return False
 
-    def _extract_raw_message(self, result: Dict[str, Any]) -> str:
+    def _extract_raw_message(self, result: dict[str, Any]) -> str:
         """Get the raw error message from various result shapes (top-level or data.*)."""
         msg = result.get("message") or result.get("error")
         if msg:
@@ -363,7 +363,7 @@ class ErrorSanitizationMiddleware(Middleware):
         return str(result.get("error", ""))
 
     def _sanitize_error_result(
-        self, result: Dict[str, Any], tool_name: str
+        self, result: dict[str, Any], tool_name: str
     ) -> _ErrorToolResult:
         """Sanitize a tool result that is an error; return _ErrorToolResult."""
         status_code = result.get("status_code")
@@ -433,7 +433,7 @@ class ErrorSanitizationMiddleware(Middleware):
         error: Exception,
         method: str,
         category: str,
-        tool_name: Optional[str] = None,
+        tool_name: str | None = None,
     ) -> None:
         """Log error with context."""
         context_info = f"Error in {method}"
@@ -561,7 +561,7 @@ class ErrorSanitizationMiddleware(Middleware):
                 structured_content=error_details,
             )
 
-    def get_error_statistics(self) -> Dict[str, int]:
+    def get_error_statistics(self) -> dict[str, int]:
         """Get error statistics.
 
         Returns:

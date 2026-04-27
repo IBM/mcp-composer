@@ -4,7 +4,7 @@ import argparse
 import importlib
 import json
 import sys
-from typing import Any, List
+from typing import Any
 
 from pydantic import ValidationError
 
@@ -36,11 +36,11 @@ def _print_validation_error(e: ValidationError) -> None:
         _print_error(f"  {i:02d}. {loc} [{typ}] - {msg}")
 
 
-def _parse_csv(value: Any) -> List[str]:
+def _parse_csv(value: Any) -> list[str]:
     if value is None:
         return []
     if isinstance(value, (list, tuple)):
-        out: List[str] = []
+        out: list[str] = []
         for v in value:
             out.extend([s.strip() for s in str(v).split(",") if s.strip()])
         return out
@@ -121,7 +121,7 @@ def cmd_list(args: argparse.Namespace) -> int:
     include_disabled = args.all
 
     # Prefer manager for true runtime order (enabled only)
-    items_out: List[dict] = []
+    items_out: list[dict[str, Any]] = []
     if MiddlewareManager is not None:
         mgr = MiddlewareManager(args.config, ensure_imports=False)
         runtime = {d["name"]: d for d in mgr.describe()}  # enabled only, ordered
@@ -182,6 +182,7 @@ def cmd_list(args: argparse.Namespace) -> int:
             print(f"[{flag}] {it['name']}  prio={it['priority']}  mode={mode}")
             print(f"     kind={it.get('kind', '')}")
             print(f"     hooks=[{hooks}]")
+    return 0
 
 
 # pylint: disable=too-many-statements,too-many-return-statements,too-many-branches,too-many-locals
@@ -191,7 +192,12 @@ def cmd_add_middleware(args: argparse.Namespace) -> int:
         existing = _load_json_file(args.config)
         cfg = MiddlewareConfig.model_validate(existing)
     except FileNotFoundError:
-        cfg = MiddlewareConfig(middleware=[], middleware_settings=MiddlewareSettings())
+        cfg = MiddlewareConfig(
+            middleware=[],
+            middleware_settings=MiddlewareSettings(
+                middleware_timeout=30, middleware_health_check_interval=60
+            ),
+        )
     except json.JSONDecodeError as je:
         _print_error(f"Invalid JSON in {args.config}: {je}")
         return 2
@@ -228,7 +234,7 @@ def cmd_add_middleware(args: argparse.Namespace) -> int:
             kind=args.kind,
             mode=args.mode,
             priority=args.priority,
-            applied_hooks=applied_hooks,
+            applied_hooks=applied_hooks,  # type: ignore[arg-type]
             conditions=Conditions(
                 include_tools=include_tools,
                 exclude_tools=exclude_tools,

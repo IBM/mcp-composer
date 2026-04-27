@@ -4,7 +4,7 @@ from __future__ import annotations
 import time
 import asyncio
 from dataclasses import dataclass, field
-from typing import Any, Dict, Tuple
+from typing import Any, Tuple
 
 from fastmcp.server.middleware import Middleware, MiddlewareContext, CallNext
 from fastmcp.exceptions import ToolError
@@ -55,7 +55,7 @@ class RateLimitingMiddleware(Middleware):
         scope: str = "per_client",
         enforce: bool = True,
         client_id_field: str = "client_id",
-        **_: Dict[str, Any],
+        **_: dict[str, Any],
     ):
         self.rps = max(1, int(requests_per_minute)) / 60.0
         self.capacity = max(1, int(burst_limit))
@@ -64,10 +64,10 @@ class RateLimitingMiddleware(Middleware):
         self.client_id_field = client_id_field
 
         # buckets keyed by scope
-        self._buckets: Dict[Tuple[str, str], Bucket] = {}
+        self._buckets: dict[tuple[str, str], Bucket] = {}
         self._lock = asyncio.Lock()
 
-    def _key(self, ctx: MiddlewareContext) -> Tuple[str, str]:
+    def _key(self, ctx: MiddlewareContext) -> tuple[str, str]:
         tool = getattr(getattr(ctx, "message", None), "name", "<unknown>")
         if self.scope == "per_tool":
             return ("tool", tool)
@@ -80,7 +80,7 @@ class RateLimitingMiddleware(Middleware):
         )
         return (str(client), tool)
 
-    async def _bucket(self, key: Tuple[str, str]) -> Bucket:
+    async def _bucket(self, key: tuple[str, str]) -> Bucket:
         b = self._buckets.get(key)
         if b:
             return b

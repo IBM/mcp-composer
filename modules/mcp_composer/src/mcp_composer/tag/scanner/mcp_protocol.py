@@ -2,7 +2,7 @@ from __future__ import annotations
 import asyncio
 import json
 import shlex
-from typing import List, Dict, Any, Optional, Tuple
+from typing import Any
 import httpx
 from fastmcp.client import Client
 from fastmcp.client.transports import (
@@ -116,10 +116,10 @@ class McpProtocolScanner(Scanner):
     def __init__(
         self,
         endpoint: str,
-        auth_token: Optional[str] = None,
+        auth_token: str | None = None,
         transport: str = "http",
-        command: Optional[str] = None,
-        args: Optional[str] = None,
+        command: str | None = None,
+        args: str | None = None,
     ):
         self.endpoint = endpoint
         self.auth_token = auth_token
@@ -131,14 +131,14 @@ class McpProtocolScanner(Scanner):
             "Content-Type": "application/json",
             "accept": "application/json, text/event-stream",
         }
-        self.server_info = {}
-        self.tool_list = []
+        self.server_info: dict[str, Any] = {}
+        self.tool_list: list[Any] = []
         if auth_token:
             self.headers["Authorization"] = f"Bearer {auth_token}"
 
     def collect(
         self,
-    ) -> List:
+    ) -> list:
         """
         Collect tools from MCP server using the MCP protocol.
 
@@ -179,6 +179,7 @@ class McpProtocolScanner(Scanner):
                 self.endpoint,
                 self.transport,
             )
+            transport_obj: StreamableHttpTransport | SSETransport | StdioTransport
             if self.transport == "http":
                 transport_obj = StreamableHttpTransport(
                     self.endpoint, headers=self.headers
@@ -203,7 +204,7 @@ class McpProtocolScanner(Scanner):
             logger.error("Failed to create MCP client: %s", str(e))
             raise RuntimeError(f"Failed to create MCP client: {e}")
 
-    def _classify_tool(self, tool: Tool) -> Dict[str, Tuple[bool, str]]:
+    def _classify_tool(self, tool: Tool) -> dict[str, tuple[bool, str]]:
         """Classifies a tool into potential Toxic Flow component roles."""
 
         name = (getattr(tool, "name", None) or "").lower()
@@ -231,7 +232,7 @@ class McpProtocolScanner(Scanner):
             "Public Sink": (is_public_sink, self.MSG_PUBLIC_SINK),
         }
 
-    def _determine_risk_level(self, classification: Dict[str, Tuple[bool, str]]) -> str:
+    def _determine_risk_level(self, classification: dict[str, tuple[bool, str]]) -> str:
         """Determines the overall risk level and returns it along with its ANSI color code."""
 
         is_destructive, _ = classification["Destructive"]
@@ -254,9 +255,9 @@ class McpProtocolScanner(Scanner):
 
         return self.LEVEL_MAP[risk_key]
 
-    def _scan_tool(self, tool: Tool) -> Dict[str, str]:
+    def _scan_tool(self, tool: Tool) -> dict[str, str]:
         """Scan a single tool and return scan report."""
-        # The result of classification is Dict[str, Tuple[bool, str]]
+        # The result of classification is dict[str, tuple[bool, str]]
         classification = self._classify_tool(tool)
         # Calculate the risk level and color
         risk_level = self._determine_risk_level(classification)
@@ -274,7 +275,7 @@ class McpProtocolScanner(Scanner):
 
         return report_output
 
-    def _extract_tools_from_response(self, data: Any) -> List[Tool]:
+    def _extract_tools_from_response(self, data: Any) -> list[Tool]:
         """Extract tools from various response formats"""
         if isinstance(data, list):
             return data
@@ -295,7 +296,7 @@ class McpProtocolScanner(Scanner):
         return []
 
     def _convert_to_tool_descriptor(
-        self, tool: Tool, server_info: Dict[str, Any]
+        self, tool: Tool, server_info: dict[str, Any]
     ) -> ToolDescriptor:
         """Convert MCP tool format to ToolDescriptor"""
 
@@ -361,7 +362,7 @@ class McpProtocolScanner(Scanner):
             scan_report=self._scan_tool(tool),
         )
 
-    async def _get_server_info(self) -> Dict[str, Any]:
+    async def _get_server_info(self) -> dict[str, Any]:
         """Get server info using POST method (MCP protocol style, async)."""
         post_endpoints = [
             f"{self.endpoint}/sse",
@@ -408,7 +409,7 @@ class McpProtocolScanner(Scanner):
         # Default fallback
         return {"name": "mcp-server", "version": "1.0.0", "capabilities": {}}
 
-    async def _get_tools_list(self) -> List[Tool]:
+    async def _get_tools_list(self) -> list[Tool]:
         """Get tools list using the established MCP session"""
         try:
             tools_result = await self.client.list_tools()
@@ -419,7 +420,7 @@ class McpProtocolScanner(Scanner):
 
     async def _collect_all(
         self,
-    ) -> List[ToolDescriptor]:
+    ) -> list[ToolDescriptor]:
         try:
             async with self.client:
                 logger.info(

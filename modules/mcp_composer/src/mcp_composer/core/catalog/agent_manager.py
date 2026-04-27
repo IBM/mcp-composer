@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from mcp_composer.core.catalog.catalog_exceptions import (
     CatalogResourceNotFoundError,
@@ -37,25 +37,29 @@ from mcp_composer.store.catalog_database import CatalogDatabaseInterface
 _AGENT_KIND = RegistryResourceKind.AGENT.value
 
 
-def _public_resource_metadata(private_meta: dict | None) -> dict | None:
+def _public_resource_metadata(
+    private_meta: dict[str, Any] | None,
+) -> dict[str, Any] | None:
     if not private_meta:
         return None
     out = {k: v for k, v in private_meta.items() if k != "remotes_config"}
     return out if out else None
 
 
-def _row_to_agent_response(row: dict, private_meta: dict | None = None) -> AgentResponse:
+def _row_to_agent_response(
+    row: dict[str, Any], private_meta: dict[str, Any] | None = None
+) -> AgentResponse:
     """Map a catalog DB row to an AgentResponse (remotes merged like skills)."""
     agent = AgentJSON(**row["payload"])
-    official_meta_data: dict = row.get("official_meta") or {}
+    official_meta_data: dict[str, Any] = row.get("official_meta") or {}
 
     if agent.remotes:
-        official_remotes_cfg: Dict[str, Any] = (
+        official_remotes_cfg: dict[str, Any] = (
             official_meta_data.get("remotes_config") or {}
         )
-        private_remotes_cfg: Dict[str, Any] = (
-            (private_meta or {}).get("remotes_config") or {}
-        )
+        private_remotes_cfg: dict[str, Any] = (private_meta or {}).get(
+            "remotes_config"
+        ) or {}
         enriched: list[AgentRegistryTransport] = []
         for remote in agent.remotes:
             url = remote.url or ""
@@ -68,7 +72,7 @@ def _row_to_agent_response(row: dict, private_meta: dict | None = None) -> Agent
             )
             enriched.append(
                 AgentRegistryTransport(
-                    transport_type=transport,
+                    type=transport,
                     url=url or remote.url,
                     headers=private_cfg.get("headers") or remote.headers,
                 )
@@ -76,11 +80,13 @@ def _row_to_agent_response(row: dict, private_meta: dict | None = None) -> Agent
         agent.remotes = enriched
 
     official = registry_official_extensions_from_row(row)
-    meta = AgentResponseMeta(
-        official=official,
-        metadata=_public_resource_metadata(private_meta),
+    meta = AgentResponseMeta.model_validate(
+        {
+            "official": official,
+            "metadata": _public_resource_metadata(private_meta),
+        }
     )
-    return AgentResponse(agent=agent, meta=meta)
+    return AgentResponse(agent=agent, _meta=meta)
 
 
 class AgentManager(CatalogManager):
@@ -92,7 +98,7 @@ class AgentManager(CatalogManager):
     async def publish(
         self,
         agent_json: AgentJSON,
-        tenant_ids: Optional[List[str]] = None,
+        tenant_ids: list[str] | None = None,
     ) -> AgentResponse:
         """Publish (create or update) an agent version; recompute ``is_latest``."""
         await self._ensure_initialized()
@@ -109,8 +115,8 @@ class AgentManager(CatalogManager):
         now = utc_now_iso()
         payload = agent_json.model_dump(mode="json", by_alias=False, exclude_none=True)
 
-        official_remotes_config: Dict[str, Any] = {}
-        private_remotes_config: Dict[str, Any] = {}
+        official_remotes_config: dict[str, Any] = {}
+        private_remotes_config: dict[str, Any] = {}
         if payload.get("remotes"):
             public_remotes = []
             for r in payload["remotes"]:
@@ -125,7 +131,7 @@ class AgentManager(CatalogManager):
                 public_remotes.append({"url": url, "type": tt})
             payload["remotes"] = public_remotes
 
-        official_meta: Dict[str, Any] = {
+        official_meta: dict[str, Any] = {
             "status": agent_json.status or "active",
             "published_at": now,
             "updated_at": now,
@@ -159,22 +165,24 @@ class AgentManager(CatalogManager):
     async def publish_with_resource_metadata(
         self,
         agent_json: AgentJSON,
-        tenant_ids: Optional[List[str]] = None,
-        resource_metadata: Optional[Dict[str, Any]] = None,
+        tenant_ids: list[str] | None = None,
+        resource_metadata: dict[str, Any] | None = None,
     ) -> AgentResponse:
         """Publish an agent and merge optional ``catalog_resource_metadata.data``."""
         await self._ensure_initialized()
         response = await self.publish(agent_json, tenant_ids=tenant_ids)
         if not resource_metadata:
             return response
-        row = await self._db.get_resource(_AGENT_KIND, agent_json.name, agent_json.version)
+        row = await self._db.get_resource(
+            _AGENT_KIND, agent_json.name, agent_json.version
+        )
         if row is None:
             raise CatalogResourceNotFoundError(
                 _AGENT_KIND, agent_json.name, agent_json.version
             )
         existing_raw = await self._db.get_resource_metadata(str(row["id"]))
-        existing: Dict[str, Any] = dict(existing_raw or {})
-        merged: Dict[str, Any] = {**existing, **resource_metadata}
+        existing: dict[str, Any] = dict(existing_raw or {})
+        merged: dict[str, Any] = {**existing, **resource_metadata}
         await self._db.save_resource_metadata(str(row["id"]), merged)
         private_meta = await self._db.get_resource_metadata(str(row["id"]))
         return _row_to_agent_response(row, private_meta)

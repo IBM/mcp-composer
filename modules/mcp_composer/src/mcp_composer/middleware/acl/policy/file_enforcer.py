@@ -1,6 +1,6 @@
 import json
 import os
-from typing import Dict, Any
+from typing import Any
 from mcp_composer.middleware.acl.policy.base_policy_enforcer import BasePolicyEnforcer
 from mcp_composer.middleware.acl.acl_utils import (
     resolve_role_from_context,
@@ -32,7 +32,7 @@ class FilePolicyEnforcer(BasePolicyEnforcer):
             **kwargs: Additional configuration options
         """
         self.policy_file = policy_file
-        self.policy_data: Dict[str, Any] = {}
+        self.policy_data: dict[str, Any] = {}
         self._load_policy()
 
     def _load_policy(self) -> None:
@@ -61,7 +61,7 @@ class FilePolicyEnforcer(BasePolicyEnforcer):
             logger.error("Error loading policy file %s: %s", self.policy_file, e)
             self.policy_data = {}
 
-    def is_allowed(self, tool_name: str, context: Dict[str, Any]) -> bool:
+    def is_allowed(self, tool_name: str, context: dict[str, Any]) -> bool:
         """
         Check if the tool is allowed for the current context.
 

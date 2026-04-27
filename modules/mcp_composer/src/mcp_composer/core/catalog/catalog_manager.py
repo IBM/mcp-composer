@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from typing import List, Optional
-
 from packaging.version import InvalidVersion, Version
 from pydantic import BaseModel, Field
 
@@ -22,11 +20,11 @@ class CatalogResourceListFilter(BaseModel):
     """
 
     kind: RegistryResourceKind
-    name_like: Optional[str] = None
+    name_like: str | None = None
     is_latest_only: bool = False
-    status_filter: Optional[str] = None
-    keywords: Optional[List[str]] = None
-    tenant: Optional[str] = None
+    status_filter: str | None = None
+    keywords: list[str] | None = None
+    tenant: str | None = None
     start: int = Field(default=0, ge=0)
     limit: int = Field(default=50, ge=1, le=1000)
 
@@ -42,11 +40,9 @@ def expect_catalog_list_filter_kind(
         )
 
 
-def normalize_tenant_ids(tenant_ids: Optional[List[str]]) -> List[str]:
+def normalize_tenant_ids(tenant_ids: list[str] | None) -> list[str]:
     """Deduplicate tenant IDs, strip whitespace, drop empty."""
-    return sorted(
-        {t.strip() for t in (tenant_ids or []) if t and t.strip()}
-    )
+    return sorted({t.strip() for t in (tenant_ids or []) if t and t.strip()})
 
 
 def max_catalog_version_string(versions: list[str]) -> str | None:
@@ -58,7 +54,7 @@ def max_catalog_version_string(versions: list[str]) -> str | None:
     if not versions:
         return None
 
-    def _key(v: str) -> tuple:
+    def _key(v: str) -> tuple[int, Version] | tuple[int, str]:
         try:
             return (0, Version(v))
         except InvalidVersion:
@@ -111,7 +107,7 @@ class CatalogManager:
         # Single pass: update all rows in one iteration
         for row in rows:
             ver = row["version"]
-            is_latest = (ver == latest_ver)
+            is_latest = ver == latest_ver
             official_meta = dict(row.get("official_meta") or {})
             official_meta["is_latest"] = is_latest
             await self._db.update_resource_row(

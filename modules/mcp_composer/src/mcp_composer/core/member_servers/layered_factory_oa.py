@@ -1,11 +1,11 @@
 import re
 import json
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import httpx
 from fastmcp import FastMCP
 from fastmcp.server.providers.openapi import MCPType, RouteMap
-from fastmcp.tools.tool import Tool
+from fastmcp.tools import Tool
 from fastmcp.utilities.openapi import (
     clean_schema_for_display,
     extract_output_schema_from_responses,
@@ -198,7 +198,7 @@ All tools automatically resolve OpenAPI schema references and provide enhanced m
             value = ""
         return value.strip() or fallback
 
-    def _get_instance_product_id(self, instance: Dict[str, Any]) -> Optional[str]:
+    def _get_instance_product_id(self, instance: dict[str, Any]) -> str | None:
         """
         Get productId from an instance. Supports full shape (subscription.productId/product_id),
         normalized shape (top-level productId/product_id), and snake_case keys.
@@ -213,9 +213,9 @@ All tools automatically resolve OpenAPI schema references and provide enhanced m
 
     def _authorize_and_select_instance(
         self,
-        instances: List[Dict[str, Any]],
+        instances: list[dict[str, Any]],
         server_id: str,
-    ) -> Optional[Dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         """
         Authorize user access by matching productId with instance productId.
         Returns the first matching active instance or None if unauthorized.
@@ -274,7 +274,7 @@ All tools automatically resolve OpenAPI schema references and provide enhanced m
         )
         return None
 
-    def _extract_host_from_instance(self, instance: Dict[str, Any]) -> Optional[str]:
+    def _extract_host_from_instance(self, instance: dict[str, Any]) -> str | None:
         """
         Extract the base host URL from an instance's dashboardURL.
 
@@ -307,7 +307,7 @@ All tools automatically resolve OpenAPI schema references and provide enhanced m
 
         return None
 
-    def _build_instance_headers(self, instance: Dict[str, Any]) -> Dict[str, str]:
+    def _build_instance_headers(self, instance: dict[str, Any]) -> dict[str, str]:
         """
         Build instance-specific headers from instance data.
 
@@ -317,7 +317,7 @@ All tools automatically resolve OpenAPI schema references and provide enhanced m
         Returns:
             Dict of headers to add to the request
         """
-        headers: Dict[str, str] = {}
+        headers: dict[str, str] = {}
 
         if instance_id := instance.get("id"):
             headers[REQUEST_CONTEXT_KEY] = instance_id
@@ -325,7 +325,7 @@ All tools automatically resolve OpenAPI schema references and provide enhanced m
         logger.debug("Built instance headers: %s", list(headers.keys()))
         return headers
 
-    def _resolve_schema_reference(self, ref: str) -> Dict[str, Any]:
+    def _resolve_schema_reference(self, ref: str) -> dict[str, Any]:
         """
         Resolve a schema reference to its actual definition.
 
@@ -352,8 +352,8 @@ All tools automatically resolve OpenAPI schema references and provide enhanced m
         return current if isinstance(current, dict) else {}
 
     def _extract_parameter_schemas(
-        self, parameters: List[Dict[str, Any]]
-    ) -> List[Dict[str, Any]]:
+        self, parameters: list[dict[str, Any]]
+    ) -> list[dict[str, Any]]:
         """
         Extract and enhance parameter information including schema details.
 
@@ -406,8 +406,8 @@ All tools automatically resolve OpenAPI schema references and provide enhanced m
         return enhanced_params
 
     def _extract_request_body_schema(
-        self, request_body: Dict[str, Any]
-    ) -> Dict[str, Any]:
+        self, request_body: dict[str, Any]
+    ) -> dict[str, Any]:
         """
         Extract and clean schema from request body using fastmcp utilities.
 
@@ -454,7 +454,7 @@ All tools automatically resolve OpenAPI schema references and provide enhanced m
 
         return {}
 
-    def _extract_response_schemas(self, responses: Dict[str, Any]) -> Dict[str, Any]:
+    def _extract_response_schemas(self, responses: dict[str, Any]) -> dict[str, Any]:
         """
         Extract and clean schemas from responses using fastmcp utilities.
 
@@ -504,7 +504,7 @@ All tools automatically resolve OpenAPI schema references and provide enhanced m
 
         return cleaned_responses
 
-    def _build_service_metadata(self) -> Dict[str, Dict]:
+    def _build_service_metadata(self) -> dict[str, dict[str, object]]:
         """
         Build service metadata from operations by parsing OpenAPI spec and applying custom routes filtering.
         Only operations that match the custom routes (TOOL) are included in service_info.
@@ -587,7 +587,7 @@ All tools automatically resolve OpenAPI schema references and provide enhanced m
             mcp_type = getattr(route_rule, "mcp_type", DEFAULT_MCP_TYPE)
 
             # Check if this operation matches the route rule
-            if http_method in methods and self._matches_pattern(path, pattern):
+            if http_method in methods and self._matches_pattern(path, pattern):  # type: ignore[operator]
                 operation_handled = True
 
                 if mcp_type in (MCPType.TOOL, MCPType.RESOURCE):
@@ -615,7 +615,7 @@ All tools automatically resolve OpenAPI schema references and provide enhanced m
             # If pattern is invalid regex, treat as exact match
             return path == pattern
 
-    def get_type_info(self, service: str) -> Dict[str, Any]:
+    def get_type_info(self, service: str) -> dict[str, Any]:
         """
         Get detailed parameter information for a service.
 
@@ -650,7 +650,7 @@ All tools automatically resolve OpenAPI schema references and provide enhanced m
             SERVICE_KEYS["TAGS"]: service_data[SERVICE_KEYS["TAGS"]],
         }
 
-    def get_service_info(self, service: Optional[str] = None) -> Dict[str, Any]:
+    def get_service_info(self, service: str | None = None) -> dict[str, Any]:
         """
         Discover available services (operations).
 
@@ -693,31 +693,31 @@ All tools automatically resolve OpenAPI schema references and provide enhanced m
             "http_method": service_data.get(SERVICE_KEYS["HTTP_METHOD"]),
             "path": service_data.get(SERVICE_KEYS["PATH"]),
             "parameters_summary": {
-                "count": len(service_data.get(SERVICE_KEYS["PARAMETERS"], [])),
+                "count": len(service_data.get(SERVICE_KEYS["PARAMETERS"], [])),  # type: ignore[arg-type]
                 "path_params": len(
                     [
                         p
-                        for p in service_data.get(SERVICE_KEYS["PARAMETERS"], [])
+                        for p in service_data.get(SERVICE_KEYS["PARAMETERS"], [])  # type: ignore[attr-defined]
                         if p.get(PARAMETER_KEYS["IN"]) == "path"
                     ]
                 ),
                 "query_params": len(
                     [
                         p
-                        for p in service_data.get(SERVICE_KEYS["PARAMETERS"], [])
+                        for p in service_data.get(SERVICE_KEYS["PARAMETERS"], [])  # type: ignore[attr-defined]
                         if p.get(PARAMETER_KEYS["IN"]) == "query"
                     ]
                 ),
                 "header_params": len(
                     [
                         p
-                        for p in service_data.get(SERVICE_KEYS["PARAMETERS"], [])
+                        for p in service_data.get(SERVICE_KEYS["PARAMETERS"], [])  # type: ignore[attr-defined]
                         if p.get(PARAMETER_KEYS["IN"]) == "header"
                     ]
                 ),
                 "has_schemas": any(
                     p.get("schema")
-                    for p in service_data.get(SERVICE_KEYS["PARAMETERS"], [])
+                    for p in service_data.get(SERVICE_KEYS["PARAMETERS"], [])  # type: ignore[attr-defined]
                     if isinstance(p, dict)
                 ),
             },
@@ -725,7 +725,7 @@ All tools automatically resolve OpenAPI schema references and provide enhanced m
                 "has_schema": bool(service_data.get(SERVICE_KEYS["REQUEST_BODY"])),
                 "has_example": (
                     bool(
-                        service_data.get(SERVICE_KEYS["REQUEST_BODY"], {}).get(
+                        service_data.get(SERVICE_KEYS["REQUEST_BODY"], {}).get(  # type: ignore[attr-defined]
                             SCHEMA_KEYS["EXAMPLE"]
                         )
                     )
@@ -734,7 +734,7 @@ All tools automatically resolve OpenAPI schema references and provide enhanced m
                 ),
                 "has_ref": (
                     bool(
-                        service_data.get(SERVICE_KEYS["REQUEST_BODY"], {}).get(
+                        service_data.get(SERVICE_KEYS["REQUEST_BODY"], {}).get(  # type: ignore[attr-defined]
                             "original_ref"
                         )
                     )
@@ -742,7 +742,7 @@ All tools automatically resolve OpenAPI schema references and provide enhanced m
                     else False
                 ),
                 "schema_type": (
-                    service_data.get(SERVICE_KEYS["REQUEST_BODY"], {}).get(
+                    service_data.get(SERVICE_KEYS["REQUEST_BODY"], {}).get(  # type: ignore[attr-defined]
                         SCHEMA_KEYS["TYPE"]
                     )
                     if service_data.get(SERVICE_KEYS["REQUEST_BODY"])
@@ -750,19 +750,19 @@ All tools automatically resolve OpenAPI schema references and provide enhanced m
                 ),
             },
             "responses_summary": {
-                "count": len(service_data.get(SERVICE_KEYS["RESPONSES"], {})),
+                "count": len(service_data.get(SERVICE_KEYS["RESPONSES"], {})),  # type: ignore[arg-type]
                 "has_schemas": any(
                     r.get("schema")
-                    for r in service_data.get(SERVICE_KEYS["RESPONSES"], {}).values()
+                    for r in service_data.get(SERVICE_KEYS["RESPONSES"], {}).values()  # type: ignore[attr-defined]
                     if isinstance(r, dict)
                 ),
                 "has_refs": any(
                     r.get("original_ref")
-                    for r in service_data.get(SERVICE_KEYS["RESPONSES"], {}).values()
+                    for r in service_data.get(SERVICE_KEYS["RESPONSES"], {}).values()  # type: ignore[attr-defined]
                     if isinstance(r, dict)
                 ),
                 "status_codes": (
-                    list(service_data.get(SERVICE_KEYS["RESPONSES"], {}).keys())
+                    list(service_data.get(SERVICE_KEYS["RESPONSES"], {}).keys())  # type: ignore[attr-defined]
                     if isinstance(service_data.get(SERVICE_KEYS["RESPONSES"], {}), dict)
                     else []
                 ),
@@ -784,8 +784,8 @@ All tools automatically resolve OpenAPI schema references and provide enhanced m
         }
 
     async def make_tool_call(
-        self, service: str, request: Optional[Dict[str, Any]] = None
-    ) -> Dict[str, Any]:
+        self, service: str, request: dict[str, Any] | None = None
+    ) -> dict[str, Any]:
         """
         Execute an API call to the specified service.
 
@@ -809,21 +809,21 @@ All tools automatically resolve OpenAPI schema references and provide enhanced m
         try:
             # Manual request execution using the httpx client
             url_path = service_data[SERVICE_KEYS["PATH"]]
-            path_params = request_dict.get(
+            path_params = request_dict.get(  # type: ignore[attr-defined]
                 REQUEST_KEYS["PATH_PARAMS"], DEFAULT_VALUES["EMPTY_DICT"]
             )
             for param_name, param_value in path_params.items():
-                url_path = url_path.replace(f"{{{param_name}}}", str(param_value))
+                url_path = url_path.replace(f"{{{param_name}}}", str(param_value))  # type: ignore[attr-defined]
 
             # Extract request components
             http_method = service_data[SERVICE_KEYS["HTTP_METHOD"]]
-            query_params = request_dict.get(
+            query_params = request_dict.get(  # type: ignore[attr-defined]
                 REQUEST_KEYS["QUERY_PARAMS"], DEFAULT_VALUES["EMPTY_DICT"]
             )
-            request_headers = request_dict.get(
+            request_headers = request_dict.get(  # type: ignore[attr-defined]
                 REQUEST_KEYS["HEADERS"], DEFAULT_VALUES["EMPTY_DICT"]
             )
-            request_body = request_dict.get(REQUEST_KEYS["BODY"])
+            request_body = request_dict.get(REQUEST_KEYS["BODY"])  # type: ignore[attr-defined]
 
             # Get authentication context and build auth headers
             auth_headers = {}
@@ -1140,8 +1140,8 @@ All tools automatically resolve OpenAPI schema references and provide enhanced m
                     ),
                 ) as plain_client:
                     response = await plain_client.request(
-                        method=http_method,
-                        url=url_path,
+                        method=str(http_method),  # type: ignore[arg-type]
+                        url=str(url_path),  # type: ignore[arg-type]
                         params=query_params,
                         headers=final_headers,
                         json=request_body,
@@ -1159,8 +1159,8 @@ All tools automatically resolve OpenAPI schema references and provide enhanced m
                     logger.debug("Using OAuth2 client for authentication")
                 # Use the configured client (AsperaJWTClient or OAuth2 client)
                 response = await self.client.request(
-                    method=http_method,
-                    url=url_path,
+                    method=str(http_method),  # type: ignore[arg-type]
+                    url=str(url_path),  # type: ignore[arg-type]
                     params=query_params,
                     headers=final_headers,
                     json=request_body,

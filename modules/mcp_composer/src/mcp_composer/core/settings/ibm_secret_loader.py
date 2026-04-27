@@ -2,12 +2,12 @@
 import json
 import logging
 import os
-from typing import Any, Dict, List, Optional, TYPE_CHECKING
+from typing import Any, TYPE_CHECKING
 
 # Lazy import for optional IBM Cloud dependencies
 try:
-    from ibm_cloud_sdk_core.authenticators import IAMAuthenticator
-    from ibm_secrets_manager_sdk.secrets_manager_v2 import SecretsManagerV2
+    from ibm_cloud_sdk_core.authenticators import IAMAuthenticator  # type: ignore[import-untyped]
+    from ibm_secrets_manager_sdk.secrets_manager_v2 import SecretsManagerV2  # type: ignore[import-untyped]
     _IBM_SECRETS_AVAILABLE = True
 except ImportError:
     _IBM_SECRETS_AVAILABLE = False
@@ -32,8 +32,8 @@ class IBMCloudSecretAdapter(SecretAdapter):
 
     def __init__(
         self,
-        api_key: Optional[str] = None,
-        sm_url: Optional[str] = None,
+        api_key: str | None = None,
+        sm_url: str | None = None,
         secret_group: str = "default",
         history_limit: int = 10,
     ):
@@ -63,7 +63,7 @@ class IBMCloudSecretAdapter(SecretAdapter):
     def _secret_name(self, server_id: str) -> str:
         return f"versioned-config-{server_id}"
 
-    def _get_secret_by_name(self, name: str) -> Optional[Dict[str, Any]]:
+    def _get_secret_by_name(self, name: str) -> dict[str, Any] | None:
         try:
             secret = self.client.get_secret_by_name_type(
                 secret_type="kv", name=name, secret_group_name=self.secret_group
@@ -77,7 +77,7 @@ class IBMCloudSecretAdapter(SecretAdapter):
             logger.warning("Error finding secret '%s': %s", name, e)
         return None
 
-    def save_config(self, server_id: str, versions: List[Dict[str, Any]]) -> None:
+    def save_config(self, server_id: str, versions: list[dict[str, Any]]) -> None:
         payload = json.dumps(versions[-self.history_limit :])
         name = self._secret_name(server_id)
         secret = self._get_secret_by_name(name)
@@ -97,7 +97,7 @@ class IBMCloudSecretAdapter(SecretAdapter):
             self.client.create_secret(secret_prototype=secret_prototype)
             logger.info("Created new secret: %s", name)
 
-    def get_all_versions(self, server_id: str) -> List[Dict[str, Any]]:
+    def get_all_versions(self, server_id: str) -> list[dict[str, Any]]:
         secret = self._get_secret_by_name(self._secret_name(server_id))
         logger.info("fetched the secret by name: %s", secret)
         if secret:
@@ -112,23 +112,23 @@ class IBMCloudSecretAdapter(SecretAdapter):
                 )
         return []
 
-    def get_latest_version(self, server_id: str) -> Optional[Dict[str, Any]]:
+    def get_latest_version(self, server_id: str) -> dict[str, Any] | None:
         versions = self.get_all_versions(server_id)
         return versions[-1] if versions else None
 
     def get_version_by_id(
         self, server_id: str, version_id: str
-    ) -> Optional[Dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         for version in self.get_all_versions(server_id):
             if version.get("version_id") == version_id:
                 return version
         return None
 
-    def load_config(self, server_id: str) -> Dict[str, Any]:
+    def load_config(self, server_id: str) -> dict[str, Any]:
         latest = self.get_latest_version(server_id)
         return latest.get("config", {}) if latest else {}
 
-    def rollback(self, server_id: str, version_id: str) -> Dict[str, Any]:
+    def rollback(self, server_id: str, version_id: str) -> dict[str, Any]:
         version = self.get_version_by_id(server_id, version_id)
         if version:
             return version["config"]

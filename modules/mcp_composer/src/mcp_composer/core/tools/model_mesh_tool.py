@@ -16,11 +16,11 @@ Features:
 import json
 import os
 from pathlib import Path
-from typing import Dict, Any, Optional, List
+from typing import Any
 
 from pydantic import BaseModel, Field, ConfigDict, ValidationError, PrivateAttr
 
-from fastmcp.tools.tool import ToolResult
+from fastmcp.tools import ToolResult
 
 from mcp_composer.core.tools.base_specialised_tool import BaseSpecializedTool
 from mcp_composer.core.tools.model_providers import (
@@ -59,24 +59,24 @@ class ModelMeshInput(BaseModel):
         ),
     )
 
-    prompt: Optional[str] = Field(
+    prompt: str | None = Field(
         None,
         description="The prompt to send to the model. If not provided, "
         "will use the prompt template from the JSON config file.",
     )
 
-    prompt_key: Optional[str] = Field(
+    prompt_key: str | None = Field(
         None,
         description="Key to look up prompt template in the JSON config file. "
         "Required if prompt is not provided directly.",
     )
 
-    prompt_variables: Optional[Dict[str, Any]] = Field(
+    prompt_variables: dict[str, Any] | None = Field(
         None,
         description="Variables to substitute in the prompt template (if using prompt_key).",
     )
 
-    model_override: Optional[str] = Field(
+    model_override: str | None = Field(
         None,
         description="Optional override to use a specific model instead of the task-based routing.",
     )
@@ -130,15 +130,15 @@ class ModelMeshTool(BaseSpecializedTool):
     model_config = ConfigDict(extra="allow")
 
     # Private attributes
-    _prompt_config: Dict[str, Any] = PrivateAttr(default_factory=dict)
-    _model_config: Dict[str, Any] = PrivateAttr(
+    _prompt_config: dict[str, Any] = PrivateAttr(default_factory=dict)
+    _model_config: dict[str, Any] = PrivateAttr(
         default_factory=dict
     )  # Can be string or dict
     _base_url: str = PrivateAttr(default="http://localhost:11434")
     _default_provider: str = PrivateAttr(default=DEFAULT_PROVIDER)
-    _provider_cache: Dict[str, ModelProviderAdapter] = PrivateAttr(default_factory=dict)
+    _provider_cache: dict[str, ModelProviderAdapter] = PrivateAttr(default_factory=dict)
 
-    def __init__(self, config: Optional[dict] = None):
+    def __init__(self, config: dict | None = None):
         """
         Initialize the Model Mesh Tool.
 
@@ -346,7 +346,7 @@ class ModelMeshTool(BaseSpecializedTool):
                 )
 
     def _get_provider_adapter(
-        self, provider_name: str, base_url: Optional[str] = None
+        self, provider_name: str, base_url: str | None = None
     ) -> ModelProviderAdapter:
         """
         Get or create a provider adapter.
@@ -375,8 +375,8 @@ class ModelMeshTool(BaseSpecializedTool):
         return self._provider_cache[cache_key]
 
     def _get_model_config_for_task(
-        self, task: str, model_override: Optional[str] = None
-    ) -> Dict[str, Any]:
+        self, task: str, model_override: str | None = None
+    ) -> dict[str, Any]:
         """
         Get the model configuration for a given task type.
 
@@ -448,9 +448,9 @@ class ModelMeshTool(BaseSpecializedTool):
 
     def _get_prompt(
         self,
-        prompt: Optional[str],
-        prompt_key: Optional[str],
-        prompt_variables: Optional[Dict[str, Any]],
+        prompt: str | None,
+        prompt_key: str | None,
+        prompt_variables: dict[str, Any] | None,
     ) -> str:
         """
         Get the prompt text, either directly or from the config file.
@@ -508,7 +508,7 @@ class ModelMeshTool(BaseSpecializedTool):
 
         return template
 
-    async def run(self, arguments: Dict[str, Any]) -> ToolResult:
+    async def run(self, arguments: dict[str, Any]) -> ToolResult:
         """
         Execute the model mesh tool.
 
@@ -706,7 +706,7 @@ class ModelMeshTool(BaseSpecializedTool):
                 )
 
                 # Return a graceful error response instead of raising
-                error_response = {
+                error_response_data = {
                     "status": "error",
                     "task": task,
                     "model": model_name,
@@ -725,7 +725,9 @@ class ModelMeshTool(BaseSpecializedTool):
                     "suggestion": detailed_error,
                 }
 
-                error_response = await self._create_success_response(error_response)
+                error_response = await self._create_success_response(
+                    error_response_data
+                )
                 logger.info(
                     "Error response for the model mesh tool: %s", error_response
                 )
@@ -736,7 +738,7 @@ class ModelMeshTool(BaseSpecializedTool):
         except Exception as e:
             return self._handle_unexpected_error(e, arguments)
 
-    def _get_guardrails(self) -> List[str]:
+    def _get_guardrails(self) -> list[str]:
         """
         Get guardrails for the model mesh tool.
 

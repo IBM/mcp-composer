@@ -1,7 +1,6 @@
 from __future__ import annotations
 import os
 import json
-from typing import List
 from ..models import TagReport
 
 
@@ -23,11 +22,11 @@ spec:
 
 
 class BackstageExporter:
-    def __init__(self, out_dir: str):
+    def __init__(self, out_dir: str) -> None:
         self.out_dir = out_dir
         os.makedirs(out_dir, exist_ok=True)
 
-    def write(self, reports: List[TagReport]):
+    def write(self, reports: list[TagReport]) -> None:
         for r in reports:
             name = r.tool.id.replace("/", "-")
             path = os.path.join(self.out_dir, f"{name}.yaml")

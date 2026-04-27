@@ -6,7 +6,7 @@ This provides access to Ollama-specific features like think=True for Guardian mo
 Supports both chat/completion and embedding generation.
 """
 
-from typing import Dict, Any, Optional, List, Union
+from typing import Any
 from mcp_composer.core.tools.model_providers.base import ModelProviderAdapter
 from mcp_composer.core.utils import LoggerFactory
 
@@ -67,7 +67,9 @@ class OllamaAdapter(ModelProviderAdapter):
             # Check if exact match or partial match (handles tags)
             model_base = model_name.split(":")[0]  # Remove tag if present
             for available in available_models:
-                if available == model_name or available.startswith(model_base):
+                if available and (
+                    available == model_name or available.startswith(model_base)
+                ):
                     return True
             return False
         except Exception as e:
@@ -80,9 +82,9 @@ class OllamaAdapter(ModelProviderAdapter):
         prompt: str,
         temperature: float = 0.7,
         max_tokens: int = 1000,
-        options: Optional[Dict[str, Any]] = None,
+        options: dict[str, Any] | None = None,
         **kwargs,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Send a chat request via ollama-python.
 
@@ -112,7 +114,7 @@ class OllamaAdapter(ModelProviderAdapter):
             merged_options["num_predict"] = max_tokens
 
         # Prepare chat parameters
-        chat_params = {
+        chat_params: dict[str, Any] = {
             "model": model_name,
             "messages": [{"role": "user", "content": prompt}],
         }
@@ -206,8 +208,8 @@ class OllamaAdapter(ModelProviderAdapter):
         return result
 
     def encode(
-        self, text: Union[str, List[str]], model_name: Optional[str] = None, **kwargs
-    ) -> Union[List[float], List[List[float]]]:
+        self, text: str | list[str], model_name: str | None = None, **kwargs
+    ) -> list[float] | list[list[float]]:
         """
         Generate embeddings using Ollama.
 

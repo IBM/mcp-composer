@@ -1,6 +1,6 @@
 """Tools pydantic models"""
 
-from typing import Dict, Literal, Optional, Union
+from typing import Literal
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
@@ -22,16 +22,16 @@ class ToolBuilderConfig(BaseModel):
     description: str = Field(
         ..., description="A short description of what the tool does"
     )
-    curl_config: Optional[Dict] = Field(
+    curl_config: dict[str, object] | None = Field(
         default=None, description="Curl command details for tool creation"
     )
-    script_config: Optional[Dict] = Field(
+    script_config: dict[str, object] | None = Field(
         default=None, description="Python function definition script for tool creation"
     )
-    # auth: Optional[Dict] = Field(
+    # auth: Dict | None = Field(
     #     default=None, description="Authentication configuration if needed"
     # )
-    permission: Optional[Dict[str, str]] = Field(
+    permission: dict[str, str] | None = Field(
         default=None,
         description="Permissions required to run the tool, e.g., {'role 1': 'permission 1'}",
     )
@@ -46,7 +46,9 @@ class ToolBuilderConfig(BaseModel):
         return self
 
     @field_validator("curl_config")
-    def validate_curl_config(cls, curl_config):  # pylint: disable=E0213
+    def validate_curl_config(
+        cls, curl_config: dict[str, object] | None
+    ) -> dict[str, object] | None:  # pylint: disable=E0213
         """validate curl config is not empty"""
         if curl_config:
             for k, v in curl_config.items():
@@ -60,7 +62,9 @@ class ToolBuilderConfig(BaseModel):
         return curl_config
 
     @field_validator("script_config")
-    def validate_script_config(cls, script_config):  # pylint: disable=E0213
+    def validate_script_config(
+        cls, script_config: dict[str, object] | None
+    ) -> dict[str, object] | None:  # pylint: disable=E0213
         """validate python script config is not empty"""
         if script_config:
             for k, v in script_config.items():
@@ -78,11 +82,13 @@ class OpenApiToolAuthConfig(BaseModel):
     """OpenAPI tool auth config model"""
 
     auth_strategy: Literal["bearer", "dynamic_bearer", "basic", "api_key"]
-    auth: Union[BearerAuth, DynamicBearerAuth, BasicAuth, APIkey]
+    auth: BearerAuth | DynamicBearerAuth | BasicAuth | APIkey
 
     @model_validator(mode="before")
     @classmethod
-    def validate_and_instantiate_auth(cls, values):
+    def validate_and_instantiate_auth(
+        cls, values: dict[str, object]
+    ) -> dict[str, object]:
         """validate auth strategy"""
         strategy = values.get("auth_strategy")
         auth = values.get("auth")
@@ -91,13 +97,13 @@ class OpenApiToolAuthConfig(BaseModel):
             raise ValueError("Both 'auth_strategy' and 'auth' must be provided.")
 
         if strategy == "bearer":
-            values["auth"] = BearerAuth(**auth)
+            values["auth"] = BearerAuth(**auth)  # type: ignore[arg-type]
         elif strategy == "dynamic_bearer":
-            values["auth"] = DynamicBearerAuth(**auth)
+            values["auth"] = DynamicBearerAuth(**auth)  # type: ignore[arg-type]
         elif strategy == "basic":
-            values["auth"] = BasicAuth(**auth)
+            values["auth"] = BasicAuth(**auth)  # type: ignore[arg-type]
         elif strategy == "api_key":
-            values["auth"] = APIkey(**auth)
+            values["auth"] = APIkey(**auth)  # type: ignore[arg-type]
         else:
             raise ValueError(f"Unsupported auth_strategy: {strategy}")
         return values

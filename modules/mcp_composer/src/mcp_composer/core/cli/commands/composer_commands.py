@@ -15,7 +15,7 @@ import signal
 import subprocess
 import time
 from pathlib import Path
-from typing import Annotated, Dict, List, Optional, TYPE_CHECKING
+from typing import Annotated, TYPE_CHECKING
 
 import typer
 from typer import Option
@@ -65,18 +65,18 @@ def start_composer(
     ] = "mcp-local",
     # Endpoint configuration
     endpoint: Annotated[
-        Optional[str],
+        str | None,
         Option(
             "--endpoint", "-e", help="Endpoint for HTTP or SSE server running remotely"
         ),
     ] = None,
     # Script configuration
     script_path: Annotated[
-        Optional[str],
+        str | None,
         Option("--script-path", "-s", help="Path to the script to run in 'stdio' mode"),
     ] = None,
     directory: Annotated[
-        Optional[str],
+        str | None,
         Option(
             "--directory",
             "-d",
@@ -92,7 +92,7 @@ def start_composer(
     ] = 9000,
     # Authentication
     auth_type: Annotated[
-        Optional[str],
+        str | None,
         Option(
             "--auth-type",
             help="Optional auth type. If 'oauth', uses OAuth authentication",
@@ -100,7 +100,7 @@ def start_composer(
     ] = None,
     # Remote server configuration
     sse_url: Annotated[
-        Optional[str],
+        str | None,
         Option(
             "--sse-url",
             help="Langflow compatible URL for remote SSE / HTTP server to connect to",
@@ -121,7 +121,7 @@ def start_composer(
     ] = "none",
     # Configuration
     config_path: Annotated[
-        Optional[str],
+        str | None,
         Option(
             "--config-path", "-c", help="Path to JSON config for MCP member servers"
         ),
@@ -136,7 +136,7 @@ def start_composer(
     ] = False,
     # Environment variables
     env: Annotated[
-        Optional[List[str]],
+        list[str] | None,
         Option(
             "--env",
             "-E",
@@ -155,10 +155,10 @@ def start_composer(
         bool, Option("--daemon", "-D", help="Run as daemon process")
     ] = False,
     pid_file: Annotated[
-        Optional[str], Option("--pid-file", help="Path to PID file for daemon mode")
+        str | None, Option("--pid-file", help="Path to PID file for daemon mode")
     ] = None,
     log_file: Annotated[
-        Optional[str], Option("--log-file", help="Path to log file for daemon mode")
+        str | None, Option("--log-file", help="Path to log file for daemon mode")
     ] = None,
 ) -> None:
     """
@@ -200,7 +200,7 @@ def start_composer(
         os.environ["SERVER_CONFIG_FILE_PATH"] = config_path
 
     # Handle environment variables
-    base_env: Dict[str, str] = {}
+    base_env: dict[str, str] = {}
 
     # Add environment variables from --env arguments
     env_values = env or []
@@ -268,16 +268,16 @@ def start_composer(
 
 def _run_as_daemon(
     mode: str,
-    config: List[Dict],
-    auth_type: Optional[str] = None,
-    sse_url: Optional[str] = None,
+    config: list[dict[str, object]],
+    auth_type: str | None = None,
+    sse_url: str | None = None,
     remote_auth_type: str = "none",
     client_auth_type: str = "none",
     disable_composer_tools: bool = False,
     host: str = "0.0.0.0",
     port: int = 9000,
-    pid_file: Optional[str] = None,
-    log_file: Optional[str] = None,
+    pid_file: str | None = None,
+    log_file: str | None = None,
 ) -> None:
     """Run MCP Composer as a daemon process."""
     # pylint: disable=import-outside-toplevel
@@ -335,10 +335,10 @@ def _run_as_daemon(
 @app.command("stop")
 def stop_composer(
     pid_file: Annotated[
-        Optional[str], Option("--pid-file", help="Path to PID file")
+        str | None, Option("--pid-file", help="Path to PID file")
     ] = None,
     port: Annotated[
-        Optional[int],
+        int | None,
         Option("--port", "-p", help="Port number to find PID file automatically"),
     ] = None,
     force: Annotated[
@@ -424,10 +424,10 @@ def stop_composer(
 @app.command("status")
 def status_composer(
     pid_file: Annotated[
-        Optional[str], Option("--pid-file", help="Path to PID file")
+        str | None, Option("--pid-file", help="Path to PID file")
     ] = None,
     port: Annotated[
-        Optional[int],
+        int | None,
         Option("--port", "-p", help="Port number to find PID file automatically"),
     ] = None,
     output_format: Annotated[
@@ -462,6 +462,7 @@ def status_composer(
         pid_file = f"/tmp/mcp-composer-{port}.pid"
 
     # Check if PID file exists
+    status_info: dict[str, str | int | None]
     if not Path(pid_file).exists():
         status_info = {
             "status": "stopped",
@@ -512,10 +513,10 @@ def status_composer(
 @app.command("logs")
 def logs_composer(
     log_file: Annotated[
-        Optional[str], Option("--log-file", help="Path to log file")
+        str | None, Option("--log-file", help="Path to log file")
     ] = None,
     port: Annotated[
-        Optional[int],
+        int | None,
         Option("--port", "-p", help="Port number to find log file automatically"),
     ] = None,
     lines: Annotated[
@@ -613,17 +614,17 @@ def restart_composer(
         str, Option("--id", "-i", help="Unique ID for this MCP instance")
     ] = "mcp-local",
     endpoint: Annotated[
-        Optional[str],
+        str | None,
         Option(
             "--endpoint", "-e", help="Endpoint for HTTP or SSE server running remotely"
         ),
     ] = None,
     script_path: Annotated[
-        Optional[str],
+        str | None,
         Option("--script-path", "-s", help="Path to the script to run in 'stdio' mode"),
     ] = None,
     directory: Annotated[
-        Optional[str],
+        str | None,
         Option(
             "--directory",
             "-d",
@@ -637,14 +638,14 @@ def restart_composer(
         int, Option("--port", "-p", help="Port for SSE or HTTP server")
     ] = 9000,
     auth_type: Annotated[
-        Optional[str],
+        str | None,
         Option(
             "--auth-type",
             help="Optional auth type. If 'oauth', uses OAuth authentication",
         ),
     ] = None,
     sse_url: Annotated[
-        Optional[str],
+        str | None,
         Option(
             "--sse-url",
             help="Langflow compatible URL for remote SSE / HTTP server to connect to",
@@ -664,7 +665,7 @@ def restart_composer(
         ),
     ] = "none",
     config_path: Annotated[
-        Optional[str],
+        str | None,
         Option(
             "--config-path", "-c", help="Path to JSON config for MCP member servers"
         ),
@@ -677,7 +678,7 @@ def restart_composer(
         ),
     ] = False,
     env: Annotated[
-        Optional[List[str]],
+        list[str] | None,
         Option(
             "--env",
             "-E",

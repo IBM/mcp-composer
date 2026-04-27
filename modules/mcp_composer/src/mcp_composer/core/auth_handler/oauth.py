@@ -2,6 +2,7 @@ import os
 import secrets
 import time
 import warnings
+from typing import Any
 from urllib.parse import quote
 
 from dotenv import load_dotenv
@@ -68,7 +69,7 @@ class ServerSettings(BaseSettings):
             **data: Additional data to override environment variables
         """
         # Explicitly load environment variables before calling super().__init__
-        env_data = {}
+        env_data: dict[str, Any] = {}
         for key, value in os.environ.items():
             if key.startswith(prefix):
                 # Remove the prefix and map to correct field names
@@ -132,7 +133,7 @@ class SimpleOAuthProvider(OAuthProvider):
         self.clients: dict[str, OAuthClientInformationFull] = {}
         self.auth_codes: dict[str, AuthorizationCode] = {}
         self.tokens: dict[str, AccessToken] = {}
-        self.state_mapping: dict[str, dict[str, str]] = {}
+        self.state_mapping: dict[str, dict[str, Any]] = {}
         # Store tokens with MCP tokens using the format:
         # {"mcp_token": "auth_token"}
         self.token_mapping: dict[str, str] = {}
@@ -146,7 +147,7 @@ class SimpleOAuthProvider(OAuthProvider):
             default_scopes=[settings.mcp_scope],
         )
         self.revocation_options = None
-        self.required_scopes: list[str] | None = []
+        self.required_scopes: list[str] = []
 
     async def get_client(self, client_id: str) -> OAuthClientInformationFull | None:
         """Get OAuth client information."""
@@ -154,7 +155,7 @@ class SimpleOAuthProvider(OAuthProvider):
 
     async def register_client(self, client_info: OAuthClientInformationFull):
         """Register a new OAuth client."""
-        self.clients[client_info.client_id] = client_info
+        self.clients[str(client_info.client_id)] = client_info
 
     async def authorize(
         self, client: OAuthClientInformationFull, params: AuthorizationParams
@@ -190,6 +191,7 @@ class SimpleOAuthProvider(OAuthProvider):
         state_data = self.state_mapping.get(state)
         if not state_data:
             raise HTTPException(400, "Invalid state parameter")
+        assert state_data is not None
 
         redirect_uri = state_data["redirect_uri"]
         logger.info("Handling callback with redirect_uri: %s", redirect_uri)
@@ -197,7 +199,7 @@ class SimpleOAuthProvider(OAuthProvider):
         redirect_uri_provided_explicitly = (
             state_data["redirect_uri_provided_explicitly"] == "True"
         )
-        client_id = state_data["client_id"]
+        client_id = str(state_data["client_id"])
         # Exchange code for token with oauth provider
         async with create_mcp_http_client() as client:
             response = await client.post(
@@ -269,7 +271,7 @@ class SimpleOAuthProvider(OAuthProvider):
         # Store MCP token
         self.tokens[mcp_token] = AccessToken(
             token=mcp_token,
-            client_id=client.client_id,
+            client_id=str(client.client_id),
             scopes=authorization_code.scopes,
             expires_at=int(time.time()) + 3600,
         )
@@ -292,7 +294,7 @@ class SimpleOAuthProvider(OAuthProvider):
 
         return OAuthToken(
             access_token=mcp_token,
-            token_type="bearer",
+            token_type="Bearer",
             expires_in=3600,
             scope=" ".join(authorization_code.scopes),
         )
@@ -325,9 +327,9 @@ class SimpleOAuthProvider(OAuthProvider):
         """Exchange refresh token"""
         raise NotImplementedError("Not supported")
 
-    async def revoke_token(self, token: str) -> None:
+    async def revoke_token(self, token: AccessToken | RefreshToken) -> None:
         """Revoke a token."""
-        token_str = token
+        token_str = token.token
         if token_str in self.tokens:
             del self.tokens[token_str]
         if token_str in self.token_mapping:

@@ -1,6 +1,6 @@
 import os
 import asyncio
-from fastmcp.tools.tool import Tool
+from fastmcp.tools import Tool
 from mcp_composer import MCPComposer
 from mcp_composer.core.tools.sequential_thinking_tool import SequentialThinkingTool
 from mcp_composer.core.tools.deep_research_tool import DeepResearchTool
@@ -15,7 +15,7 @@ async def main():
     """
     mode = os.getenv("MCP_MODE", "sse").lower()
     # Disable all composer tools
-    gw.disable_composer_tool()
+    await gw.disable_composer_tool()
     # Add thinking and research tools
     sequential_tool = SequentialThinkingTool({"name": "sequential_thinking"})
     gw.add_tool(sequential_tool)
@@ -40,7 +40,7 @@ async def main():
     elif mode == "stdio":
         await gw.run_stdio_async()
     elif mode == "sse":
-        await gw.run_sse_async(host="localhost", port=9000, log_level="debug")
+        await gw.run_sse_async(host="localhost", port=9000, log_level="debug")  # type: ignore[attr-defined]
     else:
         raise ValueError(f"Unsupported MCP_MODE: {mode}")
 

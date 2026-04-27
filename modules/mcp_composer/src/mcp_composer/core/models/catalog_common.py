@@ -7,7 +7,6 @@ Kind-specific supporting models live in catalog_agent.py, catalog_workflow.py, e
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -28,6 +27,6 @@ class RegistryListMetadata(BaseModel):
 
     model_config = ConfigDict(extra="forbid", populate_by_name=True)
 
-    next_cursor: Optional[str] = Field(default=None, alias="nextCursor")
-    next_start: Optional[int] = Field(default=None, alias="nextStart")
+    next_cursor: str | None = Field(default=None, alias="nextCursor")
+    next_start: int | None = Field(default=None, alias="nextStart")
     count: int

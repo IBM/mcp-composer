@@ -4,7 +4,7 @@ from __future__ import annotations
 import importlib
 import re
 import sys
-from typing import Any, Dict, List, Optional
+from typing import Any
 from fastmcp.server.middleware import Middleware
 
 from mcp_composer.core.middleware.middleware_config import (
@@ -51,11 +51,11 @@ class MiddlewareManager:
     """
 
     def __init__(
-        self, config_path: Optional[str] = None, *, ensure_imports: bool = False
+        self, config_path: str | None = None, *, ensure_imports: bool = False
     ):
         self._config_path = config_path
-        self._config: Optional[MiddlewareConfig] = None
-        self._middlewares: List[Middleware] = []
+        self._config: MiddlewareConfig | None = None
+        self._middlewares: list[Middleware] = []
         if config_path:
             self.load(config_path, ensure_imports=ensure_imports)
 
@@ -78,17 +78,17 @@ class MiddlewareManager:
         for mw in self._middlewares:
             mcp_server.add_middleware(mw)
 
-    def get_enabled_middlewares(self) -> List[Middleware]:
+    def get_enabled_middlewares(self) -> list[Middleware]:
         """
         Return the list of enabled middlewares (already ordered).
         """
         return list(self._middlewares)
 
-    def describe(self) -> List[Dict[str, Any]]:
+    def describe(self) -> list[dict[str, Any]]:
         """
         Introspection helper for UIs/CLIs: returns name, priority, hooks for enabled items.
         """
-        out: List[Dict[str, Any]] = []
+        out: list[dict[str, Any]] = []
         if not self._config:
             return out
         enabled_by_name = {
@@ -111,12 +111,12 @@ class MiddlewareManager:
 
     # ----- Internals -----
 
-    def _build_from_config(self, cfg: MiddlewareConfig) -> List[Middleware]:
+    def _build_from_config(self, cfg: MiddlewareConfig) -> list[Middleware]:
         """
         Build middleware instances from the validated config and sort by priority.
         Respects settings.fail_on_middleware_error; otherwise logs to stderr and skips.
         """
-        items: List[tuple[int, Middleware]] = []
+        items: list[tuple[int, Middleware]] = []
         fail_hard = bool(cfg.middleware_settings.fail_on_middleware_error)
 
         for entry in cfg.middleware:
@@ -156,7 +156,7 @@ class MiddlewareManager:
 
 def load_and_build(
     config_path: str, *, ensure_imports: bool = False
-) -> List[Middleware]:
+) -> list[Middleware]:
     """
     One-shot helper: returns built/ordered middlewares from a config path.
     """

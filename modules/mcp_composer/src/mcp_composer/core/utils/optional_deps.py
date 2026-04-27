@@ -10,7 +10,7 @@ import os
 from typing import Set
 
 
-def detect_required_extras() -> Set[str]:
+def detect_required_extras() -> set[str]:
     """
     Detect which optional dependency groups are needed based on environment.
     
@@ -73,7 +73,7 @@ def check_optional_dependency(feature: str, package: str) -> bool:
         return False
 
 
-def get_missing_extras_message(extras: Set[str]) -> str:
+def get_missing_extras_message(extras: set[str]) -> str:
     """
     Generate installation message for missing extras.
     

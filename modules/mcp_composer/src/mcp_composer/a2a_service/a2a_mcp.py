@@ -8,10 +8,11 @@ allowing MCP clients to interact with A2A agents.
 import os
 import time
 import uuid
-from typing import Any, Dict, List, Optional, cast, TYPE_CHECKING
+from typing import Any, cast, TYPE_CHECKING
 import json
 from fastmcp import Context
 import httpx
+
 # Lazy import for optional AI dependencies
 ai_available = True
 genai: Any = None
@@ -87,15 +88,15 @@ EMBEDDING_ALLOW_FALLBACK = (
 )
 
 # Initialize in-memory dictionaries with stored data
-registered_agents = {}
-task_agent_mapping = {}
+registered_agents: dict[str, Any] = {}
+task_agent_mapping: dict[str, Any] = {}
 
 # Initialize embedding provider (lazy loading)
 _embedding_adapter = None
 
 # Cache for agent card embeddings
 _embeddings_cache: Any = None
-_embeddings_cache_timestamp: Optional[float] = None
+_embeddings_cache_timestamp: float | None = None
 
 
 def _create_client_factory(httpx_client) -> Any:
@@ -111,7 +112,7 @@ def _create_client_factory(httpx_client) -> Any:
     return ClientFactory(config=ClientConfig(**config))
 
 
-def _sanitize_agent_card_data(raw: Dict[str, Any], fallback_url: str) -> Any:
+def _sanitize_agent_card_data(raw: dict[str, Any], fallback_url: str) -> Any:
     name = raw.get("name") or "Unknown Agent"
     url = raw.get("url") or fallback_url
     version = raw.get("version") or "0.1.0"
@@ -125,7 +126,7 @@ def _sanitize_agent_card_data(raw: Dict[str, Any], fallback_url: str) -> Any:
     default_output_modes = raw.get("default_output_modes") or ["text"]
 
     skills_raw = raw.get("skills") or []
-    skills: List[Any] = []
+    skills: list[Any] = []
     for s in skills_raw:
         if not isinstance(s, dict):
             continue
@@ -232,7 +233,7 @@ async def fetch_agent_card(url: str) -> Any:
     )
 
 
-async def register_agent(url: str, ctx: Context) -> Dict[str, Any]:
+async def register_agent(url: str, ctx: Context) -> dict[str, Any]:
     """
     Register an A2A agent with the bridge server.
 
@@ -272,7 +273,7 @@ async def register_agent(url: str, ctx: Context) -> Dict[str, Any]:
         }
 
 
-async def list_agents() -> List[Dict[str, Any]]:
+async def list_agents() -> list[dict[str, Any]]:
     """
     List all registered A2A agents.
 
@@ -282,7 +283,7 @@ async def list_agents() -> List[Dict[str, Any]]:
     return [agent.model_dump() for agent in registered_agents.values()]
 
 
-async def unregister_agent(url: str, ctx: Optional[Context] = None) -> Dict[str, Any]:
+async def unregister_agent(url: str, ctx: Context | None = None) -> dict[str, Any]:
     """
     Unregister an A2A agent from the bridge server.
 
@@ -344,8 +345,8 @@ async def unregister_agent(url: str, ctx: Optional[Context] = None) -> Dict[str,
 async def send_message(
     agent_url: str,
     message: str,
-    ctx: Optional[Context] = None,
-) -> Dict[str, Any]:
+    ctx: Context | None = None,
+) -> dict[str, Any]:
     """
     Send a message to an A2A agent.
 
@@ -451,8 +452,8 @@ async def send_message(
 
 async def get_task_result(
     task_id: str,
-    ctx: Optional[Context] = None,
-) -> Dict[str, Any]:
+    ctx: Context | None = None,
+) -> dict[str, Any]:
     """
     Retrieve the result of a task from an A2A agent.
 
@@ -483,8 +484,8 @@ async def get_task_result(
 
 async def cancel_task(
     task_id: str,
-    ctx: Optional[Context] = None,
-) -> Dict[str, Any]:
+    ctx: Context | None = None,
+) -> dict[str, Any]:
     """
     Cancel a running task on an A2A agent.
     """
@@ -508,7 +509,7 @@ async def cancel_task(
             return {"status": "error", "message": f"Error cancelling task: {str(e)}"}
 
 
-def load_registered_agents():
+def load_registered_agents() -> None:
     """Load registered agents from stored data on startup."""
     global registered_agents, task_agent_mapping
     logger.info("Loading saved data...")
@@ -530,7 +531,7 @@ def load_registered_agents():
     )
 
 
-def get_embedding_adapter():
+def get_embedding_adapter() -> Any:
     """Get or initialize the embedding adapter based on environment configuration.
 
     The function attempts to initialize the configured embedding provider. If initialization
@@ -616,7 +617,7 @@ def get_embedding_adapter():
     return _embedding_adapter
 
 
-def generate_embeddings(text):
+def generate_embeddings(text: str | None) -> list[float] | list[Any]:
     """Generates embeddings for the given text using the configured embedding provider.
 
     Args:
@@ -664,7 +665,7 @@ def generate_embeddings(text):
     # Let AttributeError, TypeError, and other programming errors propagate
 
 
-def load_agent_cards():
+def load_agent_cards() -> tuple[list[str], list[dict[str, Any]]]:
     """Loads agent card data from JSON files within a specified directory.
 
     Returns:
@@ -683,7 +684,7 @@ def load_agent_cards():
     return card_uris, agent_cards
 
 
-def invalidate_embeddings_cache():
+def invalidate_embeddings_cache() -> None:
     """Invalidate the embeddings cache to force regeneration on next access."""
     global _embeddings_cache, _embeddings_cache_timestamp
     _embeddings_cache = None
@@ -836,7 +837,7 @@ def get_agent_cards() -> str:
         {'agent_cards': []} if the data cannot be retrieved.
     """
     df = build_agent_card_embeddings()
-    resources = {}
+    resources: dict[str, Any] = {}
     logger.info("Starting read resources")
     if not ai_available or df is None or df.empty:
         resources["agent_cards"] = []
@@ -855,7 +856,7 @@ def get_agent_card(card_name: str) -> str:
         A json / dictionary
     """
     df = build_agent_card_embeddings()
-    resources = {}
+    resources: dict[str, Any] = {}
     logger.info("Starting read resource resource://agent_cards/%s", card_name)
     if df is None or df.empty:
         resources["agent_card"] = {}

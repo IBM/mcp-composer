@@ -3,7 +3,10 @@ ServerManager module handles the lifecycle of MCP member servers,
 including mounting, registration, persistence, tool management, and health checks.
 """
 
-from typing import Dict, List, Any, Optional
+from __future__ import annotations
+
+import builtins
+from typing import Any
 from collections.abc import Callable
 
 from fastmcp.exceptions import NotFoundError, ToolError
@@ -36,10 +39,10 @@ class ServerManager:
     def __init__(
         self,
         serializer: Callable[[str, MemberMCPServer], Any] | None = None,
-        database: Optional[DatabaseInterface] = None,
+        database: DatabaseInterface | None = None,
         config_manager=None,
         composer=None,
-    ):
+    ) -> None:
         self._member_servers: dict[str, MemberMCPServer] = {}
         # Fix here: explicitly declare non-optional type
         self._serializer: Callable[[str, MemberMCPServer], Any] = (
@@ -52,18 +55,18 @@ class ServerManager:
     @staticmethod
     def default_serializer(
         server_id: str, member: MemberMCPServer
-    ):  # pylint: disable=W0613
+    ) -> dict[str, Any]:  # pylint: disable=W0613
         """serializer convert to dict"""
         return member.to_dict()
 
     async def _mount_and_register_server(
         self,
-        config: dict,
+        config: dict[str, object],
         mcp_composer,
         save_to_db: bool = True,
     ) -> str:
         server_id = config.get("id")
-        if not server_id:
+        if not isinstance(server_id, str) or not server_id:
             raise ValueError("Server configuration must include an 'id' field.")
 
         config["_id"] = server_id
@@ -102,10 +105,10 @@ class ServerManager:
             member = MemberMCPServer(
                 id=server_id,
                 endpoint=get_endpoint_from_config(config),
-                type=config.get("type", ""),
+                type=str(config.get("type", "")),  # type: ignore[arg-type]
                 config=config,
-                label=config.get("label"),
-                tags=config.get("tags", []),
+                label=config.get("label"),  # type: ignore[arg-type]
+                tags=config.get("tags", []),  # type: ignore[arg-type]
                 tool_count=None,
             )
             member.set_server(sub_mcp)
@@ -126,7 +129,7 @@ class ServerManager:
 
     async def register_server(
         self,
-        config: dict,
+        config: dict[str, object],
         mcp_composer,
     ) -> str:
         """Register a new member server."""
@@ -134,6 +137,8 @@ class ServerManager:
             ServerConfigValidator(config).validate()
 
             server_id = config.get("id", "")
+            if not isinstance(server_id, str):
+                server_id = ""
             if self.has_member_server(server_id):
                 logger.warning("Server '%s' already mounted.", server_id)
                 return f"Server '{server_id}' already mounted."
@@ -147,7 +152,7 @@ class ServerManager:
     async def update_server_config(
         self,
         server_id: str,
-        new_config: dict,
+        new_config: dict[str, object],
         mcp_composer,
     ) -> str:
         """Update an existing server's configuration."""
@@ -234,15 +239,17 @@ class ServerManager:
             logger.exception("Error deactivating server '%s': %s", server_id, e)
             raise ToolError(f"Failed to deactivate server '{server_id}': {e}") from e
 
-    async def member_health(self, config: list[MemberMCPServer]) -> list[dict]:
+    async def member_health(
+        self, config: list[MemberMCPServer]
+    ) -> list[dict[str, object]]:
         """Return member server's health status"""
-        server_config = config if config else self.list()
+        server_config = config if config else self.members()
         health_status = await get_member_health(server_config)
         return health_status
 
     def list_servers(self) -> list[dict]:
         """
-        List status of active member servers only (excludes deactivated servers).
+        list status of active member servers only (excludes deactivated servers).
         """
         logger.info("Listing member servers")
         configs = self.load_all_servers_db()
@@ -252,19 +259,19 @@ class ServerManager:
                 "id": cfg["id"],
                 "type": cfg["type"],
                 "server_name": (
-                    self.get(cfg["id"]).get_server().name
-                    if self.has_member_server(cfg["id"])
+                    self.get(str(cfg["id"])).get_server().name
+                    if self.has_member_server(str(cfg["id"]))
                     else "N/A"
                 ),
                 "endpoint": (
                     get_endpoint_from_config(cfg)
-                    if self.has_member_server(cfg["id"])
+                    if self.has_member_server(str(cfg["id"]))
                     else "N/A"
                 ),
-                "status": self.get_server_status(cfg["id"]),
+                "status": self.get_server_status(str(cfg["id"])),
             }
-            for cfg in configs
-            if self.get_server_status(cfg["id"]) != "deactivated"
+            for cfg in configs  # type: ignore[attr-defined]
+            if self.get_server_status(str(cfg["id"])) != "deactivated"
         ]
 
     def check_server_exist(self, server_id) -> None:
@@ -276,14 +283,14 @@ class ServerManager:
         """Check if a member server exists."""
         return key in self._member_servers
 
-    def add_member(self, server_id: str, server: MemberMCPServer):
+    def add_member(self, server_id: str, server: MemberMCPServer) -> None:
         """Add member server in-memory"""
         if server_id in self._member_servers:
             logger.warning("Overwriting existing MCP server: %s", server_id)
         self._member_servers[server_id] = server
         logger.info("Mounted MCP server:%s", server_id)
 
-    def update_server_db(self, config: dict) -> None:
+    def update_server_db(self, config: dict[str, object]) -> None:
         """Update the server config in the database."""
         server_id = config.get("id")
         if not server_id:
@@ -291,7 +298,7 @@ class ServerManager:
         if self._database:
             self._database.update_server_config(config)
 
-    def remove_member(self, server_id: str):
+    def remove_member(self, server_id: str) -> None:
         """Remove a member server"""
         if server_id not in self._member_servers:
             logger.warning("MCP server '%s' not found.", server_id)
@@ -307,18 +314,22 @@ class ServerManager:
             raise MemberServerError(f"MCP Server '{server_id}' is down.")
         return self._member_servers[server_id]
 
-    def list(self) -> list[MemberMCPServer]:
-        """List all member server"""
-        return list(self._member_servers.values())
+    def list(self) -> list[MemberMCPServer]:  # type: ignore[valid-type]
+        """list all member server"""
+        return [v for v in self._member_servers.values()]
 
-    def list_serialized(self) -> Dict[str, Any]:
-        """List all member server"""
+    def members(self) -> list[MemberMCPServer]:  # type: ignore[valid-type]
+        """Backward-compatible alias for listing all member servers."""
+        return self.list()
+
+    def list_serialized(self) -> dict[str, Any]:
+        """list all member server"""
         return {
             server_id: self._serializer(server_id, member)
             for server_id, member in self._member_servers.items()
         }
 
-    def add_server_db(self, config: dict) -> None:
+    def add_server_db(self, config: dict[str, object]) -> None:
         """Add member server to database"""
         if self._database:
             self._database.add_server(config)
@@ -328,16 +339,16 @@ class ServerManager:
         if self._database:
             self._database.remove_server(server_id)
 
-    def load_all_servers_db(self) -> List[dict]:
+    def load_all_servers_db(self) -> list[dict[str, object]]:  # type: ignore[valid-type]
         """fetch all member server from database"""
         if self._database is None:
             return []
         return self._database.load_all_servers()
 
-    def disable_tools(self, tools: List[str], server_id: str) -> None:
+    def disable_tools(self, tools: list[str], server_id: str) -> None:  # type: ignore[valid-type]
         """Disable tools of member server"""
         try:
-            tools = list(set(tools))
+            tools = builtins.list(set(tools))
             member = self.get(server_id)
             existing_tools = member.disabled_tools
             tools_description = member.tools_description
@@ -361,13 +372,15 @@ class ServerManager:
         if self._database:
             self._database.disable_tools(tools, server_id)
 
-    def enable_tools(self, tools: List[str], server_id: str) -> None:
+    def enable_tools(self, tools: list[str], server_id: str) -> None:  # type: ignore[valid-type]
         """Enable tools of member server and add to database"""
         try:
-            tools = list(set(tools))
+            tools = builtins.list(set(tools))
             member = self.get(server_id)
             disabled_tools = member.disabled_tools
-            tools_to_remove = [tool for tool in tools if tool in disabled_tools]
+            tools_to_remove: list[str] = [
+                str(tool) for tool in tools if tool in disabled_tools
+            ]
             if not tools_to_remove:
                 raise ValueError("No tools disabled")
 
@@ -398,10 +411,10 @@ class ServerManager:
         if self._database:
             self._database.update_tool_description(tool, description, server_id)
 
-    def disable_prompts(self, prompts: List[str], server_id: str) -> None:
+    def disable_prompts(self, prompts: list[str], server_id: str) -> None:  # type: ignore[valid-type]
         """Disable prompts of member server"""
         try:
-            prompts = list(set(prompts))
+            prompts = builtins.list(set(prompts))
             member = self.get(server_id)
             existing_prompts = member.disabled_prompts
             prompts_description = member.prompts_description
@@ -427,14 +440,14 @@ class ServerManager:
         if self._database:
             self._database.disable_prompts(prompts, server_id)
 
-    def enable_prompts(self, prompts: List[str], server_id: str) -> None:
+    def enable_prompts(self, prompts: list[str], server_id: str) -> None:  # type: ignore[valid-type]
         """Enable prompts of member server and add to database"""
         try:
-            prompts = list(set(prompts))
+            prompts = builtins.list(set(prompts))
             member = self.get(server_id)
             disabled_prompts = member.disabled_prompts
-            prompts_to_remove = [
-                prompt for prompt in prompts if prompt in disabled_prompts
+            prompts_to_remove: list[str] = [
+                str(prompt) for prompt in prompts if prompt in disabled_prompts
             ]
             if not prompts_to_remove:
                 raise ValueError("No prompts disabled")
@@ -449,10 +462,10 @@ class ServerManager:
         except Exception as e:
             raise ToolDisableError(f"Failed to enable prompt: {e}") from e
 
-    def disable_resources(self, resources: List[str], server_id: str) -> None:
+    def disable_resources(self, resources: list[str], server_id: str) -> None:  # type: ignore[valid-type]
         """Disable resources of member server"""
         try:
-            resources = list(set(resources))
+            resources = builtins.list(set(resources))
             member = self.get(server_id)
             existing_resources = member.disabled_resources
             resources_description = member.resources_description
@@ -480,14 +493,16 @@ class ServerManager:
         if self._database:
             self._database.disable_resources(resources, server_id)
 
-    def enable_resources(self, resources: List[str], server_id: str) -> None:
+    def enable_resources(self, resources: list[str], server_id: str) -> None:  # type: ignore[valid-type]
         """Enable resources of member server and add to database"""
         try:
-            resources = list(set(resources))
+            resources = builtins.list(set(resources))
             member = self.get(server_id)
             disabled_resources = member.disabled_resources
-            resources_to_remove = [
-                resource for resource in resources if resource in disabled_resources
+            resources_to_remove: list[str] = [
+                str(resource)
+                for resource in resources
+                if resource in disabled_resources
             ]
             if not resources_to_remove:
                 raise ValueError("No resources disabled")
@@ -504,7 +519,7 @@ class ServerManager:
         except Exception as e:
             raise ToolDisableError(f"Failed to enable resource: {e}") from e
 
-    def get_document(self, server_id: str) -> Dict:
+    def get_document(self, server_id: str) -> dict[str, object]:
         """Get a member server details from database"""
         if self._database is None:
             return {}
@@ -527,13 +542,13 @@ class ServerManager:
             return False
         return solis_config.get("isIamEnabled", False) is True
 
-    def prepare_activation(self, server_id: str) -> dict:
+    def prepare_activation(self, server_id: str) -> dict[str, object]:
         """
         Validates and returns updated config for reactivating a server.
         Raises error if not found or not deactivated.
         """
         all_configs = self.load_all_servers_db()
-        config = next((cfg for cfg in all_configs if cfg["id"] == server_id), None)
+        config = next((cfg for cfg in all_configs if cfg["id"] == server_id), None)  # type: ignore[attr-defined]
 
         if not config:
             raise NotFoundError(f"No configuration found for server '{server_id}'.")

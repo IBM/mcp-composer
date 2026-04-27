@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
@@ -25,7 +25,7 @@ class SkillRepository(BaseModel):
 
     url: str
     #: Optional; e.g. ``git`` when the URL is a repo. Omit when ``url`` is a generic asset location.
-    source: Optional[str] = None
+    source: str | None = None
 
 
 class SkillCatalogReference(BaseModel):
@@ -57,8 +57,8 @@ class SkillRemoteInfo(BaseModel):
     model_config = ConfigDict(extra="forbid", populate_by_name=True)
 
     url: str
-    transport_type: Optional[str] = Field(default=None, alias="type")
-    headers: Optional[List[Dict[str, Any]]] = None
+    transport_type: str | None = Field(default=None, alias="type")
+    headers: list[dict[str, Any]] | None = None
 
 
 class SkillJSON(BaseModel):
@@ -92,7 +92,9 @@ class SkillJSON(BaseModel):
     alongside other discovery metadata (title, category, products, tags).
     """
 
-    model_config = ConfigDict(extra="forbid", populate_by_name=True, str_strip_whitespace=True)
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, str_strip_whitespace=True
+    )
 
     # ------------------------------------------------------------------ required
     name: str
@@ -100,17 +102,17 @@ class SkillJSON(BaseModel):
     version: str
 
     # -------------------------------------------------------- agentskills.io optional
-    license: Optional[str] = None
-    compatibility: Optional[str] = None
-    allowed_tools: Optional[List[str]] = Field(default=None, alias="allowed-tools")
-    metadata: Optional[Dict[str, Any]] = None
+    license: str | None = None
+    compatibility: str | None = None
+    allowed_tools: list[str] | None = Field(default=None, alias="allowed-tools")
+    metadata: dict[str, Any] | None = None
 
     # ------------------------------------------ agentregistry operational (optional)
-    status: Optional[str] = None
-    website_url: Optional[str] = Field(default=None, alias="websiteUrl")
-    repository: Optional[SkillRepository] = None
-    references: Optional[List[SkillCatalogReference]] = None
-    remotes: Optional[List[SkillRemoteInfo]] = None
+    status: str | None = None
+    website_url: str | None = Field(default=None, alias="websiteUrl")
+    repository: SkillRepository | None = None
+    references: list[SkillCatalogReference] | None = None
+    remotes: list[SkillRemoteInfo] | None = None
 
     # ----------------------------------------------------------------- validators
     @field_validator("name", mode="before")
@@ -148,14 +150,14 @@ class SkillJSON(BaseModel):
 class SkillResponseMeta(BaseModel):
     model_config = ConfigDict(extra="forbid", populate_by_name=True)
 
-    official: Optional[RegistryOfficialExtensions] = Field(
+    official: RegistryOfficialExtensions | None = Field(
         default=None,
         alias="io.modelcontextprotocol.registry/official",
     )
     #: Private COS URLs, how-to-use, references, etc. from DB ``catalog_resource_metadata.data``.
     #: Serialized as ``metadata`` under ``_meta`` (distinct from ``skill.metadata``).
     #: Omitted when absent. ``remotes_config`` is never included (merged into ``skill.remotes``).
-    metadata: Optional[Dict[str, Any]] = None
+    metadata: dict[str, Any] | None = None
 
 
 class SkillResponse(BaseModel):
@@ -167,11 +169,11 @@ class SkillResponse(BaseModel):
     # serialisation by default so it never appears in normal API responses.
     # Populated only when the caller explicitly requests it via
     # SkillManager.get_content().
-    content: Optional[str] = Field(default=None, exclude=True)
+    content: str | None = Field(default=None, exclude=True)
 
 
 class SkillListResponse(BaseModel):
     model_config = ConfigDict(extra="forbid", populate_by_name=True)
 
-    skills: List[SkillResponse]
+    skills: list[SkillResponse]
     metadata: RegistryListMetadata

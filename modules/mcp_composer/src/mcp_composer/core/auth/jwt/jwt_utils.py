@@ -1,6 +1,6 @@
 """JWT utility functions for token manipulation and validation."""
 
-from typing import Dict, Any, Optional, List, TYPE_CHECKING
+from typing import Any, TYPE_CHECKING
 import jwt
 from datetime import datetime, timedelta, timezone
 from mcp_composer.core.utils import LoggerFactory
@@ -14,7 +14,7 @@ logger = LoggerFactory.get_logger()
 DEFAULT_TOKEN_EXPIRATION_SECONDS = 3600  # 1 hour
 
 
-def extract_jwt_from_header(header_value: str, prefix: str = "Bearer") -> Optional[str]:
+def extract_jwt_from_header(header_value: str, prefix: str = "Bearer") -> str | None:
     """
     Extract JWT token from Authorization header.
 
@@ -53,15 +53,15 @@ def extract_jwt_from_header(header_value: str, prefix: str = "Bearer") -> Option
 
 def decode_jwt_token(
     token: str,
-    secret: Optional[str] = None,
-    public_key: Optional[str] = None,
+    secret: str | None = None,
+    public_key: str | None = None,
     algorithm: str = "HS256",
     verify: bool = True,
-    issuer: Optional[str] = None,
-    audience: Optional[str] = None,
+    issuer: str | None = None,
+    audience: str | None = None,
     leeway: int = 0,
     **options: Any,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Decode and optionally verify a JWT token.
 
@@ -102,7 +102,7 @@ def decode_jwt_token(
     decode_options = {"verify_signature": verify}
     decode_options.update(options)
 
-    decode_kwargs: Dict[str, Any] = {
+    decode_kwargs: dict[str, Any] = {
         "algorithms": [algorithm],
         "options": decode_options,
     }
@@ -134,12 +134,12 @@ def decode_jwt_token(
 
 
 def generate_jwt_token(
-    payload: Dict[str, Any],
+    payload: dict[str, Any],
     secret: str,
     algorithm: str = "HS256",
     expires_in: int = DEFAULT_TOKEN_EXPIRATION_SECONDS,
-    issuer: Optional[str] = None,
-    audience: Optional[str] = None,
+    issuer: str | None = None,
+    audience: str | None = None,
 ) -> str:
     """
     Generate a JWT token with the given payload.
@@ -193,7 +193,7 @@ def generate_jwt_token(
         raise
 
 
-def validate_jwt_claims(claims: Dict[str, Any], required_claims: List[str]) -> bool:
+def validate_jwt_claims(claims: dict[str, Any], required_claims: list[str]) -> bool:
     """
     Validate that required claims are present in JWT.
 
@@ -226,7 +226,7 @@ def validate_jwt_claims(claims: Dict[str, Any], required_claims: List[str]) -> b
     return True
 
 
-def decode_jwt_without_verification(token: str) -> Optional[Dict[str, Any]]:
+def decode_jwt_without_verification(token: str) -> dict[str, Any] | None:
     """
     Decode a JWT token without signature verification.
 
@@ -254,7 +254,7 @@ def decode_jwt_without_verification(token: str) -> Optional[Dict[str, Any]]:
         return None
 
 
-def get_jwt_expiration(token: str) -> Optional[datetime]:
+def get_jwt_expiration(token: str) -> datetime | None:
     """
     Get the expiration time from a JWT token without verification.
 
@@ -320,8 +320,8 @@ def is_jwt_expired(token: str, leeway: int = 0) -> bool:
 
 
 def extract_jwt_claims(
-    token: str, claim_names: Optional[List[str]] = None
-) -> Dict[str, Any]:
+    token: str, claim_names: list[str] | None = None
+) -> dict[str, Any]:
     """
     Extract specific claims from a JWT token without verification.
 
@@ -359,7 +359,7 @@ def extract_jwt_claims(
         return {}
 
 
-def load_jwt_provider(prefix: str = "JWT_") -> Optional["JWTAuthProvider"]:
+def load_jwt_provider(prefix: str = "JWT_") -> "JWTAuthProvider | None":
     """
     Load JWT provider with configurable environment variable prefix.
 
@@ -464,11 +464,11 @@ def load_jwt_provider(prefix: str = "JWT_") -> Optional["JWTAuthProvider"]:
     # Priority 2: Load from full environment configuration
     try:
         jwt_config: JWTConfig = JWTConfig.from_env(prefix=prefix)
-        provider: JWTAuthProvider = JWTAuthProvider(config=jwt_config)
+        jwt_provider = JWTAuthProvider(config=jwt_config)
         logger.info(
             "JWT authentication configured from environment with prefix: %s", prefix
         )
-        return provider
+        return jwt_provider
     except Exception as e:
         # Check if JWT is required - fail fast if misconfigured
         # Use the prefix to construct the REQUIRED environment variable name
@@ -489,7 +489,7 @@ def load_jwt_provider(prefix: str = "JWT_") -> Optional["JWTAuthProvider"]:
         return None
 
 
-def log_jwt_configuration(jwt_provider: Optional["JWTAuthProvider"]) -> None:
+def log_jwt_configuration(jwt_provider: "JWTAuthProvider | None") -> None:
     """
     Log JWT authentication configuration status.
 

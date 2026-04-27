@@ -18,10 +18,10 @@ Future specialized tools can inherit from this class to get these features autom
 """
 
 import json
-from typing import Dict, Any, Optional, List
+from typing import Any
 
 from fastmcp.tools import Tool
-from fastmcp.tools.tool import ToolResult
+from fastmcp.tools import ToolResult
 from mcp.types import TextContent
 from pydantic import ConfigDict, ValidationError, PrivateAttr
 
@@ -50,7 +50,7 @@ class BaseSpecializedTool(Tool):
 
     Usage:
         class MyTool(BaseSpecializedTool):
-            def __init__(self, config: Optional[dict] = None):
+            def __init__(self, config: dict | None = None):
                 # Define your parameters and description
                 parameters = {...}
                 description = "..."  # This becomes the system prompt
@@ -66,11 +66,11 @@ class BaseSpecializedTool(Tool):
                     config=config  # May contain 'composer' reference
                 )
 
-            def _get_guardrails(self) -> List[str]:
+            def _get_guardrails(self) -> list[str]:
                 # Override to provide custom guardrails
                 return ["Custom guardrail 1", "Custom guardrail 2"]
 
-            async def run(self, arguments: Dict[str, Any]) -> ToolResult:
+            async def run(self, arguments: dict[str, Any]) -> ToolResult:
                 try:
                     # Your tool logic here
                     response = {"status": "success", ...}
@@ -96,14 +96,14 @@ class BaseSpecializedTool(Tool):
     model_config = ConfigDict(extra="allow")
 
     # Private attributes for composer integration
-    _composer: Optional[Any] = PrivateAttr(default=None)
+    _composer: Any | None = PrivateAttr(default=None)
 
     def __init__(
         self,
         name: str,
         description: str,
-        parameters: Dict[str, Any],
-        config: Optional[dict] = None,
+        parameters: dict[str, Any],
+        config: dict | None = None,
         **kwargs
     ):
         """
@@ -161,7 +161,7 @@ class BaseSpecializedTool(Tool):
             return
         super().__delattr__(name)
 
-    def _get_tool_name(self, config: Optional[dict], default: str) -> str:
+    def _get_tool_name(self, config: dict | None, default: str) -> str:
         """
         Extract tool name from config with fallback to default.
 
@@ -187,7 +187,7 @@ class BaseSpecializedTool(Tool):
         """
         return self.description or ""
 
-    def _get_guardrails(self) -> List[str]:
+    def _get_guardrails(self) -> list[str]:
         """
         Get guardrails/constraints for the tool.
         Subclasses can override this method to provide custom guardrails.
@@ -204,8 +204,8 @@ class BaseSpecializedTool(Tool):
         ]
 
     async def _get_possible_tools(
-        self, task: Optional[str] = None
-    ) -> List[Dict[str, Any]]:
+        self, task: str | None = None
+    ) -> list[dict[str, Any]]:
         """
         Get possible/relevant tools using filter_tool functionality from composer.
 
@@ -248,10 +248,10 @@ class BaseSpecializedTool(Tool):
 
     async def _create_success_response(
         self,
-        response_data: Dict[str, Any],
+        response_data: dict[str, Any],
         include_metadata: bool = True,
         include_tool_mapping: bool = False,
-        task: Optional[str] = None,
+        task: str | None = None,
     ) -> ToolResult:
         """
         Create a standardized success response with JSON formatting.
@@ -280,7 +280,7 @@ class BaseSpecializedTool(Tool):
         )
 
     def _create_error_response(
-        self, error_data: Dict[str, Any], arguments: Dict[str, Any]
+        self, error_data: dict[str, Any], arguments: dict[str, Any]
     ) -> ToolResult:
         """
         Create a standardized error response with JSON formatting.
@@ -299,7 +299,7 @@ class BaseSpecializedTool(Tool):
     def _handle_validation_error(
         self,
         error: ValidationError,
-        arguments: Dict[str, Any],
+        arguments: dict[str, Any],
         default_task_key: str = "task",
     ) -> ToolResult:
         """
@@ -347,7 +347,7 @@ class BaseSpecializedTool(Tool):
     def _handle_unexpected_error(
         self,
         error: Exception,
-        arguments: Dict[str, Any],
+        arguments: dict[str, Any],
         default_task_key: str = "task",
     ) -> ToolResult:
         """
@@ -392,7 +392,7 @@ class BaseSpecializedTool(Tool):
 
         return self._create_error_response(error_response, arguments)
 
-    def _normalize_arguments(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
+    def _normalize_arguments(self, arguments: dict[str, Any]) -> dict[str, Any]:
         """
         Normalize arguments by converting common camelCase to snake_case.
 
