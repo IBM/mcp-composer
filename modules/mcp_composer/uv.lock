@@ -1269,7 +1269,7 @@ wheels = [
 
 [[package]]
 name = "ibmcloudant"
-version = "0.11.5"
+version = "0.11.6"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "ibm-cloud-sdk-core" },
@@ -1277,9 +1277,9 @@ dependencies = [
     { name = "python-dateutil" },
     { name = "requests" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/00/c9/abce1e348b312637c1342f891b86b794d2450395f91a67b3db67a4024089/ibmcloudant-0.11.5.tar.gz", hash = "sha256:8f17b84e2c8d14c4e126c7ca7785f614f3d22552dc8f3838d9f80d0e672bb559", size = 116061, upload-time = "2026-03-17T15:12:57.143Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/c3/8a/dde316f3080cb5acaa91bce603392c0dbf51ee9ef0b90920d5c0f7727134/ibmcloudant-0.11.6.tar.gz", hash = "sha256:8cf4179785351c1c0a84ff53b35c4ff09688987dd3a5a2900b9af99946b96ce5", size = 116091, upload-time = "2026-04-27T10:16:41.872Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/fb/fd/bbac59b06558760b3df503d0d45233ef5e2b13c7b565bcafa226812f1f43/ibmcloudant-0.11.5-py3-none-any.whl", hash = "sha256:fe62f98fd75038fd42b76d11ebe36c2c1bc1864872e0e338960a92a576ed7d16", size = 120763, upload-time = "2026-03-17T15:12:55.779Z" },
+    { url = "https://files.pythonhosted.org/packages/91/e4/271d86c50024a8010f80fc38a1f110fc975aafde24091b70d5d2f133cc31/ibmcloudant-0.11.6-py3-none-any.whl", hash = "sha256:a02682d398643421b897144c91cb40391bdf8b9f170b57b6919127bfeec9e5a5", size = 120765, upload-time = "2026-04-27T10:16:40.59Z" },
 ]
 
 [[package]]
@@ -1937,8 +1937,8 @@ requires-dist = [
     { name = "ibm-cloud-sdk-core", marker = "extra == 'ibm-cloud'", specifier = "==3.24.4" },
     { name = "ibm-secrets-manager-sdk", marker = "extra == 'all'", specifier = "==2.1.13" },
     { name = "ibm-secrets-manager-sdk", marker = "extra == 'ibm-cloud'", specifier = "==2.1.13" },
-    { name = "ibmcloudant", marker = "extra == 'all'", specifier = "==0.11.5" },
-    { name = "ibmcloudant", marker = "extra == 'ibm-cloud'", specifier = "==0.11.5" },
+    { name = "ibmcloudant", marker = "extra == 'all'", specifier = "==0.11.6" },
+    { name = "ibmcloudant", marker = "extra == 'ibm-cloud'", specifier = "==0.11.6" },
     { name = "jaraco-context", specifier = ">=6.1.0" },
     { name = "jsonref", specifier = ">=1.1.0" },
     { name = "jsonschema", specifier = ">=4.24.0" },
