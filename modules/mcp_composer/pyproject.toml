@@ -39,6 +39,7 @@ dependencies = [
     "numpy==2.4.4",
     "pandas==3.0.2",
     "authlib==1.7.0",
+    "boto3>=1.34.0",
 ]
 
 [project.urls]
@@ -101,14 +102,10 @@ search = [
     "duckduckgo-search>=6.3.0",
 ]
 
-# AWS integration
-aws = [
-    "boto3>=1.34.0",
-]
 
 # All optional features
 all = [
-    "mcp-composer[tracing,ibm-cloud,secrets,ai,search,aws]",
+    "mcp-composer[tracing,ibm-cloud,secrets,ai,search]",
 ]
 
 [project.scripts]

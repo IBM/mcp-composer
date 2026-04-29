@@ -1,5 +1,5 @@
 version = 1
-revision = 3
+revision = 2
 requires-python = ">=3.11, <3.14"
 resolution-markers = [
     "python_full_version >= '3.13' and sys_platform == 'win32'",
@@ -1822,6 +1822,7 @@ dependencies = [
     { name = "asyncpg" },
     { name = "authlib" },
     { name = "beautifulsoup4" },
+    { name = "boto3" },
     { name = "cryptography" },
     { name = "deepdiff" },
     { name = "fastmcp" },
@@ -1857,7 +1858,6 @@ ai = [
     { name = "scikit-learn" },
 ]
 all = [
-    { name = "boto3" },
     { name = "duckduckgo-search" },
     { name = "google-genai" },
     { name = "hvac" },
@@ -1870,9 +1870,6 @@ all = [
     { name = "opentelemetry-exporter-otlp" },
     { name = "opentelemetry-sdk" },
     { name = "scikit-learn" },
-]
-aws = [
-    { name = "boto3" },
 ]
 ibm-cloud = [
     { name = "ibm-cloud-sdk-core" },
@@ -1920,8 +1917,7 @@ requires-dist = [
     { name = "asyncpg", specifier = ">=0.29.0" },
     { name = "authlib", specifier = "==1.7.0" },
     { name = "beautifulsoup4", specifier = ">=4.12.0" },
-    { name = "boto3", marker = "extra == 'all'", specifier = ">=1.34.0" },
-    { name = "boto3", marker = "extra == 'aws'", specifier = ">=1.34.0" },
+    { name = "boto3", specifier = ">=1.34.0" },
     { name = "cryptography", specifier = ">=46.0.6" },
     { name = "deepdiff", specifier = ">=8.6.1" },
     { name = "duckduckgo-search", marker = "extra == 'all'", specifier = ">=6.3.0" },
@@ -1972,7 +1968,7 @@ requires-dist = [
     { name = "types-requests", specifier = ">=2.32.4.20250611" },
     { name = "uncurl", specifier = "==0.0.11" },
 ]
-provides-extras = ["ai", "all", "aws", "ibm-cloud", "search", "secrets", "tracing"]
+provides-extras = ["ai", "all", "ibm-cloud", "search", "secrets", "tracing"]
 
 [package.metadata.requires-dev]
 dev = [

@@ -730,12 +730,6 @@ MCP Composer supports loading OpenAPI specifications directly from AWS S3 bucket
 
 **Installation:**
 
-To use S3 URLs, install the AWS optional dependency:
-
-```bash
-pip install mcp-composer[aws]
-```
-
 **Supported S3 URL Formats:**
 
 1. **Virtual-hosted style** (recommended):
