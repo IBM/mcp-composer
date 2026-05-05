@@ -78,6 +78,13 @@ class ServerManager:
             # Handle both cases: mcp_composer as object or as callback function
             if hasattr(mcp_composer, "mount"):
                 mcp_composer.mount(sub_mcp, server_id)
+                # Store for HTTP routing if enabled and composer has the tracking dict
+                if (
+                    hasattr(mcp_composer, "_enable_multi_server_routing")
+                    and mcp_composer._enable_multi_server_routing
+                    and hasattr(mcp_composer, "_http_mounted_servers")
+                ):
+                    mcp_composer._http_mounted_servers[server_id] = sub_mcp
             else:
                 mcp_composer(sub_mcp, server_id)
             # get_tools() exists in FastMCP 3.0 and returns a list (per upgrade guide)

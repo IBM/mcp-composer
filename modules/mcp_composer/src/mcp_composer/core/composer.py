@@ -100,6 +100,13 @@ class MCPComposer(FastMCP):
         auth: OAuthProvider | JWTVerifier | None = None,
     ):
         super().__init__(name=name, auth=auth)
+        # Track mounted servers for multi-route HTTP (disabled by default)
+        # Enable by setting ENABLE_MULTI_SERVER_HTTP_ROUTING=true in .env
+        self._enable_multi_server_routing = (
+            os.getenv("ENABLE_MULTI_SERVER_HTTP_ROUTING", "false").lower() == "true"
+        )
+        self._http_mounted_servers: dict[str, Any] = {}
+
         logger.info("Initializing MCP Composer with name: %s", name)
         self._server_config_manager = self._initialize_config_manager(
             version_adapter_config
@@ -294,6 +301,10 @@ class MCPComposer(FastMCP):
             external_mcp = await builder.build()
             self.mount(external_mcp, server_id)
 
+            # Store for HTTP routing if enabled
+            if self._enable_multi_server_routing:
+                self._http_mounted_servers[server_id] = external_mcp
+
             member = MemberMCPServer(
                 id=server_id,
                 endpoint=get_endpoint_from_config(config),
@@ -418,8 +429,11 @@ class MCPComposer(FastMCP):
         self._tool_manager.unmount(server_id)
         self._server_manager.remove_mcp_server(server_id)
         self._server_manager.remove_member(server_id)
+        # Remove from HTTP mounted servers tracking
+        if server_id in self._http_mounted_servers:
+            del self._http_mounted_servers[server_id]
         logger.info("Server %s unmounted", server_id)
-        return f"Server '{server_id}' unmounted."
+        return f"Server '{server_id}' unmounted successfully."
 
     async def member_health(self) -> list[dict[str, Any]]:
         """Get status for all member servers."""
@@ -674,6 +688,65 @@ class MCPComposer(FastMCP):
             result.append(item)
         return {"tools": result}
 
+    def get_multi_server_http_app(self):
+        """Create a Starlette app with individual routes for each mounted server plus composer root"""
+        from starlette.applications import Starlette
+        from starlette.routing import Mount
+        from contextlib import asynccontextmanager
+
+        # Get the composer's own HTTP app (for root /mcp endpoint)
+        # MCPComposer inherits from FastMCP, so 'self' is the composer FastMCP instance
+        composer_app = super().http_app()
+
+        # Collect all member server apps and their lifespan managers
+        server_apps = {}
+        for server_id, server in self._http_mounted_servers.items():
+            server_apps[server_id] = server.http_app()
+
+        # Create a combined lifespan that manages composer + all server lifespans
+        @asynccontextmanager
+        async def combined_lifespan(app):
+            # Start composer's lifespan first
+            lifespan_contexts = []
+
+            # Add composer's lifespan
+            if hasattr(composer_app, "router") and hasattr(
+                composer_app.router, "lifespan_context"
+            ):
+                composer_ctx = composer_app.router.lifespan_context(composer_app)
+                lifespan_contexts.append(composer_ctx)
+                await composer_ctx.__aenter__()
+
+            # Add all member server lifespans
+            for server_id, server_app in server_apps.items():
+                if hasattr(server_app, "router") and hasattr(
+                    server_app.router, "lifespan_context"
+                ):
+                    ctx = server_app.router.lifespan_context(server_app)
+                    lifespan_contexts.append(ctx)
+                    await ctx.__aenter__()
+
+            try:
+                yield
+            finally:
+                # Clean up all lifespans in reverse order
+                for ctx in reversed(lifespan_contexts):
+                    await ctx.__aexit__(None, None, None)
+
+        # Create routes - member servers first, then composer at root
+        routes = []
+
+        # Add member server routes
+        for server_id, server_app in server_apps.items():
+            routes.append(Mount(f"/{server_id}", app=server_app))
+
+        # Add composer's own app at root (must be last to not override member routes)
+        routes.append(Mount("/", app=composer_app))
+
+        # Create the main Starlette app with combined lifespan
+        app = Starlette(routes=routes, lifespan=combined_lifespan)
+        return app
+
     async def run_http_async(
         self,
         show_banner: bool = True,
@@ -690,6 +763,7 @@ class MCPComposer(FastMCP):
     ) -> None:
         """
         Override the default banner to display MCP Composer branding for HTTP transports.
+        Supports multi-server routing when servers are mounted.
         """
         if show_banner:
             print_mcp_composer_banner(
@@ -699,14 +773,40 @@ class MCPComposer(FastMCP):
                 port=port,
                 path=path,
             )
-        super_run_http = super().run_http_async
-        await super_run_http(
-            show_banner=False,
-            transport=transport,
-            host=host,
-            port=port,
-            path=path,
-            uvicorn_config=uvicorn_config,
-            middleware=middleware,
-            stateless_http=stateless_http,
-        )
+
+        # Check if we should use multi-server routing (only if enabled)
+        if self._enable_multi_server_routing and self._http_mounted_servers:
+            import uvicorn
+
+            logger.info("Starting MCP Composer with multi-server HTTP routing")
+            app = self.get_multi_server_http_app()
+
+            # Use provided config or defaults
+            config_dict = uvicorn_config or {}
+            config_dict.update(
+                {
+                    "app": app,
+                    "host": host or "0.0.0.0",
+                    "port": port or 8000,
+                    "log_level": log_level or "info",
+                }
+            )
+
+            config = uvicorn.Config(**config_dict)
+            server = uvicorn.Server(config)
+            await server.serve()
+        else:
+            # Fall back to default single-server mode
+            await super().run_http_async(
+                show_banner=False,
+                transport=transport,
+                host=host,
+                port=port,
+                log_level=log_level,
+                path=path,
+                uvicorn_config=uvicorn_config,
+                middleware=middleware,
+                json_response=json_response,
+                stateless_http=stateless_http,
+                stateless=stateless,
+            )

@@ -527,6 +527,7 @@ uvx mcp-composer -sseurl --sse-url <url to remote sse mcp server> --auth_type oa
 - Handles multiple authentication strategies.
 - Automatically forwards each request to the correct upstream server or tool.
 - List tools and metadata by name or server.
+- **Multi-Server HTTP Routing**: Optional feature to expose multiple MCP servers via HTTP with dedicated routes for each server (disabled by default, enable with `ENABLE_MULTI_SERVER_HTTP_ROUTING=true`). See [Multi-Server HTTP Routing Guide](docs/multi-server-http-routing.md) for details.
 - **Unified Configuration System**: Single configuration files to manage servers, middleware, prompts, tools, and resources with auto-detection and validation.
 - **CLI Integration**: Direct support for unified configuration via `--config` and `--configfilepath` options.
 - **Programmatic Integration**: Direct support in `MCPComposer` constructor for file-based configurations.
@@ -744,6 +745,87 @@ await composer.setup_member_servers()
 - **Versioning**: Support for configuration versioning and rollback capabilities
 - **Flexibility**: Multiple database backends (Cloudant, PostgreSQL, Local File) to suit different deployment needs
 - **PostgreSQL Features**: ACID compliance, JSONB support, advanced querying capabilities, and robust ecosystem
+
+### Multi-Server HTTP Routing
+
+MCP Composer supports an optional **Multi-Server HTTP Routing** feature that allows you to expose multiple MCP servers via HTTP, with each server accessible through its own dedicated route. This feature is **disabled by default** and must be explicitly enabled.
+
+#### Enabling Multi-Server HTTP Routing
+
+To enable this feature, set the following environment variable in your `.env` file:
+
+```bash
+ENABLE_MULTI_SERVER_HTTP_ROUTING=true
+```
+
+#### How It Works
+
+When enabled, each mounted MCP server gets its own HTTP route:
+
+```
+http://localhost:8000/              # Composer root endpoint
+http://localhost:8000/server1/      # First mounted server
+http://localhost:8000/server2/      # Second mounted server
+http://localhost:8000/server3/      # Third mounted server
+```
+
+#### Example Usage
+
+1. **Enable the feature in `.env`:**
+   ```bash
+   ENABLE_MULTI_SERVER_HTTP_ROUTING=true
+   MCP_MODE=http
+   ```
+
+2. **Register multiple servers:**
+   ```python
+   from mcp_composer import MCPComposer
+   
+   composer = MCPComposer(name="multi-server-composer")
+   
+   # Register first server
+   await composer.register_mcp_server({
+       "id": "weather-server",
+       "type": "stdio",
+       "command": "python",
+       "args": ["-m", "weather_mcp"]
+   })
+   
+   # Register second server
+   await composer.register_mcp_server({
+       "id": "database-server",
+       "type": "stdio",
+       "command": "python",
+       "args": ["-m", "database_mcp"]
+   })
+   
+   # Start HTTP server with multi-routing
+   await composer.run_http_async()
+   ```
+
+3. **Access individual servers:**
+   ```bash
+   # Access weather server tools
+   curl http://localhost:8000/weather-server/tools/list
+   
+   # Access database server tools
+   curl http://localhost:8000/database-server/tools/list
+   
+   # Access composer root
+   curl http://localhost:8000/tools/list
+   ```
+
+#### Use Cases
+
+- **API Gateway Pattern**: Expose multiple MCP servers through a single HTTP endpoint
+- **Service Isolation**: Different servers with separate HTTP routes
+- **Multi-Tenant Scenarios**: Different clients accessing different server subsets
+
+#### Default Behavior (Disabled)
+
+When disabled (default), MCP Composer operates in standard single-server mode with no overhead from multi-server routing logic.
+
+For comprehensive documentation, see the [Multi-Server HTTP Routing Guide](docs/multi-server-http-routing.md).
 
 ### Command Line Interface (CLI)
 
@@ -2147,10 +2229,10 @@ detect-secrets audit .secrets.baseline
    # For Cloudant, ensure URL starts with http:// or https://
    export MCP_DATABASE_SERVICE_URL="https://your-instance.cloudantnosqldb.appdomain.cloud"
    
-  # For PostgreSQL, ensure URL format is correct
+  ## For PostgreSQL, ensure URL format is correct
   export MCP_DATABASE_URL="postgresql://$DB_USER:$DB_PASSWORD@$DB_HOST:$DB_PORT/$DB_NAME"
    
-   # For local file storage, ensure file path is valid
+   ## For local file storage, ensure file path is valid
    export MCP_DATABASE_FILE_PATH="/path/to/valid/file.json"
    ```
 
@@ -2190,17 +2272,17 @@ detect-secrets audit .secrets.baseline
    export MCP_DATABASE_API_KEY="your_valid_api_key"
    export MCP_DATABASE_SERVICE_URL="https://your-instance.cloudantnosqldb.appdomain.cloud"
    
-  # For PostgreSQL, ensure connection details are correct:
+  ## For PostgreSQL, ensure connection details are correct:
   export MCP_DATABASE_TYPE="postgres"
   export MCP_DATABASE_URL="postgresql://$DB_USER:$DB_PASSWORD@$DB_HOST:$DB_PORT/$DB_NAME"
-   # Or use individual parameters:
+   ## Or use individual parameters:
    export MCP_DATABASE_HOST="localhost"
    export MCP_DATABASE_PORT="5432"
    export MCP_DATABASE_DATABASE="your_database"
    export MCP_DATABASE_USER="your_username"
    export MCP_DATABASE_PASSWORD="your_password"
    
-   # For local file storage:
+   ## For local file storage:
    export MCP_DATABASE_TYPE="local_file"
    export MCP_DATABASE_FILE_PATH="/path/to/valid/file.json"
    ```
@@ -2221,16 +2303,17 @@ detect-secrets audit .secrets.baseline
    # Install PostgreSQL adapter dependency
    pip install psycopg2-binary
    
-  # Test PostgreSQL connection manually
+  ## Test PostgreSQL connection manually
   psql "postgresql://$DB_USER:$DB_PASSWORD@$DB_HOST:$DB_PORT/$DB_NAME"
    
-   # Check if PostgreSQL service is running
+   ## Check if PostgreSQL service is running
    sudo systemctl status postgresql
    
-   # Verify database exists and user has permissions
+   ## Verify database exists and user has permissions
    psql -U username -d database -c "SELECT 1;"
    
-   # Check PostgreSQL logs for connection errors
+   ## Check PostgreSQL logs for connection errors
+   ```bash
    sudo tail -f /var/log/postgresql/postgresql-*.log
    ```
 
