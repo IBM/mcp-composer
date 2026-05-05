@@ -430,7 +430,7 @@ class ISVTokenValidator:
             'mcsp-glb-iam'
         """
         # Extract environment from URL
-        if ".test.saas.ibm.com" or ".dev.saas.ibm.com" in api_url:
+        if ".test.saas.ibm.com" in api_url or ".dev.saas.ibm.com" in api_url:
             return "mcsp-glb-iam-test"
         elif ".prod.saas.ibm.com" in api_url or "api.solis.saas.ibm.com" in api_url:
             return "mcsp-glb-iam"
