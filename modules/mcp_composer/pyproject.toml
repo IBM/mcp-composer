@@ -52,7 +52,7 @@ dev = [
     "pylint>=3.3.7",
     "pytest==8.3.3",
     "pytest-asyncio==1.3.0",
-    "pytest-cov==6.3.0",
+    "pytest-cov==7.1.0",
     "pytest-flakefinder",
     "pytest-report==0.2.1",
     "pytest-timeout==2.4.0",
