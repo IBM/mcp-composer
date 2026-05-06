@@ -23,13 +23,19 @@ from mcp_composer import MCPComposer
 from mcp_composer.core.auth.jwt.isv_token_validator import ISVTokenValidator
 from mcp_composer.core.tools import IBMDocSearchDirectTool
 from mcp_composer.core.utils import LoggerFactory
-from mcp_composer.middleware import PromptInjectionMiddleware, TracingMiddleware, SecretsAndPIIMiddleware
+from mcp_composer.middleware import (
+    PromptInjectionMiddleware,
+    TracingMiddleware,
+    SecretsAndPIIMiddleware,
+)
 from mcp_composer.middleware.auth_context_middleware import (
     AuthContextMiddleware,
     REQUEST_CONTEXT_KEY,
 )
 from mcp_composer.middleware.auth_utils import tool_name_to_server_id
-from mcp_composer.middleware.error_sanitization_middleware import ErrorSanitizationMiddleware
+from mcp_composer.middleware.error_sanitization_middleware import (
+    ErrorSanitizationMiddleware,
+)
 from mcp_composer.middleware.tool.tool_filter import ListFilteredTool
 from mcp_composer.middleware.tool_auth_middleware import ToolAuthenticationMiddleware
 
@@ -78,8 +84,7 @@ isv_validator = ISVTokenValidator(
     timeout=timeout,
 )
 
-gw = MCPComposer(name="solis-composer", auth=None)
-
+gw = MCPComposer(name="solis-composer", auth=None, isv_validator=isv_validator)
 
 
 # -----------------------------------------------------------------------------
@@ -93,7 +98,9 @@ def setup_middleware(composer: MCPComposer) -> None:
 
     def is_iam_enabled_for_tool(tool_name: str) -> bool:
         server_id = tool_name_to_server_id(tool_name)
-        return server_manager.is_iam_enabled_for_server(server_id) if server_id else False
+        return (
+            server_manager.is_iam_enabled_for_server(server_id) if server_id else False
+        )
 
     composer.add_middleware(
         ToolAuthenticationMiddleware(
@@ -117,7 +124,9 @@ def setup_middleware(composer: MCPComposer) -> None:
     logger.info("✓ Added AuthContextMiddleware (IAM gate from solis_config only)")
 
     if environment != "prod":
-        tracing_log_level = (os.getenv("MCP_COMPOSER_LOG_LEVEL") or "DEBUG").strip().upper()
+        tracing_log_level = (
+            (os.getenv("MCP_COMPOSER_LOG_LEVEL") or "DEBUG").strip().upper()
+        )
         composer.add_middleware(
             TracingMiddleware(
                 log_tools=True,
@@ -133,9 +142,13 @@ def setup_middleware(composer: MCPComposer) -> None:
     else:
         logger.info("Skipped TracingMiddleware (prod)")
 
-    composer.add_middleware(middleware=ListFilteredTool(composer, isv_validator=isv_validator))
+    composer.add_middleware(
+        middleware=ListFilteredTool(composer, isv_validator=isv_validator)
+    )
     composer.add_middleware(ErrorSanitizationMiddleware())
-    logger.info("Added middleware: ListFilteredTool (with ISV auth), ErrorSanitizationMiddleware")
+    logger.info(
+        "Added middleware: ListFilteredTool (with ISV auth), ErrorSanitizationMiddleware"
+    )
 
     composer.add_middleware(PromptInjectionMiddleware())
     logger.info("Added PromptInjectionMiddleware")
@@ -154,8 +167,11 @@ def setup_tools(composer: MCPComposer) -> None:
     composer.add_tool(IBMDocSearchDirectTool())
     logger.info("Added IBM Doc Search Direct Tool")
 
+
 async def run_http_mode(composer: MCPComposer) -> None:
-    await composer.run_http_async(host="0.0.0.0", port=9000, log_level="debug", path="/mcp")
+    await composer.run_http_async(
+        host="0.0.0.0", port=9000, log_level="debug", path="/mcp"
+    )
 
 
 async def run_stdio_mode(composer: MCPComposer) -> None:
@@ -166,7 +182,9 @@ async def run_stdio_mode(composer: MCPComposer) -> None:
 
 async def run_sse_mode(composer: MCPComposer) -> None:
     """Run composer in SSE mode."""
-    await composer.run_async(transport="sse", host="0.0.0.0", port=9000, log_level="debug")
+    await composer.run_async(
+        transport="sse", host="0.0.0.0", port=9000, log_level="debug"
+    )
 
 
 MODE_HANDLERS = {

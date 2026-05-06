@@ -85,13 +85,24 @@ class ListFilteredTool(Middleware):
                     ),
                 )
 
-            tool_names = list(tools.keys()) if isinstance(tools, dict) else [tool.name for tool in tools]
+            tool_names = (
+                list(tools.keys())
+                if isinstance(tools, dict)
+                else [tool.name for tool in tools]
+            )
             logger.info("all the tools without any filter: %s\n", tool_names)
             filtered_tools = self.gw._tool_manager.filter_tools(
                 tools, user_instances=user_instances
             )
-            tool_names_after = list(tools.keys()) if isinstance(tools, dict) else [tool.name for tool in tools]
-            logger.info("all the tools without any filter but after filtered_tools: %s\n", tool_names_after)
+            tool_names_after = (
+                list(tools.keys())
+                if isinstance(tools, dict)
+                else [tool.name for tool in tools]
+            )
+            logger.info(
+                "all the tools without any filter but after filtered_tools: %s\n",
+                tool_names_after,
+            )
             logger.info(
                 "Filtered tools: %d total, %d after filtering",
                 len(tools),

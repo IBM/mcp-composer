@@ -98,6 +98,7 @@ class MCPComposer(FastMCP):
         database_config: dict[str, Any] | DatabaseInterface | None = None,
         version_adapter_config: dict[str, Any] | None = None,
         auth: OAuthProvider | JWTVerifier | None = None,
+        isv_validator: Any = None,
     ):
         super().__init__(name=name, auth=auth)
         # Track mounted servers for multi-route HTTP (disabled by default)
@@ -106,6 +107,8 @@ class MCPComposer(FastMCP):
             os.getenv("ENABLE_MULTI_SERVER_HTTP_ROUTING", "false").lower() == "true"
         )
         self._http_mounted_servers: dict[str, Any] = {}
+        # Store ISV validator for multi-server HTTP routing authentication
+        self._isv_validator = isv_validator
 
         logger.info("Initializing MCP Composer with name: %s", name)
         self._server_config_manager = self._initialize_config_manager(
@@ -302,8 +305,75 @@ class MCPComposer(FastMCP):
             self.mount(external_mcp, server_id)
 
             # Store for HTTP routing if enabled
+            logger.info(
+                "Multi-server routing enabled: %s (ENABLE_MULTI_SERVER_HTTP_ROUTING=%s)",
+                self._enable_multi_server_routing,
+                os.getenv("ENABLE_MULTI_SERVER_HTTP_ROUTING", "not set"),
+            )
+
             if self._enable_multi_server_routing:
                 self._http_mounted_servers[server_id] = external_mcp
+
+                # IMPORTANT: In FastMCP, middleware execution order is REVERSE of addition order
+                # Last added middleware executes FIRST
+                # Desired execution order: ToolPrefixMiddleware → Composer Middleware → ListFilteredTool
+                # So we add in reverse order:
+
+                # Step 1: Add ListFilteredTool FIRST (will execute LAST) if ISV validator is present
+                env = (os.getenv("MCP_COMPOSER_ENV") or "").strip().lower()
+                if env != "local" and self._isv_validator is not None:
+                    from mcp_composer.middleware.tool.tool_filter import (
+                        ListFilteredTool,
+                    )
+
+                    filter_mw = ListFilteredTool(
+                        self, isv_validator=self._isv_validator
+                    )
+                    external_mcp.add_middleware(filter_mw)
+                    logger.info(
+                        "✓ Added ListFilteredTool to server '%s' (will execute LAST)",
+                        server_id,
+                    )
+
+                # Step 2: Propagate composer middleware (from solis_composer.py setup_middleware)
+                # FastMCP stores middleware directly in self.middleware attribute
+                composer_middleware = getattr(self, "middleware", [])
+
+                if composer_middleware:
+                    from mcp_composer.middleware.tool.tool_filter import (
+                        ListFilteredTool,
+                    )
+
+                    logger.info(
+                        "Propagating %d composer middleware to server '%s'",
+                        len(composer_middleware),
+                        server_id,
+                    )
+                    for mw in composer_middleware:
+                        # Skip ListFilteredTool - already added above with server-specific config
+                        # Skip DereferenceRefsMiddleware - it's FastMCP's internal middleware
+                        if (
+                            not isinstance(mw, ListFilteredTool)
+                            and type(mw).__name__ != "DereferenceRefsMiddleware"
+                        ):
+                            external_mcp.add_middleware(mw)
+                            logger.debug(
+                                "  ✓ Propagated %s to server '%s'",
+                                type(mw).__name__,
+                                server_id,
+                            )
+
+                # Step 3: Add ToolPrefixMiddleware LAST (will execute FIRST)
+                from mcp_composer.middleware.tool.tool_prefix import (
+                    ToolPrefixMiddleware,
+                )
+
+                prefix_mw = ToolPrefixMiddleware(server_id)
+                external_mcp.add_middleware(prefix_mw)
+                logger.info(
+                    "✓ Added ToolPrefixMiddleware to server '%s' (will execute FIRST)",
+                    server_id,
+                )
 
             member = MemberMCPServer(
                 id=server_id,
@@ -689,16 +759,26 @@ class MCPComposer(FastMCP):
         return {"tools": result}
 
     def get_multi_server_http_app(self):
-        """Create a Starlette app with individual routes for each mounted server plus composer root"""
+        """
+        Create a Starlette app with individual routes for each mounted server plus composer root.
+
+        Note: All middleware (including ToolPrefixMiddleware, ListFilteredTool, and composer middleware
+        from solis_composer.py) are added at mount time in _mount_member_server() to ensure correct
+        execution order.
+        """
         from starlette.applications import Starlette
         from starlette.routing import Mount
         from contextlib import asynccontextmanager
 
+        logger.info(
+            "Creating multi-server HTTP app with %d mounted servers",
+            len(self._http_mounted_servers),
+        )
+
         # Get the composer's own HTTP app (for root /mcp endpoint)
-        # MCPComposer inherits from FastMCP, so 'self' is the composer FastMCP instance
         composer_app = super().http_app()
 
-        # Collect all member server apps and their lifespan managers
+        # Collect all member server apps
         server_apps = {}
         for server_id, server in self._http_mounted_servers.items():
             server_apps[server_id] = server.http_app()
