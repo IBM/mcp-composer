@@ -1,0 +1,1198 @@
+{
+    "jsonrpc": "2.0",
+    "id": 4,
+    "result": {
+      "tools": [
+        {
+          "name": "member_health",
+          "description": "Get status for all member servers.",
+          "inputSchema": {
+            "additionalProperties": false,
+            "properties": {},
+            "type": "object"
+          },
+          "outputSchema": {
+            "description": "Generic wrapper for non-object return types.",
+            "properties": {
+              "result": {
+                "items": {
+                  "additionalProperties": true,
+                  "type": "object"
+                },
+                "type": "array"
+              }
+            },
+            "required": [
+              "result"
+            ],
+            "type": "object",
+            "x-fastmcp-wrap-result": true
+          },
+          "_meta": {
+            "fastmcp": {
+              "tags": []
+            }
+          }
+        },
+        {
+          "name": "list_servers",
+          "description": "list status of active member servers only (excludes deactivated servers).",
+          "inputSchema": {
+            "additionalProperties": false,
+            "properties": {},
+            "type": "object"
+          },
+          "outputSchema": {
+            "description": "Generic wrapper for non-object return types.",
+            "properties": {
+              "result": {
+                "items": {
+                  "additionalProperties": true,
+                  "type": "object"
+                },
+                "type": "array"
+              }
+            },
+            "required": [
+              "result"
+            ],
+            "type": "object",
+            "x-fastmcp-wrap-result": true
+          },
+          "_meta": {
+            "fastmcp": {
+              "tags": []
+            }
+          }
+        },
+        {
+          "name": "get_tool_config_by_name",
+          "description": "Get a tool configuration details",
+          "inputSchema": {
+            "additionalProperties": false,
+            "properties": {
+              "name": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "name"
+            ],
+            "type": "object"
+          },
+          "outputSchema": {
+            "description": "Generic wrapper for non-object return types.",
+            "properties": {
+              "result": {
+                "items": {
+                  "additionalProperties": true,
+                  "type": "object"
+                },
+                "type": "array"
+              }
+            },
+            "required": [
+              "result"
+            ],
+            "type": "object",
+            "x-fastmcp-wrap-result": true
+          },
+          "_meta": {
+            "fastmcp": {
+              "tags": []
+            }
+          }
+        },
+        {
+          "name": "get_tool_config_by_server",
+          "description": "Get all tool configuration details of a specific member server",
+          "inputSchema": {
+            "additionalProperties": false,
+            "properties": {
+              "server_id": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "server_id"
+            ],
+            "type": "object"
+          },
+          "outputSchema": {
+            "description": "Generic wrapper for non-object return types.",
+            "properties": {
+              "result": {
+                "items": {
+                  "additionalProperties": true,
+                  "type": "object"
+                },
+                "type": "array"
+              }
+            },
+            "required": [
+              "result"
+            ],
+            "type": "object",
+            "x-fastmcp-wrap-result": true
+          },
+          "_meta": {
+            "fastmcp": {
+              "tags": []
+            }
+          }
+        },
+        {
+          "name": "get_available_tools",
+          "description": "Get all available tools from the composer.",
+          "inputSchema": {
+            "additionalProperties": false,
+            "properties": {
+              "server_id": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null
+              }
+            },
+            "type": "object"
+          },
+          "outputSchema": {
+            "additionalProperties": {
+              "items": {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              "type": "array"
+            },
+            "type": "object"
+          },
+          "_meta": {
+            "fastmcp": {
+              "tags": []
+            }
+          }
+        },
+        {
+          "name": "get_all_prompts",
+          "description": "Get all registered prompts mapped to their textual form from composer and mounted servers.",
+          "inputSchema": {
+            "additionalProperties": false,
+            "properties": {},
+            "type": "object"
+          },
+          "outputSchema": {
+            "description": "Generic wrapper for non-object return types.",
+            "properties": {
+              "result": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            },
+            "required": [
+              "result"
+            ],
+            "type": "object",
+            "x-fastmcp-wrap-result": true
+          },
+          "_meta": {
+            "fastmcp": {
+              "tags": []
+            }
+          }
+        },
+        {
+          "name": "list_resources",
+          "description": "List all available resources from composer and mounted servers.",
+          "inputSchema": {
+            "additionalProperties": false,
+            "properties": {
+              "run_middleware": {
+                "default": true,
+                "type": "boolean"
+              }
+            },
+            "type": "object"
+          },
+          "outputSchema": {
+            "description": "Generic wrapper for non-object return types.",
+            "properties": {
+              "result": {
+                "items": {
+                  "additionalProperties": false,
+                  "description": "Base class for all resources.",
+                  "properties": {
+                    "name": {
+                      "default": "",
+                      "description": "Name of the resource",
+                      "type": "string"
+                    },
+                    "version": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ],
+                      "default": null,
+                      "description": "Optional version identifier for this component. Multiple versions of the same component (same name) can coexist."
+                    },
+                    "title": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ],
+                      "default": null,
+                      "description": "The title of the component for display purposes."
+                    },
+                    "description": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ],
+                      "default": null,
+                      "description": "The description of the component."
+                    },
+                    "icons": {
+                      "anyOf": [
+                        {
+                          "items": {
+                            "additionalProperties": true,
+                            "description": "An icon for display in user interfaces.",
+                            "properties": {
+                              "src": {
+                                "type": "string"
+                              },
+                              "mimeType": {
+                                "anyOf": [
+                                  {
+                                    "type": "string"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ],
+                                "default": null
+                              },
+                              "sizes": {
+                                "anyOf": [
+                                  {
+                                    "items": {
+                                      "type": "string"
+                                    },
+                                    "type": "array"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ],
+                                "default": null
+                              }
+                            },
+                            "required": [
+                              "src"
+                            ],
+                            "type": "object"
+                          },
+                          "type": "array"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ],
+                      "default": null,
+                      "description": "Optional list of icons for this component to display in user interfaces."
+                    },
+                    "tags": {
+                      "description": "Tags for the component.",
+                      "items": {
+                        "type": "string"
+                      },
+                      "type": "array",
+                      "uniqueItems": true
+                    },
+                    "meta": {
+                      "anyOf": [
+                        {
+                          "additionalProperties": true,
+                          "type": "object"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ],
+                      "default": null,
+                      "description": "Meta information about the component"
+                    },
+                    "task_config": {
+                      "description": "Background task execution configuration (SEP-1686).",
+                      "properties": {
+                        "mode": {
+                          "default": "optional",
+                          "enum": [
+                            "forbidden",
+                            "optional",
+                            "required"
+                          ],
+                          "type": "string"
+                        },
+                        "poll_interval": {
+                          "default": "PT5S",
+                          "format": "duration",
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    },
+                    "uri": {
+                      "description": "URI of the resource",
+                      "format": "uri",
+                      "minLength": 1,
+                      "type": "string"
+                    },
+                    "mime_type": {
+                      "default": "text/plain",
+                      "description": "MIME type of the resource content",
+                      "type": "string"
+                    },
+                    "annotations": {
+                      "anyOf": [
+                        {
+                          "additionalProperties": true,
+                          "properties": {
+                            "audience": {
+                              "anyOf": [
+                                {
+                                  "items": {
+                                    "enum": [
+                                      "user",
+                                      "assistant"
+                                    ],
+                                    "type": "string"
+                                  },
+                                  "type": "array"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ],
+                              "default": null
+                            },
+                            "priority": {
+                              "anyOf": [
+                                {
+                                  "maximum": 1,
+                                  "minimum": 0,
+                                  "type": "number"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ],
+                              "default": null
+                            }
+                          },
+                          "type": "object"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ],
+                      "default": null,
+                      "description": "Optional annotations about the resource's behavior"
+                    }
+                  },
+                  "required": [
+                    "uri"
+                  ],
+                  "type": "object"
+                },
+                "type": "array"
+              }
+            },
+            "required": [
+              "result"
+            ],
+            "type": "object",
+            "x-fastmcp-wrap-result": true
+          },
+          "_meta": {
+            "fastmcp": {
+              "tags": []
+            }
+          }
+        },
+        {
+          "name": "register_agent",
+          "description": "Register an A2A agent with the bridge server.\n\nArgs:\n    url: URL of the A2A agent\n\nReturns:\n    Dictionary with registration status",
+          "inputSchema": {
+            "additionalProperties": false,
+            "properties": {
+              "url": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "url"
+            ],
+            "type": "object"
+          },
+          "outputSchema": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "_meta": {
+            "fastmcp": {
+              "tags": []
+            }
+          }
+        },
+        {
+          "name": "list_agents",
+          "description": "List all registered A2A agents.\n\nReturns:\n    List of registered agents",
+          "inputSchema": {
+            "additionalProperties": false,
+            "properties": {},
+            "type": "object"
+          },
+          "outputSchema": {
+            "description": "Generic wrapper for non-object return types.",
+            "properties": {
+              "result": {
+                "items": {
+                  "additionalProperties": true,
+                  "type": "object"
+                },
+                "type": "array"
+              }
+            },
+            "required": [
+              "result"
+            ],
+            "type": "object",
+            "x-fastmcp-wrap-result": true
+          },
+          "_meta": {
+            "fastmcp": {
+              "tags": []
+            }
+          }
+        },
+        {
+          "name": "send_message",
+          "description": "Send a message to an A2A agent.\n\nArgs:\n    agent_url: URL of the A2A agent\n    message: Message to send\n\nReturns:\n    Agent's response with task_id for future reference",
+          "inputSchema": {
+            "additionalProperties": false,
+            "properties": {
+              "agent_url": {
+                "type": "string"
+              },
+              "message": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "agent_url",
+              "message"
+            ],
+            "type": "object"
+          },
+          "outputSchema": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "_meta": {
+            "fastmcp": {
+              "tags": []
+            }
+          }
+        },
+        {
+          "name": "get_task_result",
+          "description": "Retrieve the result of a task from an A2A agent.\n\nArgs:\n    task_id: ID of the task to retrieve\n\nReturns:\n    Task result minimal payload",
+          "inputSchema": {
+            "additionalProperties": false,
+            "properties": {
+              "task_id": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "task_id"
+            ],
+            "type": "object"
+          },
+          "outputSchema": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "_meta": {
+            "fastmcp": {
+              "tags": []
+            }
+          }
+        },
+        {
+          "name": "ibm_doc_search_direct",
+          "description": "Search IBM documentation via IBM docs search API and return full page content as markdown. A single call searches the IBM docs API, fetches up to max_results full pages, and returns their complete content. Do NOT call multiple times for the same topic. Use this tool to answer questions about IBM product documentation, how-to guides, configuration options, and feature explanations.",
+          "inputSchema": {
+            "additionalProperties": false,
+            "description": "Input schema for the IBM Doc Search tool.",
+            "properties": {
+              "query": {
+                "description": "Search query for IBM docs (e.g. 'kubernetes deployment', 'MQ configuration')",
+                "title": "Query",
+                "type": "string"
+              },
+              "max_results": {
+                "default": 3,
+                "description": "Maximum number of doc pages to return (1-5). Defaults to 3.",
+                "maximum": 5,
+                "minimum": 1,
+                "title": "Max Results",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "query"
+            ],
+            "title": "IBMDocSearchInput",
+            "type": "object"
+          },
+          "_meta": {
+            "fastmcp": {
+              "tags": []
+            }
+          }
+        },
+        {
+          "name": "mcp-guardium_get_service_info",
+          "description": "Describes Guardium API operations for database security monitoring, compliance auditing, threat detection, and security analytics. Args: service: Optional service name (operationId). If None, lists all services. Returns: List of operations or details about a specific operation.",
+          "inputSchema": {
+            "additionalProperties": false,
+            "properties": {
+              "service": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null
+              }
+            },
+            "type": "object"
+          },
+          "outputSchema": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "_meta": {
+            "fastmcp": {
+              "tags": []
+            }
+          }
+        },
+        {
+          "name": "mcp-guardium_get_type_info",
+          "description": "Show detailed parameter, request, and response schema information for Guardium OpenAPI services and operations. Args: service: The service name (operationId) Returns: List of operations or details about a specific operation.",
+          "inputSchema": {
+            "additionalProperties": false,
+            "properties": {
+              "service": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "service"
+            ],
+            "type": "object"
+          },
+          "outputSchema": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "_meta": {
+            "fastmcp": {
+              "tags": []
+            }
+          }
+        },
+        {
+          "name": "mcp-guardium_make_tool_call",
+          "description": "Execute an HTTP request against the underlying API for a chosen OpenAPI service.\n        Args:\n            service: The service name (operationId)\n            request: Request data with path_params, query_params, headers, body\n\n        Returns:\n            The response from the API call.",
+          "inputSchema": {
+            "additionalProperties": false,
+            "properties": {
+              "service": {
+                "type": "string"
+              },
+              "request": {
+                "anyOf": [
+                  {
+                    "additionalProperties": true,
+                    "type": "object"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null
+              }
+            },
+            "required": [
+              "service"
+            ],
+            "type": "object"
+          },
+          "outputSchema": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "_meta": {
+            "fastmcp": {
+              "tags": []
+            }
+          }
+        },
+        {
+          "name": "mcp-wx-data_get_service_info",
+          "description": "Describes and list available IBM Watsonx Data services( operations) for data lakehouse management, analytics, catalog operations, and data governance Args: service: Optional service name (operationId). If None, lists all services. Returns: List of operations or details about a specific operation.",
+          "inputSchema": {
+            "additionalProperties": false,
+            "properties": {
+              "service": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null
+              }
+            },
+            "type": "object"
+          },
+          "outputSchema": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "_meta": {
+            "fastmcp": {
+              "tags": []
+            }
+          }
+        },
+        {
+          "name": "mcp-wx-data_get_type_info",
+          "description": "Show detailed parameter, request, and response schema information for a chosen OpenAPI service.\n        Args:\n            service: The service name (operationId)\n\n        Returns:\n            List of operations or details about a specific operation.",
+          "inputSchema": {
+            "additionalProperties": false,
+            "properties": {
+              "service": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "service"
+            ],
+            "type": "object"
+          },
+          "outputSchema": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "_meta": {
+            "fastmcp": {
+              "tags": []
+            }
+          }
+        },
+        {
+          "name": "mcp-wx-data_make_tool_call",
+          "description": "Execute an HTTP request against the underlying API for a chosen OpenAPI service.\n        Args:\n            service: The service name (operationId)\n            request: Request data with path_params, query_params, headers, body\n\n        Returns:\n            The response from the API call.",
+          "inputSchema": {
+            "additionalProperties": false,
+            "properties": {
+              "service": {
+                "type": "string"
+              },
+              "request": {
+                "anyOf": [
+                  {
+                    "additionalProperties": true,
+                    "type": "object"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null
+              }
+            },
+            "required": [
+              "service"
+            ],
+            "type": "object"
+          },
+          "outputSchema": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "_meta": {
+            "fastmcp": {
+              "tags": []
+            }
+          }
+        },
+        {
+          "name": "mcp-data-stage_get_service_info",
+          "description": "List all the tools available for mcp-data-stage API operations. Args: service: Optional service name. If None, lists all services. Returns: List of operations or details about a specific operation.",
+          "inputSchema": {
+            "additionalProperties": false,
+            "properties": {},
+            "type": "object"
+          },
+          "outputSchema": {
+            "description": "Generic wrapper for non-object return types.",
+            "properties": {
+              "result": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "result"
+            ],
+            "type": "object",
+            "x-fastmcp-wrap-result": true
+          },
+          "_meta": {
+            "fastmcp": {
+              "tags": []
+            }
+          }
+        },
+        {
+          "name": "mcp-data-stage_get_type_info",
+          "description": "Show detailed parameter, request, and response schema information for mcp-data-stage services and operations. Args: service: The service name () Returns: List of operations or details about a specific operation.",
+          "inputSchema": {
+            "additionalProperties": false,
+            "properties": {
+              "tool_name": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "tool_name"
+            ],
+            "type": "object"
+          },
+          "outputSchema": {
+            "description": "Generic wrapper for non-object return types.",
+            "properties": {
+              "result": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "result"
+            ],
+            "type": "object",
+            "x-fastmcp-wrap-result": true
+          },
+          "_meta": {
+            "fastmcp": {
+              "tags": []
+            }
+          }
+        },
+        {
+          "name": "mcp-data-stage_make_tool_call",
+          "description": "Execute a tool call on the underlying MCP server with the provided arguments.",
+          "inputSchema": {
+            "additionalProperties": false,
+            "properties": {
+              "tool_name": {
+                "type": "string"
+              },
+              "arguments": {
+                "anyOf": [
+                  {
+                    "additionalProperties": true,
+                    "type": "object"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null
+              }
+            },
+            "required": [
+              "tool_name"
+            ],
+            "type": "object"
+          },
+          "outputSchema": {
+            "description": "Generic wrapper for non-object return types.",
+            "properties": {
+              "result": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "result"
+            ],
+            "type": "object",
+            "x-fastmcp-wrap-result": true
+          },
+          "_meta": {
+            "fastmcp": {
+              "tags": []
+            }
+          }
+        },
+        {
+          "name": "mcp-integration_get_service_info",
+          "description": "List all the tools available for data-integration API operations. Args: service: Optional service name. If None, lists all services. Returns: List of operations or details about a specific operation.",
+          "inputSchema": {
+            "additionalProperties": false,
+            "properties": {},
+            "type": "object"
+          },
+          "outputSchema": {
+            "description": "Generic wrapper for non-object return types.",
+            "properties": {
+              "result": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "result"
+            ],
+            "type": "object",
+            "x-fastmcp-wrap-result": true
+          },
+          "_meta": {
+            "fastmcp": {
+              "tags": []
+            }
+          }
+        },
+        {
+          "name": "mcp-integration_get_type_info",
+          "description": "Show detailed parameter, request, and response schema information for data-integration services and operations. Args: service: The service name. Returns: List of operations or details about a specific operation.",
+          "inputSchema": {
+            "additionalProperties": false,
+            "properties": {
+              "tool_name": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "tool_name"
+            ],
+            "type": "object"
+          },
+          "outputSchema": {
+            "description": "Generic wrapper for non-object return types.",
+            "properties": {
+              "result": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "result"
+            ],
+            "type": "object",
+            "x-fastmcp-wrap-result": true
+          },
+          "_meta": {
+            "fastmcp": {
+              "tags": []
+            }
+          }
+        },
+        {
+          "name": "mcp-integration_make_tool_call",
+          "description": "Execute a tool call on the underlying MCP server with the provided arguments.",
+          "inputSchema": {
+            "additionalProperties": false,
+            "properties": {
+              "tool_name": {
+                "type": "string"
+              },
+              "arguments": {
+                "anyOf": [
+                  {
+                    "additionalProperties": true,
+                    "type": "object"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null
+              }
+            },
+            "required": [
+              "tool_name"
+            ],
+            "type": "object"
+          },
+          "outputSchema": {
+            "description": "Generic wrapper for non-object return types.",
+            "properties": {
+              "result": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "result"
+            ],
+            "type": "object",
+            "x-fastmcp-wrap-result": true
+          },
+          "_meta": {
+            "fastmcp": {
+              "tags": []
+            }
+          }
+        },
+        {
+          "name": "mcp-dataplatform_get_service_info",
+          "description": "List all the tools available for mcp-dataplatform API operations. Args: service: Optional service name. If None, lists all services. Returns: List of operations or details about a specific operation.",
+          "inputSchema": {
+            "additionalProperties": false,
+            "properties": {},
+            "type": "object"
+          },
+          "outputSchema": {
+            "description": "Generic wrapper for non-object return types.",
+            "properties": {
+              "result": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "result"
+            ],
+            "type": "object",
+            "x-fastmcp-wrap-result": true
+          },
+          "_meta": {
+            "fastmcp": {
+              "tags": []
+            }
+          }
+        },
+        {
+          "name": "mcp-dataplatform_get_type_info",
+          "description": "Show detailed parameter, request, and response schema information for mcp-dataplatform services and operations. Args: service: The service name () Returns: List of operations or details about a specific operation.",
+          "inputSchema": {
+            "additionalProperties": false,
+            "properties": {
+              "tool_name": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "tool_name"
+            ],
+            "type": "object"
+          },
+          "outputSchema": {
+            "description": "Generic wrapper for non-object return types.",
+            "properties": {
+              "result": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "result"
+            ],
+            "type": "object",
+            "x-fastmcp-wrap-result": true
+          },
+          "_meta": {
+            "fastmcp": {
+              "tags": []
+            }
+          }
+        },
+        {
+          "name": "mcp-dataplatform_make_tool_call",
+          "description": "Execute a tool call on the underlying MCP server with the provided arguments.",
+          "inputSchema": {
+            "additionalProperties": false,
+            "properties": {
+              "tool_name": {
+                "type": "string"
+              },
+              "arguments": {
+                "anyOf": [
+                  {
+                    "additionalProperties": true,
+                    "type": "object"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null
+              }
+            },
+            "required": [
+              "tool_name"
+            ],
+            "type": "object"
+          },
+          "outputSchema": {
+            "description": "Generic wrapper for non-object return types.",
+            "properties": {
+              "result": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "result"
+            ],
+            "type": "object",
+            "x-fastmcp-wrap-result": true
+          },
+          "_meta": {
+            "fastmcp": {
+              "tags": []
+            }
+          }
+        },
+        {
+          "name": "mcp-data-intelligence-mcsp_get_service_info",
+          "description": "List all the tools available for mcp-data-intelligence-mcsp API operations. Args: service: Optional service name. If None, lists all services. Returns: List of operations or details about a specific operation.",
+          "inputSchema": {
+            "additionalProperties": false,
+            "properties": {},
+            "type": "object"
+          },
+          "outputSchema": {
+            "description": "Generic wrapper for non-object return types.",
+            "properties": {
+              "result": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "result"
+            ],
+            "type": "object",
+            "x-fastmcp-wrap-result": true
+          },
+          "_meta": {
+            "fastmcp": {
+              "tags": []
+            }
+          }
+        },
+        {
+          "name": "mcp-data-intelligence-mcsp_get_type_info",
+          "description": "Show detailed parameter, request, and response schema information for mcp-data-intelligence-mcsp services and operations. Args: service: The service name () Returns: List of operations or details about a specific operation.",
+          "inputSchema": {
+            "additionalProperties": false,
+            "properties": {
+              "tool_name": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "tool_name"
+            ],
+            "type": "object"
+          },
+          "outputSchema": {
+            "description": "Generic wrapper for non-object return types.",
+            "properties": {
+              "result": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "result"
+            ],
+            "type": "object",
+            "x-fastmcp-wrap-result": true
+          },
+          "_meta": {
+            "fastmcp": {
+              "tags": []
+            }
+          }
+        },
+        {
+          "name": "mcp-data-intelligence-mcsp_make_tool_call",
+          "description": "Execute a tool call on the underlying MCP server with the provided arguments.",
+          "inputSchema": {
+            "additionalProperties": false,
+            "properties": {
+              "tool_name": {
+                "type": "string"
+              },
+              "arguments": {
+                "anyOf": [
+                  {
+                    "additionalProperties": true,
+                    "type": "object"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null
+              }
+            },
+            "required": [
+              "tool_name"
+            ],
+            "type": "object"
+          },
+          "outputSchema": {
+            "description": "Generic wrapper for non-object return types.",
+            "properties": {
+              "result": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "result"
+            ],
+            "type": "object",
+            "x-fastmcp-wrap-result": true
+          },
+          "_meta": {
+            "fastmcp": {
+              "tags": []
+            }
+          }
+        }
+      ]
+    }
+  }

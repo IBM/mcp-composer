@@ -28,10 +28,7 @@ from mcp_composer.middleware import (
     TracingMiddleware,
     SecretsAndPIIMiddleware,
 )
-from mcp_composer.middleware.auth_context_middleware import (
-    AuthContextMiddleware,
-    REQUEST_CONTEXT_KEY,
-)
+from mcp_composer.middleware.auth_context_middleware import REQUEST_CONTEXT_KEY
 from mcp_composer.middleware.auth_utils import tool_name_to_server_id
 from mcp_composer.middleware.error_sanitization_middleware import (
     ErrorSanitizationMiddleware,
@@ -106,22 +103,14 @@ def setup_middleware(composer: MCPComposer) -> None:
         ToolAuthenticationMiddleware(
             validator=isv_validator,
             is_iam_enabled_for_tool=is_iam_enabled_for_tool,
-        )
-    )
-    logger.info("✓ Added ToolAuthenticationMiddleware (IAM gate from solis_config)")
-
-    composer.add_middleware(
-        AuthContextMiddleware(
             forward_cookies=FORWARD_COOKIES,
-            add_isv_token=True,
-            add_cookie_header=True,
             use_cookie_as_auth=True,
             auth_cookie_name=auth_cookie_name,
-            enabled_tool_patterns=None,
-            is_iam_enabled_for_tool=is_iam_enabled_for_tool,
         )
     )
-    logger.info("✓ Added AuthContextMiddleware (IAM gate from solis_config only)")
+    logger.info(
+        "✓ Added ToolAuthenticationMiddleware (single-pass auth + context, IAM gated)"
+    )
 
     if environment != "prod":
         tracing_log_level = (

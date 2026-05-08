@@ -240,6 +240,7 @@ class TestListFilteredTool:
         """ISV + cookie present — user_instances come from _authenticate_and_get_instances."""
         mock_isv = Mock()
         mock_isv.config.cookie_name = "session-cookie"
+        mock_isv.cache = None  # No cache, so it will call _authenticate_and_get_instances
 
         mock_gw = Mock()
         mock_gw._tool_manager = Mock()
@@ -250,6 +251,8 @@ class TestListFilteredTool:
 
         req = Mock()
         req.headers = {"cookie": "session-cookie=abc123"}
+        req.state = Mock()
+        req.state.user = None  # No pre-authenticated user
 
         monkeypatch.setattr(
             "mcp_composer.middleware.tool.tool_filter.ctx_get",
@@ -261,6 +264,13 @@ class TestListFilteredTool:
             middleware,
             "_authenticate_and_get_instances",
             AsyncMock(return_value=instances),
+        )
+        
+        # Mock _check_authentication_cookie to return True
+        monkeypatch.setattr(
+            middleware,
+            "_check_authentication_cookie",
+            Mock(return_value=True),
         )
 
         tool_mock = Mock()

@@ -1,5 +1,6 @@
 """Tools filter middleware"""
 
+import logging
 import os
 from typing import TYPE_CHECKING, Any
 from fastmcp.server.middleware import CallNext, Middleware, MiddlewareContext
@@ -54,10 +55,68 @@ class ListFilteredTool(Middleware):
 
             user_instances: list[dict[str, Any]] = []
 
+            # PHASE 1.4: Context-based early exit
+            # Check if user is already authenticated and has user_instances in request.state
+            if request and hasattr(request, "state") and hasattr(request.state, "user"):
+                user = request.state.user
+                # Check if user has user_instances from previous authentication
+                if hasattr(user, "token_data") and isinstance(user.token_data, dict):
+                    cached_user_instances = (
+                        user.token_data.get("user_instances")
+                        or user.token_data.get("userInstances")
+                    )
+                    if cached_user_instances:
+                        user_instances = cached_user_instances if isinstance(cached_user_instances, list) else [cached_user_instances]
+                        logger.debug(
+                            "Using user_instances from authenticated request.state.user (context early exit)"
+                        )
+                        # Skip all authentication - user already validated
+                        if logger.isEnabledFor(logging.INFO):
+                            logger.info(
+                                "list_tools filter: user already authenticated, %d instances",
+                                len(user_instances),
+                            )
+                        
+                        # Skip to filtering
+                        filtered_tools = self.gw._tool_manager.filter_tools(
+                            tools, user_instances=user_instances
+                        )
+                        
+                        if logger.isEnabledFor(logging.INFO):
+                            logger.info(
+                                "Filtered to %d tools (%d removed)",
+                                len(filtered_tools),
+                                len(tools) - len(filtered_tools),
+                            )
+                        
+                        return filtered_tools
+
+            # PHASE 1.2: Early-exit caching optimization
+            # Check cache BEFORE calling validate_request to avoid expensive API calls
             if self.isv_validator and request:
                 cookie_name = self.isv_validator.config.cookie_name
                 if self._check_authentication_cookie(request, cookie_name):
-                    user_instances = await self._authenticate_and_get_instances(request)
+                    # Try to get cached instances first (early exit)
+                    session_id = None
+                    if self.isv_validator.cache:
+                        cookie_header = request.headers.get("cookie", "")
+                        if cookie_header:
+                            session_id = self.isv_validator.extract_session_cookie(cookie_header)
+                        
+                        if session_id:
+                            cached_instances = self.isv_validator.cache.get_instances(session_id)
+                            if cached_instances is not None:
+                                user_instances = cached_instances
+                                logger.debug("Using cached instances for tool filtering (early exit)")
+                            else:
+                                # Cache miss - do full validation
+                                user_instances = await self._authenticate_and_get_instances(request)
+                        else:
+                            # No session ID - do full validation
+                            user_instances = await self._authenticate_and_get_instances(request)
+                    else:
+                        # No cache - do full validation
+                        user_instances = await self._authenticate_and_get_instances(request)
                 else:
                     logger.info(
                         "Non-local, ISV enabled, missing session %r — user_instances empty",
@@ -68,46 +127,39 @@ class ListFilteredTool(Middleware):
                     "Non-local, ISV enabled, no HTTP request in context — user_instances empty"
                 )
 
-            logger.info(
-                "list_tools filter: MCP_COMPOSER_ENV=%r, user_instances=%d",
-                env,
-                len(user_instances),
-            )
-            if user_instances:
-                logger.debug(
-                    "User has access to products: %s",
-                    list(
-                        set(
-                            inst.get("subscription", {}).get("productId")
-                            for inst in user_instances
-                            if inst.get("subscription")
-                        )
-                    ),
+            # PHASE 1.3: Reduce logging overhead
+            # Move expensive operations inside debug check
+            if logger.isEnabledFor(logging.INFO):
+                logger.info(
+                    "list_tools filter: MCP_COMPOSER_ENV=%r, user_instances=%d",
+                    env,
+                    len(user_instances),
                 )
+            
+            # Only compute product IDs if debug logging is enabled
+            if logger.isEnabledFor(logging.DEBUG) and user_instances:
+                product_ids = {
+                    inst.get("subscription", {}).get("productId")
+                    for inst in user_instances
+                    if inst.get("subscription")
+                }
+                logger.debug("User has access to products: %s", product_ids)
 
-            tool_names = (
-                list(tools.keys())
-                if isinstance(tools, dict)
-                else [tool.name for tool in tools]
-            )
-            logger.info("all the tools without any filter: %s\n", tool_names)
+            # Only extract tool names if info logging is enabled
+            if logger.isEnabledFor(logging.INFO):
+                tool_count = len(tools)
+                logger.info("Filtering %d tools for user", tool_count)
+            
             filtered_tools = self.gw._tool_manager.filter_tools(
                 tools, user_instances=user_instances
             )
-            tool_names_after = (
-                list(tools.keys())
-                if isinstance(tools, dict)
-                else [tool.name for tool in tools]
-            )
-            logger.info(
-                "all the tools without any filter but after filtered_tools: %s\n",
-                tool_names_after,
-            )
-            logger.info(
-                "Filtered tools: %d total, %d after filtering",
-                len(tools),
-                len(filtered_tools),
-            )
+            
+            if logger.isEnabledFor(logging.INFO):
+                logger.info(
+                    "Filtered to %d tools (%d removed)",
+                    len(filtered_tools),
+                    len(tools) - len(filtered_tools),
+                )
 
             return filtered_tools
         except ToolFilterError as e:

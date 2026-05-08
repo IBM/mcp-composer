@@ -58,6 +58,9 @@ class ToolAuthenticationMiddleware(Middleware):
         validator: "ISVTokenValidator",
         exempt_tools: list[str] | None = None,
         is_iam_enabled_for_tool: Callable[[str], bool] | None = None,
+        forward_cookies: list[str] | None = None,
+        use_cookie_as_auth: bool = False,
+        auth_cookie_name: str = "mcsp-glb-iam-test",
         **kwargs,
     ):
         """
@@ -76,6 +79,9 @@ class ToolAuthenticationMiddleware(Middleware):
         self.validator = validator
         self.exempt_tools = set(exempt_tools or [])
         self.is_iam_enabled_for_tool = is_iam_enabled_for_tool
+        self.forward_cookies = forward_cookies if forward_cookies is not None else []
+        self.use_cookie_as_auth = use_cookie_as_auth
+        self.auth_cookie_name = auth_cookie_name
 
         logger.info("=" * 70)
         logger.info("ToolAuthenticationMiddleware Initialized")
@@ -86,6 +92,12 @@ class ToolAuthenticationMiddleware(Middleware):
             logger.info(
                 "IAM gate: enabled (auth only for tools whose server has solis_config.isIamEnabled)"
             )
+        logger.info(
+            "Auth context options: forward_cookies=%s, use_cookie_as_auth=%s, auth_cookie_name=%s",
+            self.forward_cookies or "none",
+            self.use_cookie_as_auth,
+            self.auth_cookie_name,
+        )
         if self.exempt_tools:
             logger.info("Exempt tools: %s", ", ".join(self.exempt_tools))
         else:
@@ -176,8 +188,23 @@ class ToolAuthenticationMiddleware(Middleware):
                         cookie = cookie.strip()
                         if "=" in cookie:
                             name, value = cookie.split("=", 1)
-                            cookies[name.strip()] = value.strip()
+                            cookie_name = name.strip()
+                            cookie_value = value.strip()
+                            if not self.forward_cookies or any(
+                                allowed in cookie_name for allowed in self.forward_cookies
+                            ):
+                                cookies[cookie_name] = cookie_value
+
+                    for cookie_name in self.forward_cookies:
+                        if header_value := request_headers.get(cookie_name, ""):
+                            cookies[cookie_name] = header_value
+
                     auth_context[AUTH_KEY_COOKIES] = cookies
+
+        if self.use_cookie_as_auth and self.auth_cookie_name in auth_context[AUTH_KEY_COOKIES]:
+            auth_context[AUTH_KEY_AUTH_TOKEN] = auth_context[AUTH_KEY_COOKIES][
+                self.auth_cookie_name
+            ]
 
         return auth_context
 
