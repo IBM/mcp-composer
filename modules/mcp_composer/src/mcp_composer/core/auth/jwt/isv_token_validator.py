@@ -13,6 +13,7 @@ Environment-based configuration:
 
 import os
 import time
+import json
 import httpx
 from typing import Any
 from starlette.middleware import Middleware
@@ -487,6 +488,81 @@ class ISVTokenValidator:
 
         return session_id
 
+    def _extract_org_from_isv_token(self, access_token: str) -> str | None:
+        """
+        Extract organization from ISV token's platform_attributes.
+
+        The ISV token contains a 'platform_attributes' claim with JSON string containing:
+        - product_id: Product identifier (e.g., "aspera")
+        - product_origin_url: Product URL (e.g., "https://aspera.ibmaspera.com")
+        - Other platform metadata
+
+        This method extracts the subdomain from product_origin_url to use as the org parameter.
+
+        Args:
+            access_token: ISV JWT access token
+
+        Returns:
+            Organization name (subdomain) or None if extraction fails
+
+        Example:
+            >>> token = "eyJhbGc..."  # JWT with platform_attributes
+            >>> validator._extract_org_from_isv_token(token)
+            'aspera'
+        """
+        try:
+            from mcp_composer.core.auth.jwt.jwt_utils import (
+                decode_jwt_without_verification,
+            )
+            from urllib.parse import urlparse
+
+            # Decode JWT without signature verification (we just need to read claims)
+            claims = decode_jwt_without_verification(access_token)
+            if not claims:
+                logger.debug("Failed to decode ISV token for org extraction")
+                return None
+
+            # Get platform_attributes (it's a JSON string)
+            platform_attrs_str = claims.get("platform_attributes")
+            if not platform_attrs_str:
+                logger.debug("No platform_attributes found in ISV token")
+                return None
+
+            # Parse the JSON string
+            platform_attrs = json.loads(platform_attrs_str)
+            logger.debug("Parsed platform_attributes: %s", platform_attrs)
+
+            # Extract product_origin_url
+            origin_url = platform_attrs.get("product_origin_url")
+            if not origin_url:
+                logger.debug("No product_origin_url in platform_attributes")
+                return None
+
+            # Parse URL and extract subdomain (org)
+            parsed = urlparse(origin_url)
+            hostname = parsed.hostname or ""
+
+            # Extract first part before first dot (e.g., "aspera" from "aspera.ibmaspera.com")
+            org = hostname.split(".")[0] if hostname else None
+
+            if org:
+                logger.info(
+                    "Extracted org '%s' from ISV token platform_attributes (origin: %s)",
+                    org,
+                    origin_url,
+                )
+            else:
+                logger.warning("Could not extract org from hostname: %s", hostname)
+
+            return org
+
+        except json.JSONDecodeError as e:
+            logger.warning("Failed to parse platform_attributes JSON: %s", e)
+            return None
+        except Exception as e:
+            logger.warning("Failed to extract org from ISV token: %s", e)
+            return None
+
     async def exchange_cookie_for_token(self, session_id: str) -> dict[str, Any]:
         """
         Exchange platform session cookie for ISV token.
@@ -546,6 +622,14 @@ class ISVTokenValidator:
                         response_data.get("token_type", "Bearer"),
                         response_data.get("expires_in", 0),
                     )
+
+                    # Extract org from ISV token and add to response
+                    access_token = response_data.get("access_token", "")
+                    if access_token:
+                        org = self._extract_org_from_isv_token(access_token)
+                        if org:
+                            response_data["org"] = org
+
                     return response_data
 
                 # Handle error responses

@@ -29,6 +29,7 @@ AUTH_KEY_USER_INSTANCES_FULL = (
     "user_instances_full"  # Full instance data for authorization
 )
 AUTH_KEY_AUTH_TOKEN = "auth_token"  # Cookie value to use as Authorization header
+AUTH_KEY_ORG = "org"  # Organization extracted from ISV token
 
 # HTTP header names for auth forwarding
 AUTH_HEADER_ISV_TOKEN = "X-ISV-Token"
@@ -111,15 +112,38 @@ class AuthContextMiddleware(Middleware):
         return getattr(request_context, "request", None) if request_context else None
 
     def _extract_from_user(self, request: Any, auth_context: dict[str, Any]) -> None:
-        """Extract ISV token and identity from request.state.user."""
+        """Extract ISV token, org, and identity from request.state.user."""
         request_state = getattr(request, "state", None)
         if request_state is None or not hasattr(request_state, "user"):
             return
         user = request_state.user
-        if hasattr(user, "access_token") and user.access_token:
+
+        # Try to extract ISV token from token_data first (raw JWT string)
+        isv_token_extracted = False
+        if hasattr(user, "token_data") and isinstance(user.token_data, dict):
+            access_token = user.token_data.get("access_token")
+            if access_token:
+                auth_context[AUTH_KEY_ISV_TOKEN] = access_token
+                auth_context[AUTH_KEY_AUTHENTICATED] = True
+                logger.debug("Extracted ISV token from user token_data")
+                isv_token_extracted = True
+
+            # Extract org from token_data if available
+            org = user.token_data.get("org")
+            if org:
+                auth_context[AUTH_KEY_ORG] = org
+                logger.debug("Extracted org '%s' from user token_data", org)
+
+        # Fallback: try old method for backward compatibility
+        if (
+            not isv_token_extracted
+            and hasattr(user, "access_token")
+            and user.access_token
+        ):
             auth_context[AUTH_KEY_ISV_TOKEN] = user.access_token
             auth_context[AUTH_KEY_AUTHENTICATED] = True
-            logger.debug("Extracted ISV token from authenticated user")
+            logger.debug("Extracted ISV token from authenticated user (legacy method)")
+
         if hasattr(user, "identity"):
             auth_context[AUTH_KEY_USER_IDENTITY] = user.identity
 
@@ -395,6 +419,19 @@ class AuthContextMiddleware(Middleware):
             # Preserve authenticated status if it was True
             if existing_context.get(AUTH_KEY_AUTHENTICATED):
                 auth_context[AUTH_KEY_AUTHENTICATED] = True
+
+            # Preserve ISV token from existing context if present (set by ToolAuthenticationMiddleware)
+            if existing_context.get(AUTH_KEY_ISV_TOKEN):
+                auth_context[AUTH_KEY_ISV_TOKEN] = existing_context[AUTH_KEY_ISV_TOKEN]
+                logger.debug("Preserved ISV token from existing auth context")
+
+            # Preserve org from existing context if present (set by ToolAuthenticationMiddleware)
+            if existing_context.get(AUTH_KEY_ORG):
+                auth_context[AUTH_KEY_ORG] = existing_context[AUTH_KEY_ORG]
+                logger.debug(
+                    "Preserved org '%s' from existing auth context",
+                    existing_context[AUTH_KEY_ORG],
+                )
 
         # Set the merged auth context
         auth_context_var.set(auth_context)

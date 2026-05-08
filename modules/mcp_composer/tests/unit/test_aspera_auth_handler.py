@@ -8,7 +8,10 @@ import pytest
 
 from mcp_composer.core.auth_handler.aspera_auth_handler import AsperaJWTClient
 from mcp_composer.core.utils import ConfigKey
-from mcp_composer.middleware.auth_context_middleware import AUTH_KEY_AUTH_TOKEN
+from mcp_composer.middleware.auth_context_middleware import (
+    AUTH_KEY_AUTH_TOKEN,
+    AUTH_KEY_ISV_TOKEN,
+)
 
 # pylint: disable=protected-access,too-many-public-methods
 
@@ -953,4 +956,66 @@ MIIEpAIBAAKCAQEA1234567890abcdefghijklmnopqrstuvwxyz
             assert headers["Content-Type"] == "application/json"
 
             # Verify token was set
-            assert client._access_token == "platform-session-token"
+
+    @pytest.mark.asyncio
+    @patch("mcp_composer.core.auth_handler.aspera_auth_handler.get_auth_context")
+    async def test_refresh_token_platform_session_with_isv_token_org_extraction(
+        self, mock_get_auth_context, auth_data
+    ):
+        """Test that org is extracted from ISV token and used to build dynamic token URL"""
+        import jwt
+        import json
+
+        # Create a mock ISV JWT token with platform_attributes
+        isv_token_payload = {
+            "sub": "user@example.com",
+            "platform_attributes": json.dumps(
+                {
+                    "platform_builtin_role": "ServiceUser",
+                    "product_id": "aspera",
+                    "product_origin_url": "https://testeng.qa.ibmaspera.com",
+                    "product_roles": ["user"],
+                }
+            ),
+        }
+
+        # Create unsigned JWT token (for testing)
+        isv_token = jwt.encode(isv_token_payload, "secret", algorithm="HS256")
+
+        # Mock auth context to return both session_id and ISV token
+        mock_get_auth_context.return_value = {
+            AUTH_KEY_AUTH_TOKEN: "test-session-id",
+            AUTH_KEY_ISV_TOKEN: isv_token,
+        }
+
+        client = AsperaJWTClient(
+            base_url="https://api.qa.ibmaspera.com", auth_data=auth_data
+        )
+
+        mock_response = Mock()
+        mock_response.json.return_value = {
+            "access_token": "test-token",
+            "expires_in": 3600,
+        }
+        mock_response.status_code = 200
+        mock_response.raise_for_status.return_value = None
+
+        with patch("httpx.AsyncClient.post", return_value=mock_response) as mock_post:
+            await client._refresh_token()
+
+            # Verify the URL was constructed with dynamic org extracted from ISV token
+            call_args = mock_post.call_args
+            assert call_args is not None
+
+            # The URL should have org inserted: /oauth2/token -> /oauth2/testeng/token
+            # where org is "testeng" extracted from "https://testeng.qa.ibmaspera.com"
+            called_url = str(call_args[0][0])  # First positional argument is the URL
+            assert "/oauth2/testeng/token" in called_url
+            assert called_url == "https://api.example.com/oauth2/testeng/token"
+
+            # Verify ibm-platform authorization header uses session_id
+            headers = call_args.kwargs.get("headers")
+            assert headers["Authorization"] == "ibm-platform test-session-id"
+
+            # Verify token was set
+            assert client._access_token == "test-token"
