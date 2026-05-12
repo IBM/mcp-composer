@@ -36,7 +36,6 @@ from mcp_composer.middleware.error_sanitization_middleware import (
 from mcp_composer.middleware.tool.tool_filter import ListFilteredTool
 from mcp_composer.middleware.tool_auth_middleware import ToolAuthenticationMiddleware
 
-
 # -----------------------------------------------------------------------------
 # Configuration (from env)
 # -----------------------------------------------------------------------------
@@ -94,6 +93,15 @@ def setup_middleware(composer: MCPComposer) -> None:
     server_manager = composer._server_manager
 
     def is_iam_enabled_for_tool(tool_name: str) -> bool:
+        # A2A runtime tools need auth context (composer-owned tools without server prefix)
+        if tool_name in [
+            "send_message",
+            "get_task_result",
+            "cancel_task",
+            "register_agent",
+            "unregister_agent",
+        ]:
+            return True
         server_id = tool_name_to_server_id(tool_name)
         return (
             server_manager.is_iam_enabled_for_server(server_id) if server_id else False

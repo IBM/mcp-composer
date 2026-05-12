@@ -10,8 +10,10 @@ import time
 import uuid
 from typing import Any, cast, TYPE_CHECKING
 import json
+from functools import wraps
 from fastmcp import Context
 import httpx
+from starlette.exceptions import HTTPException
 
 # Lazy import for optional AI dependencies
 ai_available = True
@@ -62,6 +64,7 @@ except ImportError:
     a2a_available = False
 from mcp_composer.core.utils.logger import LoggerFactory
 from mcp_composer.core.utils.utils import load_from_json, save_to_json
+from mcp_composer.middleware.auth_context_middleware import get_auth_context
 
 logger = LoggerFactory.get_logger()
 
@@ -89,7 +92,7 @@ EMBEDDING_ALLOW_FALLBACK = (
 
 # Initialize in-memory dictionaries with stored data
 
-registered_agents = {}
+registered_agents: dict[Any, Any] = {}
 # task_id -> str (legacy) | {"agent_url", ...} (rich mapping for multi-turn)
 task_agent_mapping: dict[str, Any] = {}
 
@@ -113,6 +116,50 @@ _embedding_adapter = None
 # Cache for agent card embeddings
 _embeddings_cache: Any = None
 _embeddings_cache_timestamp: float | None = None
+
+
+def _unauthorized_a2a_response(reason: str) -> dict[str, Any]:
+    """Standard unauthorized payload for A2A runtime tools."""
+    return {
+        "status": "error",
+        "error": "Unauthorized",
+        "message": reason,
+    }
+
+
+def _require_authenticated_context_for_a2a_runtime() -> dict[str, Any] | None:
+    """
+    Require middleware-provided authenticated context for A2A runtime tools.
+
+    We consume auth context prepared by auth middlewares and fail closed when:
+    - auth context is absent
+    - authenticated flag is not true
+    - neither ISV token nor auth cookie token is present
+
+    Security: Cookies must be exchanged for valid ISV tokens before use.
+    The ToolAuthenticationMiddleware validates cookies and sets authenticated=True
+    only after successful ISV token exchange.
+    """
+    auth_context = get_auth_context()
+    if not auth_context:
+        return _unauthorized_a2a_response(
+            "Authentication context is required for A2A runtime tools"
+        )
+
+    # Require authenticated flag - set only after ISV token validation
+    if not auth_context.get("authenticated"):
+        return _unauthorized_a2a_response(
+            "Authenticated context is required for A2A runtime tools"
+        )
+
+    # Require ISV token to be present
+    token_present = bool(auth_context.get("isv_token"))
+    if not token_present:
+        return _unauthorized_a2a_response(
+            "Authenticated token is required for A2A runtime tools"
+        )
+
+    return None
 
 
 def _create_client_factory(httpx_client) -> Any:
@@ -185,179 +232,6 @@ def _sanitize_agent_card_data(raw: dict[str, Any], fallback_url: str) -> Any:
     )
 
 
-async def fetch_agent_card(url: str) -> Any:
-    """
-    Fetch the agent card from the agent's URL.
-    First try the main URL, then the well-known location.
-    """
-    async with httpx.AsyncClient() as client:
-        # First try the main endpoint
-        try:
-            response = await client.get(url)
-            if response.status_code == 200:
-                try:
-                    data = response.json()
-                    if isinstance(data, dict) and "name" in data and "url" in data:
-                        try:
-                            return AgentCard(**data)
-                        except Exception:
-                            return _sanitize_agent_card_data(data, url)
-                except json.JSONDecodeError:
-                    pass  # Not a valid JSON response, try the well-known URL
-        except Exception:
-            pass  # Connection error, try the well-known URL
-
-        # Try the well-known location
-        well_known_url = f"{url.rstrip('/')}/.well-known/agent.json"
-        try:
-            response = await client.get(well_known_url)
-            if response.status_code == 200:
-                try:
-                    data = response.json()
-                    try:
-                        return AgentCard(**data)
-                    except Exception:
-                        return _sanitize_agent_card_data(data, well_known_url)
-                except json.JSONDecodeError as e:
-                    raise ValueError(
-                        f"Invalid JSON in agent card from {well_known_url}"
-                    ) from e
-        except httpx.RequestError as e:
-            raise ValueError(
-                f"Failed to fetch agent card from {well_known_url}: {str(e)}"
-            ) from e
-
-    # If we can't get the agent card, create a minimal one with default values
-    return AgentCard(
-        name="Unknown Agent",
-        description="Unknown agent",
-        url=url,
-        version="0.1.0",
-        capabilities=AgentCapabilities(streaming=False),
-        default_input_modes=["text"],
-        default_output_modes=["text"],
-        skills=[
-            AgentSkill(
-                id="unknown",
-                name="Unknown Skill",
-                description="Unknown agent capabilities",
-                tags=[],
-                input_modes=["text"],
-                output_modes=["text"],
-            )
-        ],
-    )
-
-
-async def register_agent(url: str, ctx: Context) -> dict[str, Any]:
-    """
-    Register an A2A agent with the bridge server.
-
-    Args:
-        url: URL of the A2A agent
-
-    Returns:
-        Dictionary with registration status
-    """
-    try:
-        # Fetch the agent card directly
-        agent_card = await fetch_agent_card(url)
-
-        # Store the agent information
-        if not agent_card.description:
-            agent_card.description = "No description provided"
-        registered_agents[url] = agent_card
-
-        # Save to disk immediately
-        agents_data = {
-            url: agent.model_dump() for url, agent in registered_agents.items()
-        }
-        save_to_json(agents_data, REGISTERED_AGENTS_FILE)
-
-        # Invalidate embeddings cache since we added a new agent
-        invalidate_embeddings_cache()
-
-        await ctx.info(f"Successfully registered agent: {agent_card.name}")
-        return {
-            "status": "success",
-            "agent": agent_card.model_dump(),
-        }
-    except Exception as e:
-        return {
-            "status": "error",
-            "message": f"Failed to register agent: {str(e)}",
-        }
-
-
-async def list_agents() -> list[dict[str, Any]]:
-    """
-    List all registered A2A agents.
-
-    Returns:
-        List of registered agents
-    """
-    return [agent.model_dump() for agent in registered_agents.values()]
-
-
-async def unregister_agent(url: str, ctx: Context | None = None) -> dict[str, Any]:
-    """
-    Unregister an A2A agent from the bridge server.
-
-    Args:
-        url: URL of the A2A agent to unregister
-
-    Returns:
-        Dictionary with un registration status
-    """
-    if url not in registered_agents:
-        return {
-            "status": "error",
-            "message": f"Agent not registered: {url}",
-        }
-
-    try:
-        # Get agent name before removing it
-        agent_name = registered_agents[url].name
-
-        # Remove from registered agents
-        del registered_agents[url]
-
-        # Clean up any task mappings related to this agent
-        # Create a list of task_ids to remove to avoid modifying the dictionary during iteration
-        tasks_to_remove = []
-        for task_id, entry in task_agent_mapping.items():
-            if _task_entry_agent_url(entry) == url:
-                tasks_to_remove.append(task_id)
-
-        # Now remove the task mappings
-        for task_id in tasks_to_remove:
-            del task_agent_mapping[task_id]
-
-        # Save changes to disk immediately
-        agents_data = {
-            url: agent.model_dump() for url, agent in registered_agents.items()
-        }
-        save_to_json(agents_data, REGISTERED_AGENTS_FILE)
-        save_to_json(task_agent_mapping, TASK_AGENT_MAPPING_FILE)
-
-        # Invalidate embeddings cache since we removed an agent
-        invalidate_embeddings_cache()
-
-        if ctx:
-            await ctx.info(f"Successfully unregistered agent: {agent_name}")
-
-        return {
-            "status": "success",
-            "message": f"Successfully unregistered agent: {agent_name}",
-            "removed_tasks": len(tasks_to_remove),
-        }
-    except Exception as e:
-        return {
-            "status": "error",
-            "message": f"Error unregistering agent: {str(e)}",
-        }
-
-
 def _build_message_metadata(
     session_id: str | None,
     parent_message_id: str | None,
@@ -425,6 +299,209 @@ def _persist_task_context(
     save_to_json(task_agent_mapping, TASK_AGENT_MAPPING_FILE)
 
 
+def require_a2a_auth(func):
+    """
+    Decorator to enforce authentication for A2A runtime tools.
+
+    This decorator checks authentication context before executing the tool function.
+    If authentication fails, it returns an error response instead of executing the tool.
+
+    Usage:
+        @require_a2a_auth
+        async def my_runtime_tool(...) -> dict[str, Any]:
+            ...
+    """
+
+    @wraps(func)
+    async def wrapper(*args, **kwargs) -> dict[str, Any]:
+        try:
+            auth_error = _require_authenticated_context_for_a2a_runtime()
+            if auth_error:
+                return auth_error
+            return await func(*args, **kwargs)
+        except HTTPException as e:
+            # Convert HTTPException from middleware to our standard error format
+            return _unauthorized_a2a_response(f"Authentication failed: {e.detail}")
+
+    return wrapper
+
+
+async def fetch_agent_card(url: str) -> Any:
+    """
+    Fetch the agent card from the agent's URL.
+    First try the main URL, then the well-known location.
+    """
+    async with httpx.AsyncClient() as client:
+        # First try the main endpoint
+        try:
+            response = await client.get(url)
+            if response.status_code == 200:
+                try:
+                    data = response.json()
+                    if isinstance(data, dict) and "name" in data and "url" in data:
+                        try:
+                            return AgentCard(**data)
+                        except Exception:
+                            return _sanitize_agent_card_data(data, url)
+                except json.JSONDecodeError:
+                    pass  # Not a valid JSON response, try the well-known URL
+        except Exception:
+            pass  # Connection error, try the well-known URL
+
+        # Try the well-known location
+        well_known_url = f"{url.rstrip('/')}/.well-known/agent.json"
+        try:
+            response = await client.get(well_known_url)
+            if response.status_code == 200:
+                try:
+                    data = response.json()
+                    try:
+                        return AgentCard(**data)
+                    except Exception:
+                        return _sanitize_agent_card_data(data, well_known_url)
+                except json.JSONDecodeError as e:
+                    raise ValueError(
+                        f"Invalid JSON in agent card from {well_known_url}"
+                    ) from e
+        except httpx.RequestError as e:
+            raise ValueError(
+                f"Failed to fetch agent card from {well_known_url}: {str(e)}"
+            ) from e
+
+    # If we can't get the agent card, create a minimal one with default values
+    return AgentCard(
+        name="Unknown Agent",
+        description="Unknown agent",
+        url=url,
+        version="0.1.0",
+        capabilities=AgentCapabilities(streaming=False),
+        default_input_modes=["text"],
+        default_output_modes=["text"],
+        skills=[
+            AgentSkill(
+                id="unknown",
+                name="Unknown Skill",
+                description="Unknown agent capabilities",
+                tags=[],
+                input_modes=["text"],
+                output_modes=["text"],
+            )
+        ],
+    )
+
+
+async def list_agents() -> list[dict[str, Any]]:
+    """
+    List all registered A2A agents.
+
+    Returns:
+        List of registered agents
+    """
+    return [agent.model_dump() for agent in registered_agents.values()]
+
+
+@require_a2a_auth
+async def register_agent(url: str, ctx: Context) -> dict[str, Any]:
+    """
+    Register an A2A agent with the bridge server.
+
+    Args:
+        url: URL of the A2A agent
+
+    Returns:
+        Dictionary with registration status
+    """
+    try:
+        # Fetch the agent card directly
+        agent_card = await fetch_agent_card(url)
+
+        # Store the agent information
+        if not agent_card.description:
+            agent_card.description = "No description provided"
+        registered_agents[url] = agent_card
+
+        # Save to disk immediately
+        agents_data = {
+            url: agent.model_dump() for url, agent in registered_agents.items()
+        }
+        save_to_json(agents_data, REGISTERED_AGENTS_FILE)
+
+        # Invalidate embeddings cache since we added a new agent
+        invalidate_embeddings_cache()
+
+        await ctx.info(f"Successfully registered agent: {agent_card.name}")
+        return {
+            "status": "success",
+            "agent": agent_card.model_dump(),
+        }
+    except Exception as e:
+        return {
+            "status": "error",
+            "message": f"Failed to register agent: {str(e)}",
+        }
+
+
+@require_a2a_auth
+async def unregister_agent(url: str, ctx: Context | None = None) -> dict[str, Any]:
+    """
+    Unregister an A2A agent from the bridge server.
+
+    Args:
+        url: URL of the A2A agent to unregister
+
+    Returns:
+        Dictionary with un registration status
+    """
+    if url not in registered_agents:
+        return {
+            "status": "error",
+            "message": f"Agent not registered: {url}",
+        }
+
+    try:
+        # Get agent name before removing it
+        agent_name = registered_agents[url].name
+
+        # Remove from registered agents
+        del registered_agents[url]
+
+        # Clean up any task mappings related to this agent
+        # Create a list of task_ids to remove to avoid modifying the dictionary during iteration
+        tasks_to_remove = []
+        for task_id, entry in task_agent_mapping.items():
+            if _task_entry_agent_url(entry) == url:
+                tasks_to_remove.append(task_id)
+
+        # Now remove the task mappings
+        for task_id in tasks_to_remove:
+            del task_agent_mapping[task_id]
+
+        # Save changes to disk immediately
+        agents_data = {
+            url: agent.model_dump() for url, agent in registered_agents.items()
+        }
+        save_to_json(agents_data, REGISTERED_AGENTS_FILE)
+        save_to_json(task_agent_mapping, TASK_AGENT_MAPPING_FILE)
+
+        # Invalidate embeddings cache since we removed an agent
+        invalidate_embeddings_cache()
+
+        if ctx:
+            await ctx.info(f"Successfully unregistered agent: {agent_name}")
+
+        return {
+            "status": "success",
+            "message": f"Successfully unregistered agent: {agent_name}",
+            "removed_tasks": len(tasks_to_remove),
+        }
+    except Exception as e:
+        return {
+            "status": "error",
+            "message": f"Error unregistering agent: {str(e)}",
+        }
+
+
+@require_a2a_auth
 async def send_message(
     agent_url: str,
     message: str,
@@ -496,11 +573,7 @@ async def send_message(
                         result_task_id = result_task_id or chunk.task_id
                     sequence += 1
                     _append_message_chunk(complete_response, chunk)
-                    if (
-                        ctx
-                        and complete_response
-                        and complete_response[-1].get("text")
-                    ):
+                    if ctx and complete_response and complete_response[-1].get("text"):
                         await ctx.info(str(complete_response[-1]["text"]))
 
                 elif isinstance(chunk, tuple):
@@ -559,7 +632,11 @@ async def send_message(
                 last = complete_response[-1]
                 if last.get("session_id"):
                     echoed_session = last.get("session_id") or echoed_session
-                meta = last.get("metadata") if isinstance(last.get("metadata"), dict) else None
+                meta = (
+                    last.get("metadata")
+                    if isinstance(last.get("metadata"), dict)
+                    else None
+                )
                 if meta and meta.get("session_id"):
                     echoed_session = meta.get("session_id") or echoed_session
 
@@ -587,6 +664,7 @@ async def send_message(
             }
 
 
+@require_a2a_auth
 async def get_task_result(
     task_id: str,
     ctx: Context | None = None,
@@ -629,6 +707,7 @@ async def get_task_result(
         return out
 
 
+@require_a2a_auth
 async def cancel_task(
     task_id: str,
     ctx: Context | None = None,

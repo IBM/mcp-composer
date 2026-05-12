@@ -49,6 +49,7 @@ flowchart LR
 2. **AuthContextMiddleware** – Reads `x-user-instances` (first) or `user.identity`, normalizes instances, derives `x-request-context` from `dashboardURL`, stores full and simplified instance data. Also runs only when IAM is enabled for the tool.
 3. **LayeredOpenAPIFactory** (e.g. `make_tool_call`) – Reads auth context, matches server `solis_config.product_id` to `instance.subscription.productId`, selects one active instance, builds headers (`X-ISV-Token`, `X-Platform-Cookie`, `X-User-Instances`, `Authorization: ibm-platform <cookie>` when using cookie-as-auth), and forwards the request.
 
+
 ---
 
 ## 1. ToolAuthenticationMiddleware (ISV token validation)
@@ -325,6 +326,159 @@ Discovery tools `get_service_info` and `get_type_info` do not perform this autho
 
 ---
 
+## 6.1 A2A runtime tools (auth context enforcement)
+
+A2A runtime operations now require middleware-provided authenticated context. This is enforced for:
+
+- `send_message`
+- `get_task_result`
+- `cancel_task`
+
+Behavior:
+
+1. Reads auth context from `get_auth_context()`.
+2. Requires context to be present.
+3. Requires `authenticated == True`.
+4. Requires at least one token source: `isv_token` or `auth_token`.
+5. If any check fails, returns an Unauthorized error and does not execute the A2A runtime call.
+
+Out of scope for this enforcement:
+
+- `register_agent`
+- `list_agents`
+- `unregister_agent`
+
+These lifecycle tools continue to behave as before.
+
+---
+
+## 6.2 Implementation example (A2A runtime auth guard)
+
+Use this pattern when you expose A2A runtime tools and want the same middleware-driven auth context requirement used by IAM-enabled flows.
+
+### Sequence diagram
+
+```mermaid
+sequenceDiagram
+    participant Client as MCPClient
+    participant ToolAuth as ToolAuthenticationMiddleware
+    participant AuthCtx as AuthContextMiddleware
+    participant A2ATool as A2ARuntimeTool
+    participant Guard as RuntimeAuthGuard
+    participant A2AAgent as A2AAgent
+
+    Client->>ToolAuth: call(send_message/get_task_result/cancel_task)
+    ToolAuth->>ToolAuth: validate Platform token
+    alt token valid
+        ToolAuth->>AuthCtx: continue with auth seed context
+        AuthCtx->>AuthCtx: extract cookies/instances/auth_token
+        AuthCtx->>A2ATool: execute runtime tool
+        A2ATool->>Guard: _require_authenticated_context_for_a2a_runtime()
+        Guard->>AuthCtx: get_auth_context()
+        alt context valid and authenticated and token present
+            Guard-->>A2ATool: allow
+            A2ATool->>A2AAgent: execute runtime operation
+            A2AAgent-->>A2ATool: runtime result
+            A2ATool-->>Client: success payload
+        else guard failed
+            Guard-->>A2ATool: Unauthorized error payload
+            A2ATool-->>Client: error(status=error,error=Unauthorized)
+        end
+    else token invalid
+        ToolAuth-->>Client: 401 unauthorized
+    end
+```
+
+### Step 1: Add a reusable runtime auth guard
+
+```python
+from typing import Any
+from mcp_composer.middleware.auth_context_middleware import get_auth_context
+
+
+def _unauthorized_a2a_response(reason: str) -> dict[str, Any]:
+    return {
+        "status": "error",
+        "error": "Unauthorized",
+        "message": reason,
+    }
+
+
+def _require_authenticated_context_for_a2a_runtime() -> dict[str, Any] | None:
+    auth_context = get_auth_context()
+    if not auth_context:
+        return _unauthorized_a2a_response(
+            "Authentication context is required for A2A runtime tools"
+        )
+
+    if not auth_context.get("authenticated"):
+        return _unauthorized_a2a_response(
+            "Authenticated context is required for A2A runtime tools"
+        )
+
+    token_present = bool(auth_context.get("isv_token") or auth_context.get("auth_token"))
+    if not token_present:
+        return _unauthorized_a2a_response(
+            "Authenticated token is required for A2A runtime tools"
+        )
+
+    return None
+```
+
+### Step 2: Apply the guard only to runtime tools
+
+```python
+async def send_message(agent_url: str, message: str, ctx=None) -> dict[str, Any]:
+    auth_error = _require_authenticated_context_for_a2a_runtime()
+    if auth_error:
+        return auth_error
+    # existing send_message logic
+
+
+async def get_task_result(task_id: str, ctx=None) -> dict[str, Any]:
+    auth_error = _require_authenticated_context_for_a2a_runtime()
+    if auth_error:
+        return auth_error
+    # existing get_task_result logic
+
+
+async def cancel_task(task_id: str, ctx=None) -> dict[str, Any]:
+    auth_error = _require_authenticated_context_for_a2a_runtime()
+    if auth_error:
+        return auth_error
+    # existing cancel_task logic
+```
+
+### Step 3: Keep lifecycle tools unchanged
+
+Do not apply this guard to `register_agent`, `list_agents`, and `unregister_agent` unless your product explicitly wants lifecycle operations to require runtime auth.
+
+### Step 4: Ensure middleware is registered first
+
+`ToolAuthenticationMiddleware` and `AuthContextMiddleware` must run before tool execution so `get_auth_context()` has data.
+
+```python
+composer.add_middleware(
+    ToolAuthenticationMiddleware(
+        validator=isv_validator,
+        is_iam_enabled_for_tool=is_iam_enabled_for_tool,
+    )
+)
+
+composer.add_middleware(
+    AuthContextMiddleware(
+        forward_cookies=FORWARD_COOKIES,
+        add_isv_token=True,
+        add_cookie_header=True,
+        use_cookie_as_auth=True,
+        auth_cookie_name=auth_cookie_name,
+        is_iam_enabled_for_tool=is_iam_enabled_for_tool,
+    )
+)
+```
+
+---
+
 ## 7. Solis Composer example (full stack)
 
 ```python
@@ -342,7 +496,7 @@ from mcp_composer.middleware.tool_auth_middleware import ToolAuthenticationMiddl
 environment = os.getenv("MCP_COMPOSER_ENV", "test").strip().lower()
 if environment == "local":
     environment = "test"
-auth_cookie_name = os.getenv("ISV_AUTH_COOKIE_NAME", "mcsp-glb-iam-test").strip()
+auth_cookie_name = os.getenv("ISV_AUTH_COOKIE_NAME", "<platform cokkie name>").strip()
 FORWARD_COOKIES = [auth_cookie_name, REQUEST_CONTEXT_KEY]
 
 # Validator

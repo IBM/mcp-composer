@@ -9,6 +9,9 @@ Authentication in MCP Composer works at multiple levels:
 1. **Composer-level authentication** - Secures the MCP Composer itself
 2. **Server-level authentication** - Handles authentication for each member server
 3. **Tool-level authentication** - Applies specific authentication for individual tools
+4. **Solis Platform authentication** - Applies specific authentication for individual tools
+
+For the end-to-end ISV/IAM request path (token validation, auth context extraction, and middleware-driven header propagation), see the **[Solis Auth Context Middleware Guide](/guide/auth-context-middleware)**.
 
 ## 🔐 Authentication Methods
 
@@ -755,6 +758,7 @@ logging.getLogger("mcp_composer.core.member_servers.builder").setLevel(logging.D
 
 ## 📚 Next Steps
 
+- **[Solis Auth Context Middleware Guide](/guide/auth-context-middleware)** - Deep dive into ISV/IAM auth context flow
 - **[Examples](/examples)** - Real-world authentication examples
 - **[API Reference](/api/)** - Complete API documentation
 - **[Configuration Guide](/guide/configuration)** - Learn about configuration options 

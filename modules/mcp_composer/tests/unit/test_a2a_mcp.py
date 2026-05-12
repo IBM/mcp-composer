@@ -50,6 +50,15 @@ def reset_state(monkeypatch):
     # Stub persistence to avoid disk IO
     monkeypatch.setattr(module_under_test, "save_to_json", lambda *args, **kwargs: None)
     monkeypatch.setattr(module_under_test, "load_from_json", lambda *args, **kwargs: {})
+    monkeypatch.setattr(
+        module_under_test,
+        "get_auth_context",
+        lambda: {
+            "authenticated": True,
+            "isv_token": "test-isv-token",
+            "auth_token": None,
+        },
+    )
 
 
 def build_agent_card(
@@ -289,6 +298,14 @@ async def test_list_agents_returns_registered():
 
 
 @pytest.mark.asyncio
+async def test_list_agents_not_blocked_by_auth_context(monkeypatch):
+    """Non-runtime A2A tools should remain unaffected by runtime auth checks."""
+    monkeypatch.setattr(module_under_test, "get_auth_context", lambda: None)
+    agents = await list_agents()
+    assert isinstance(agents, list)
+
+
+@pytest.mark.asyncio
 async def test_unregister_agent_not_found():
     """Test unregistering non-existent agent."""
     result = await unregister_agent("http://missing")
@@ -324,6 +341,17 @@ async def test_send_message_agent_not_registered():
     res = await send_message("http://nope", "hi")
     assert res["status"] == "error"
     assert "Agent not registered" in res["message"]
+
+
+@pytest.mark.asyncio
+async def test_send_message_unauthorized_without_auth_context(monkeypatch):
+    """Runtime A2A tools should fail when auth context is missing."""
+    monkeypatch.setattr(module_under_test, "get_auth_context", lambda: None)
+
+    res = await send_message("http://nope", "hi")
+    assert res["status"] == "error"
+    assert res["error"] == "Unauthorized"
+    assert "Authentication context is required" in res["message"]
 
 
 @pytest.mark.asyncio
@@ -455,6 +483,21 @@ async def test_get_task_result_task_missing():
 
 
 @pytest.mark.asyncio
+async def test_get_task_result_unauthorized_when_not_authenticated(monkeypatch):
+    """Runtime A2A tools should fail when auth context is not authenticated."""
+    monkeypatch.setattr(
+        module_under_test,
+        "get_auth_context",
+        lambda: {"authenticated": False, "isv_token": "test-token"},
+    )
+
+    res = await get_task_result("missing")
+    assert res["status"] == "error"
+    assert res["error"] == "Unauthorized"
+    assert "Authenticated context is required" in res["message"]
+
+
+@pytest.mark.asyncio
 async def test_get_task_result_success(monkeypatch):
     """Test successful task result retrieval."""
     module_under_test.task_agent_mapping["task-123"] = "http://agent:10000"
@@ -480,6 +523,21 @@ async def test_cancel_task_missing():
     res = await cancel_task("missing")
     assert res["status"] == "error"
     assert "Task ID not found" in res["message"]
+
+
+@pytest.mark.asyncio
+async def test_cancel_task_unauthorized_without_token(monkeypatch):
+    """Runtime A2A tools should fail when no token is available."""
+    monkeypatch.setattr(
+        module_under_test,
+        "get_auth_context",
+        lambda: {"authenticated": True, "isv_token": None, "auth_token": None},
+    )
+
+    res = await cancel_task("missing")
+    assert res["status"] == "error"
+    assert res["error"] == "Unauthorized"
+    assert "Authenticated token is required" in res["message"]
 
 
 @pytest.mark.asyncio

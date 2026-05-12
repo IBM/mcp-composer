@@ -40,7 +40,8 @@ dependencies = [
     "pandas==3.0.2",
     "authlib==1.7.1",
     "boto3>=1.34.0",
-    "python-multipart==0.0.27"
+    "python-multipart==0.0.27",
+    "urllib3>=2.7.0"
 ]
 
 [project.urls]
