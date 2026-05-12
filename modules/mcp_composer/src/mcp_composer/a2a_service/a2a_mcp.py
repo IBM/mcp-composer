@@ -88,8 +88,24 @@ EMBEDDING_ALLOW_FALLBACK = (
 )
 
 # Initialize in-memory dictionaries with stored data
-registered_agents: dict[str, Any] = {}
+
+registered_agents = {}
+# task_id -> str (legacy) | {"agent_url", ...} (rich mapping for multi-turn)
 task_agent_mapping: dict[str, Any] = {}
+
+
+def _normalize_task_entry(val: Any) -> dict[str, Any]:
+    """Support legacy file format (task_id -> URL string) and rich dict entries."""
+    if isinstance(val, dict) and "agent_url" in val:
+        return val
+    if isinstance(val, str):
+        return {"agent_url": val}
+    return {"agent_url": str(val)}
+
+
+def _task_entry_agent_url(val: Any) -> str:
+    return str(_normalize_task_entry(val).get("agent_url", ""))
+
 
 # Initialize embedding provider (lazy loading)
 _embedding_adapter = None
@@ -309,8 +325,8 @@ async def unregister_agent(url: str, ctx: Context | None = None) -> dict[str, An
         # Clean up any task mappings related to this agent
         # Create a list of task_ids to remove to avoid modifying the dictionary during iteration
         tasks_to_remove = []
-        for task_id, agent_url in task_agent_mapping.items():
-            if agent_url == url:
+        for task_id, entry in task_agent_mapping.items():
+            if _task_entry_agent_url(entry) == url:
                 tasks_to_remove.append(task_id)
 
         # Now remove the task mappings
@@ -342,9 +358,82 @@ async def unregister_agent(url: str, ctx: Context | None = None) -> dict[str, An
         }
 
 
+def _build_message_metadata(
+    session_id: str | None,
+    parent_message_id: str | None,
+    thread_id: str | None,
+    transaction_id: str | None,
+    idempotency_key: str | None,
+) -> dict[str, Any] | None:
+    """Optional A2A Message.metadata for multi-turn / correlation (see docs/guide/a2a.md)."""
+    meta: dict[str, Any] = {}
+    if parent_message_id:
+        meta["parent_message_id"] = parent_message_id
+    if thread_id:
+        meta["thread_id"] = thread_id
+    if transaction_id:
+        meta["transaction_id"] = transaction_id
+    if idempotency_key:
+        meta["idempotency_key"] = idempotency_key
+    if session_id:
+        # Echo session in metadata for agents that read metadata (context_id is primary wire field).
+        meta["session_id"] = session_id
+    return meta or None
+
+
+def _append_message_chunk(complete_response: list[dict[str, Any]], chunk: Any) -> None:
+    """Serialize an incoming Message chunk for structured_content / raw output."""
+    parts_text: list[str] = []
+    for part in chunk.parts:
+        if getattr(part.root, "kind", None) == "text":
+            if isinstance(part.root, TextPart):
+                parts_text.append(part.root.text)
+    text = "".join(parts_text)
+    entry: dict[str, Any] = {
+        "text": text,
+        "messages": text,
+    }
+    if getattr(chunk, "message_id", None):
+        entry["message_id"] = chunk.message_id
+    if getattr(chunk, "task_id", None):
+        entry["task_id"] = chunk.task_id
+    ctx_id = getattr(chunk, "context_id", None)
+    if ctx_id:
+        entry["session_id"] = ctx_id
+    if getattr(chunk, "metadata", None):
+        entry["metadata"] = chunk.metadata
+    complete_response.append(entry)
+
+
+def _persist_task_context(
+    task_id: str,
+    agent_url: str,
+    session_id: str | None,
+    message_id: str,
+    parent_message_id: str | None,
+    thread_id: str | None,
+    transaction_id: str | None,
+) -> None:
+    task_agent_mapping[task_id] = {
+        "agent_url": agent_url,
+        "session_id": session_id,
+        "message_id": message_id,
+        "parent_message_id": parent_message_id,
+        "thread_id": thread_id,
+        "transaction_id": transaction_id,
+    }
+    save_to_json(task_agent_mapping, TASK_AGENT_MAPPING_FILE)
+
+
 async def send_message(
     agent_url: str,
     message: str,
+    session_id: str | None = None,
+    message_id: str | None = None,
+    parent_message_id: str | None = None,
+    thread_id: str | None = None,
+    transaction_id: str | None = None,
+    idempotency_key: str | None = None,
     ctx: Context | None = None,
 ) -> dict[str, Any]:
     """
@@ -353,9 +442,16 @@ async def send_message(
     Args:
         agent_url: URL of the A2A agent
         message: Message to send
+        session_id: Conversation context id (A2A ``context_id``); required for multi-turn mapping
+        message_id: Id for this turn; auto-generated if omitted
+        parent_message_id: Optional prior message id in the same thread
+        thread_id: Optional logical thread (distinct from session if needed)
+        transaction_id: Optional distributed trace / request id
+        idempotency_key: Passed to the agent in metadata; dedup is agent-side
+        ctx: Optional MCP context for progress logs
 
     Returns:
-        Agent's response with task_id for future reference
+        ``task_id`` plus correlation envelope; see docs/guide/a2a.md
     """
     if agent_url not in registered_agents:
         logger.error("Agent not registered: %s", agent_url)
@@ -365,34 +461,47 @@ async def send_message(
         }
 
     agent_card = registered_agents[agent_url]
+    outbound_message_id = message_id or str(uuid.uuid4())
+    meta = _build_message_metadata(
+        session_id,
+        parent_message_id,
+        thread_id,
+        transaction_id,
+        idempotency_key,
+    )
     async with httpx.AsyncClient() as httpx_client:
         client_factory = _create_client_factory(httpx_client)
         client = client_factory.create(agent_card)
-        send_params = {
+        send_params: dict[str, Any] = {
             "role": "user",
             "parts": [{"type": "text", "text": message}],
-            "message_id": str(uuid.uuid4()),
+            "message_id": outbound_message_id,
         }
+        if session_id:
+            send_params["context_id"] = session_id
+        if meta:
+            send_params["metadata"] = meta
         a2a_send_message = Message(**send_params)
         if ctx:
             await ctx.info(f"Sending message to agent: {message}")
             await ctx.info("Processing...")
 
-        complete_response = []
-        result_task_id = None
+        complete_response: list[dict[str, Any]] = []
+        result_task_id: str | None = None
+        sequence = 0
         try:
             async for chunk in client.send_message(a2a_send_message):
                 if isinstance(chunk, Message):
-                    result_task_id = chunk.task_id
-                    # Handle message parts if any
-                    parts_text = []
-                    for part in chunk.parts:
-                        if getattr(part.root, "kind", None) == "text":
-                            if isinstance(part.root, TextPart):
-                                parts_text.append(part.root.text)
-                    if parts_text and ctx:
-                        await ctx.info("".join(parts_text))
-                    complete_response.append({"messages": "".join(parts_text)})
+                    if chunk.task_id:
+                        result_task_id = result_task_id or chunk.task_id
+                    sequence += 1
+                    _append_message_chunk(complete_response, chunk)
+                    if (
+                        ctx
+                        and complete_response
+                        and complete_response[-1].get("text")
+                    ):
+                        await ctx.info(str(complete_response[-1]["text"]))
 
                 elif isinstance(chunk, tuple):
                     # Handle tuple of events or single event
@@ -401,13 +510,9 @@ async def send_message(
                         if isinstance(event, Task):
                             if not result_task_id:
                                 result_task_id = event.id
-                                task_agent_mapping[result_task_id] = agent_url
-                                save_to_json(
-                                    task_agent_mapping, TASK_AGENT_MAPPING_FILE
-                                )
                                 if ctx:
                                     await ctx.info(f"Task ID: {result_task_id}")
-                                    break
+                                break
                         ##### Uncomment if we need to send the full task status updates to MCP client
                         #     response = {
                         #         "state": event.status.state.name,
@@ -437,10 +542,42 @@ async def send_message(
                     # Unknown chunk type, just log if context provided
                     if ctx and chunk:
                         await ctx.info(str(chunk))
+
+            if result_task_id:
+                _persist_task_context(
+                    result_task_id,
+                    agent_url,
+                    session_id,
+                    outbound_message_id,
+                    parent_message_id,
+                    thread_id,
+                    transaction_id,
+                )
+
+            echoed_session: str | None = session_id
+            if complete_response:
+                last = complete_response[-1]
+                if last.get("session_id"):
+                    echoed_session = last.get("session_id") or echoed_session
+                meta = last.get("metadata") if isinstance(last.get("metadata"), dict) else None
+                if meta and meta.get("session_id"):
+                    echoed_session = meta.get("session_id") or echoed_session
+
+            envelope: dict[str, Any] = {
+                "session_id": echoed_session,
+                "message_id": outbound_message_id,
+                "task_id": result_task_id,
+                "sequence": sequence,
+                "status": "completed" if result_task_id else "unknown",
+            }
+
             return {
                 "status": "success",
                 "task_id": result_task_id,
+                "session_id": echoed_session,
+                "message_id": outbound_message_id,
                 "raw": complete_response,
+                "envelope": envelope,
             }
         except Exception as e:
             logger.error("Error processing stream events: %s", str(e))
@@ -469,7 +606,8 @@ async def get_task_result(
             "message": f"Task ID not found: {task_id}",
         }
 
-    agent_url = task_agent_mapping[task_id]
+    entry = _normalize_task_entry(task_agent_mapping[task_id])
+    agent_url = entry["agent_url"]
     async with httpx.AsyncClient() as httpx_client:
         agent_card = await fetch_agent_card(agent_url)
         client_factory = _create_client_factory(httpx_client)
@@ -479,7 +617,16 @@ async def get_task_result(
         if ctx:
             await ctx.info(f"Retrieving task result for task_id: {task_id}")
         result: Any = await client.get_task(TaskQueryParams(id=task_id))
-        return {"status": "success", "task_id": task_id, "raw": str(result)}
+        out: dict[str, Any] = {
+            "status": "success",
+            "task_id": task_id,
+            "raw": str(result),
+        }
+        if entry.get("session_id"):
+            out["session_id"] = entry.get("session_id")
+        if entry.get("message_id"):
+            out["message_id"] = entry.get("message_id")
+        return out
 
 
 async def cancel_task(
@@ -492,7 +639,8 @@ async def cancel_task(
     if task_id not in task_agent_mapping:
         return {"status": "error", "message": f"Task ID not found: {task_id}"}
 
-    agent_url = task_agent_mapping[task_id]
+    entry = _normalize_task_entry(task_agent_mapping[task_id])
+    agent_url = entry["agent_url"]
     async with httpx.AsyncClient() as httpx_client:
         agent_card = await fetch_agent_card(agent_url)
         client_factory = _create_client_factory(httpx_client)
@@ -504,7 +652,14 @@ async def cancel_task(
         try:
             # Call client cancel with typed request
             result: Any = await client.cancel_task(TaskIdParams(id=task_id))
-            return {"status": "success", "task_id": task_id, "raw": str(result)}
+            out: dict[str, Any] = {
+                "status": "success",
+                "task_id": task_id,
+                "raw": str(result),
+            }
+            if entry.get("session_id"):
+                out["session_id"] = entry.get("session_id")
+            return out
         except Exception as e:
             return {"status": "error", "message": f"Error cancelling task: {str(e)}"}
 
@@ -521,8 +676,11 @@ def load_registered_agents() -> None:
         except Exception:
             registered_agents[url] = _sanitize_agent_card_data(agent_data, url)
 
-    # Load task mappings
-    task_agent_mapping = load_from_json(TASK_AGENT_MAPPING_FILE)
+    # Load task mappings (migrate legacy string values to dict entries)
+    raw_tasks = load_from_json(TASK_AGENT_MAPPING_FILE)
+    task_agent_mapping = {
+        tid: _normalize_task_entry(val) for tid, val in raw_tasks.items()
+    }
 
     logger.info(
         "Loaded '%s' agents and '%s' task mappings",

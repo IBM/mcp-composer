@@ -242,7 +242,10 @@ class MCPComposer(FastMCP):
             self.add_tools_from_openapi,
             self.rollback_openapi_tool_version,
             self.rollback_curl_tool_version,
-            self.get_available_tools,
+            #self.get_available_tools,
+            # Optional tools:
+            # self._tool_manager.disable_tools_by_server,
+            # self._tool_manager.enable_tools_by_server,
         ]
 
     def _get_prompt_tools(self) -> list[Any]:

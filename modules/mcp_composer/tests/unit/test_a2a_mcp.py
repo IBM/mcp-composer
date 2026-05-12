@@ -345,6 +345,53 @@ async def test_send_message_success(monkeypatch):
     res = await send_message(url, "ping")
     assert res["status"] == "success"
     assert res["task_id"] == "task-123"
+    assert "envelope" in res
+    assert res["envelope"]["message_id"]
+
+
+@pytest.mark.asyncio
+async def test_send_message_includes_session_context_and_metadata(monkeypatch):
+    """send_message sets A2A context_id, metadata, and response envelope for multi-turn."""
+    url = "http://agent:10000"
+    module_under_test.registered_agents[url] = build_agent_card(url=url)
+    captured: dict[str, Any] = {}
+
+    class CaptureClient(DummyA2AClient):
+        def send_message(self, req: Any) -> Any:
+            captured["req"] = req
+            return super().send_message(req)
+
+    async def _fetch(u: str) -> Any:
+        return build_agent_card(url=u)
+
+    monkeypatch.setattr(module_under_test, "fetch_agent_card", _fetch)
+    monkeypatch.setattr(
+        module_under_test,
+        "_create_client_factory",
+        lambda _c: DummyFactory(CaptureClient()),
+    )
+
+    res = await send_message(
+        url,
+        "ping",
+        session_id="sess-1",
+        message_id="mid-1",
+        parent_message_id="p0",
+        thread_id="th-1",
+        transaction_id="tx-1",
+        idempotency_key="idem-1",
+    )
+    assert res["status"] == "success"
+    assert captured.get("req") is not None
+    assert captured["req"].context_id == "sess-1"
+    assert captured["req"].message_id == "mid-1"
+    assert captured["req"].metadata.get("parent_message_id") == "p0"
+    assert captured["req"].metadata.get("thread_id") == "th-1"
+    assert captured["req"].metadata.get("transaction_id") == "tx-1"
+    assert captured["req"].metadata.get("idempotency_key") == "idem-1"
+    assert res["envelope"]["session_id"] == "sess-1"
+    assert res["message_id"] == "mid-1"
+    assert module_under_test.task_agent_mapping["task-123"]["session_id"] == "sess-1"
 
 
 @pytest.mark.asyncio
@@ -535,7 +582,9 @@ def test_load_registered_agents(monkeypatch):
 
     load_registered_agents()
     assert "http://agent:10000" in module_under_test.registered_agents
-    assert module_under_test.task_agent_mapping == saved_tasks
+    assert module_under_test.task_agent_mapping == {
+        "task-1": {"agent_url": "http://agent:10000"}
+    }
 
 
 def test_load_registered_agents_with_invalid_data(monkeypatch):

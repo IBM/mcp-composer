@@ -49,10 +49,13 @@ export default withMermaid(
           {
             text: 'Core Concepts',
             items: [
+              { text: 'Agent Management', link: '/guide/a2a' },
               { text: 'Server Management', link: '/guide/server-management' },
               { text: 'Tool Management', link: '/guide/tool-management' },
               { text: 'Prompt Management', link: '/guide/prompt-management' },
               { text: 'Resource Management', link: '/guide/resource-management' },
+              { text: 'Catalog Composer', link: '/guide/catalog-composer' },
+              { text: 'Catalog and Tool Tagging', link: '/guide/catalog-and-tool-tagging' },
               { text: 'Layered MCP Server', link: '/guide/layered_mcp_server' },
               { text: 'Authentication', link: '/guide/authentication' },
               { text: 'Policy Based ACL', link: '/guide/policy-acl' },

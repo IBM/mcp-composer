@@ -12,6 +12,155 @@ The A2A integration allows MCP Composer to:
 - **Discover agents** using semantic similarity search with embeddings
 - **Access agent resources** through MCP resource endpoints
 
+## 🔌 External A2A Agent Connectivity
+
+This section explains how an external A2A agent (outside MCP Composer) is
+connected and used in the Solis flow.
+
+### Sequence diagram
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor U as User
+    participant UI as Solis UI
+    participant CHAT as Chat Window
+    participant SA as Solis Agent
+    participant C as MCP Composer (A2A Bridge)
+    participant EA as External A2A Agent
+    participant SUB as External Sub-Agent(s)
+
+    U->>UI: Ask question / task
+    UI->>CHAT: Forward user prompt
+    CHAT->>SA: Create orchestration request
+
+    SA->>C: register_agent(agent_url) (startup/on-demand)
+    C->>EA: Fetch agent card (/.well-known/agent.json)
+    EA-->>C: Agent card (skills, capabilities, modes)
+    C-->>SA: Agent registered
+
+    SA->>C: send_message(agent_url, message, session_id, tx_id)
+    C->>EA: HTTP/SSE message call
+    EA->>SUB: Delegate to specialized sub-agent(s) (optional)
+    SUB-->>EA: Partial/final outputs
+
+    alt Streaming enabled
+        EA-->>C: Stream chunks/events (SSE)
+        C-->>SA: Progressive updates
+        SA-->>CHAT: Incremental response
+        CHAT-->>UI: Live tokens/status
+    else Non-streaming
+        EA-->>C: Final task response
+        C-->>SA: task_id + payload
+    end
+
+    SA->>C: get_task_result(task_id) (if needed)
+    C->>EA: Fetch result/status
+    EA-->>C: Final result
+    C-->>SA: Final normalized output
+    SA-->>CHAT: Complete response
+    CHAT-->>UI: Render answer to user
+```
+
+### End-to-end request path
+
+1. **User request enters Solis**
+   - `Solis UI` -> `Chat Window` -> `Solis Agent`.
+2. **Solis Agent decides to delegate**
+   - Solis Agent selects the external A2A agent (directly by URL or via
+     `find_agent`).
+3. **Agent is registered (one-time or startup-time)**
+   - Composer calls `register_agent(url)`.
+   - Registration resolves the external agent card (typically from
+     `/.well-known/agent.json`) and persists metadata.
+4. **Message is sent to external agent**
+   - Composer calls `send_message(agent_url, message)`.
+   - Correlation context (for example: `agent_id`, transaction/request ID,
+     and `session_id`) should be propagated by the caller so downstream logs
+     can be traced end-to-end.
+   - `session_id` is the conversation context key for multi-turn continuity.
+     The external agent should treat it as required context input.
+5. **Transport and response handling**
+   - For non-streaming agents, Composer returns a normal task response.
+   - For streaming-capable agents (`capabilities.streaming = true`), the
+     response can be consumed progressively over HTTP/SSE depending on the
+     agent implementation.
+6. **Task lifecycle management**
+   - Composer returns a `task_id`.
+   - Use `get_task_result(task_id)` for polling/fetching final output.
+   - Use `cancel_task(task_id)` if the upstream request is cancelled or
+     times out.
+
+### What the external agent must expose
+
+At minimum, the external service should provide:
+
+- A valid A2A agent card (name, URL, capabilities, modes, skills)
+- A reachable message/task endpoint that can process incoming requests
+- Stable task identifiers so Composer can map `task_id -> agent`
+- Optional streaming support when `capabilities.streaming` is enabled
+- Session-aware request/response handling:
+  - Accept `session_id` as input on each turn
+  - Return the same `session_id` in each response payload/event
+  - Preserve context keyed by `session_id` for multi-turn chat ("multi churn")
+
+### Operational guidance for production
+
+- **Register at startup** to avoid first-request latency.
+- **Pass correlation IDs** (`session_id`, request/transaction ID) on every
+  delegated call for observability.
+- **Echo `session_id` in responses** so Composer/Solis can map replies to the
+  correct conversation and maintain multi-turn context.
+- **Keep task IDs in session state** so UI retries/reconnects can resume
+  from `get_task_result`.
+- **Set timeout + cancellation policy** to avoid orphaned long-running tasks.
+- **Use health checks** and unregister unhealthy endpoints when needed.
+
+### Multi-turn reliability contract (recommended)
+
+`session_id` echoing is required but not sufficient alone. For robust
+multi-turn behavior, use this request/response contract with external agents.
+
+1. **Session identity**
+   - Request includes `session_id` (required)
+   - Response echoes same `session_id` (required)
+
+2. **Turn identity**
+   - Request includes `message_id` for each turn
+   - Request/response includes `parent_message_id` (or `thread_id`) to keep turn lineage
+
+3. **Async/task mapping**
+   - Return stable `task_id` for async work
+   - Every status/chunk/final event includes: `session_id`, `message_id`, `task_id`
+
+4. **Ordering and idempotency**
+   - Include `sequence` for streamed chunks/events
+   - Include `idempotency_key` so retries do not create duplicate work
+
+5. **State persistence**
+   - External agent stores context keyed by `session_id` (and optional `thread_id`)
+   - Define context TTL/eviction policy
+
+6. **Failure semantics**
+   - Standard states: `accepted`, `running`, `completed`, `failed`, `cancelled`
+   - Errors include machine-readable code plus human-readable message
+
+**Example envelope for each response/event:**
+
+```json
+{
+  "session_id": "s-123",
+  "message_id": "m-456",
+  "task_id": "t-789",
+  "sequence": 12,
+  "status": "running",
+  "payload": {
+    "text": "Partial or final response chunk"
+  },
+  "error": null
+}
+```
+
 ## 🛠️ MCP Tools
 
 ### register_agent
@@ -153,12 +302,25 @@ print(result)
 
 ### send_message
 
-Sends a message to a registered A2A agent and returns the response with a task ID for future reference.
+Sends a message to a registered A2A agent and returns the response with a
+task ID, correlation fields, and an `envelope` for multi-turn mapping.
 
 **Parameters:**
 
 - `agent_url` (string): URL of the registered A2A agent
 - `message` (string): Message to send to the agent
+- `session_id` (string, optional): Conversation context. Sent on the A2A wire
+  as `contextId` and duplicated in `metadata.session_id` so external agents
+  can read either field. Use the same value on every turn in a thread.
+- `message_id` (string, optional): Id for this turn. Auto-generated if omitted.
+- `parent_message_id` (string, optional): Prior message id for strict turn
+  lineage. Stored in `metadata.parent_message_id`.
+- `thread_id` (string, optional): Optional logical thread id. Stored in
+  `metadata.thread_id`.
+- `transaction_id` (string, optional): Correlation / trace id. Stored in
+  `metadata.transaction_id`.
+- `idempotency_key` (string, optional): Stored in `metadata.idempotency_key`
+  (deduplication is enforced by the remote agent, not the bridge)
 
 **Example Usage:**
 
@@ -166,9 +328,12 @@ Sends a message to a registered A2A agent and returns the response with a task I
 # Send a message to an agent
 result = await composer.send_message(
     "https://agent.example.com",
-    "Analyze this dataset and provide insights"
+    "Analyze this dataset and provide insights",
+    session_id="s-abc-123",
+    message_id="m-0001",
 )
 print(f"Task ID: {result['task_id']}")
+print(f"Envelope: {result['envelope']}")
 print(f"Response: {result['raw']}")
 ```
 
@@ -178,17 +343,38 @@ print(f"Response: {result['raw']}")
 {
   "status": "success",
   "task_id": "task-12345-abcde",
+  "session_id": "s-abc-123",
+  "message_id": "m-0001",
+  "envelope": {
+    "session_id": "s-abc-123",
+    "message_id": "m-0001",
+    "task_id": "task-12345-abcde",
+    "sequence": 1,
+    "status": "completed"
+  },
   "raw": [
     {
-      "messages": "I've analyzed the dataset. Here are the key insights:\n\n1. The data shows a clear upward trend in Q4\n2. Customer satisfaction scores improved by 15%\n3. The most significant factor was the new feature rollout"
+      "text": "I've analyzed the dataset. Here are the key insights: …",
+      "messages": "I've analyzed the dataset. Here are the key insights: …",
+      "message_id": "…",
+      "task_id": "task-12345-abcde",
+      "session_id": "s-abc-123",
+      "metadata": { }
     }
   ]
 }
 ```
 
+Each item in `raw` mirrors the A2A `Message` where possible: `text` /
+`messages` (same string, for backward compatibility), optional `message_id`,
+`task_id`, `session_id` (from `contextId` when the agent echoes it), and
+`metadata` when present.
+
 ### get_task_result
 
-Retrieves the result of a completed task from an A2A agent.
+Retrieves the result of a completed task from an A2A agent. When the task
+was created with a `session_id`, the response also includes that id for
+mapping.
 
 **Parameters:**
 
@@ -208,6 +394,8 @@ print(result)
 {
   "status": "success",
   "task_id": "task-12345-abcde",
+  "session_id": "s-abc-123",
+  "message_id": "m-0001",
   "raw": "Task completed successfully. The analysis shows strong positive correlations between user engagement and feature adoption rates."
 }
 ```
@@ -234,6 +422,7 @@ print(result)
 {
   "status": "success",
   "task_id": "task-12345-abcde",
+  "session_id": "s-abc-123",
   "raw": "Task cancelled successfully"
 }
 ```

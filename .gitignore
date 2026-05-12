@@ -60,3 +60,4 @@ vectorstore/
 catalog/
 spec/
 
+config/tools.json
