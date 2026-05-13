@@ -27,6 +27,11 @@ from mcp_composer.core.utils.validator import ServerConfigValidator, ValidationE
 
 logger = LoggerFactory.get_logger()
 
+# Server status constants
+SERVER_STATUS_DEACTIVATED = "deactivated"
+SERVER_STATUS_ACTIVE = "active"
+SERVER_STATUS_UNKNOWN = "unknown"
+
 
 class ServerManager:
     """
@@ -256,30 +261,54 @@ class ServerManager:
 
     def list_servers(self) -> list[dict]:
         """
-        list status of active member servers only (excludes deactivated servers).
+        List status of active member servers only (excludes deactivated servers).
         """
         logger.info("Listing member servers")
         configs = self.load_all_servers_db()
 
-        return [
-            {
-                "id": cfg["id"],
-                "type": cfg["type"],
-                "server_name": (
-                    self.get(str(cfg["id"])).get_server().name
-                    if self.has_member_server(str(cfg["id"]))
-                    else "N/A"
-                ),
-                "endpoint": (
-                    get_endpoint_from_config(cfg)
-                    if self.has_member_server(str(cfg["id"]))
-                    else "N/A"
-                ),
-                "status": self.get_server_status(str(cfg["id"])),
-            }
-            for cfg in configs  # type: ignore[attr-defined]
-            if self.get_server_status(str(cfg["id"])) != "deactivated"
-        ]
+        result = []
+        for cfg in configs:  # type: ignore[attr-defined]
+            server_id = str(cfg["id"])
+            status = self.get_server_status(server_id)
+
+            # Skip deactivated servers
+            if status == SERVER_STATUS_DEACTIVATED:
+                continue
+
+            # Initialize defaults
+            server_name = "N/A"
+            endpoint = "N/A"
+
+            # Get server info only if mounted (single check optimization)
+            if self.has_member_server(server_id):
+                # Get server name with error handling
+                try:
+                    server_name = self.get(server_id).get_server().name
+                except MemberServerError:
+                    logger.warning("Server '%s' is unhealthy", server_id)
+                    server_name = "UNHEALTHY"
+                except Exception as e:
+                    logger.error("Error getting server name for '%s': %s", server_id, e)
+                    server_name = "ERROR"
+
+                # Get endpoint with error handling
+                try:
+                    endpoint = get_endpoint_from_config(cfg)
+                except Exception as e:
+                    logger.error("Error getting endpoint for '%s': %s", server_id, e)
+                    endpoint = "ERROR"
+
+            result.append(
+                {
+                    "id": cfg["id"],
+                    "type": cfg["type"],
+                    "server_name": server_name,
+                    "endpoint": endpoint,
+                    "status": status,
+                }
+            )
+
+        return result
 
     def check_server_exist(self, server_id) -> None:
         """Check member server is mounted or not"""
@@ -547,10 +576,10 @@ class ServerManager:
         if not config:
             raise NotFoundError(f"No configuration found for server '{server_id}'.")
 
-        if config.get("status") != "deactivated":
+        if config.get("status") != SERVER_STATUS_DEACTIVATED:
             raise ToolError(f"Server '{server_id}' is not deactivated.")
 
-        config["status"] = "active"
+        config["status"] = SERVER_STATUS_ACTIVE
         self.add_server_db(config)
         return config
 
@@ -560,10 +589,10 @@ class ServerManager:
         Raises appropriate exceptions if validation fails.
         """
         status = self.get_server_status(server_id)
-        if status == "unknown":
+        if status == SERVER_STATUS_UNKNOWN:
             raise NotFoundError(f"Server '{server_id}' not found in DB.")
 
-        if status == "deactivated":
+        if status == SERVER_STATUS_DEACTIVATED:
             raise ToolError(f"Server '{server_id}' is already deactivated.")
 
         self.check_server_exist(server_id)
