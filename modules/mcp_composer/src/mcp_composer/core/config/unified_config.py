@@ -22,9 +22,7 @@ class ServerConfig(BaseModel):
     id: str = Field(..., description="Unique identifier for the server")
     type: str = Field(..., description="Server type (http, sse, openapi, stdio, etc.)")
     endpoint: str | None = Field(None, description="Server endpoint URL")
-    open_api: dict[str, Any] | None = Field(
-        None, description="OpenAPI configuration"
-    )
+    open_api: dict[str, Any] | None = Field(None, description="OpenAPI configuration")
     auth_strategy: str | None = Field(None, description="Authentication strategy")
     auth: dict[str, Any] | None = Field(
         None, description="Authentication configuration"
@@ -109,9 +107,7 @@ class PromptConfig(BaseModel):
     name: str = Field(..., description="Unique name for the prompt")
     description: str = Field(..., description="Prompt description")
     template: str = Field(..., description="Prompt template")
-    arguments: list[PromptArgument] | None = Field(
-        None, description="Prompt arguments"
-    )
+    arguments: list[PromptArgument] | None = Field(None, description="Prompt arguments")
 
     @field_validator("name")
     @classmethod
@@ -157,9 +153,7 @@ class ResourceConfig(BaseModel):
     mime_type: str | None = Field(
         default="text/plain", description="MIME type of the resource"
     )
-    tags: list[str] | None = Field(
-        default=None, description="Tags for categorization"
-    )
+    tags: list[str] | None = Field(default=None, description="Tags for categorization")
     enabled: bool | None = Field(
         default=True, description="Whether the resource is enabled"
     )
@@ -357,21 +351,33 @@ class UnifiedConfigValidator:
             return
 
         for resource in self.config.resources:
+            # Handle both dict and object formats
+            if isinstance(resource, dict):
+                resource_uri = resource.get("uri")
+                resource_uri_template = resource.get("uri_template")
+                resource_name = resource.get("name", "unknown")
+                resource_mime_type = resource.get("mime_type")
+            else:
+                resource_uri = getattr(resource, "uri", None)
+                resource_uri_template = getattr(resource, "uri_template", None)
+                resource_name = getattr(resource, "name", "unknown")
+                resource_mime_type = getattr(resource, "mime_type", None)
+
             # Validate that resource has either uri or uri_template
-            if not resource.uri and not resource.uri_template:
+            if not resource_uri and not resource_uri_template:
                 raise ConfigValidationError(
-                    f"Resource '{resource.name}' must have either 'uri' or 'uri_template' field"
+                    f"Resource '{resource_name}' must have either 'uri' or 'uri_template' field"
                 )
 
             # Validate that resource doesn't have both uri and uri_template
-            if resource.uri and resource.uri_template:
+            if resource_uri and resource_uri_template:
                 raise ConfigValidationError(
-                    f"Resource '{resource.name}' cannot have both 'uri' and 'uri_template' fields"
+                    f"Resource '{resource_name}' cannot have both 'uri' and 'uri_template' fields"
                 )
 
             # Validate mime_type format
-            if resource.mime_type and "/" not in resource.mime_type:
+            if resource_mime_type and "/" not in resource_mime_type:
                 raise ConfigValidationError(
-                    f"Resource '{resource.name}' has invalid mime_type '{resource.mime_type}'. "
+                    f"Resource '{resource_name}' has invalid mime_type '{resource_mime_type}'. "
                     "Expected format: 'type/subtype' (e.g., 'text/plain', 'application/json')"
                 )

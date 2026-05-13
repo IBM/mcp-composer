@@ -4,17 +4,14 @@ Extends FastMCP with runtime composition, tool management, and database-backed c
 """
 
 import os
-from collections.abc import Sequence
 from typing import Any, Callable, Literal
 from dotenv import load_dotenv
 from fastmcp import FastMCP
 from fastmcp.server.auth.auth import OAuthProvider
 from fastmcp.server.auth.providers.jwt import JWTVerifier
 from starlette.middleware import Middleware as ASGIMiddleware
+from fastmcp.resources import Resource, ResourceTemplate
 from fastmcp.tools import Tool
-from fastmcp.resources import TextResource
-from fastmcp.resources import Resource
-from fastmcp.resources.template import ResourceTemplate
 from mcp_composer.core.tools import MCPToolManager
 from mcp_composer.core.utils import LoggerFactory
 from mcp_composer.core.utils.banner import print_mcp_composer_banner
@@ -242,7 +239,7 @@ class MCPComposer(FastMCP):
             self.add_tools_from_openapi,
             self.rollback_openapi_tool_version,
             self.rollback_curl_tool_version,
-            #self.get_available_tools,
+            # self.get_available_tools,
             # Optional tools:
             # self._tool_manager.disable_tools_by_server,
             # self._tool_manager.enable_tools_by_server,
@@ -576,6 +573,11 @@ class MCPComposer(FastMCP):
         prompts_dict = await self._prompt_manager.get_prompts()
         return [str(prompt) for prompt in prompts_dict.values()]
 
+    async def list_prompts(self, run_middleware: bool = True):  # type: ignore[override]
+        """List all prompts from composer and mounted servers."""
+        # Get prompts from prompt manager which includes database-loaded prompts
+        return await self._prompt_manager.list_prompts()
+
     async def list_prompts_per_server(self, server_id: str) -> list[dict[str, Any]]:
         """List all prompts from a specific server."""
         return await self._prompt_manager.list_prompts_per_server(server_id)
@@ -627,61 +629,45 @@ class MCPComposer(FastMCP):
 
     async def list_resource_templates(  # type: ignore[override]
         self, run_middleware: bool = True
-    ) -> Sequence[ResourceTemplate]:
+    ) -> list[ResourceTemplate]:
         """List all available resource templates from composer and mounted servers."""
+        # Get templates from resource manager
         templates = await self._resource_manager.list_resource_templates()
-        result = []
-        for template in templates:
-            # Handle both ResourceTemplate objects and dict-like objects
-            if isinstance(template, dict):
-                result.append(
-                    ResourceTemplate(
-                        name=template.get("name", ""),
-                        description=template.get("description", ""),
-                        uri_template=str(template.get("uri_template", "")),
-                        mime_type=template.get("mime_type", ""),
-                        parameters=template.get("parameters", {}),
-                        tags=set(template.get("tags") or []),
-                    )
-                )
-            elif isinstance(template, ResourceTemplate):
-                result.append(template)
-            else:
-                logger.warning(
-                    "Unexpected template format: %s. Expected dict or ResourceTemplate instance.",
-                    template,
-                )
 
-        return result  # type: ignore[return-value]
+        # Filter out any dicts that might have been added incorrectly
+        # FastMCP expects ResourceTemplate objects, not dicts
+        valid_templates = []
+        for template in templates:
+            if isinstance(template, dict):
+                logger.warning(
+                    "Found dict in templates list (expected ResourceTemplate object): %s. Skipping.",
+                    template.get("name", "unknown"),
+                )
+                continue
+            valid_templates.append(template)
+
+        return valid_templates
 
     async def list_resources(  # type: ignore[override]
         self, run_middleware: bool = True
-    ) -> Sequence[Resource]:
+    ) -> list[Resource]:
         """List all available resources from composer and mounted servers."""
+        # Get resources from resource manager
         resources = await self._resource_manager.list_resources()
-        result = []
-        for resource in resources:
-            # Handle both Resource objects and dict-like objects
-            if isinstance(resource, dict):
-                result.append(
-                    TextResource(
-                        name=resource.get("name", ""),
-                        description=resource.get("description", ""),
-                        uri=resource.get("uri", ""),
-                        mime_type=resource.get("mime_type", ""),
-                        tags=set(resource.get("tags") or []),
-                        text=str(resource.get("text", "")),
-                    )
-                )
-            elif isinstance(resource, Resource):
-                result.append(resource)
-            else:
-                logger.warning(
-                    "Unexpected resource format: %s. Expected dict or Resource instance.",
-                    resource,
-                )
 
-        return result  # type: ignore[return-value]
+        # Filter out any dicts that might have been added incorrectly
+        # FastMCP expects Resource objects, not dicts
+        valid_resources = []
+        for resource in resources:
+            if isinstance(resource, dict):
+                logger.warning(
+                    "Found dict in resources list (expected Resource object): %s. Skipping.",
+                    resource.get("name", "unknown"),
+                )
+                continue
+            valid_resources.append(resource)
+
+        return valid_resources
 
     async def list_resources_per_server(self, server_id: str) -> list[dict[str, Any]]:
         """List all resources from a specific server."""
