@@ -139,7 +139,11 @@ check-release: ## Twine check (module=mcp_composer version=x.y.z)
 	  uv run twine check $$ARTS \
 	)
 
-upload-testpypi: ## Upload to TestPyPI
+# Legacy local twine uploads. OSS / public releases must use GitHub Actions instead:
+# tag mcp_composer-vX.Y.Z on github.com/IBM/mcp-composer, create a GitHub Release,
+# and let .github/workflows/pypi.yml publish via trusted publishing.
+upload-testpypi: ## (Legacy) Upload to TestPyPI via twine — prefer GitHub Actions pypi.yml
+	@echo "Deprecated for OSS release: use GitHub Release + .github/workflows/pypi.yml on IBM/mcp-composer"
 	@if [ -z "$(module)" ] || [ -z "$(version)" ]; then \
 	  echo "Usage: make upload-testpypi module=<name> version=<x.y.z>"; exit 1; \
 	fi
@@ -154,7 +158,8 @@ upload-testpypi: ## Upload to TestPyPI
 	    uv run twine upload --repository testpypi $$ARTS \
 	)
 
-upload-pypi: ## Upload to PyPI
+upload-pypi: ## (Legacy) Upload to PyPI via twine — prefer GitHub Actions pypi.yml
+	@echo "Deprecated for OSS release: use GitHub Release + .github/workflows/pypi.yml on IBM/mcp-composer"
 	@if [ -z "$(module)" ] || [ -z "$(version)" ]; then \
 	  echo "Usage: make upload-pypi module=<name> version=<x.y.z>"; exit 1; \
 	fi
