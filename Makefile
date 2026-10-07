@@ -1,5 +1,5 @@
 .PHONY: format lint type-check security quality test coverage clean clean-test clean-all help all check \
-	status build check-release upload-testpypi upload-pypi \
+	status build \
 	docker-build docker-push docker-test vars
 
 # Generic local/registry image names (override as needed)
@@ -100,79 +100,22 @@ clean: ## Remove build/cache files
 
 clean-all: clean clean-test ## Full cleanup
 
-##@ Release
+##@ Build
 
 status: ## Show toolchain versions
 	@echo "Python: $$(python3 --version 2>/dev/null || true)"
 	@echo "Uv: $$(uv --version 2>/dev/null || true)"
 
-build: ## Build wheel (module=mcp_composer version=x.y.z)
-	@if [ -z "$(module)" ] || [ -z "$(version)" ]; then \
-	  echo "Usage: make build module=<module_name> version=<x.y.z>"; exit 1; \
-	fi
-	@set -e; \
-	if git rev-parse "v$(version)" >/dev/null 2>&1; then \
-	  echo "Tag v$(version) exists; building from tag..."; \
-	  git fetch --tags --force --prune; \
-	  prev_branch=$$(git rev-parse --abbrev-ref HEAD); \
-	  git switch --detach "v$(version)"; \
-	  ( cd modules/$(module) && uv sync && uv build --wheel . ); \
-	  git switch "$$prev_branch" >/dev/null 2>&1 || git switch -; \
-	else \
-	  echo "Creating tag v$(version)..."; \
-	  git tag -a "v$(version)" -m "$(module) $(version)"; \
-	  ( cd modules/$(module) && uv sync && uv build --wheel . ); \
-	fi
-	@echo "Wheel(s) in modules/$(module)/dist/"
-
-check-release: ## Twine check (module=mcp_composer version=x.y.z)
-	@if [ -z "$(module)" ] || [ -z "$(version)" ]; then \
-	  echo "Usage: make check-release module=<module_name> version=<x.y.z>"; exit 1; \
-	fi
-	@if [ ! -d "modules/$(module)/dist" ]; then \
-	  echo "No dist/ for $(module). Run make build first."; exit 1; \
-	fi
-	@( \
-	  cd modules/$(module) && \
-	  ARTS="$$(find dist -maxdepth 1 -type f \( -name '*.whl' -o -name '*.tar.gz' \))"; \
-	  if [ -z "$$ARTS" ]; then echo "No files in dist/."; exit 1; fi; \
-	  uv run twine check $$ARTS \
-	)
-
-# Legacy local twine uploads. OSS / public releases must use GitHub Actions instead:
-# tag mcp_composer-vX.Y.Z on github.com/IBM/mcp-composer, create a GitHub Release,
-# and let .github/workflows/pypi.yml publish via trusted publishing.
-upload-testpypi: ## (Legacy) Upload to TestPyPI via twine — prefer GitHub Actions pypi.yml
-	@echo "Deprecated for OSS release: use GitHub Release + .github/workflows/pypi.yml on IBM/mcp-composer"
-	@if [ -z "$(module)" ] || [ -z "$(version)" ]; then \
-	  echo "Usage: make upload-testpypi module=<name> version=<x.y.z>"; exit 1; \
-	fi
-	@if [ -z "$$TEST_TWINE_USERNAME" ] || [ -z "$$TEST_TWINE_PASSWORD" ]; then \
-	  echo "Export TEST_TWINE_USERNAME and TEST_TWINE_PASSWORD"; exit 1; \
-	fi
-	@$(MAKE) build module="$(module)" version="$(version)"
-	@( \
-	  cd modules/$(module) && \
-	  ARTS="$$(find dist -maxdepth 1 -type f \( -name '*.whl' -o -name '*.tar.gz' \))"; \
-	  TWINE_USERNAME=$$TEST_TWINE_USERNAME TWINE_PASSWORD=$$TEST_TWINE_PASSWORD \
-	    uv run twine upload --repository testpypi $$ARTS \
-	)
-
-upload-pypi: ## (Legacy) Upload to PyPI via twine — prefer GitHub Actions pypi.yml
-	@echo "Deprecated for OSS release: use GitHub Release + .github/workflows/pypi.yml on IBM/mcp-composer"
-	@if [ -z "$(module)" ] || [ -z "$(version)" ]; then \
-	  echo "Usage: make upload-pypi module=<name> version=<x.y.z>"; exit 1; \
-	fi
-	@if [ -z "$$TWINE_USERNAME" ] || [ -z "$$TWINE_PASSWORD" ]; then \
-	  echo "Export TWINE_USERNAME and TWINE_PASSWORD"; exit 1; \
-	fi
-	@$(MAKE) build module="$(module)" version="$(version)"
-	@( \
-	  cd modules/$(module) && \
-	  ARTS="$$(find dist -maxdepth 1 -type f \( -name '*.whl' -o -name '*.tar.gz' \))"; \
-	  TWINE_USERNAME=$$TWINE_USERNAME TWINE_PASSWORD=$$TWINE_PASSWORD \
-	    uv run python -m twine upload --repository pypi $$ARTS \
-	)
+# FastMCP-style: local sync/build only. Publishing is not a Make target.
+# Cut a GitHub Release (tag mcp_composer-vX.Y.Z) on github.com/IBM/mcp-composer;
+# .github/workflows/pypi.yml publishes to PyPI on release: published.
+build: ## Sync deps and build wheel/sdist locally (does not publish)
+	@module=$${module:-mcp_composer}; \
+	if [ ! -d "modules/$$module" ]; then \
+	  echo "Module '$$module' not found in modules/"; exit 1; \
+	fi; \
+	cd modules/$$module && uv sync --group dev && uv build
+	@echo "Artifacts in modules/$${module:-mcp_composer}/dist/ — publish via GitHub Release, not Make"
 
 run-mcp-inspector-local: ## Launch MCP Inspector
 	npx @modelcontextprotocol/inspector
@@ -185,5 +128,8 @@ help: ## Show this help
 	@echo "Examples:"
 	@echo "  make format module=mcp_composer"
 	@echo "  make test-module module=mcp_composer"
+	@echo "  make build"
 	@echo "  make docker-build IMAGE_URI=ghcr.io/you/mcp-composer:dev"
-	@echo "  make build module=mcp_composer version=0.1.1"
+	@echo ""
+	@echo "Publish: create a GitHub Release for tag mcp_composer-vX.Y.Z on IBM/mcp-composer"
+	@echo "         (triggers .github/workflows/pypi.yml). No make upload-* targets."
