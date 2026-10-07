@@ -1,7 +1,9 @@
 # Maintainers
 
-This project does not use GitHub code owners. The maintainer of [IBM/mcp-composer](https://github.com/IBM/mcp-composer) is:
+Current maintainer of [IBM/mcp-composer](https://github.com/IBM/mcp-composer):
 
-- [mansura-habiba](https://github.com/mansura-habiba)
+| Name | GitHub |
+| --- | --- |
+| Mansura Habiba | [@mansura-habiba](https://github.com/mansura-habiba) |
 
-Report conduct concerns to the maintainer directly. Do not open a public issue.
+Mansura Habiba is the only human maintainer on that repository. Report conduct concerns to the maintainer directly. Do not open a public issue.

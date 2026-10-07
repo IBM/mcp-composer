@@ -31,5 +31,6 @@
 - Branch `oss-release-prep` pushed to `github.ibm.com/ai-elite/mcp-composer`
 - README no longer documents `mcp_composer_app`; that package is removed
 - PyPI publish workflow: `.github/workflows/pypi.yml` (trusted publishing on `mcp_composer-v*` releases)
+- Maintainer recorded from IBM/mcp-composer: Mansura Habiba ([@mansura-habiba](https://github.com/mansura-habiba))
 
 

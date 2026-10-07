@@ -58,7 +58,7 @@ The MCP Composer supports multiple tool types, such as OpenAPI (REST), GraphQL, 
 | Contributing | [CONTRIBUTING.md](CONTRIBUTING.md) |
 | Security | [SECURITY.md](SECURITY.md) |
 | Code of conduct | [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) |
-| Maintainer | [mansura-habiba](https://github.com/mansura-habiba) |
+| Maintainer | [Mansura Habiba](https://github.com/mansura-habiba) |
 | Changelog | [CHANGELOG.md](CHANGELOG.md) |
 
 MCP Composer is built on [FastMCP](https://github.com/PrefectHQ/fastmcp). Community process follows that project's model: a clear issue is a contribution, pull requests link an issue, and vulnerability reports stay private.
