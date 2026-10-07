@@ -118,6 +118,8 @@ class TestAuthStrategy:
 
             assert result == mock_client
             mock_client_class.assert_called_once()
+            kwargs = mock_client_class.call_args.kwargs
+            assert kwargs.get("verify") is True
 
     @pytest.mark.asyncio
     async def test_get_client_basic_missing_credentials(self):
@@ -261,7 +263,7 @@ class TestAuthStrategy:
 
     @pytest.mark.asyncio
     async def test_get_client_with_verify_ssl(self):
-        """Test getting client with SSL verification disabled."""
+        """Test getting client with SSL verification disabled (explicit opt-out)."""
         auth_config = {"verify": False}
 
         with patch("httpx.AsyncClient") as mock_client_class:
@@ -272,6 +274,7 @@ class TestAuthStrategy:
 
             assert result == mock_client
             mock_client_class.assert_called_once()
+            assert mock_client_class.call_args.kwargs.get("verify") is False
 
     @pytest.mark.asyncio
     async def test_get_client_comprehensive_config(self):

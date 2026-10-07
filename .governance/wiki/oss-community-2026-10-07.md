@@ -32,5 +32,5 @@ Public release shape for `github.com/ibm/mcp-composer`, following the FastMCP co
 ## Before the public push
 
 - Confirm `github.com/ibm/mcp-composer` exists and Security Advisories are enabled
-- No `CODEOWNERS` or `MAINTAINERS.md`. GitHub Direct access is authoritative; README lists maintainers
+- No `CODEOWNERS` or `MAINTAINERS.md`. GitHub Direct access is authoritative; public docs do not list maintainers
 - Publish screenshots that used to live on the internal GitHub host

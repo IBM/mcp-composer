@@ -331,7 +331,12 @@ class DynamicTokenClient(httpx.AsyncClient):
         # Prevent recursion if the token_url is being called
         token_url = self.auth_data.get("token_url") if self.auth_data else None
         if token_url and str(url).startswith(str(token_url)):
-            logger.debug("Requesting token, skipping token refresh. kwargs=%s", kwargs)
+            from mcp_composer.core.utils.log_redaction import redact_for_log
+
+            logger.debug(
+                "Requesting token, skipping token refresh. kwargs=%s",
+                redact_for_log(kwargs),
+            )
             try:
                 return await super().request(method, url, **kwargs)
             except httpx.HTTPError as e:

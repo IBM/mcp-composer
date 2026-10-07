@@ -7,9 +7,9 @@ body:
       value: |
         Thanks for suggesting an improvement.
 
-        Enhancement issues are how features enter the project. Maintainers use a clear problem statement to decide the design. See [CONTRIBUTING.md](../../CONTRIBUTING.md). Please wait for agreement on the issue before opening a large pull request.
+        Enhancement issues are how features enter the project. A clear problem statement helps decide the design. See [CONTRIBUTING.md](../../CONTRIBUTING.md). Please wait for agreement on the issue before opening a large pull request.
 
-        If your request leads to a merged change implemented by a maintainer, we will credit you on the commit. Opening an issue does not guarantee implementation.
+        If your request leads to a merged change, we will credit you on the commit. Opening an issue does not guarantee implementation.
 
         ### Before you submit
 

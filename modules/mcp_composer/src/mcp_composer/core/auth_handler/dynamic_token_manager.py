@@ -19,6 +19,8 @@ class DynamicTokenManager(httpx.AsyncClient):
         **kwargs: Any,
     ) -> None:
         self.auth_strategy = kwargs.pop(ConfigKey.AUTH_STRATEGY, None)
+        # Default to verifying TLS; callers may pass verify=False for lab/dev only.
+        self.verify = kwargs.get("verify", True)
 
         if self.auth_strategy == AuthStrategy.JSESSIONID:
             self.login_url = kwargs.pop(ConfigKey.LOGIN_URL, None)
@@ -47,13 +49,12 @@ class DynamicTokenManager(httpx.AsyncClient):
             async with httpx.AsyncClient(
                 base_url=self.base_url,
                 follow_redirects=True,
-                verify=False,  # Consider setting this to True in production
+                verify=self.verify,
             ) as temp_client:
                 logger.info(
-                    "Logging in at: %s with username %s and pwd %s",
+                    "Logging in at %s as user %s",
                     temp_client.base_url,
                     self.username,
-                    self.password,
                 )
 
                 response = await temp_client.post(
@@ -68,14 +69,16 @@ class DynamicTokenManager(httpx.AsyncClient):
                 response.raise_for_status()  # Raises for HTTP 4xx/5xx
 
                 jsessionid = response.cookies.get(ConfigKey.JSESSIONID)
-                logger.info("Received JSESSIONID: %s", jsessionid)
-
-                if not jsessionid:
+                if jsessionid:
+                    logger.info("Received JSESSIONID cookie from login response")
+                else:
                     raise ValueError("JSESSIONID not found — login failed.")
 
                 headers = {"Cookie": f"JSESSIONID={jsessionid}"}
                 return httpx.AsyncClient(
-                    base_url=self.base_url, headers=headers, verify=False
+                    base_url=self.base_url,
+                    headers=headers,
+                    verify=self.verify,
                 )
 
         except httpx.HTTPStatusError as e:

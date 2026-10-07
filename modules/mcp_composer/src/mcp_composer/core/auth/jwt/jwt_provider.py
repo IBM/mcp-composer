@@ -104,11 +104,13 @@ class JWTAuthProvider:
         Returns:
             Sanitized copy of kwargs with sensitive fields masked
         """
-        sensitive_fields = {"secret", "public_key", "private_key", "key"}
-        sanitized = kwargs.copy()
-        for field in sensitive_fields:
-            if field in sanitized:
-                sanitized[field] = "***REDACTED***"
+        from mcp_composer.core.utils.log_redaction import REDACTED, redact_mapping
+
+        sanitized = redact_mapping(kwargs)
+        # JWT verifier also treats bare key material as sensitive.
+        for field in ("secret", "public_key", "private_key", "key"):
+            if field in sanitized and sanitized[field] != REDACTED:
+                sanitized[field] = REDACTED
         return sanitized
 
     def _create_verifier(self) -> JWTVerifier:

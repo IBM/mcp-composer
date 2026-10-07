@@ -61,3 +61,30 @@
 
 - Removed `MAINTAINERS.md`; GitHub Direct access is source of truth for roles
 - Maintainers listed in README Project table; CONTRIBUTING / CODE_OF_CONDUCT point there
+
+## 2026-10-07 15:30 UTC — Local Sonar-style quality (no SonarQube)
+
+- Added `make quality` / `scripts/quality_scorecard.py` (bandit + ruff scorecard)
+- Bandit: HIGH=3 (httpx verify=False), MEDIUM=67 (mostly B608 table-name SQL f-strings, B104 binds, B108 tmp, B102 exec in custom_tool, B314 XML)
+- Ruff currently clean after prior lint pass
+
+## 2026-10-07 15:27 UTC — No maintainers list in README
+
+- Removed Maintainers row from README Project table; roles stay on GitHub Direct access only
+
+## 2026-10-07 15:28 UTC — Drop maintainer wording from public docs
+
+- CONTRIBUTING, CoC, and issue templates no longer refer to maintainers by role
+
+## 2026-10-07 15:30 UTC — Fix TLS verify=False + credential logging
+
+- `dynamic_token_manager`: default `verify=True`; stop logging password and JSESSIONID value
+- `auth_strategy.get_client`: BASIC/default/bearer/apiToken honor `verify`/`verify_ssl` (default True)
+- Bandit HIGH on those files: 0
+
+## 2026-10-07 15:35 UTC — Proper log secret redaction
+
+- Added `log_redaction.py` + `SecretRedactionFilter` on `LoggerFactory`
+- Redacts password/token/cookie/Authorization patterns and sensitive mapping keys
+- Fixed leaky call sites: builder headers, dynamic_token_client kwargs, layered_factory auth token
+- Tests: `test_log_redaction.py` (+ JSESSIONID login must not log password/session id)

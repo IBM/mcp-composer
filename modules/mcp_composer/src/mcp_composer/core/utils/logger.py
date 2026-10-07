@@ -5,6 +5,8 @@ import os
 import sys
 from dotenv import load_dotenv
 
+from mcp_composer.core.utils.log_redaction import SecretRedactionFilter
+
 load_dotenv()
 
 
@@ -12,6 +14,15 @@ class LoggerFactory:
     """
     Produces consistent structured loggers across the system.
     """
+
+    @staticmethod
+    def _ensure_secret_filter(logger: logging.Logger) -> None:
+        """Attach secret redaction once so credentials never reach handlers."""
+        if not any(isinstance(f, SecretRedactionFilter) for f in logger.filters):
+            logger.addFilter(SecretRedactionFilter())
+        for handler in logger.handlers:
+            if not any(isinstance(f, SecretRedactionFilter) for f in handler.filters):
+                handler.addFilter(SecretRedactionFilter())
 
     @staticmethod
     def get_logger(name: str = "mcp-composer", level: str = "INFO") -> logging.Logger:
@@ -49,4 +60,5 @@ class LoggerFactory:
                 # This prevents the logger from failing completely
                 pass
 
+        LoggerFactory._ensure_secret_filter(logger)
         return logger

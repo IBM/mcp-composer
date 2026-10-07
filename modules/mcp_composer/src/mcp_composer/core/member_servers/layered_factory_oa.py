@@ -894,19 +894,16 @@ class LayeredOpenAPIFactory(FastMCP):
                         # Check for auth_token (cookie-based authorization)
                         # If present, use it as Authorization header with "ibm-platform" prefix
                         auth_token_value = auth_context.get(AUTH_KEY_AUTH_TOKEN)
-                        logger.debug("AUTH_KEY_AUTH_TOKEN value: %s", auth_token_value)
                         if auth_token_value:
+                            logger.debug(
+                                "AUTH_KEY_AUTH_TOKEN present; applying ibm-platform Authorization"
+                            )
                             # Format: "ibm-platform {cookie_value}"
                             auth_headers["Authorization"] = (
                                 f"ibm-platform {auth_token_value}"
                             )
                             logger.info(
-                                "✓ Using cookie-based authorization (ibm-platform %s) for service: %s",
-                                (
-                                    auth_token_value[:20] + "..."
-                                    if len(auth_token_value) > 20
-                                    else auth_token_value
-                                ),
+                                "✓ Using cookie-based authorization (ibm-platform) for service: %s",
                                 service,
                             )
                         else:

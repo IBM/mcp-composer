@@ -92,18 +92,58 @@ class TestDynamicTokenManager:
 
                     # Verify client was created with correct parameters
                     assert mock_client_class.call_count == 2
-                    # First call for temp client
+                    # First call for temp client (TLS verify on by default)
                     mock_client_class.assert_any_call(
                         base_url="https://api.example.com",
                         follow_redirects=True,
-                        verify=False,
+                        verify=True,
                     )
                     # Second call for authenticated client
                     mock_client_class.assert_any_call(
                         base_url="https://api.example.com",
                         headers={"Cookie": "JSESSIONID=test-session-id"},
-                        verify=False,
+                        verify=True,
                     )
+
+    @pytest.mark.asyncio
+    async def test_jsessionid_can_opt_out_of_ssl_verify(self):
+        """Lab/dev may pass verify=False; default remains True."""
+        manager = DynamicTokenManager(
+            base_url="https://api.example.com",
+            **{
+                ConfigKey.AUTH_STRATEGY: AuthStrategy.JSESSIONID,
+                ConfigKey.LOGIN_URL: "/login",
+                ConfigKey.USERNAME: "testuser",
+                ConfigKey.PASSWORD: "testpass",
+                "verify": False,
+            },
+        )
+        assert manager.verify is False
+
+        mock_response = Mock()
+        mock_response.cookies = {"JSESSIONID": "test-session-id"}
+        mock_response.raise_for_status.return_value = None
+        mock_temp_client = AsyncMock()
+        mock_temp_client.post.return_value = mock_response
+        mock_temp_client.base_url = "https://api.example.com"
+        mock_authenticated_client = Mock(spec=httpx.AsyncClient)
+
+        with patch("httpx.AsyncClient") as mock_client_class:
+            mock_client_class.side_effect = [
+                mock_temp_client,
+                mock_authenticated_client,
+            ]
+            with patch.object(
+                mock_temp_client, "__aenter__", return_value=mock_temp_client
+            ), patch.object(mock_temp_client, "__aexit__", return_value=None):
+                result = await manager.get_authenticated_http_client_for_jessonid()
+
+        assert result == mock_authenticated_client
+        mock_client_class.assert_any_call(
+            base_url="https://api.example.com",
+            follow_redirects=True,
+            verify=False,
+        )
 
     @pytest.mark.asyncio
     async def test_get_authenticated_http_client_missing_credentials(

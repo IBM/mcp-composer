@@ -10,6 +10,17 @@ from mcp_composer.core.utils.validator import AuthStrategy, ConfigKey
 logger = LoggerFactory.get_logger()
 
 
+def _ssl_verify(auth_config: dict | None) -> bool:
+    """TLS verification defaults to on; opt out only via verify / verify_ssl=False."""
+    if not auth_config:
+        return True
+    if "verify" in auth_config:
+        return bool(auth_config["verify"])
+    if "verify_ssl" in auth_config:
+        return bool(auth_config["verify_ssl"])
+    return True
+
+
 async def get_client(
     base_url: str, auth_config: dict | None = None
 ) -> httpx.AsyncClient:
@@ -17,6 +28,7 @@ async def get_client(
     headers = {}
     auth_strategy = auth_config.get(ConfigKey.AUTH_STRATEGY) if auth_config else None
     auth_values = auth_config.get(ConfigKey.AUTH) if auth_config else {}
+    verify = _ssl_verify(auth_config)
 
     # Ensure auth_values is a dict
     if not isinstance(auth_values, dict):
@@ -40,14 +52,16 @@ async def get_client(
         headers[ConfigKey.AUTH_HEADER.value] = (
             f"Bearer {auth_values.get(ConfigKey.TOKEN)}"
         )
-        return httpx.AsyncClient(base_url=base_url, headers=headers)
+        return httpx.AsyncClient(base_url=base_url, headers=headers, verify=verify)
     elif auth_strategy == AuthStrategy.APITOKEN:
         logger.info("Setting up header and client for apiToken")
         headers[ConfigKey.AUTH_HEADER.value] = (
             f"{auth_values.get(ConfigKey.AUTH_PREFIX)} {auth_values.get(ConfigKey.TOKEN)}"
         )
-        logger.info("the headers are updated %s and the url is %s", headers, base_url)
-        http_client = httpx.AsyncClient(base_url=base_url, headers=headers)
+        logger.info("API token client configured for %s", base_url)
+        http_client = httpx.AsyncClient(
+            base_url=base_url, headers=headers, verify=verify
+        )
         # concert
         response = await http_client.get("/core/api/v1/applications/")
         logger.info("APITOKEN: The response is %s", response)
@@ -60,6 +74,7 @@ async def get_client(
             login_url=auth_values.get(ConfigKey.LOGIN_URL),
             username=auth_values.get(ConfigKey.USERNAME),
             password=auth_values.get(ConfigKey.PASSWORD),
+            verify=verify,
         )
 
         client = await token_manager.get_authenticated_http_client_for_jessonid()
@@ -76,8 +91,8 @@ async def get_client(
             base_url=base_url,
             auth=httpx.BasicAuth(username, password),
             headers=headers,
-            verify=False,
+            verify=verify,
         )
     else:
         logger.info("No auth strategy provided. Using default client.")
-        return httpx.AsyncClient(base_url=base_url)
+        return httpx.AsyncClient(base_url=base_url, verify=verify)

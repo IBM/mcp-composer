@@ -1,4 +1,4 @@
-.PHONY: format lint type-check security test coverage clean clean-test clean-all help all check \
+.PHONY: format lint type-check security quality test coverage clean clean-test clean-all help all check \
 	status build check-release upload-testpypi upload-pypi \
 	docker-build docker-push docker-test vars
 
@@ -60,6 +60,9 @@ type-check: ## Type-check with mypy
 security: ## Bandit security scan
 	@mkdir -p ./chroes_output
 	uv run bandit -r ./modules/mcp_composer/src -f txt -o ./chroes_output/bandit_output.txt || true
+
+quality: ## Local Sonar-style scorecard (bandit + ruff; no SonarQube)
+	@python3 scripts/quality_scorecard.py
 
 test: ## Unit tests with coverage
 	@mkdir -p ./chroes_output

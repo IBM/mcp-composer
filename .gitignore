@@ -63,3 +63,8 @@ spec/
 
 config/tools.json
 /.governance
+
+# Local quality scorecard artifacts
+.quality_bandit.json
+modules/**/.quality_bandit.json
+chroes_output/

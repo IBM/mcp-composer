@@ -121,7 +121,9 @@ class MCPServerBuilder:
             )
 
             transport = TransportClass(url=endpoint, headers=headers, auth=auth)
-            logger.debug("the headers are >>> %s", headers)
+            from mcp_composer.core.utils.log_redaction import redact_headers
+
+            logger.debug("transport headers keys/values: %s", redact_headers(headers))
             # Set up authentication if provided
             client = Client(transport, auth=auth)
             return create_proxy(client, name=f"proxy_{self.mcp_id}")
