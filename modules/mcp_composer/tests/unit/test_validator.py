@@ -247,98 +247,20 @@ class TestValidatorExtended:
         # Should not raise an exception
         validator.validate()
 
-    def test_validate_solis_jwt_handler_missing_email(self):
-        """Test SOLIS_JWT_HANDLER auth strategy fails when email is missing."""
-        from mcp_composer.core.utils.validator import (
-            ServerConfigValidator,
-            AuthStrategy,
-            ConfigKey,
-        )
-
-        config = {
-            "id": "mcp-dal",
-            "type": "http",
-            "endpoint": "https://zertg.us-east.ibm.stepzen.net/solis-dal/suite-automation/mcp",
-            "auth_strategy": AuthStrategy.SOLIS_JWT_HANDLER,
-            "auth": {
-                # Note: 'user_email' intentionally omitted to trigger validator error
-                "password": "ENV_INSTANA_SOLIS_PASSWORD_DEV",
-                # Different values, same URL-encoded / URL format
-                "return_url": "https%3A%2F%2Fexample.sangria.instana.tools%2Fcallback%2F",
-                "login_url": "https://example.xangria.instana.tools/auth/signIn",
-                "cert_url": "ENV_CERT_URL",
-            },
-        }
-
-        validator = ServerConfigValidator(config)
-
-        with pytest.raises(
-            ValidationError,
-            match=(
-                "Missing field\\(s\\) in ConfigKey.AUTH for 'solis_jwt_handler' strategy on server "
-                "'mcp-dal': user_email"
-            ),
-        ):
-            validator.validate()
-
-    def test_validate_solis_jwt_handler_with_user_email(self):
-        """Test SOLIS_JWT_HANDLER passes when user_email is provided."""
-        from mcp_composer.core.utils.validator import (
-            ServerConfigValidator,
-            AuthStrategy,
-        )
-
-        config = {
-            "id": "mcp-dal",
-            "type": "http",
-            "endpoint": "https://zertg.us-east.ibm.stepzen.net/solis-dal/suite-automation/mcp",
-            "auth_strategy": AuthStrategy.SOLIS_JWT_HANDLER,
-            "auth": {
-                # Complete auth block including required user_email
-                "user_email": "ENV_INSTANA_SOLIS_EMAIL_DEV",
-                "password": "ENV_INSTANA_SOLIS_PASSWORD_DEV",
-                "return_url": "https%3A%2F%2Fexample.sangria.instana.tools%2Fcallback%2F",
-                "login_url": "https://example.xangria.instana.tools/auth/signIn",
-                "cert_url": "ENV_CERT_URL",
-            },
-        }
-
-        validator = ServerConfigValidator(config)
-
-        # Should not raise a ValidationError when user_email is present
-        validator.validate()
-
-    def test_all_servers_validator_with_complete_solis_jwt_config(self):
-        """Test AllServersValidator passes when a full solis_jwt_handler config is present."""
-        from mcp_composer.core.utils.validator import AllServersValidator, AuthStrategy
-
-        servers = [
-            {
-                "id": "mcp-dal",
-                "type": "http",
-                "endpoint": "https://zertg.us-east.ibm.stepzen.net/solis-dal/suite-automation/mcp",
-                "auth_strategy": AuthStrategy.SOLIS_JWT_HANDLER,
-                "auth": {
-                    "user_email": "ENV_INSTANA_SOLIS_EMAIL_DEV",
-                    "password": "ENV_INSTANA_SOLIS_PASSWORD_DEV",
-                    "return_url": "https%3A%2F%2Fexample.sangria.instana.tools%2Fcallback%2F",
-                    "login_url": "https://example.xangria.instana.tools/auth/signIn",
-                    "cert_url": "ENV_CERT_URL",
-                },
-            }
-        ]
-
-        # Should not raise ValidationError when all required fields are present
-        AllServersValidator(servers).validate_all()
-
-    def test_validate_stdio_server(self):
+    def test_validate_stdio_server(self, monkeypatch, tmp_path):
         """Test stdio server validation"""
+        from mcp_composer.core.utils.stdio_allowlist import STDIO_ALLOWLIST_ENV
         from mcp_composer.core.utils.validator import ServerConfigValidator
+
+        allowed = tmp_path / "python"
+        allowed.write_text("#!/bin/sh\n")
+        resolved = str(allowed.resolve())
+        monkeypatch.setenv(STDIO_ALLOWLIST_ENV, resolved)
 
         config = {
             "id": "test-server",
             "type": "stdio",
-            "command": "python",
+            "command": resolved,
             "args": ["server.py"],
         }
         validator = ServerConfigValidator(config)
@@ -566,14 +488,20 @@ class TestValidatorExtended:
         ):
             validator._validate_client_requirements()
 
-    def test_validate_stdio_requirements_with_command(self):
+    def test_validate_stdio_requirements_with_command(self, monkeypatch, tmp_path):
         """Test stdio requirements validation with command"""
+        from mcp_composer.core.utils.stdio_allowlist import STDIO_ALLOWLIST_ENV
         from mcp_composer.core.utils.validator import ServerConfigValidator
+
+        allowed = tmp_path / "python"
+        allowed.write_text("#!/bin/sh\n")
+        resolved = str(allowed.resolve())
+        monkeypatch.setenv(STDIO_ALLOWLIST_ENV, resolved)
 
         config = {
             "id": "test-server",
             "type": "stdio",
-            "command": "python",
+            "command": resolved,
             "args": ["server.py"],
         }
         validator = ServerConfigValidator(config)
@@ -712,8 +640,15 @@ class TestValidatorExtended:
         assert issubclass(MemberServerType, str)
         assert issubclass(AuthStrategy, str)
 
-    def test_comprehensive_validation_workflow(self):
+    def test_comprehensive_validation_workflow(self, monkeypatch, tmp_path):
         """Test a comprehensive validation workflow"""
+        from mcp_composer.core.utils.stdio_allowlist import STDIO_ALLOWLIST_ENV
+
+        allowed = tmp_path / "python"
+        allowed.write_text("#!/bin/sh\n")
+        resolved = str(allowed.resolve())
+        monkeypatch.setenv(STDIO_ALLOWLIST_ENV, resolved)
+
         servers = [
             {
                 "id": "openapi-server",
@@ -733,7 +668,7 @@ class TestValidatorExtended:
             {
                 "id": "stdio-server",
                 "type": "stdio",
-                "command": "python",
+                "command": resolved,
                 "args": ["server.py"],
             },
         ]

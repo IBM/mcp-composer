@@ -5,26 +5,20 @@ from __future__ import annotations
 from unittest.mock import patch
 
 import pytest
-
 from mcp_composer.core.catalog import (
     CatalogResourceNotFoundError,
     CatalogVersionCapError,
     InvalidCatalogResourceStatusError,
 )
 from mcp_composer.core.catalog.catalog_manager import CatalogResourceListFilter
-from mcp_composer.core.models.catalog_constants import RegistryResourceKind
 from mcp_composer.core.catalog.skill_manager import SkillManager
 from mcp_composer.core.models.catalog_constants import (
-    RegistryResourceKind,
+    SKILL_CATALOG_UNCATEGORIZED,
     VALID_CATALOG_RESOURCE_STATUSES,
+    RegistryResourceKind,
 )
-from mcp_composer.core.models.catalog_skill import (
-    SkillJSON,
-    SkillListResponse,
-    SkillResponse,
-)
+from mcp_composer.core.models.catalog_skill import SkillJSON, SkillListResponse, SkillResponse
 from mcp_composer.store.catalog_in_memory_database import CatalogInMemoryDatabase
-
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -34,12 +28,14 @@ def _skill(
     version: str = "1.0.0",
     description: str = "does stuff",
     status: str | None = None,
+    metadata: dict | None = None,
 ) -> SkillJSON:
     return SkillJSON(
         name=name,
         description=description,
         version=version,
         status=status,
+        metadata=metadata,
     )
 
 
@@ -76,7 +72,7 @@ async def test_publish_sets_is_latest_true(mgr, db):
     """The row saved by publish() has is_latest=True."""
     await mgr.publish(_skill(version="1.0.0"))
 
-    row = await db.get_resource(RegistryResourceKind.SKILL.value,"my-skill", "1.0.0")
+    row = await db.get_resource(RegistryResourceKind.SKILL.value, "my-skill", "1.0.0")
     assert row is not None
     assert row["is_latest"] is True
 
@@ -96,8 +92,8 @@ async def test_publish_demotes_previous_latest(mgr, db):
     await mgr.publish(_skill(version="1.0.0"))
     await mgr.publish(_skill(version="2.0.0"))
 
-    old_row = await db.get_resource(RegistryResourceKind.SKILL.value,"my-skill", "1.0.0")
-    new_row = await db.get_resource(RegistryResourceKind.SKILL.value,"my-skill", "2.0.0")
+    old_row = await db.get_resource(RegistryResourceKind.SKILL.value, "my-skill", "1.0.0")
+    new_row = await db.get_resource(RegistryResourceKind.SKILL.value, "my-skill", "2.0.0")
 
     assert old_row["is_latest"] is False
     assert new_row["is_latest"] is True
@@ -125,8 +121,11 @@ async def test_publish_only_one_latest_after_multiple_versions(mgr, db):
 
     rows, _ = await db.list_resources(
         RegistryResourceKind.SKILL.value,
-        name_like=None, is_latest_only=True,
-        tenant=None, offset=0, limit=1000,
+        name_like=None,
+        is_latest_only=True,
+        tenant=None,
+        offset=0,
+        limit=1000,
     )
     latest_for_name = [r for r in rows if r["name"] == "my-skill"]
     assert len(latest_for_name) == 1
@@ -137,7 +136,7 @@ async def test_publish_normalises_tenant_ids(mgr, db):
     """Duplicate and empty tenant IDs are deduplicated and stripped."""
     await mgr.publish(_skill(), tenant_ids=["  t1  ", "t1", "t2", "", "  "])
 
-    row = await db.get_resource(RegistryResourceKind.SKILL.value,"my-skill", "1.0.0")
+    row = await db.get_resource(RegistryResourceKind.SKILL.value, "my-skill", "1.0.0")
     assert sorted(row["tenant_ids"]) == ["t1", "t2"]
 
 
@@ -146,7 +145,7 @@ async def test_publish_no_tenant_ids(mgr, db):
     """publish() without tenant_ids stores an empty list."""
     await mgr.publish(_skill())
 
-    row = await db.get_resource(RegistryResourceKind.SKILL.value,"my-skill", "1.0.0")
+    row = await db.get_resource(RegistryResourceKind.SKILL.value, "my-skill", "1.0.0")
     assert row["tenant_ids"] == []
 
 
@@ -156,9 +155,9 @@ async def test_publish_upsert_existing_version(mgr, db):
     await mgr.publish(_skill(description="v1"), tenant_ids=["t1"])
     await mgr.publish(_skill(description="v1-updated"), tenant_ids=["t2"])
 
-    row = await db.get_resource(RegistryResourceKind.SKILL.value,"my-skill", "1.0.0")
+    row = await db.get_resource(RegistryResourceKind.SKILL.value, "my-skill", "1.0.0")
     assert row["payload"]["description"] == "v1-updated"
-    assert await db.count_resource_versions(RegistryResourceKind.SKILL.value,"my-skill") == 1
+    assert await db.count_resource_versions(RegistryResourceKind.SKILL.value, "my-skill") == 1
 
 
 @pytest.mark.asyncio
@@ -167,7 +166,7 @@ async def test_publish_upsert_preserves_is_latest(mgr, db):
     await mgr.publish(_skill(version="1.0.0"))
     await mgr.publish(_skill(version="1.0.0", description="updated"))
 
-    row = await db.get_resource(RegistryResourceKind.SKILL.value,"my-skill", "1.0.0")
+    row = await db.get_resource(RegistryResourceKind.SKILL.value, "my-skill", "1.0.0")
     assert row["is_latest"] is True
 
 
@@ -176,7 +175,7 @@ async def test_publish_stores_status_in_official_meta(mgr, db):
     """When skill has an explicit status, official_meta.status matches."""
     await mgr.publish(_skill(status="deprecated"))
 
-    row = await db.get_resource(RegistryResourceKind.SKILL.value,"my-skill", "1.0.0")
+    row = await db.get_resource(RegistryResourceKind.SKILL.value, "my-skill", "1.0.0")
     assert row["official_meta"]["status"] == "deprecated"
 
 
@@ -185,7 +184,7 @@ async def test_publish_default_status_is_active(mgr, db):
     """When no status is specified, official_meta.status defaults to 'active'."""
     await mgr.publish(_skill())
 
-    row = await db.get_resource(RegistryResourceKind.SKILL.value,"my-skill", "1.0.0")
+    row = await db.get_resource(RegistryResourceKind.SKILL.value, "my-skill", "1.0.0")
     assert row["official_meta"]["status"] == "active"
 
 
@@ -197,9 +196,7 @@ async def test_publish_raises_version_cap_error(mgr):
     """CatalogVersionCapError is raised when MAX_VERSIONS_PER_RESOURCE is exceeded."""
     cap = 3
 
-    with patch(
-        "mcp_composer.core.catalog.skill_manager.MAX_VERSIONS_PER_RESOURCE", cap
-    ):
+    with patch("mcp_composer.core.catalog.skill_manager.MAX_VERSIONS_PER_RESOURCE", cap):
         for i in range(cap):
             await mgr.publish(_skill(version=f"{i}.0.0"))
 
@@ -216,9 +213,7 @@ async def test_publish_upsert_at_cap_does_not_raise(mgr):
     """Re-publishing an already-stored version at the cap does not raise."""
     cap = 2
 
-    with patch(
-        "mcp_composer.core.catalog.skill_manager.MAX_VERSIONS_PER_RESOURCE", cap
-    ):
+    with patch("mcp_composer.core.catalog.skill_manager.MAX_VERSIONS_PER_RESOURCE", cap):
         await mgr.publish(_skill(version="1.0.0"))
         await mgr.publish(_skill(version="2.0.0"))
 
@@ -339,9 +334,100 @@ async def test_list_is_latest_only(mgr):
     await mgr.publish(_skill(version="2.0.0"))
     await mgr.publish(_skill(name="other-skill", version="1.0.0"))
 
-    result = await mgr.list(CatalogResourceListFilter(kind=RegistryResourceKind.SKILL, is_latest_only=True))
+    result = await mgr.list(
+        CatalogResourceListFilter(kind=RegistryResourceKind.SKILL, is_latest_only=True)
+    )
     assert result.metadata.count == 2
     assert all(r.meta.official.is_latest for r in result.skills)
+
+
+@pytest.mark.asyncio
+async def test_list_summaries_aligns_with_list_discovery_fields(mgr):
+    """list_summaries reads raw payload slices; list builds full SkillJSON — same name/description/tags."""
+    big = SkillJSON(
+        name="heavy-skill",
+        description="A skill with a max-sized instructions blob.",
+        version="1.0.0",
+        metadata={
+            "tags": ["alpha", "beta"],
+            "instructions": "x" * 2048,
+        },
+    )
+    await mgr.publish(big)
+    fltr = CatalogResourceListFilter(
+        kind=RegistryResourceKind.SKILL,
+        is_latest_only=True,
+        status_filter="active",
+    )
+    full = await mgr.list(fltr)
+    summ = await mgr.list_summaries(fltr)
+    assert len(full.skills) == len(summ.skills) == 1
+    assert summ.skills[0].name == full.skills[0].skill.name == "heavy-skill"
+    assert summ.skills[0].description == full.skills[0].skill.description
+    assert summ.skills[0].tags == ["alpha", "beta"]
+
+
+@pytest.mark.asyncio
+async def test_list_skill_categories_counts_by_metadata_category(mgr):
+    await mgr.publish(_skill(name="a", metadata={"category": "observability", "tags": []}))
+    await mgr.publish(_skill(name="b", metadata={"category": "observability", "tags": []}))
+    await mgr.publish(_skill(name="c", metadata={"tags": []}))
+
+    cats = await mgr.list_skill_categories()
+    by_name = {c["name"]: c["skill_count"] for c in cats}
+    assert by_name["observability"] == 2
+    assert by_name[SKILL_CATALOG_UNCATEGORIZED] == 1
+
+
+@pytest.mark.asyncio
+async def test_list_summaries_includes_category_field(mgr):
+    await mgr.publish(
+        _skill(
+            name="cat-skill",
+            metadata={"category": "finops", "tags": ["t1"]},
+        )
+    )
+    fltr = CatalogResourceListFilter(
+        kind=RegistryResourceKind.SKILL,
+        is_latest_only=True,
+        status_filter="active",
+    )
+    summ = await mgr.list_summaries(fltr)
+    assert summ.skills[0].category == "finops"
+
+
+@pytest.mark.asyncio
+async def test_list_filters_by_category(mgr):
+    await mgr.publish(
+        _skill(name="s1", metadata={"category": "alpha", "tags": []}),
+    )
+    await mgr.publish(
+        _skill(name="s2", metadata={"category": "beta", "tags": []}),
+    )
+    fltr = CatalogResourceListFilter(
+        kind=RegistryResourceKind.SKILL,
+        is_latest_only=True,
+        status_filter="active",
+        category="alpha",
+    )
+    result = await mgr.list_summaries(fltr)
+    assert result.metadata.count == 1
+    assert result.skills[0].name == "s1"
+
+
+@pytest.mark.asyncio
+async def test_list_filters_uncategorized_bucket(mgr):
+    await mgr.publish(_skill(name="with", metadata={"category": "x", "tags": []}))
+    await mgr.publish(_skill(name="without", metadata={"tags": []}))
+    fltr = CatalogResourceListFilter(
+        kind=RegistryResourceKind.SKILL,
+        is_latest_only=True,
+        status_filter="active",
+        category=SKILL_CATALOG_UNCATEGORIZED,
+    )
+    result = await mgr.list_summaries(fltr)
+    assert result.metadata.count == 1
+    assert result.skills[0].name == "without"
 
 
 @pytest.mark.asyncio
@@ -350,7 +436,9 @@ async def test_list_name_like_filter(mgr):
     await mgr.publish(_skill(name="foo-bar", version="1.0.0"))
     await mgr.publish(_skill(name="baz-qux", version="1.0.0"))
 
-    result = await mgr.list(CatalogResourceListFilter(kind=RegistryResourceKind.SKILL, name_like="foo"))
+    result = await mgr.list(
+        CatalogResourceListFilter(kind=RegistryResourceKind.SKILL, name_like="foo")
+    )
     assert result.metadata.count == 1
     assert result.skills[0].skill.name == "foo-bar"
 
@@ -361,7 +449,9 @@ async def test_list_tenant_filter(mgr):
     await mgr.publish(_skill(name="skill-a", version="1.0.0"), tenant_ids=["team-1"])
     await mgr.publish(_skill(name="skill-b", version="1.0.0"), tenant_ids=["team-2"])
 
-    result = await mgr.list(CatalogResourceListFilter(kind=RegistryResourceKind.SKILL, tenant="team-1"))
+    result = await mgr.list(
+        CatalogResourceListFilter(kind=RegistryResourceKind.SKILL, tenant="team-1")
+    )
     assert result.metadata.count == 1
     assert result.skills[0].skill.name == "skill-a"
 
@@ -376,9 +466,11 @@ async def test_list_pagination(mgr):
     assert page1.metadata.count == 3
     assert page1.metadata.next_start == 3
 
-    page2 = await mgr.list(CatalogResourceListFilter(
+    page2 = await mgr.list(
+        CatalogResourceListFilter(
             kind=RegistryResourceKind.SKILL, limit=3, start=page1.metadata.next_start
-        ))
+        )
+    )
     assert page2.metadata.count == 2
     assert page2.metadata.next_start is None
 
@@ -421,7 +513,7 @@ async def test_delete_latest_promotes_next(mgr, db):
 
     await mgr.delete("my-skill", "2.0.0")
 
-    row = await db.get_resource(RegistryResourceKind.SKILL.value,"my-skill", "1.0.0")
+    row = await db.get_resource(RegistryResourceKind.SKILL.value, "my-skill", "1.0.0")
     assert row is not None
     assert row["is_latest"] is True
 
@@ -447,7 +539,7 @@ async def test_delete_non_latest_no_promotion(mgr, db):
 
     await mgr.delete("my-skill", "1.0.0")
 
-    latest = await db.get_resource(RegistryResourceKind.SKILL.value,"my-skill", "2.0.0")
+    latest = await db.get_resource(RegistryResourceKind.SKILL.value, "my-skill", "2.0.0")
     assert latest["is_latest"] is True
 
 
@@ -477,7 +569,7 @@ async def test_delete_does_not_affect_other_skills(mgr, db):
 
     await mgr.delete("skill-a", "1.0.0")
 
-    row = await db.get_resource(RegistryResourceKind.SKILL.value,"skill-b", "1.0.0")
+    row = await db.get_resource(RegistryResourceKind.SKILL.value, "skill-b", "1.0.0")
     assert row is not None
     assert row["is_latest"] is True
 
@@ -491,7 +583,7 @@ async def test_update_status_valid(mgr, db):
     await mgr.publish(_skill(status="active"))
     await mgr.update_status("my-skill", "1.0.0", "deprecated")
 
-    row = await db.get_resource(RegistryResourceKind.SKILL.value,"my-skill", "1.0.0")
+    row = await db.get_resource(RegistryResourceKind.SKILL.value, "my-skill", "1.0.0")
     assert row["payload"]["status"] == "deprecated"
     assert row["official_meta"]["status"] == "deprecated"
 

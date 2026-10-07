@@ -4,25 +4,19 @@ from __future__ import annotations
 
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
-
-from mcp_composer.core.models.catalog_common import (
-    RegistryListMetadata,
-    RegistryOfficialExtensions,
-)
+from mcp_composer.core.models.catalog_common import RegistryListMetadata, RegistryOfficialExtensions
 from mcp_composer.core.utils.catalog_validators import (
     require_non_empty_after_strip,
     validate_registry_version,
     validate_skill_or_prompt_name,
 )
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class WorkflowStep(BaseModel):
     """One ordered step in a workflow (tool invocation and optional expected behaviour)."""
 
-    model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, str_strip_whitespace=True
-    )
+    model_config = ConfigDict(extra="forbid", populate_by_name=True, str_strip_whitespace=True)
 
     step: int = Field(ge=1)
     toolname: str
@@ -40,9 +34,7 @@ class WorkflowStep(BaseModel):
 class WorkflowJSON(BaseModel):
     """Workflow payload published under ``catalog_resources`` with ``kind`` = ``workflow``."""
 
-    model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, str_strip_whitespace=True
-    )
+    model_config = ConfigDict(extra="forbid", populate_by_name=True, str_strip_whitespace=True)
 
     name: str
     description: str

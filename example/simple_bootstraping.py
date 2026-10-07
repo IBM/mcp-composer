@@ -2,7 +2,7 @@ import asyncio
 from mcp_composer.composer import MCPComposer
 
 gw = MCPComposer(
-    "composer", database_config={"type": "cloudant", "api_key": "", "service_url": ""}
+    "composer", database_config={"type": "local_file", "file_path": "./mcp_servers.json"}
 )
 
 

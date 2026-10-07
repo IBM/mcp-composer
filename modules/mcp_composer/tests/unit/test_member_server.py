@@ -133,7 +133,13 @@ def test_server_config_validator_auth_missing_key():
         validator.validate()
 
 
-def test_all_servers_validator_valid():
+def test_all_servers_validator_valid(monkeypatch, tmp_path):
+    from mcp_composer.core.utils.stdio_allowlist import STDIO_ALLOWLIST_ENV
+
+    allowed = tmp_path / "uv"
+    allowed.write_text("#!/bin/sh\n")
+    resolved = str(allowed.resolve())
+    monkeypatch.setenv(STDIO_ALLOWLIST_ENV, resolved)
     configs = [
         {
             "id": "srv1",
@@ -146,7 +152,7 @@ def test_all_servers_validator_valid():
         {
             "id": "srv2",
             "type": "stdio",
-            "command": "uv",
+            "command": resolved,
             "args": ["run"],
         },
     ]

@@ -1,6 +1,7 @@
 from typing import Any
 from enum import Enum
 from mcp_composer.core.utils.logger import LoggerFactory
+from mcp_composer.core.utils.stdio_allowlist import assert_stdio_command_allowed
 
 logger = LoggerFactory.get_logger()
 
@@ -77,8 +78,6 @@ class AuthStrategy(str, Enum):
     DYNAMIC_BEARER = "dynamic_bearer"
     APITOKEN = "apiToken"
     JSESSIONID = "jessionid"
-    ASPERA_OAUTH_HANDLER = "aspera_oauth_handler"
-    SOLIS_JWT_HANDLER = "solis_jwt_handler"
 
 
 class ValidationError(Exception):
@@ -121,7 +120,7 @@ class ServerConfigValidator:
         return any(auth.get(key) for key in keys)
 
     def _validate_stdio_requirements(self) -> None:
-        """Ensure required fields exist for stdio type."""
+        """Ensure required fields exist and command is on the stdio allowlist."""
 
         if self.config.get(ConfigKey.TYPE) != MemberServerType.STDIO:
             return
@@ -136,6 +135,16 @@ class ServerConfigValidator:
             raise ValidationError(
                 f"Missing required field(s) for stdio server '{self.server_id}': {', '.join(missing)}"
             )
+
+        try:
+            resolved = assert_stdio_command_allowed(
+                str(self.config.get(ConfigKey.COMMAND))
+            )
+        except ValueError as exc:
+            raise ValidationError(
+                f"Invalid stdio command for server '{self.server_id}': {exc}"
+            ) from exc
+        self.config[ConfigKey.COMMAND] = resolved
 
     def _validate_auth_dependency(self) -> None:
         """Ensure 'auth' exists if 'auth_strategy' is defined."""
@@ -153,18 +162,6 @@ class ServerConfigValidator:
             AuthStrategy.BEARER: ["token"],
             AuthStrategy.DYNAMIC_BEARER: ["apikey", "token_url", "id", "secret"],
             AuthStrategy.OAUTH: ["client_id", "client_secret", "token_url"],
-            AuthStrategy.ASPERA_OAUTH_HANDLER: [
-                "client_id",
-                "secret",
-                ConfigKey.CERT_VALUE,
-                "token_url",
-            ],
-            AuthStrategy.SOLIS_JWT_HANDLER: [
-                "login_url",
-                "return_url",
-                "user_email",
-                "password",
-            ],
         }
 
         # Check if strategy is supported
@@ -186,50 +183,6 @@ class ServerConfigValidator:
                 missing = ["apikey or (id and secret)"]
             else:
                 missing = []
-        # Special logic for aspera_oauth_handler - check for clientId or client_id, and secret or clientSecret
-        elif strategy == AuthStrategy.ASPERA_OAUTH_HANDLER:
-            has_client_id = bool(auth.get(ConfigKey.CLIENT_ID) or auth.get("client_id"))
-            has_secret = bool(
-                auth.get(ConfigKey.SECRET)
-                or auth.get("secret")
-                or auth.get(ConfigKey.CLIENT_SECRET)
-                or auth.get("clientSecret")
-            )
-            has_cert = bool(auth.get(ConfigKey.CERT_VALUE))
-            has_token_url = bool(auth.get(ConfigKey.Token_URL))
-            missing = []
-            if not has_client_id:
-                missing.append("clientId or client_id")
-            if not has_secret:
-                missing.append("secret or clientSecret")
-            if not has_cert:
-                missing.append(ConfigKey.CERT_VALUE)
-            if not has_token_url:
-                missing.append("token_url")
-        elif strategy == AuthStrategy.SOLIS_JWT_HANDLER:
-            missing = []
-
-            # Check login_url (supports multiple case variations)
-            if not self._has_any_key(auth, ConfigKey.LOGIN_URL):
-                missing.append("login_url")
-
-            # Check return_url (supports multiple case variations)
-            if not self._has_any_key(auth, ConfigKey.RETURN_URL):
-                missing.append("return_url")
-
-            # Email can be provided directly or via email_var (for environment variable)
-            # Support both USER_EMAIL and email for backward compatibility
-            has_email = self._has_any_key(auth, ConfigKey.USER_EMAIL, "email")
-            if not (has_email):
-                missing.append("user_email (or email)")
-
-            # Password can be provided directly or via password_var (for environment variable)
-            # Support both USER_PASSWORD, PASSWORD, and password for backward compatibility
-            has_password = self._has_any_key(
-                auth, ConfigKey.USER_PASSWORD, ConfigKey.PASSWORD, "password"
-            )
-            if not (has_password):
-                missing.append("user_password (or password)")
         else:
             missing = [
                 key

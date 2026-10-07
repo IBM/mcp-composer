@@ -43,11 +43,8 @@ Check more [CLI command options](#cli-options)
 ### Option B: Using Python Script
 
 ```bash
-# Navigate to src directory
-cd src
-
-# Run the test composer
-uv run test/test_composer.py
+cd modules/mcp_composer
+uv run tests/test_composer.py
 ```
 
 ### Option C: Using uv run
@@ -218,15 +215,15 @@ MCP_MODE=sse
 ENABLE_OAUTH=False
 
 # if oauth enabled, add below values
-# Create W3 OAuth app in https://w3.ibm.com/security/sso-provisioner/applications/
+# Create an OAuth app with your identity provider
 OAUTH_HOST=localhost    
 OAUTH_PORT=8080
 OAUTH_SERVER_URL=http://localhost:8080
 OAUTH_CALLBACK_PATH=https://localhost:8080/auth/idaas/callback
 OAUTH_CLIENT_ID=<edit-me>
 OAUTH_CLIENT_SECRET=<edit-me>
-OAUTH_AUTH_URL=https://preprod.login.w3.ibm.com/v1.0/endpoint/default/authorize
-OAUTH_TOKEN_URL=https://preprod.login.w3.ibm.com/v1.0/endpoint/default/token
+OAUTH_AUTH_URL=https://example.com/authorize
+OAUTH_TOKEN_URL=https://example.com/token
 OAUTH_MCP_SCOPE=user
 OAUTH_PROVIDER_SCOPE=openid
 

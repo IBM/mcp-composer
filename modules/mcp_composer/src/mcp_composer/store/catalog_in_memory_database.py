@@ -3,9 +3,14 @@
 from __future__ import annotations
 
 import copy
+from collections import Counter
 from datetime import datetime, timezone
+from typing import Any
 
-from mcp_composer.core.models.catalog_constants import RegistryResourceKind
+from mcp_composer.core.models.catalog_constants import (
+    SKILL_CATALOG_UNCATEGORIZED,
+    RegistryResourceKind,
+)
 
 from .catalog_database import CatalogDatabaseInterface
 
@@ -94,6 +99,14 @@ class CatalogInMemoryDatabase(CatalogDatabaseInterface):
             "official_meta": copy.deepcopy(row.get("official_meta", {})),
             "is_latest": row.get("is_latest", False),
             "tenant_ids": list(row.get("tenant_ids") or []),
+            # agent_card: preserve existing if new row doesn't supply one
+            "agent_card": (
+                copy.deepcopy(row["agent_card"])
+                if row.get("agent_card")
+                else copy.deepcopy(existing.get("agent_card"))
+                if existing
+                else None
+            ),
             "created_at": existing["created_at"] if existing else now,
             "updated_at": now,
         }
@@ -107,9 +120,7 @@ class CatalogInMemoryDatabase(CatalogDatabaseInterface):
         row = self._store(kind).get((name, version))
         return copy.deepcopy(row) if row else None
 
-    async def get_resource_by_filter(
-        self, kind: str, name: str, is_latest: bool
-    ) -> dict | None:
+    async def get_resource_by_filter(self, kind: str, name: str, is_latest: bool) -> dict | None:
         """Return the first row matching name and is_latest flag, or None."""
         for row in self._store(kind).values():
             if row["name"] == name and row["is_latest"] == is_latest:
@@ -125,6 +136,7 @@ class CatalogInMemoryDatabase(CatalogDatabaseInterface):
         status_filter: str | None = None,
         keywords: list[str] | None = None,
         tenant: str | None = None,
+        category: str | None = None,
         offset: int = 0,
         limit: int = 50,
     ) -> tuple[list[dict], bool]:
@@ -153,13 +165,33 @@ class CatalogInMemoryDatabase(CatalogDatabaseInterface):
                 tags = [str(v).lower() for v in meta.get("tags", [])]
                 name_lower = r["name"].lower()
                 return any(
-                    kw in name_lower
-                    or any(kw in p for p in products)
-                    or any(kw in t for t in tags)
+                    kw in name_lower or any(kw in p for p in products) or any(kw in t for t in tags)
                     for kw in [k.lower() for k in keywords]
                 )
 
             rows = [r for r in rows if _matches_any(r)]
+
+        if category is not None and kind == _SKILL:
+            raw_cat = category.strip()
+            if not raw_cat or raw_cat.lower() == SKILL_CATALOG_UNCATEGORIZED.lower():
+
+                def _uncat(r: dict) -> bool:
+                    meta = r.get("payload", {}).get("metadata") or {}
+                    cat = meta.get("category")
+                    return cat is None or (isinstance(cat, str) and not cat.strip())
+
+                rows = [r for r in rows if _uncat(r)]
+            else:
+                cl = raw_cat.lower()
+
+                def _cat_match(r: dict) -> bool:
+                    meta = r.get("payload", {}).get("metadata") or {}
+                    cat = meta.get("category")
+                    if not isinstance(cat, str) or not cat.strip():
+                        return False
+                    return cat.strip().lower() == cl
+
+                rows = [r for r in rows if _cat_match(r)]
 
         if tenant:
             rows = [r for r in rows if tenant in (r.get("tenant_ids") or [])]
@@ -168,6 +200,37 @@ class CatalogInMemoryDatabase(CatalogDatabaseInterface):
         page = rows[offset : offset + limit]
         has_more = (offset + limit) < len(rows)
         return [copy.deepcopy(r) for r in page], has_more
+
+    async def list_distinct_skill_categories(
+        self,
+        *,
+        is_latest_only: bool = True,
+        status_filter: str | None = None,
+        keywords: list[str] | None = None,
+        tenant: str | None = None,
+    ) -> list[dict[str, Any]]:
+        rows, _ = await self.list_resources(
+            _SKILL,
+            name_like=None,
+            is_latest_only=is_latest_only,
+            status_filter=status_filter,
+            keywords=keywords,
+            tenant=tenant,
+            category=None,
+            offset=0,
+            limit=100000,
+        )
+        labels: list[str] = []
+        for r in rows:
+            meta = r.get("payload", {}).get("metadata") or {}
+            cat = meta.get("category")
+            if isinstance(cat, str) and cat.strip():
+                labels.append(cat.strip())
+            else:
+                labels.append(SKILL_CATALOG_UNCATEGORIZED)
+        counts = Counter(labels)
+        out = [{"name": name, "skill_count": counts[name]} for name in sorted(counts.keys())]
+        return out
 
     async def count_resource_versions(self, kind: str, name: str) -> int:
         """Return the number of stored versions for the given logical name."""
@@ -183,9 +246,7 @@ class CatalogInMemoryDatabase(CatalogDatabaseInterface):
             self._resource_content.pop((kind, name, version), None)
         store.pop((name, version), None)
 
-    async def update_resource_row(
-        self, kind: str, name: str, version: str, fields: dict
-    ) -> None:
+    async def update_resource_row(self, kind: str, name: str, version: str, fields: dict) -> None:
         """Patch the specified fields on the stored row; no-op for empty dict or missing row."""
         if not fields:
             return
@@ -206,15 +267,11 @@ class CatalogInMemoryDatabase(CatalogDatabaseInterface):
 
     # ── resource content methods ───────────────────────────────────────────────
 
-    async def get_resource_content(
-        self, kind: str, name: str, version: str
-    ) -> str | None:
+    async def get_resource_content(self, kind: str, name: str, version: str) -> str | None:
         """Return the raw content string for (kind, name, version), or None if absent."""
         return self._resource_content.get((kind, name, version))
 
-    async def save_resource_content(
-        self, kind: str, name: str, version: str, content: str
-    ) -> None:
+    async def save_resource_content(self, kind: str, name: str, version: str, content: str) -> None:
         """Store raw content for a catalog resource."""
         self._resource_content[(kind, name, version)] = content
 

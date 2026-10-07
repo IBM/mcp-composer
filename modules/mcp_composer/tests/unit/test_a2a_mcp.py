@@ -55,7 +55,7 @@ def reset_state(monkeypatch):
         "get_auth_context",
         lambda: {
             "authenticated": True,
-            "isv_token": "test-isv-token",
+            "token": "test-token",
             "auth_token": None,
         },
     )
@@ -344,14 +344,17 @@ async def test_send_message_agent_not_registered():
 
 
 @pytest.mark.asyncio
-async def test_send_message_unauthorized_without_auth_context(monkeypatch):
-    """Runtime A2A tools should fail when auth context is missing."""
+async def test_send_message_allows_missing_auth_context(monkeypatch):
+    """Missing auth context is allowed; process-level auth remains the gate."""
     monkeypatch.setattr(module_under_test, "get_auth_context", lambda: None)
 
+    async def _fetch(url, auth_headers=None):
+        raise RuntimeError("unreachable")
+
+    monkeypatch.setattr(module_under_test, "fetch_agent_card", _fetch)
     res = await send_message("http://nope", "hi")
     assert res["status"] == "error"
-    assert res["error"] == "Unauthorized"
-    assert "Authentication context is required" in res["message"]
+    assert res.get("error") != "Unauthorized"
 
 
 @pytest.mark.asyncio
@@ -488,7 +491,7 @@ async def test_get_task_result_unauthorized_when_not_authenticated(monkeypatch):
     monkeypatch.setattr(
         module_under_test,
         "get_auth_context",
-        lambda: {"authenticated": False, "isv_token": "test-token"},
+        lambda: {"authenticated": False, "token": "test-token"},
     )
 
     res = await get_task_result("missing")
@@ -526,18 +529,17 @@ async def test_cancel_task_missing():
 
 
 @pytest.mark.asyncio
-async def test_cancel_task_unauthorized_without_token(monkeypatch):
-    """Runtime A2A tools should fail when no token is available."""
+async def test_cancel_task_allows_authenticated_context_without_token(monkeypatch):
+    """Authenticated context without a token falls through to task lookup."""
     monkeypatch.setattr(
         module_under_test,
         "get_auth_context",
-        lambda: {"authenticated": True, "isv_token": None, "auth_token": None},
+        lambda: {"authenticated": True},
     )
 
     res = await cancel_task("missing")
     assert res["status"] == "error"
-    assert res["error"] == "Unauthorized"
-    assert "Authenticated token is required" in res["message"]
+    assert "Task ID not found" in res["message"]
 
 
 @pytest.mark.asyncio

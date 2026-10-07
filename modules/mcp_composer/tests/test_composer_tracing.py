@@ -1,7 +1,6 @@
 import os
 import sys
 import asyncio
-from mcp_composer.middleware.tool.tool_filter import ListFilteredTool
 from mcp_composer.features.tracing_setup import (
     init_tracing_if_enabled,
     init_metrics_if_enabled,
@@ -38,7 +37,6 @@ async def main():
             trace_payload_sizes=True,
         )
     )
-    # gw.add_middleware(ListFilteredTool(gw))
 
     await gw.setup_member_servers()
 

@@ -28,9 +28,6 @@ from mcp_composer.core.auth_handler import (
     DynamicTokenClient,
     DynamicTokenManager,
     OAuthRefreshClient,
-    AsperaJWTClient,
-    SolisJWTClient,
-    SolisJWTTokenGenerator,
     resolve_env_value,
 )
 from mcp_composer.core.tools.graphql_tool import GraphQLTool
@@ -130,8 +127,14 @@ class MCPServerBuilder:
             return create_proxy(client, name=f"proxy_{self.mcp_id}")
 
         if transport_type == MemberServerType.STDIO:
-            # For stdio, we need to pass the command and args
-            command = config.get(ConfigKey.COMMAND, "mcp-composer")
+            from mcp_composer.core.utils.stdio_allowlist import (
+                assert_stdio_command_allowed,
+            )
+
+            # For stdio, command must be an allowlisted absolute path
+            command = assert_stdio_command_allowed(
+                str(config.get(ConfigKey.COMMAND) or "")
+            )
             args = config.get(ConfigKey.ARGS, [])
             env = config.get(ConfigKey.ENV, None)
             cwd = config.get(ConfigKey.CWD, None)
@@ -173,12 +176,6 @@ class MCPServerBuilder:
             await dynamic_client.ensure_token()
             auth = DynamicBearerAuth(dynamic_client)  # type: ignore[assignment]
 
-        elif auth_strategy == AuthStrategy.SOLIS_JWT_HANDLER:
-            logger.info("Setting up Solis OAuth authentication client")
-            token_generator = SolisJWTTokenGenerator(auth_data=auth_config)
-            jwt_token = await token_generator.get_jwt_token()
-            headers[ConfigKey.AUTH_HEADER.value] = f"Bearer {jwt_token}"
-
         return headers, auth
 
     async def _build_layered_mcp_from_transport(
@@ -209,11 +206,7 @@ class MCPServerBuilder:
         # Get optional tool descriptions
         tool_descriptions = self.config.get("tool_description", {}) or {}  # type: ignore[attr-defined]
 
-        # Get product_id from solis_config or top-level productId for authorization matching
-        solis_config = self.config.get("solis_config") or {}  # type: ignore[attr-defined]
-        product_id = solis_config.get("product_id") or self.config.get(  # type: ignore[attr-defined]
-            "productId", None
-        )
+        product_id = self.config.get("productId", None)  # type: ignore[attr-defined]
 
         # Create LayeredMCPFactory instance (which extends FastMCP)
         mcp = LayeredMCPFactory(
@@ -410,23 +403,6 @@ class MCPServerBuilder:
                     # Catch-all for unexpected errors
                     logger.error("Unexpected error: %s", e)
 
-            case AuthStrategy.ASPERA_OAUTH_HANDLER:
-                logger.info("Setting up JWT Bearer authentication client")
-                http_client = AsperaJWTClient(
-                    base_url=base_url, auth_data=auth_config, headers=headers  # type: ignore[arg-type]
-                )
-
-            case AuthStrategy.SOLIS_JWT_HANDLER:
-                logger.info(
-                    "Setting up Solis JWT authentication client with auto-refresh"
-                )
-                http_client = SolisJWTClient(
-                    base_url=base_url,
-                    auth_data=auth_config,  # type: ignore[arg-type]
-                    headers=headers,  # type: ignore[arg-type]
-                    timeout=30.0,
-                )
-
             case _:
                 # Default/fallback client
                 if headers:
@@ -453,11 +429,7 @@ class MCPServerBuilder:
             # Optional per-tool descriptions for layered tools
             tool_descriptions = openapi_config.get("tool_description", {}) or {}  # type: ignore[attr-defined]
 
-            # Get product_id from solis_config (member_servers.json) or top-level productId for authorization matching
-            solis_config = self.config.get("solis_config") or {}  # type: ignore[attr-defined]
-            product_id = solis_config.get("product_id") or self.config.get(  # type: ignore[attr-defined]
-                "productId", None
-            )
+            product_id = self.config.get("productId", None)  # type: ignore[attr-defined]
 
             mcp = LayeredOpenAPIFactory(
                 openapi_spec=spec,

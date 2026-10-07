@@ -1,0 +1,58 @@
+name: Bug report
+description: Report a bug or unexpected behavior in MCP Composer
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting a bug.
+
+        A good bug report is one of the most valuable contributions you can make. See [CONTRIBUTING.md](../../CONTRIBUTING.md). If the fix is straightforward, a pull request is also welcome.
+
+        If your report leads to a merged fix implemented by a maintainer, we will credit you on the commit. Opening an issue does not guarantee implementation.
+
+        ### Before you submit
+
+        - Test the latest `main` or the latest release. Many issues are already fixed.
+        - Search existing issues, including closed ones.
+        - Include a copy-pasteable minimal reproducible example. Issues without one may be closed.
+        - Describe the problem and the expected behavior. Skip speculative root-cause writeups.
+        - Keep it short enough to read on one screen.
+        - AI assistance is fine when it follows [CONTRIBUTING.md](../../CONTRIBUTING.md). Unedited generated diagnoses will be closed.
+
+  - type: textarea
+    id: description
+    attributes:
+      label: What happened?
+      description: |
+        What did you do, what happened, and what did you expect instead?
+    validations:
+      required: true
+
+  - type: textarea
+    id: example
+    attributes:
+      label: Example
+      description: >
+        A self-contained minimal example. A short config snippet plus the
+        command you ran is enough when a script is not natural.
+      placeholder: |
+        mcp-composer --mode http --host 127.0.0.1 --port 9000
+      render: Text
+    validations:
+      required: true
+
+  - type: textarea
+    id: version
+    attributes:
+      label: Version
+      description: |
+        MCP Composer version, Python version, and operating system.
+
+        ```bash
+        cd modules/mcp_composer && uv run python -c "import mcp_composer; print(mcp_composer.__version__)"
+        python3 --version
+        ```
+      render: Text
+    validations:
+      required: true

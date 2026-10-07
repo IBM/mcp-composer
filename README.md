@@ -13,8 +13,7 @@
 ## Table of Contents
 
 - [Overview](#overview)
-- [Environment URLs](#environment-urls)
-- [MCSP Cluster Deployment](#mcsp-cluster-deployment)
+- [Project](#project)
 - [Purpose](#purpose)
 - [Installation](#installation)
   - [Prerequisites](#prerequisites)
@@ -40,7 +39,7 @@
   - [MCP Composer OAuth](#oauth)
   - [A2A](#a2a)
 - [Demo using MCP Inspector](#demo-using-mcp-inspector)
-- [MCP Composer Client with Chatbot UI](#mcp-composer-client-with-chatbot-ui)
+- [Clients](#clients)
 
 
 ## Overview
@@ -51,44 +50,19 @@ The MCP Composer serves as an orchestrator for tool execution and forwards tool 
 
 The MCP Composer supports multiple tool types, such as OpenAPI (REST), GraphQL, CLI-based tools, client SDKs, and nested MCP servers.
 
-## Environment URLs
+## Project
 
-| Service | Development | Stage | Production |
-|---------|-------------|-------|------------|
-| mcp-composer | [http://mcp-composer-root-mcp-composer.apps.rosa.ap-use1-d-dp-01.h07m.p3.openshiftapps.com](http://mcp-composer-root-mcp-composer.apps.rosa.ap-use1-d-dp-01.h07m.p3.openshiftapps.com) | [http://mcp-composer-root-mcp-composer.apps.rosa.ap-use1-t-dp-01.d677.p3.openshiftapps.com](http://mcp-composer-root-mcp-composer.apps.rosa.ap-use1-t-dp-01.d677.p3.openshiftapps.com) | to be created |
+| | |
+| --- | --- |
+| License | [Apache 2.0](LICENSE) |
+| Documentation | [ibm.github.io/mcp-composer](https://ibm.github.io/mcp-composer/) |
+| Contributing | [CONTRIBUTING.md](CONTRIBUTING.md) |
+| Security | [SECURITY.md](SECURITY.md) |
+| Code of conduct | [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) |
+| Maintainer | [mansura-habiba](https://github.com/mansura-habiba) |
+| Changelog | [CHANGELOG.md](CHANGELOG.md) |
 
-## MCSP Cluster Deployment
-
-> **📦 Deployment Repository:** https://github.ibm.com/automation-paas-cd-pipeline/mcp-composer-cd/tree/dev
-
-### Manual Image Tag Update
-
-Use this process when you need to deploy a specific image version (e.g., testing a feature branch or if auto-deploy failed):
-
-#### 1. Find Built Images
-
-Navigate to your commit's CI/CD build stage to find the container images:
-<img width="612" alt="image" src="https://github.ibm.com/user-attachments/assets/69116c3e-7ac2-403c-aed2-8899869acf9e" />
-
-- **Example**: https://github.ibm.com/ibm-saas-platform/mcp-composer/runs/139994450
-
-You'll find the images with tags:
-```
-icr.io/automation-saas-platform-dev/mcp-composer-root:main-1769776103
-```
-
-#### 2. Update Image Tags
-
-Update the `imageTag` in the CD repository's values file for your target environment:
-
-**For Dev Environment:**
-- File: https://github.ibm.com/automation-paas-cd-pipeline/mcp-composer-cd/blob/dev/resources/values.yaml#L19
-
-**Example values.yaml update:**
-```yaml
-  imageTag:
-    root: "main-1769499279" #update this
-```
+MCP Composer is built on [FastMCP](https://github.com/PrefectHQ/fastmcp). Community process follows that project's model: a clear issue is a contribution, pull requests link an issue, and vulnerability reports stay private.
 
 ## Purpose
 
@@ -122,14 +96,14 @@ include = ["mcp_composer"]
 
 ### Prerequisites
 
-- Python 3.10+
+- Python 3.11, 3.12, or 3.13
 - [uv](https://docs.astral.sh/uv/) (Recommended for environment management)
 
 ### Setup
 
 1. Clone the repository
    ```bash
-   git clone https://github.ibm.com/ai-elite/mcp-composer.git
+   git clone https://github.com/ibm/mcp-composer.git
    cd mcp-composer
    ```
 
@@ -144,19 +118,19 @@ include = ["mcp_composer"]
    source .venv/bin/activate
    ```
 
-4. **Environment Configuration (Required)**
+4. **Environment Configuration (Optional)**
    
-   The MCP Composer requires environment variables to be set:
+   Copy the sample environment file when you need overrides:
    
    **Setup**
    ```bash
-   cp env.example .env
+   cp .env.example .env
    ```
    
    Edit the `.env` file and set the required environment variables:
    - `SERVER_CONFIG_FILE_PATH`: Path to the server configuration file (default: `member_servers.json`)
    
-   **Note**: If you don't set up the `.env` file, you'll get a `KeyError: 'SERVER_CONFIG_FILE_PATH'` error when trying to import the module.
+   The CLI supplies defaults when these variables are unset. Set `SERVER_CONFIG_FILE_PATH` when you want a config file other than `member_servers.json`. Stdio member servers also need `MCP_COMPOSER_STDIO_ALLOWLIST`.
 
 5. **Database Configuration (Optional)**
    
@@ -169,267 +143,6 @@ include = ["mcp_composer"]
    You can configure the database using environment variables, which take priority over programmatic configuration:
    
    ```bash
-   # For Cloudant database
-   export MCP_DATABASE_TYPE="cloudant"
-   export MCP_DATABASE_API_KEY="your_cloudant_api_key"
-   export MCP_DATABASE_SERVICE_URL="https://your-cloudant-instance.cloudantnosqldb.appdomain.cloud"
-   export MCP_DATABASE_DB_NAME="mcp_servers"  # Optional, defaults to "mcp_servers"
-   
-   # For PostgreSQL database (URL method - recommended)
-   export MCP_DATABASE_TYPE="postgres"
-   export MCP_DATABASE_URL="postgresql://$DB_USER:$DB_PASSWORD@$DB_HOST:$DB_PORT/$DB_NAME"
-   export MCP_DATABASE_TABLE_NAME="mcp_servers"  # Optional, defaults to "mcp_servers"
-   
-   # For PostgreSQL database (individual parameters)
-   export MCP_DATABASE_TYPE="postgres"
-   export MCP_DATABASE_HOST="localhost"
-   export MCP_DATABASE_PORT="5432"
-   export MCP_DATABASE_DATABASE="your_database"
-   export MCP_DATABASE_USER="your_username"
-   export MCP_DATABASE_PASSWORD="your_password"
-   export MCP_DATABASE_TABLE_NAME="mcp_servers"  # Optional, defaults to "mcp_servers"
-   
-   # For local file storage
-   export MCP_DATABASE_TYPE="local_file"
-   export MCP_DATABASE_FILE_PATH="/path/to/your/servers.json"  # Optional
-   
-   # Enable local file storage when no other database config is provided
-   export MCP_USE_LOCAL_FILE_STORAGE="true"
-   ```
-   
-   **Environment Variables**:
-   - `MCP_DATABASE_TYPE`: Database type (`"cloudant"`, `"postgres"`, or `"local_file"`)
-   - `MCP_DATABASE_API_KEY`: API key for Cloudant (required for cloudant type)
-   - `MCP_DATABASE_SERVICE_URL`: Service URL for Cloudant (required for cloudant type)
-   - `MCP_DATABASE_DB_NAME`: Database name (optional, defaults to `"mcp_servers"`)
-   - `MCP_DATABASE_URL`: PostgreSQL connection URL (preferred for postgres type)
-   - `MCP_DATABASE_HOST`: PostgreSQL host (required for postgres type if URL not provided)
-   - `MCP_DATABASE_PORT`: PostgreSQL port (optional for postgres type, defaults to 5432)
-   - `MCP_DATABASE_DATABASE`: PostgreSQL database name (required for postgres type if URL not provided)
-   - `MCP_DATABASE_USER`: PostgreSQL username (required for postgres type if URL not provided)
-   - `MCP_DATABASE_PASSWORD`: PostgreSQL password (required for postgres type if URL not provided)
-   - `MCP_DATABASE_TABLE_NAME`: PostgreSQL table name (optional for postgres type, defaults to "mcp_servers")
-   - `MCP_DATABASE_FILE_PATH`: File path for local storage (optional for local_file type)
-   - `MCP_USE_LOCAL_FILE_STORAGE`: Set to `"true"` to enable local file storage when no other config is provided
-
-   
-   **Programmatic Database Configuration**:
-   
-   You can also provide a `database_config` dictionary when initializing MCPComposer:
-   
-   ```python
-   from mcp_composer import MCPComposer
-   
-   # Cloudant configuration
-   database_config = {
-       "type": "cloudant",
-       "api_key": "your_cloudant_api_key",
-       "service_url": "https://your-cloudant-instance.cloudantnosqldb.appdomain.cloud",
-       "db_name": "mcp_servers"  # Optional, defaults to "mcp_servers"
-   }
-   
-   composer = MCPComposer(
-       name="my-composer",
-       database_config=database_config
-   )
-   ```
-   
-   **PostgreSQL Configuration**:
-   
-   ```python
-   from mcp_composer import MCPComposer
-   
-   # PostgreSQL configuration (URL method - recommended)
-   database_config = {
-       "type": "postgres",
-       "url": "postgresql://$DB_USER:$DB_PASSWORD@$DB_HOST:$DB_PORT/$DB_NAME",
-       "table_name": "mcp_servers"  # Optional, defaults to "mcp_servers"
-   }
-   
-   composer = MCPComposer(
-       name="my-composer",
-       database_config=database_config
-   )
-   
-   # PostgreSQL configuration (individual parameters)
-   database_config = {
-       "type": "postgres",
-       "host": "localhost",
-       "port": 5432,
-       "database": "your_database",
-       "user": "your_username",
-       "password": "your_password",
-       "table_name": "mcp_servers"  # Optional, defaults to "mcp_servers"
-   }
-   
-   composer = MCPComposer(
-       name="my-composer",
-       database_config=database_config
-   )
-   ```
-   
-   **Local File Storage Configuration**:
-   
-   ```python
-   from mcp_composer import MCPComposer
-   
-   # Local file storage configuration
-   database_config = {
-       "type": "local_file",
-       "file_path": "/path/to/your/servers.json"  # Optional
-   }
-   
-   composer = MCPComposer(
-       name="my-composer",
-       database_config=database_config
-   )
-   ```
-   
-   **Required Cloudant Parameters**:
-   - `type`: Must be set to `"cloudant"`
-   - `api_key`: Your IBM Cloudant API key
-   - `service_url`: Your Cloudant service URL (must start with `http://` or `https://`)
-   
-   **Optional Cloudant Parameters**:
-   - `db_name`: Database name (defaults to `"mcp_servers"`)
-   
-   **Required PostgreSQL Parameters**:
-   - `type`: Must be set to `"postgres"`
-   - Either `url` (PostgreSQL connection URL) OR all of `host`, `database`, `user`, `password`
-   
-   **Optional PostgreSQL Parameters**:
-   - `port`: PostgreSQL port (defaults to 5432)
-   - `table_name`: Table name (defaults to `"mcp_servers"`)
-   
-   **Custom Database Interface**:
-   
-   You can also provide a custom database implementation by passing a `DatabaseInterface` instance:
-   
-   ```python
-   from mcp_composer.store.database import DatabaseInterface
-   
-   class MyCustomDatabase(DatabaseInterface):
-       # Implement required methods
-       pass
-   
-   custom_db = MyCustomDatabase()
-   composer = MCPComposer(
-       name="my-composer",
-       database_config=custom_db
-   )
-   ```
-   
-   **Configuration Priority**:
-   1. Environment variables (highest priority)
-   2. Programmatic configuration
-   3. No database (default behavior)
-   
-   **Error Handling**: If database configuration is provided but missing required keys or has invalid values, the composer will log warnings and fall back to no database configuration.
-
-6. Synchronize the environment.
-   
-   **First time setup**: Run this to create the initial `uv.lock` file:
-   ```bash
-   uv sync
-   ```
-   
-   **Subsequent runs**: Use the frozen lock file for consistency:
-   ```bash
-   uv sync --frozen        # Strict install (uses lock file exactly) - recommended as ensuring consistency across different environments
-   ```
-   
-   **Update dependencies**: If you need to update dependencies:
-   ```bash
-   rm uv.lock && uv sync # Refresh child dependencies, commit uv.lock
-   ```
-
-7. Add a new dependency; automatically creates a virtual environment if necessary
-
-   ```bash
-   uv add <my-package>
-   ```
-8. Leverage the project's virtual environment:
-   ```
-   uv run <command&args>
-   ```
-9. Test if MCP Composer is installed successfully or not
-
-   ```bash
-   uv run python -c "import mcp_composer; print(mcp_composer.__version__)"
-   ```
-
-### Add MCP Composer as local dependency
-
-1. Update the `pyproject.toml` with the following:
-
-```toml
-[tool.hatch.metadata]
-allow-direct-references = true
-```
-
-Then you can run the command:
-
-```bash
-uv add <path to mcp-composer folder>
-```
-
-Then, the pyproject.toml file is updated with the below lines:
-
-```toml
-[tool.uv.sources]
-mcp-composer = { path = "mcp-composer" }
-```
-
-Add mcp-composer to the dependencies section, example of the final pyproject.toml file:
-
-```toml
-[project]
-name = "py_project"
-
-[tool.hatch.metadata]
-allow-direct-references = true
-
-dependencies = [
-    "mcp-composer",
-    ... ...
-]
-
-[tool.uv.sources]
-mcp-composer= { path = "mcp-composer" }
-```
-
-To ensure the package is properly installed and importable in the consumer project, the following command must be run manually:
-
-```bash
-uv pip install -e ../mcp-composer
-```
-
-### Use as Tool
-
-#### Install mcp-composer as a tool
-
-1. Run the following command to install mcp-composer as a tool:
-
-   ```bash:
-   uv tool install -e /<absolute path>/mcp-composer
-   ```
-
-2. Add the tool to $PATH:
-   ```bash
-      export PATH="/<absolute path>/.local/bin:$PATH"
-   ```
-3. Check the instlation:
-   ```bash
-   which mcp-composer
-   ```
-
-#### Uninstall mcp-composer as a tool
-
-1. Run the following command to uninstall mcp-composer as a tool:
-
-   ```bash:
-   uv tool uninstall mcp-composer
-   ```
 
 ## Development with Makefile
 
@@ -531,7 +244,7 @@ uvx mcp-composer -sseurl --sse-url <url to remote sse mcp server> --auth_type oa
 - **Unified Configuration System**: Single configuration files to manage servers, middleware, prompts, tools, and resources with auto-detection and validation.
 - **CLI Integration**: Direct support for unified configuration via `--config` and `--configfilepath` options.
 - **Programmatic Integration**: Direct support in `MCPComposer` constructor for file-based configurations.
-- **Database Support**: Configurable database backends including IBM Cloudant and local file storage for persistent server configurations, tools, prompts, and resources.
+- **Database Support**: Configurable database backends including PostgreSQL and local file storage for persistent server configurations, tools, prompts, and resources.
 - **Environment Variable Configuration**: Database configuration through environment variables with validation and fallback support.
 - **Database Configuration Validation**: Strict validation of database configuration with fail-fast behavior to prevent startup with invalid database settings.
 
@@ -563,7 +276,8 @@ To add an MCP server from a local python file, use the builder with a configurat
 Run
 
 ```bash
-uv run test/test_composer.py
+cd modules/mcp_composer
+uv run tests/test_composer.py
 ```
 
 test_composer.py can run on either `stdio` or `http` type.
@@ -627,11 +341,6 @@ When initializing MCPComposer, you can configure the database backend for persis
 **Example with Environment Variables (Recommended)**:
 
 ```bash
-# Set environment variables for Cloudant
-export MCP_DATABASE_TYPE="cloudant"
-export MCP_DATABASE_API_KEY="your_cloudant_api_key"
-export MCP_DATABASE_SERVICE_URL="https://your-cloudant-instance.cloudantnosqldb.appdomain.cloud"
-export MCP_DATABASE_DB_NAME="mcp_servers"
 
 # Or set environment variables for PostgreSQL
 export MCP_DATABASE_TYPE="postgres"
@@ -649,16 +358,11 @@ composer = MCPComposer(name="my-composer")
 await composer.setup_member_servers()
 ```
 
-**Example with Programmatic Cloudant Configuration**:
 
 ```python
 from mcp_composer import MCPComposer
 
-# Configure Cloudant database programmatically
 database_config = {
-    "type": "cloudant",
-    "api_key": "your_cloudant_api_key",
-    "service_url": "https://your-cloudant-instance.cloudantnosqldb.appdomain.cloud",
     "db_name": "mcp_servers"  # Optional
 }
 
@@ -668,7 +372,6 @@ composer = MCPComposer(
     database_config=database_config
 )
 
-# Server configurations will be automatically persisted to Cloudant
 await composer.setup_member_servers()
 ```
 
@@ -740,10 +443,9 @@ await composer.setup_member_servers()
 
 **Benefits of Database Configuration**:
 - **Persistence**: Server configurations, tools, prompts, and resources are saved across restarts
-- **Scalability**: Cloudant and PostgreSQL provide distributed storage for multi-instance deployments
+- **Scalability**: PostgreSQL provides distributed storage for multi-instance deployments
 - **Management**: Tools for enabling/disabling tools, prompts, and resources per server
 - **Versioning**: Support for configuration versioning and rollback capabilities
-- **Flexibility**: Multiple database backends (Cloudant, PostgreSQL, Local File) to suit different deployment needs
 - **PostgreSQL Features**: ACID compliance, JSONB support, advanced querying capabilities, and robust ecosystem
 
 ### Multi-Server HTTP Routing
@@ -1646,22 +1348,19 @@ result = await composer.filter_resources({
 1. Navigate to `src/` and create a `.env` file by copying the contents of `.env.example`.Then, set the Server and Tool config path in env file accordingly:
 
    ```bash
-   cp src/.env.example src/.env
+   cp .env.example .env
    ```
 
 1. Run the following command
    ```bash
-   uv run test/test_composer.py
+   cd modules/mcp_composer
+   uv run tests/test_composer.py
    ```
 1. Open the MCP Inspector in a browser with token pre-filled from the first step above. You can also open on `localhost:6274` and provide the `token` from the first step as the `Proxy Session Token`.
 
-1. set _transport type_ and _URL_ from the previous step above and press `Connect`:
+1. set _transport type_ and _URL_ from the previous step above and press `Connect`.
 
-   > <img width="388" alt="image" src="https://github.ibm.com/ai-elite/mcp-composer/assets/3014/4931cf7c-5a0b-4c18-b405-42df30bcac27">
-
-1. Go to Tools in the MCP Inspector and List Tools:
-
-   > <img width="999" alt="image" src="https://github.ibm.com/ai-elite/mcp-composer/assets/3014/ce5eb760-d02c-42e5-9589-f807ce15ff15">
+1. Go to Tools in the MCP Inspector and List Tools.
 
 1. We will first use the `register_mcp_server` tool and register `stock_info` MCP server using the bellow config:
 
@@ -1673,19 +1372,11 @@ result = await composer.filter_resources({
    }
    ```
 
-   > <img width="1684" alt="image" src="https://github.ibm.com/ai-elite/mcp-composer/assets/3014/af0157ab-c4e5-4a25-a2be-ccabd800ada7">
+1. Once the tool is run, it will be successfully registered.
 
-1. Once the tool is run, it will be successfully registered:
+1. Clear Tool and List Tool again - This is where it might take long time or throw time out error based on the configuration of the MCP Inspector. In case you have time out error disconnect the server and connect again and run the List Tool, it will show all the tools from composer and all tools from `mcp-stockinfo`.
 
-   > <img width="1684" alt="image" src="https://github.ibm.com/ai-elite/mcp-composer/assets/3014/67f628fc-7773-496d-b9da-c44341f6d2d9">
-
-1. Clear Tool and List Tool again - This is where it might take long time or throw time out error based on the configuration of the MCP Inspector. In case you have time out error disconnect the server and connect again and run the List Tool, it will show all the tools from composer and all tools from `mcp-stockinfo`:
-
-   > <img width="1661" alt="image" src="https://github.ibm.com/ai-elite/mcp-composer/assets/3014/caefc2d8-7528-4231-a81f-5885cc0deab8">
-
-1. Run any tools:
-
-   > <img width="1670" alt="image" src="https://github.ibm.com/ai-elite/mcp-composer/assets/3014/f6678d13-99d3-4367-93ad-ab58d6431532">
+1. Run any tools.
 
 # OAuth
 
@@ -1706,7 +1397,8 @@ Open `.env.oauth` and replace the placeholder values with your actual OAuth prov
 Execute the following command to start the server and test the OAuth integration:
 
 ```bash
-uv run test/test_composer_oauth_provider.py
+cd modules/mcp_composer
+uv run examples/oauth_provider_manual.py
 ```
 
 # A2A
@@ -2087,76 +1779,9 @@ Retrieves a specific agent card by name as an MCP resource.
 ```
 
 
-### MCP Composer Client with Chatbot UI
+### Clients
 
-MCP composer client provides an agent backend service to provide chatbot service that talks with all the tools from MCP Composer server.
-
-A chatbot UI demo is also provided just for testing purpose ([Demo-Chatbot-UI](https://github.ibm.com/ai-elite/mcp-composer-chatbot-ui)).
-
-#### 1. Setup env variables and configuration
-
-In the same `.env` (copied from `src/.env.example`), setup the following variables:
-
-- `CHAT_MODEL_NAME`: watsonx or ollama
-- `WATSONX_CHAT_MODEL`: meta-llama/llama-4-maverick-17b-128e-instruct-fp8, ibm/granite-3-3-8b-instruct, etc
-- `WATSONX_URL`: Watsonx Instance URL
-- `WATSONX_API_KEY`: API-Key of Watsonx instance
-- `WATSONX_PROJECT_ID`: Watsonx Project ID
-- `CHAT_MODEL_NAME`: local ollama model (if `CHAT_MODEL_NAME=ollama`)
-
-Config file `config/mcp_composer_client.yaml` defines what MCP servers are connected, at current stage, it supports:
-
-- Remote MCP-Composer Server
-- Remote SSE/Http MCP-Server (testing purpose)
-- Stdio MCP-Server (testing purpose)
-
-Each server config has a boolean field `enabled` to enable the server or disable it.
-
-#### 2. Launch chatbot agent service
-
-(Before running chatbot agent service, make sure all `enabled: true` server in `config/mcp_composer_client.yaml` is properly setup and can be connected.)
-
-- **Option-1. Run agent service in local development environment**
-
-Launch agent service:
-
-```bash
-uv run src/mcp_composer_client/acp_server.py
-```
-
-It should output agent server URL in terminal:
-
-```bash
-INFO:     Waiting for application startup.
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://localhost:8000 (Press CTRL+C to quit)
-```
-
-- **Option-2. Build and Run Docker Image**
-
-  Build the image, taking default tag as "chatbot":
-
-  ```bash
-  docker build -t chatbot -f Dockerfile_Client .
-  ```
-
-  Run the image in container interactively (for Windows/Mac), by default, it uses `MCP_BASE_URL` to connect to MCP composer server.
-
-  ```bash
-  docker run -it -e HOST=0.0.0.0 -p 8000:8000 chatbot
-  ```
-
-  (In Linux, `-e HOST=0.0.0.0` can be removed.)
-
-  If using `config/mcp_composer_client.yaml` to config multiple MCP servers, set env `USER_CONFIG_FILE` to `yes`:
-
-  ```bash
-  docker run -it -e USER_CONFIG_FILE=yes -e HOST=0.0.0.0 -p 8000:8000 chatbot
-  ```
-
-#### 3. Launch chatbot UI (Optional)
-
-Follow instruction in [Demo-Chatbot-UI](https://github.ibm.com/ai-elite/mcp-composer-chatbot-ui), open browser and input chatbot UI URL. Interact with the chatbot.
+Use any MCP client against the composer endpoint. [MCP Inspector](https://github.com/modelcontextprotocol/inspector) is the supported local demo. A separate chat UI is not part of this repository.
 
 ## Troubleshooting
 
@@ -2181,10 +1806,10 @@ detect-secrets audit .secrets.baseline
 
 1. **`KeyError: 'SERVER_CONFIG_FILE_PATH'`**
    - **Cause**: Missing environment variable configuration
-   - **Solution**: Copy `env.example` to `.env` and set the required environment variables
+   - **Solution**: Copy `.env.example` to `.env` and set the required environment variables
 
    ```bash
-   cp env.example .env
+   cp .env.example .env
    ```
 
 2. **`error: Unable to find lockfile at uv.lock`**
@@ -2204,7 +1829,7 @@ detect-secrets audit .secrets.baseline
    ls -la .env
    
    # If not, create it
-   cp env.example .env
+   cp .env.example .env
    ```
 
 4. **Package not found when adding as local dependency**
@@ -2226,8 +1851,6 @@ detect-secrets audit .secrets.baseline
    echo $MCP_DATABASE_API_KEY
    echo $MCP_DATABASE_SERVICE_URL
    
-   # For Cloudant, ensure URL starts with http:// or https://
-   export MCP_DATABASE_SERVICE_URL="https://your-instance.cloudantnosqldb.appdomain.cloud"
    
   ## For PostgreSQL, ensure URL format is correct
   export MCP_DATABASE_URL="postgresql://$DB_USER:$DB_PASSWORD@$DB_HOST:$DB_PORT/$DB_NAME"
@@ -2241,19 +1864,13 @@ detect-secrets audit .secrets.baseline
    - **Solution**: Ensure environment variables are set before running the application
    ```bash
    # Set environment variables in your shell
-   export MCP_DATABASE_TYPE="cloudant"
-   export MCP_DATABASE_API_KEY="your_key"
-   export MCP_DATABASE_SERVICE_URL="https://your-instance.cloudantnosqldb.appdomain.cloud"
-   
+      
   # Or for PostgreSQL
   export MCP_DATABASE_TYPE="postgres"
   export MCP_DATABASE_URL="postgresql://$DB_USER:$DB_PASSWORD@$DB_HOST:$DB_PORT/$DB_NAME"
    
    # Or add them to your .env file
-   echo "MCP_DATABASE_TYPE=cloudant" >> .env
-   echo "MCP_DATABASE_API_KEY=your_key" >> .env
-   echo "MCP_DATABASE_SERVICE_URL=https://your-instance.cloudantnosqldb.appdomain.cloud" >> .env
-   
+      
    # Or for PostgreSQL
    echo "MCP_DATABASE_TYPE=postgres" >> .env
    echo "MCP_DATABASE_URL=postgresql://\$DB_USER:\$DB_PASSWORD@\$DB_HOST:\$DB_PORT/\$DB_NAME" >> .env
@@ -2267,11 +1884,7 @@ detect-secrets audit .secrets.baseline
    # Check the error logs for specific database configuration issues
    # Common issues: missing API keys, invalid service URLs, unsupported database types
    
-   # For Cloudant, ensure all required fields are set:
-   export MCP_DATABASE_TYPE="cloudant"
-   export MCP_DATABASE_API_KEY="your_valid_api_key"
-   export MCP_DATABASE_SERVICE_URL="https://your-instance.cloudantnosqldb.appdomain.cloud"
-   
+      
   ## For PostgreSQL, ensure connection details are correct:
   export MCP_DATABASE_TYPE="postgres"
   export MCP_DATABASE_URL="postgresql://$DB_USER:$DB_PASSWORD@$DB_HOST:$DB_PORT/$DB_NAME"

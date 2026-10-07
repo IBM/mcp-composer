@@ -18,12 +18,12 @@ link: no remount is needed when the underlying data changes.
 from __future__ import annotations
 
 import json
+import os
 from typing import Any
 from urllib.parse import urlparse
 
 import httpx
 from fastmcp import FastMCP
-
 from mcp_composer.core.catalog import (
     CatalogResourceListFilter,
     CatalogResourceNotFoundError,
@@ -37,13 +37,39 @@ from mcp_composer.core.utils.catalog_validators import validate_agentskills_inst
 from mcp_composer.store.catalog_factory import get_catalog_db
 from mcp_composer.store.catalog_skills_provider import CatalogSkillsProvider
 
+# Layered category browse is enabled only when the MCP process sets this env (see server instructions).
+_SKILL_CATALOG_LAYERED_ENV = "MCP_SKILL_CATALOG_LAYERED"
+_TRUTHY_ENV = frozenset({"true", "1", "yes", "on"})
+
+
+def _skill_catalog_layered_from_env() -> bool:
+    raw = (os.getenv(_SKILL_CATALOG_LAYERED_ENV) or "").strip().lower()
+    return raw in _TRUTHY_ENV
+
+
 # ── module-level singletons ───────────────────────────────────────────────────
 # _skill_manager is the only entry point to the DB from this module.
 _skill_manager = SkillManager(get_catalog_db())
 
+_catalog_mcp_instructions = """This MCP server exposes the skill catalog.
+
+Main tools:
+1. **list_skills** - Browse and search (compact rows by default; verbose=true for full rows)
+2. **get_skill** - Full skill JSON by name (optional version; default latest)
+3. **load_skill_reference** - One reference file by basename (HTTPS allowlist)
+
+Usage workflow:
+1. list_skills to find candidates
+2. get_skill(name) to load the document before acting on it
+3. load_skill_reference(name, file) when a listed reference body is needed
+4. Follow that skill's instructions and allowed-tools for the user task
+
+list_skills: flat pagination by default. If MCP_SKILL_CATALOG_LAYERED is set on this process, first call without category returns categories; then call with category for skills in that category.
+"""
+
 catalog_mcp = FastMCP(
     "skill-catalog",
-    instructions="This MCP server provides access to the skill catalog.",
+    instructions=_catalog_mcp_instructions,
 )
 
 catalog_mcp.add_provider(CatalogSkillsProvider())  # ← add here, stays in catalog module
@@ -100,15 +126,11 @@ def _validate_reference_file_arg(file_arg: str) -> str:
     if not f:
         raise ValueError("file is a required field")
     if ".." in f or "/" in f or "\\" in f:
-        raise ValueError(
-            "file must be a basename only (e.g. finops-aws.md), not a path"
-        )
+        raise ValueError("file must be a basename only (e.g. finops-aws.md), not a path")
     return f
 
 
-def _find_reference_url(
-    entries: list[dict[str, str]], file_key: str
-) -> tuple[str, str]:
+def _find_reference_url(entries: list[dict[str, str]], file_key: str) -> tuple[str, str]:
     """Return (url, matched_file) for the entry whose ``file`` equals ``file_key``."""
     for e in entries:
         if e["file"] == file_key:
@@ -156,19 +178,41 @@ async def _https_get_text_allowlisted(url: str) -> str:
 async def list_skills(
     keywords: str | None = None,
     tenant: str | None = None,
-    start: int = 0,
+    offset: int = 0,
     limit: int = 50,
+    verbose: bool = False,
+    category: str | None = None,
 ) -> dict:
-    """Search and browse skills in the catalog (mirrors GET /v0/skills).
-
+    """Search and browse skills in the catalog.
     Returns a page of active, latest skill records.  All parameters are
     optional — calling with no arguments returns the first 50 active skills
     sorted alphabetically by name.
+    See the **skill-catalog** MCP server ``instructions`` for **flat** vs **layered**
+    discovery. Layered mode (category index, then skills per category) is enabled
+    only when the host sets ``MCP_SKILL_CATALOG_LAYERED``; there is no ``layered``
+    parameter on this tool.
 
-    Only **active, latest** versions are returned (one result per skill name).
-    Skills in ``draft``, ``deprecated``, or ``deleted`` status are excluded.
-    Use ``catalog_get_skill(name, version=...)`` to retrieve a specific
-    historical or non-active version.
+    Layered mode (when ``MCP_SKILL_CATALOG_LAYERED`` is truthy in the environment)
+    -------------------------------------------------------------------------------
+    1. ``catalog_list_skills()`` with no ``category`` — returns ``categories`` (each
+       with ``name`` and ``skill_count``). Skills missing ``metadata.category`` are
+       grouped under ``(uncategorized)``.
+    2. ``catalog_list_skills(category="<name from step 1>")`` — same shape as the flat
+       list, but only skills in that category. Then ``catalog_get_skill(name)`` for
+       one skill's full document.
+
+    **Flat mode (default env):** single-step paginated skill list. You may still pass
+    ``category`` to filter by category without using the category-index hop.
+
+    Response shape (``verbose``)
+    ---------------------------
+    - ``verbose=false`` (default): each element of ``skills`` is a small object
+      ``{ "name", "description", "tags", "category" }`` where ``tags`` comes from
+      ``metadata.tags`` and ``category`` from ``metadata.category`` (may be ``null``).
+      Uses :meth:`SkillManager.list_summaries` so large ``instructions`` /
+      ``references`` are **not** parsed as ``SkillJSON``.
+    - ``verbose=true``: each element is the full registry shape
+      ``{ "skill": { ... }, "_meta": { ... } }`` (same as historical behaviour).
 
     Filtering
     ---------
@@ -180,67 +224,117 @@ async def list_skills(
                     E.g. ``"aspera"`` → skills related to Aspera.
                          ``"aspera watsonx"`` → skills for either product.
     - ``tenant``    Restrict results to skills visible to a specific tenant ID.
+    - ``category``  Restrict to ``metadata.category`` (case-insensitive match on
+                    the trimmed value). Use ``category="(uncategorized)"`` for skills with
+                    no category. In layered mode, omit ``category`` on the first call
+                    (category index); pass it on the second call to list skills in that category.
 
     Pagination
     ----------
     Results are offset-based.  The response ``metadata.next_start`` field gives
-    the ``start`` value for the next page; it is ``null`` on the last page.
+    the ``offset`` value for the next page; it is ``null`` on the last page.
+    In layered mode, the category index step (no ``category``) returns all
+    categories in one response (no pagination).
 
     Examples
     --------
-    All active skills:
+    Compact list (default):
         ``catalog_list_skills()``
+
+    Full payload per skill:
+        ``catalog_list_skills(verbose=true)``
 
     By keywords (name / product / tag):
         ``catalog_list_skills(keywords="instana")``
         ``catalog_list_skills(keywords="aspera monitoring")``
 
     Next page:
-        ``catalog_list_skills(keywords="instana", start=20, limit=20)``
+        ``catalog_list_skills(keywords="instana", offset=20, limit=20)``
+
+    Layered (only when ``MCP_SKILL_CATALOG_LAYERED`` is set for this MCP process):
+        ``catalog_list_skills()``
+        ``catalog_list_skills(category="observability")``
 
     Args:
         keywords: Space-separated keywords searched across skill name, products,
                   and tags. Any keyword matching any field returns the skill (OR).
                   E.g. ``"aspera"`` or ``"aspera watsonx.data"``.
         tenant:   Restrict to skills visible to this tenant ID.
-        start:    Zero-based offset of the first result (default 0).
+        offset:   Zero-based offset of the first result (default 0).
         limit:    Page size, 1–1000 (default 50).
+        verbose:  When ``true``, each ``skills`` entry includes the full ``skill``
+                  document and ``_meta``. When ``false`` (default), each entry is
+                  only ``name``, ``description``, ``tags``, and ``category``.
+        category: Filter by ``metadata.category``, or in layered mode the second-hop
+                  category name from the index. Uncategorized bucket: ``"(uncategorized)"``.
 
     Returns:
-        ``{"skills": [...], "metadata": {"count": N, "next_start": <int|null>}}``
-        Each skill object contains ``skill`` (the stored payload) and ``_meta``
-        (``isLatest``, ``status``, ``publishedAt``, ``updatedAt``).
-        On DB errors returns an empty list with an ``error`` field instead of
+        Flat mode: ``{"skills": [...], "metadata": {"count": N, "next_start": …}}``.
+        Layered index: ``{"layered": true, "categories": [...], "skills": [], "metadata": …}``.
+        On DB errors returns empty lists with an ``error`` field instead of
         raising, so callers can handle a missing table gracefully.
     """
+    layered_mode = _skill_catalog_layered_from_env()
+    category_trim: str | None = None
     try:
         tokens = [t for t in (keywords or "").split() if t] or None
-        result = await _skill_manager.list(
-            CatalogResourceListFilter(
-                kind=RegistryResourceKind.SKILL,
-                name_like=None,
-                is_latest_only=True,
-                status_filter="active",
+        category_trim = category.strip() if category and category.strip() else None
+
+        if layered_mode and not category_trim:
+            categories = await _skill_manager.list_skill_categories(
                 keywords=tokens,
                 tenant=tenant,
-                start=start,
-                limit=limit,
             )
+            return {
+                "layered": True,
+                "categories": categories,
+                "skills": [],
+                "metadata": {
+                    "count": len(categories),
+                    "next_start": None,
+                },
+            }
+
+        fltr = CatalogResourceListFilter(
+            kind=RegistryResourceKind.SKILL,
+            name_like=None,
+            is_latest_only=True,
+            status_filter="active",
+            keywords=tokens,
+            tenant=tenant,
+            category=category_trim,
+            start=offset,
+            limit=limit,
         )
-        data = result.model_dump(by_alias=True)
-        return {
-            "skills": data["skills"],
+        if verbose:
+            result = await _skill_manager.list(fltr)
+            data = result.model_dump(by_alias=True)
+            skills_out: list[Any] = data["skills"]
+            meta = result.metadata
+        else:
+            compact = await _skill_manager.list_summaries(fltr)
+            skills_out = [s.model_dump(mode="json") for s in compact.skills]
+            meta = compact.metadata
+        out: dict[str, Any] = {
+            "skills": skills_out,
             "metadata": {
-                "count": data["metadata"]["count"],
-                "next_start": data["metadata"]["nextStart"],
+                "count": meta.count,
+                "next_start": meta.next_start,
             },
         }
+        if layered_mode:
+            out["layered"] = True
+        return out
     except Exception as exc:
-        return {
+        err_body: dict[str, Any] = {
             "skills": [],
             "metadata": {"count": 0, "next_start": None},
             "error": str(exc),
         }
+        if layered_mode and not category_trim:
+            err_body["layered"] = True
+            err_body["categories"] = []
+        return err_body
 
 
 @catalog_mcp.tool()
@@ -332,8 +426,7 @@ async def load_skill_reference(
     entries = _collect_reference_entries(result)
     if not entries:
         raise ValueError(
-            "This skill has no references in the catalog payload or metadata; "
-            "nothing to load."
+            "This skill has no references in the catalog payload or metadata; " "nothing to load."
         )
     url, matched_file = _find_reference_url(entries, file_key)
 
@@ -350,6 +443,54 @@ async def load_skill_reference(
         "content": text,
     }
     return json.dumps(payload, ensure_ascii=False)
+
+
+@catalog_mcp.tool()
+async def get_skill_catalog_workflow_guide() -> dict[str, Any]:
+    """Return this server's apply-a-skill workflow as JSON (steps, layered flag, notes)."""
+    layered = _skill_catalog_layered_from_env()
+    steps: list[dict[str, Any]] = [
+        {
+            "step": 1,
+            "phase": "discover",
+            "tool": "list_skills",
+            "summary": (
+                "List candidate skills (compact by default). "
+                + (
+                    "Layered: omit category for category index, then list_skills(category=...)."
+                    if layered
+                    else "Flat: paginate with start/limit; optional keywords/category filter."
+                )
+            ),
+        },
+        {
+            "step": 2,
+            "phase": "inspect",
+            "tool": "get_skill",
+            "summary": "Fetch full skill JSON for the chosen name (version optional for latest).",
+        },
+        {
+            "step": 3,
+            "phase": "references",
+            "tool": "load_skill_reference",
+            "summary": "For each needed reference basename, fetch body (HTTPS allowlist). Skip if not required.",
+        },
+        {
+            "step": 4,
+            "phase": "apply",
+            "tool": "(host tools + skill policy)",
+            "summary": "Execute the user task following merged instructions and allowed-tools until done.",
+        },
+    ]
+    return {
+        "pattern": "discover_load_references_apply",
+        "layered_catalog_discovery": layered,
+        "steps": steps,
+        "notes": (
+            "Tool names are as on this MCP server; clients may prefix (e.g. catalog_list_skills). "
+            "Resources skill://… may substitute for some reference loads where supported."
+        ),
+    }
 
 
 @catalog_mcp.tool()
@@ -571,51 +712,6 @@ async def publish_skill_bundle(
     return result.model_dump(by_alias=True)
 
 
-def _parse_skill_bundle(
-    raw: dict[str, Any],
-) -> tuple[dict[str, Any], dict[str, Any] | None]:
-    """Split a bundle dict into skill document and optional catalog_resource_metadata.data."""
-    meta_keys = (
-        "catalog_resource_metadata",
-        "private_meta",
-        "resource_metadata",
-        "data",
-    )
-    found_keys: list[str] = []
-    meta: dict[str, Any] | None = None
-    for key in meta_keys:
-        if key not in raw:
-            continue
-        val = raw[key]
-        if val is None:
-            continue
-        if not isinstance(val, dict):
-            raise ValueError(f"'{key}' must be a JSON object")
-        found_keys.append(key)
-        meta = val
-    if len(found_keys) > 1:
-        raise ValueError(
-            "Use only one of: catalog_resource_metadata, private_meta, resource_metadata, data"
-        )
-
-    resource_body_keys = ("catalog_resource", "skill", "payload")
-    present = [k for k in resource_body_keys if k in raw and raw[k] is not None]
-    if len(present) > 1:
-        raise ValueError(
-            "Use only one of: catalog_resource, skill, payload (same agentskills document)"
-        )
-    if len(present) == 0:
-        raise ValueError(
-            "Bundle must include 'catalog_resource' (preferred), 'skill', or 'payload' "
-            "— the public resource document stored in catalog_resources.payload"
-        )
-    key = present[0]
-    skill_obj = raw[key]
-    if not isinstance(skill_obj, dict):
-        raise ValueError(f"'{key}' must be a JSON object")
-    return skill_obj, meta
-
-
 @catalog_mcp.tool()
 async def delete_skill(name: str, version: str) -> dict:
     """Remove a specific skill version from the catalog (mirrors DELETE /v0/skills/{name}/versions/{version}).
@@ -688,9 +784,7 @@ async def update_skill_status(
     if not status or not status.strip():
         raise ValueError("status is a required field")
     try:
-        await _skill_manager.update_status(
-            name.strip(), version.strip(), status.strip()
-        )
+        await _skill_manager.update_status(name.strip(), version.strip(), status.strip())
     except (
         CatalogResourceNotFoundError,
         InvalidCatalogResourceStatusError,

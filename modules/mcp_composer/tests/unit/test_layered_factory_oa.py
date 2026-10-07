@@ -245,28 +245,32 @@ class TestLayeredOpenAPIFactory:
         """Test get_type_info with invalid service."""
         result = layered_factory.get_type_info("invalid_service")
         assert "error" in result
-        assert "available_services" in result
+        assert "suggestions" in result
 
     def test_get_service_info_all(self, layered_factory):
-        """Test get_service_info without service parameter."""
+        """Test get_service_info without service parameter (slim list)."""
         result = layered_factory.get_service_info()
-        assert "available_services" in result
+        assert "matches" in result
         assert "total_services" in result
         assert "usage" in result
         assert result["total_services"] == 1
+        assert result["mode"] == "list"
+        for match in result["matches"]:
+            assert "parameters" not in match
 
     def test_get_service_info_specific(self, layered_factory):
-        """Test get_service_info with specific service."""
-        result = layered_factory.get_service_info("get_test_data")
+        """Test get_service_info with specific service (concise summary)."""
+        result = layered_factory.get_service_info(service="get_test_data")
         assert result["service"] == "get_test_data"
-        assert "parameters" in result
         assert "schema_summary" in result
+        assert "parameters" not in result
+        assert "next" in result
 
     def test_get_service_info_invalid_service(self, layered_factory):
         """Test get_service_info with invalid service."""
-        result = layered_factory.get_service_info("invalid_service")
+        result = layered_factory.get_service_info(service="invalid_service")
         assert "error" in result
-        assert "available_services" in result
+        assert "suggestions" in result
 
     @pytest.mark.asyncio
     async def test_make_tool_call(self, layered_factory, mock_client):
@@ -295,7 +299,7 @@ class TestLayeredOpenAPIFactory:
         """Test make_tool_call with invalid service."""
         result = await layered_factory.make_tool_call("invalid_service")
         assert "error" in result
-        assert "available_services" in result
+        assert "suggestions" in result
 
     @pytest.mark.asyncio
     async def test_make_tool_call_error(self, layered_factory, mock_client):
@@ -407,10 +411,7 @@ class TestLayeredOpenAPIFactory:
         assert "get_service_info" in instructions
         assert "get_type_info" in instructions
         assert "make_tool_call" in instructions
-        assert (
-            "Layered Tool Pattern" in instructions
-            or "three main capabilities" in instructions
-        )
+        assert "query-first" in instructions or "query=" in instructions
 
     # -------------------
     # Additional description tests

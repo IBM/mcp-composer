@@ -19,6 +19,7 @@ from mcp_composer.core.member_servers.layered_constants import (
     ERROR_MESSAGES,
     FALLBACK_UNKNOWN,
     HTTP_METHODS,
+    LAYERED_DISCOVERY_INSTRUCTIONS,
     OPENAPI_KEYS,
     OPERATION_KEYS,
     PARAMETER_KEYS,
@@ -28,41 +29,35 @@ from mcp_composer.core.member_servers.layered_constants import (
     SERVICE_KEYS,
     USAGE_MESSAGES,
 )
+from mcp_composer.core.member_servers.layered_discovery import (
+    DEFAULT_LIMIT,
+    ToolCatalogEntry,
+    parse_tags_arg,
+    resolve_discovery_response,
+    suggest_names,
+)
 from mcp_composer.core.utils import LoggerFactory
 
 logger = LoggerFactory.get_logger()
 
-# Import auth context helper to get authentication headers
-AUTH_CONTEXT_AVAILABLE = False
-try:
-    from mcp_composer.middleware.auth_context_middleware import (
-        AUTH_HEADER_ISV_TOKEN,
-        AUTH_HEADER_PLATFORM_COOKIE,
-        AUTH_HEADER_USER_INSTANCES,
-        AUTH_KEY_AUTH_TOKEN,
-        AUTH_KEY_COOKIES,
-        AUTH_KEY_ISV_TOKEN,
-        AUTH_KEY_USER_INSTANCES,
-        AUTH_KEY_USER_INSTANCES_FULL,
-        REQUEST_CONTEXT_KEY,
-        get_auth_context,
-    )
+# Auth-context helpers (optional middleware). Stubs keep forwarding testable and
+# allow process-level OAuth/JWT to remain the primary gate.
+AUTH_HEADER_ISV_TOKEN = "X-ISV-Token"
+AUTH_HEADER_PLATFORM_COOKIE = "X-Platform-Cookie"
+AUTH_HEADER_USER_INSTANCES = "X-User-Instances"
+AUTH_KEY_AUTH_TOKEN = "auth_token"
+AUTH_KEY_COOKIES = "cookies"
+AUTH_KEY_ISV_TOKEN = "isv_token"
+AUTH_KEY_USER_INSTANCES = "user_instances"
+AUTH_KEY_USER_INSTANCES_FULL = "user_instances_full"
+REQUEST_CONTEXT_KEY = "x-request-context"
 
-    AUTH_CONTEXT_AVAILABLE = True
-except ImportError:
-    AUTH_HEADER_ISV_TOKEN = "X-ISV-Token"
-    AUTH_HEADER_PLATFORM_COOKIE = "X-Platform-Cookie"
-    AUTH_HEADER_USER_INSTANCES = "X-User-Instances"
-    AUTH_KEY_AUTH_TOKEN = "auth_token"
-    AUTH_KEY_COOKIES = "cookies"
-    AUTH_KEY_ISV_TOKEN = "isv_token"
-    AUTH_KEY_USER_INSTANCES = "user_instances"
-    AUTH_KEY_USER_INSTANCES_FULL = "user_instances_full"
-    REQUEST_CONTEXT_KEY = "x-request-context"
-    get_auth_context = lambda: None  # type: ignore[assignment]
-    logger.debug(
-        "AuthContextMiddleware not available - auth context forwarding disabled"
-    )
+
+def get_auth_context():  # type: ignore[no-redef]
+    return None
+
+
+AUTH_CONTEXT_AVAILABLE = True
 
 
 class LayeredOpenAPIFactory(FastMCP):
@@ -81,36 +76,21 @@ class LayeredOpenAPIFactory(FastMCP):
         # Initialize the parent FastMCP class first
         super().__init__(
             name="Layered OpenAPI FastMCP",
-            instructions="""This MCP server provides access to OpenAPI-based tools with three main capabilities:
-
-1. **get_service_info** - Discover and list all available API operations/tools:
-   - Call without parameters to see all available services
-   - Call with a specific service name to get detailed information including schema summaries
-   - Use this to understand what API operations are available
-
-2. **get_type_info** - Get detailed parameter, input, and output information for a specific service:
-   - Call with a service name (operationId) to get comprehensive details
-   - Returns parameter schemas, request body schemas, response schemas, and examples
-   - Use this to understand how to call a specific API operation
-
-3. **make_tool_call** - Execute an actual API call to the specified service:
-   - Call with a service name and optional request parameters
-   - This is the tool that actually performs the HTTP request to the underlying API
-   - Use this after understanding the service details from the other tools
-
-Usage workflow:
-1. First use get_service_info() to see what's available
-2. Then use get_type_info(service_name) to understand the specific service
-3. Finally use make_tool_call(service_name, request_data) to execute the API call
-
-All tools automatically resolve OpenAPI schema references and provide enhanced metadata including examples and cleaned schemas.""",
+            instructions=(
+                LAYERED_DISCOVERY_INSTRUCTIONS
+                + "\n\nAll tools automatically resolve OpenAPI schema references "
+                "and provide enhanced metadata including examples and cleaned schemas."
+            ),
         )
         LAYERED_SERVICE_ARGS_RETURNS = """
         Args:
-            service: Optional service name (operationId). If None, lists all services.
+            service: Optional exact service name (operationId) for a concise summary.
+            query: Search text to rank relevant services (preferred for large catalogs).
+            tags: Optional tag filter (list or comma-separated string).
+            limit: Max matches to return (default 20, max 50).
 
         Returns:
-            List of operations or details about a specific operation.
+            Discovery payload (matches / overview) or a concise service summary.
         """
 
         LAYERED_TYPE_ARGS_RETURNS = """
@@ -151,7 +131,8 @@ All tools automatically resolve OpenAPI schema references and provide enhanced m
         get_service_desc = (
             self._safe_tool_description(
                 "get_service_info",
-                "Discover and list available OpenAPI services (operations) for this layered server.",
+                "Discover OpenAPI operations via query-first search "
+                "(or name overview on large catalogs). Prefer get_service_info(query='...', limit=20).",
             )
             + LAYERED_SERVICE_ARGS_RETURNS
         ).strip()
@@ -615,6 +596,32 @@ All tools automatically resolve OpenAPI schema references and provide enhanced m
             # If pattern is invalid regex, treat as exact match
             return path == pattern
 
+    def _catalog_entries(self) -> list[ToolCatalogEntry]:
+        """Build normalized discovery entries from OpenAPI service metadata."""
+        entries: list[ToolCatalogEntry] = []
+        for name, info in self.service_info.items():
+            entries.append(
+                ToolCatalogEntry(
+                    name=name,
+                    summary=str(info.get(SERVICE_KEYS["SUMMARY"]) or ""),
+                    description=str(info.get(SERVICE_KEYS["DESCRIPTION"]) or ""),
+                    path=str(info.get(SERVICE_KEYS["PATH"]) or ""),
+                    http_method=str(info.get(SERVICE_KEYS["HTTP_METHOD"]) or ""),
+                    tags=list(info.get(SERVICE_KEYS["TAGS"]) or []),
+                    extra={
+                        "operationId": info.get(SERVICE_KEYS["OPERATION_ID"], name)
+                    },
+                )
+            )
+        return entries
+
+    def _not_found_suggestions(self, service: str) -> dict[str, Any]:
+        return {
+            RESPONSE_KEYS["ERROR"]: ERROR_MESSAGES["SERVICE_NOT_FOUND"].format(service),
+            "suggestions": suggest_names(self._catalog_entries(), service, limit=10),
+            "usage": USAGE_MESSAGES["GET_SERVICE_INFO"],
+        }
+
     def get_type_info(self, service: str) -> dict[str, Any]:
         """
         Get detailed parameter information for a service.
@@ -623,12 +630,7 @@ All tools automatically resolve OpenAPI schema references and provide enhanced m
             service: The service name (operationId)
         """
         if service not in self.service_info:
-            return {
-                RESPONSE_KEYS["ERROR"]: ERROR_MESSAGES["SERVICE_NOT_FOUND"].format(
-                    service
-                ),
-                "available_services": list(self.service_info.keys()),
-            }
+            return self._not_found_suggestions(service)
 
         service_data = self.service_info[service]
 
@@ -650,138 +652,80 @@ All tools automatically resolve OpenAPI schema references and provide enhanced m
             SERVICE_KEYS["TAGS"]: service_data[SERVICE_KEYS["TAGS"]],
         }
 
-    def get_service_info(self, service: str | None = None) -> dict[str, Any]:
+    def get_service_info(
+        self,
+        service: str | None = None,
+        query: str | None = None,
+        tags: list[str] | str | None = None,
+        limit: int = DEFAULT_LIMIT,
+    ) -> dict[str, Any]:
         """
-        Discover available services (operations).
+        Discover available services (operations) with query-first ranking.
 
         Args:
-            service: Optional service name (operationId). If None, lists all services.
+            service: Optional exact service name (operationId) for detail mode.
+            query: Search text to rank relevant services.
+            tags: Optional tag filter (list or comma-separated string).
+            limit: Max matches to return (default 20, max 50).
         """
-        if service is None:
+        entries = self._catalog_entries()
+
+        if service is not None:
+            if service not in self.service_info:
+                return self._not_found_suggestions(service)
+
+            service_data = self.service_info[service]
+            parameters = service_data.get(SERVICE_KEYS["PARAMETERS"], []) or []
+            responses = service_data.get(SERVICE_KEYS["RESPONSES"], {}) or {}
+
+            # Concise summary only — full schemas live in get_type_info.
             return {
-                "available_services": {
-                    name: {
-                        SERVICE_KEYS["OPERATION_ID"]: info[
-                            SERVICE_KEYS["OPERATION_ID"]
-                        ],
-                        SERVICE_KEYS["DESCRIPTION"]: info[SERVICE_KEYS["DESCRIPTION"]],
-                        SERVICE_KEYS["SUMMARY"]: info[SERVICE_KEYS["SUMMARY"]],
-                        SERVICE_KEYS["HTTP_METHOD"]: info[SERVICE_KEYS["HTTP_METHOD"]],
-                        SERVICE_KEYS["PATH"]: info[SERVICE_KEYS["PATH"]],
-                        SERVICE_KEYS["TAGS"]: info[SERVICE_KEYS["TAGS"]],
-                    }
-                    for name, info in self.service_info.items()
+                "service": service,
+                SERVICE_KEYS["OPERATION_ID"]: service_data[SERVICE_KEYS["OPERATION_ID"]],
+                SERVICE_KEYS["SUMMARY"]: service_data[SERVICE_KEYS["SUMMARY"]],
+                SERVICE_KEYS["DESCRIPTION"]: service_data[SERVICE_KEYS["DESCRIPTION"]],
+                SERVICE_KEYS["HTTP_METHOD"]: service_data[SERVICE_KEYS["HTTP_METHOD"]],
+                SERVICE_KEYS["PATH"]: service_data[SERVICE_KEYS["PATH"]],
+                SERVICE_KEYS["TAGS"]: service_data[SERVICE_KEYS["TAGS"]],
+                "schema_summary": {
+                    "parameters_count": len(parameters),
+                    "path_params": len(
+                        [
+                            p
+                            for p in parameters
+                            if isinstance(p, dict)
+                            and p.get(PARAMETER_KEYS["IN"]) == "path"
+                        ]
+                    ),
+                    "query_params": len(
+                        [
+                            p
+                            for p in parameters
+                            if isinstance(p, dict)
+                            and p.get(PARAMETER_KEYS["IN"]) == "query"
+                        ]
+                    ),
+                    "has_request_body": bool(
+                        service_data.get(SERVICE_KEYS["REQUEST_BODY"])
+                    ),
+                    "response_status_codes": (
+                        list(responses.keys()) if isinstance(responses, dict) else []
+                    ),
                 },
-                "total_services": len(self.service_info),
-                "usage": USAGE_MESSAGES["GET_SERVICE_INFO"],
+                "next": USAGE_MESSAGES.get(
+                    "GET_TYPE_INFO",
+                    "Call get_type_info for full schemas.",
+                ),
             }
 
-        if service not in self.service_info:
-            return {
-                RESPONSE_KEYS["ERROR"]: ERROR_MESSAGES["SERVICE_NOT_FOUND"].format(
-                    service
-                ),
-                "available_services": list(self.service_info.keys()),
-            }
-
-        service_data = self.service_info[service]
-
-        # Build schema summary
-        schema_summary = {
-            "service": service,
-            "operation_id": service_data.get(SERVICE_KEYS["OPERATION_ID"]),
-            "http_method": service_data.get(SERVICE_KEYS["HTTP_METHOD"]),
-            "path": service_data.get(SERVICE_KEYS["PATH"]),
-            "parameters_summary": {
-                "count": len(service_data.get(SERVICE_KEYS["PARAMETERS"], [])),  # type: ignore[arg-type]
-                "path_params": len(
-                    [
-                        p
-                        for p in service_data.get(SERVICE_KEYS["PARAMETERS"], [])  # type: ignore[attr-defined]
-                        if p.get(PARAMETER_KEYS["IN"]) == "path"
-                    ]
-                ),
-                "query_params": len(
-                    [
-                        p
-                        for p in service_data.get(SERVICE_KEYS["PARAMETERS"], [])  # type: ignore[attr-defined]
-                        if p.get(PARAMETER_KEYS["IN"]) == "query"
-                    ]
-                ),
-                "header_params": len(
-                    [
-                        p
-                        for p in service_data.get(SERVICE_KEYS["PARAMETERS"], [])  # type: ignore[attr-defined]
-                        if p.get(PARAMETER_KEYS["IN"]) == "header"
-                    ]
-                ),
-                "has_schemas": any(
-                    p.get("schema")
-                    for p in service_data.get(SERVICE_KEYS["PARAMETERS"], [])  # type: ignore[attr-defined]
-                    if isinstance(p, dict)
-                ),
-            },
-            "request_body_summary": {
-                "has_schema": bool(service_data.get(SERVICE_KEYS["REQUEST_BODY"])),
-                "has_example": (
-                    bool(
-                        service_data.get(SERVICE_KEYS["REQUEST_BODY"], {}).get(  # type: ignore[attr-defined]
-                            SCHEMA_KEYS["EXAMPLE"]
-                        )
-                    )
-                    if service_data.get(SERVICE_KEYS["REQUEST_BODY"])
-                    else False
-                ),
-                "has_ref": (
-                    bool(
-                        service_data.get(SERVICE_KEYS["REQUEST_BODY"], {}).get(  # type: ignore[attr-defined]
-                            "original_ref"
-                        )
-                    )
-                    if service_data.get(SERVICE_KEYS["REQUEST_BODY"])
-                    else False
-                ),
-                "schema_type": (
-                    service_data.get(SERVICE_KEYS["REQUEST_BODY"], {}).get(  # type: ignore[attr-defined]
-                        SCHEMA_KEYS["TYPE"]
-                    )
-                    if service_data.get(SERVICE_KEYS["REQUEST_BODY"])
-                    else None
-                ),
-            },
-            "responses_summary": {
-                "count": len(service_data.get(SERVICE_KEYS["RESPONSES"], {})),  # type: ignore[arg-type]
-                "has_schemas": any(
-                    r.get("schema")
-                    for r in service_data.get(SERVICE_KEYS["RESPONSES"], {}).values()  # type: ignore[attr-defined]
-                    if isinstance(r, dict)
-                ),
-                "has_refs": any(
-                    r.get("original_ref")
-                    for r in service_data.get(SERVICE_KEYS["RESPONSES"], {}).values()  # type: ignore[attr-defined]
-                    if isinstance(r, dict)
-                ),
-                "status_codes": (
-                    list(service_data.get(SERVICE_KEYS["RESPONSES"], {}).keys())  # type: ignore[attr-defined]
-                    if isinstance(service_data.get(SERVICE_KEYS["RESPONSES"], {}), dict)
-                    else []
-                ),
-            },
-        }
-
-        return {
-            "service": service,
-            SERVICE_KEYS["OPERATION_ID"]: service_data[SERVICE_KEYS["OPERATION_ID"]],
-            SERVICE_KEYS["SUMMARY"]: service_data[SERVICE_KEYS["SUMMARY"]],
-            SERVICE_KEYS["DESCRIPTION"]: service_data[SERVICE_KEYS["DESCRIPTION"]],
-            SERVICE_KEYS["HTTP_METHOD"]: service_data[SERVICE_KEYS["HTTP_METHOD"]],
-            SERVICE_KEYS["PATH"]: service_data[SERVICE_KEYS["PATH"]],
-            "parameters": service_data[SERVICE_KEYS["PARAMETERS"]],
-            SERVICE_KEYS["REQUEST_BODY"]: service_data[SERVICE_KEYS["REQUEST_BODY"]],
-            SERVICE_KEYS["RESPONSES"]: service_data[SERVICE_KEYS["RESPONSES"]],
-            SERVICE_KEYS["TAGS"]: service_data[SERVICE_KEYS["TAGS"]],
-            "schema_summary": schema_summary,
-        }
+        return resolve_discovery_response(
+            entries,
+            query=query,
+            tags=parse_tags_arg(tags),
+            limit=limit,
+            total_key="total_services",
+            matches_key="matches",
+        )
 
     async def make_tool_call(
         self, service: str, request: dict[str, Any] | None = None
@@ -794,12 +738,7 @@ All tools automatically resolve OpenAPI schema references and provide enhanced m
             request: Request data with path_params, query_params, headers, body
         """
         if service not in self.service_info:
-            return {
-                RESPONSE_KEYS["ERROR"]: ERROR_MESSAGES["SERVICE_NOT_FOUND"].format(
-                    service
-                ),
-                "available_services": list(self.service_info.keys()),
-            }
+            return self._not_found_suggestions(service)
 
         # Ensure request is a dictionary
         request_dict = request if request is not None else DEFAULT_VALUES["EMPTY_DICT"]
@@ -876,7 +815,7 @@ All tools automatically resolve OpenAPI schema references and provide enhanced m
                                 "server_id": self.server_id,
                             }
 
-                        # AUTHORIZATION: Match solis_config.product_id with instance.subscription.productId
+                        # AUTHORIZATION: Match product_id with instance.subscription.productId
                         logger.debug(
                             "DEBUG: Calling _authorize_and_select_instance (product_id='%s')",
                             self.product_id,
@@ -891,7 +830,7 @@ All tools automatically resolve OpenAPI schema references and provide enhanced m
                         )
 
                         if not selected_instance:
-                            # No user instance had productId matching server's solis_config.product_id
+                            # No user instance had productId matching server's product_id
                             available_product_ids = list(
                                 set(
                                     self._get_instance_product_id(i) or FALLBACK_UNKNOWN
@@ -899,7 +838,7 @@ All tools automatically resolve OpenAPI schema references and provide enhanced m
                                 )
                             )
                             logger.error(
-                                "Authorization failed for service '%s': product_id '%s' (from solis_config) not in user instances' productIds %s",
+                                "Authorization failed for service '%s': product_id '%s' (from config) not in user instances' productIds %s",
                                 service,
                                 self.product_id,
                                 available_product_ids,
@@ -930,7 +869,7 @@ All tools automatically resolve OpenAPI schema references and provide enhanced m
                         )
                         auth_headers.update(instance_headers)
 
-                        # Debug: confirm instance_id and host resolved from ISV for this request
+                        # Debug: confirm instance_id and host resolved from auth context for this request
                         resolved_instance_id = selected_instance.get(
                             "id"
                         ) or selected_instance.get("instance_id", "")
@@ -938,7 +877,7 @@ All tools automatically resolve OpenAPI schema references and provide enhanced m
                             self._get_instance_product_id(selected_instance) or ""
                         )
                         logger.debug(
-                            "ISV auth resolved for service '%s': instance_id=%s, productId=%s, host=%s",
+                            "Auth context resolved for service '%s': instance_id=%s, productId=%s, host=%s",
                             service,
                             resolved_instance_id,
                             resolved_product_id,
@@ -1121,18 +1060,8 @@ All tools automatically resolve OpenAPI schema references and provide enhanced m
             logger.info("=" * 80)
 
             # Make the actual HTTP request with merged headers
-            # Check if client is AsperaJWTClient - if so, always use it for token refresh
-            from mcp_composer.core.auth_handler.aspera_auth_handler import (
-                AsperaJWTClient,
-            )
-
-            is_aspera_client = isinstance(self.client, AsperaJWTClient)
-
-            # If we have cookie-based auth AND it's not Aspera, use a plain httpx client to avoid OAuth2 override
-            # For Aspera, always use the AsperaJWTClient so it can handle token refresh
-            if auth_headers.get("Authorization") and not is_aspera_client:
-                logger.info("✓ Using plain HTTP client with cookie-based authorization")
-                # Create a plain httpx client without OAuth2 auth
+            if auth_headers.get("Authorization"):
+                logger.info("Using plain HTTP client with explicit Authorization header")
                 async with httpx.AsyncClient(
                     base_url=self.client.base_url,
                     timeout=(
@@ -1147,17 +1076,7 @@ All tools automatically resolve OpenAPI schema references and provide enhanced m
                         json=request_body,
                     )
             else:
-                if is_aspera_client:
-                    logger.info(
-                        "✓ Using AsperaJWTClient for authentication with token refresh"
-                    )
-                    logger.debug(
-                        "final_headers being passed to AsperaJWTClient: %s",
-                        final_headers,
-                    )
-                else:
-                    logger.debug("Using OAuth2 client for authentication")
-                # Use the configured client (AsperaJWTClient or OAuth2 client)
+                logger.debug("Using configured HTTP client for authentication")
                 response = await self.client.request(
                     method=str(http_method),  # type: ignore[arg-type]
                     url=str(url_path),  # type: ignore[arg-type]

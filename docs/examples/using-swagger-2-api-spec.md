@@ -13,10 +13,4 @@
 
 ## Fix the operation id
 
-1. clone the repo   [mcp-schema-optimization](https://github.ibm.com/ai-elite/mcp-schema-optimization)
-2. cd to the `mcp-schema-optimization` folder run `uv sync`
-3. run the following command where `spec.yml` is the input file and `test_output.json` is the output
-    ```bash 
-    uv run python main.py spec.yml test_output.json
-    ```
-4. this will generate a file called `test_output.json` which has the operation id fixed
+Swagger 2 conversions often omit `operationId`. MCP Composer uses that field as the tool name. In the OpenAPI 3 document, set a unique `operationId` on each operation (Swagger Editor, or any OpenAPI linter). No extra repository is required.

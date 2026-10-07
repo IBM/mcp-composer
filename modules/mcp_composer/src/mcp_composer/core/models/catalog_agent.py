@@ -5,18 +5,13 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
-
-from mcp_composer.core.models.catalog_common import (
-    RegistryListMetadata,
-    RegistryOfficialExtensions,
-)
+from mcp_composer.core.models.catalog_common import RegistryListMetadata, RegistryOfficialExtensions
 from mcp_composer.core.models.catalog_skill import SkillCatalogReference
 from mcp_composer.core.utils.catalog_validators import (
     require_non_empty_after_strip,
-    validate_agent_name,
     validate_registry_version,
 )
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class AgentRegistryRepository(BaseModel):
@@ -63,7 +58,7 @@ class DeploymentSummary(BaseModel):
 
 
 class ResourceDeploymentsMeta(BaseModel):
-    """`aregistry.ai/deployments` fragment."""
+    """`registry.ai/deployments` fragment."""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -72,36 +67,26 @@ class ResourceDeploymentsMeta(BaseModel):
 
 
 class SkillRef(BaseModel):
-    model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, str_strip_whitespace=True
-    )
+    model_config = ConfigDict(extra="forbid", populate_by_name=True, str_strip_whitespace=True)
 
     name: str
     image: str | None = None
     registry_url: str | None = Field(default=None, alias="registryURL")
     registry_skill_name: str | None = Field(default=None, alias="registrySkillName")
-    registry_skill_version: str | None = Field(
-        default=None, alias="registrySkillVersion"
-    )
+    registry_skill_version: str | None = Field(default=None, alias="registrySkillVersion")
 
 
 class PromptRef(BaseModel):
-    model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, str_strip_whitespace=True
-    )
+    model_config = ConfigDict(extra="forbid", populate_by_name=True, str_strip_whitespace=True)
 
     name: str
     registry_url: str | None = Field(default=None, alias="registryURL")
     registry_prompt_name: str | None = Field(default=None, alias="registryPromptName")
-    registry_prompt_version: str | None = Field(
-        default=None, alias="registryPromptVersion"
-    )
+    registry_prompt_version: str | None = Field(default=None, alias="registryPromptVersion")
 
 
 class McpServerType(BaseModel):
-    model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, str_strip_whitespace=True
-    )
+    model_config = ConfigDict(extra="forbid", populate_by_name=True, str_strip_whitespace=True)
 
     server_type: str = Field(..., alias="type")
     name: str
@@ -114,35 +99,46 @@ class McpServerType(BaseModel):
     headers: dict[str, str] | None = None
     registry_url: str | None = Field(default=None, alias="registryURL")
     registry_server_name: str | None = Field(default=None, alias="registryServerName")
-    registry_server_version: str | None = Field(
-        default=None, alias="registryServerVersion"
-    )
+    registry_server_version: str | None = Field(default=None, alias="registryServerVersion")
     registry_server_prefer_remote: bool | None = Field(
         default=None, alias="registryServerPreferRemote"
     )
 
 
 class AgentJSON(BaseModel):
-    """Flattened agent payload: manifest fields plus registry-specific fields.
+    """Flattened agent payload: manifest fields plus A2A agent card fields.
 
-    JSON carries a single ``version`` key (manifest ``version`` and outer ``version`` coincide).
+    Designed for A2A agents whose metadata comes from the well-known agent card
+    (``/.well-known/agent-card.json``).  Only ``name``, ``description``, and ``version``
+    are required — all are sourced from the agent card at registration time.
+
+    A2A agent card fields (``url``_, ``capabilities``, ``defaultInputModes``, etc.) are
+    mapped directly from the well-known response and stored alongside the catalog fields.
+    ``extra="ignore"`` allows unknown agent card fields to pass through without error.
     """
 
-    model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, str_strip_whitespace=True
-    )
+    model_config = ConfigDict(extra="ignore", populate_by_name=True, str_strip_whitespace=True)
 
+    # ── required catalog fields ────────────────────────────────────────────────
     name: str
-    image: str
-    language: str
-    framework: str
-    model_provider: str = Field(alias="modelProvider")
-    model_name: str = Field(alias="modelName")
     description: str
     version: str
+
+    # ── A2A agent card fields (all optional — sourced from well-known endpoint) ─
+    url: str | None = None
+    capabilities: dict[str, Any] | None = None
+    default_input_modes: list[str] | None = Field(default=None, alias="defaultInputModes")
+    default_output_modes: list[str] | None = Field(default=None, alias="defaultOutputModes")
+    preferred_transport: str | None = Field(default=None, alias="preferredTransport")
+    protocol_version: str | None = Field(default=None, alias="protocolVersion")
+    provider: dict[str, Any] | None = None
+    # A2A skills — raw dicts from the agent card (distinct from catalog SkillRef cross-links)
+    a2a_skills: list[dict[str, Any]] | None = Field(default=None, alias="skills")
+
+    # ── catalog registry fields ────────────────────────────────────────────────
     telemetry_endpoint: str | None = Field(default=None, alias="telemetryEndpoint")
     mcp_servers: list[McpServerType] | None = Field(default=None, alias="mcpServers")
-    skills: list[SkillRef] | None = None
+    catalog_skill_refs: list[SkillRef] | None = Field(default=None, alias="skillRefs")
     prompts: list[PromptRef] | None = None
     updated_at: datetime | None = Field(default=None, alias="updatedAt")
     title: str | None = None
@@ -155,20 +151,14 @@ class AgentJSON(BaseModel):
     @field_validator("name", mode="before")
     @classmethod
     def _validate_name(cls, v: str) -> str:
-        return validate_agent_name(str(v))
+        # A2A agent names come from external agent cards and may contain spaces,
+        # hyphens, or other characters — only require non-empty after strip.
+        return require_non_empty_after_strip(str(v), "name")
 
-    @field_validator(
-        "image",
-        "language",
-        "framework",
-        "model_provider",
-        "model_name",
-        "description",
-        mode="before",
-    )
+    @field_validator("description", mode="before")
     @classmethod
-    def _required_manifest_strings(cls, v: str, info):  # type: ignore[no-untyped-def]
-        return require_non_empty_after_strip(str(v), info.field_name)
+    def _validate_description(cls, v: str) -> str:
+        return require_non_empty_after_strip(str(v), "description")
 
     @field_validator("version", mode="before")
     @classmethod

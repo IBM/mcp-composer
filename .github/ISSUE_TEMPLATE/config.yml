@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: MCP Composer documentation
+    url: https://ibm.github.io/mcp-composer/
+    about: Read the guides before opening an issue.
+  - name: Security vulnerability
+    url: https://github.com/ibm/mcp-composer/security/advisories/new
+    about: Report security issues privately. Do not open a public issue.
+  - name: FastMCP
+    url: https://github.com/PrefectHQ/fastmcp/issues
+    about: Bugs in the FastMCP framework itself belong upstream.

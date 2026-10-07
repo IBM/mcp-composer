@@ -22,8 +22,8 @@ from mcp_composer.core.catalog.catalog_manager import (
 )
 from mcp_composer.core.models.catalog_constants import (
     MAX_VERSIONS_PER_RESOURCE,
-    RegistryResourceKind,
     VALID_CATALOG_RESOURCE_STATUSES,
+    RegistryResourceKind,
 )
 from mcp_composer.core.models.catalog_workflow import (
     WorkflowJSON,
@@ -82,9 +82,7 @@ class WorkflowManager(CatalogManager):
                 raise CatalogVersionCapError(_WORKFLOW_KIND, name, count)
 
         now = utc_now_iso()
-        payload = workflow_json.model_dump(
-            mode="json", by_alias=False, exclude_none=True
-        )
+        payload = workflow_json.model_dump(mode="json", by_alias=False, exclude_none=True)
 
         official_meta: dict[str, Any] = {
             "status": workflow_json.status or "active",
@@ -121,9 +119,7 @@ class WorkflowManager(CatalogManager):
         response = await self.publish(workflow_json, tenant_ids=tenant_ids)
         if not resource_metadata:
             return response
-        row = await self._db.get_resource(
-            _WORKFLOW_KIND, workflow_json.name, workflow_json.version
-        )
+        row = await self._db.get_resource(_WORKFLOW_KIND, workflow_json.name, workflow_json.version)
         if row is None:
             raise CatalogResourceNotFoundError(
                 _WORKFLOW_KIND, workflow_json.name, workflow_json.version
@@ -145,9 +141,7 @@ class WorkflowManager(CatalogManager):
 
     async def get_latest(self, name: str) -> WorkflowResponse:
         await self._ensure_initialized()
-        row = await self._db.get_resource_by_filter(
-            _WORKFLOW_KIND, name, is_latest=True
-        )
+        row = await self._db.get_resource_by_filter(_WORKFLOW_KIND, name, is_latest=True)
         if row is None:
             raise CatalogResourceNotFoundError(_WORKFLOW_KIND, name, "latest")
         private_meta = await self._db.get_resource_metadata(str(row["id"]))

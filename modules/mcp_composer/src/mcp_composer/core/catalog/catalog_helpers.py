@@ -5,10 +5,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Any
 
-from mcp_composer.core.models.catalog_common import (
-    RegistryListMetadata,
-    RegistryOfficialExtensions,
-)
+from mcp_composer.core.models.catalog_common import RegistryListMetadata, RegistryOfficialExtensions
 
 
 def utc_now_iso() -> str:
@@ -20,20 +17,24 @@ def registry_official_extensions_from_row(row: dict) -> RegistryOfficialExtensio
     """Build :class:`RegistryOfficialExtensions` from a ``catalog_resources``-shaped row."""
     official_meta_data: dict = row.get("official_meta") or {}
     published_at_str = (
-        official_meta_data.get("published_at")
-        or row.get("created_at")
-        or utc_now_iso()
+        official_meta_data.get("published_at") or row.get("created_at") or utc_now_iso()
     )
     updated_at_str = (
-        official_meta_data.get("updated_at")
-        or row.get("updated_at")
-        or published_at_str
+        official_meta_data.get("updated_at") or row.get("updated_at") or published_at_str
     )
-    
+
     # Convert ISO strings to datetime objects
-    published_at = datetime.fromisoformat(published_at_str.replace('Z', '+00:00')) if isinstance(published_at_str, str) else published_at_str
-    updated_at = datetime.fromisoformat(updated_at_str.replace('Z', '+00:00')) if isinstance(updated_at_str, str) else updated_at_str
-    
+    published_at = (
+        datetime.fromisoformat(published_at_str.replace("Z", "+00:00"))
+        if isinstance(published_at_str, str)
+        else published_at_str
+    )
+    updated_at = (
+        datetime.fromisoformat(updated_at_str.replace("Z", "+00:00"))
+        if isinstance(updated_at_str, str)
+        else updated_at_str
+    )
+
     is_latest_val = official_meta_data.get("is_latest")
     if is_latest_val is None:
         is_latest_val = row.get("is_latest", False)

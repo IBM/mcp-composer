@@ -16,6 +16,7 @@ async def test_layered_mcp_factory_initialization():
     """Test that LayeredMCPFactory initializes correctly."""
     # Create a mock client
     mock_client = MagicMock(spec=Client)
+    mock_client.transport = MagicMock()
 
     # Create the factory
     factory = LayeredMCPFactory(
@@ -45,6 +46,7 @@ async def test_layered_mcp_factory_fetch_tools():
     """Test that _fetch_tools correctly retrieves tools from proxy server."""
     # Create a mock client
     mock_client = MagicMock(spec=Client)
+    mock_client.transport = MagicMock()
 
     # Create a mock proxy server with tools
     with patch(
@@ -76,6 +78,7 @@ async def test_layered_mcp_factory_fetch_tools():
 async def test_layered_mcp_factory_fetch_tools_with_parameters_schema():
     """Test that _fetch_tools normalizes proxied tool schema from parameters."""
     mock_client = MagicMock(spec=Client)
+    mock_client.transport = MagicMock()
 
     with patch(
         "mcp_composer.core.member_servers.layered_factory_mcp.create_proxy"
@@ -103,10 +106,11 @@ async def test_layered_mcp_factory_fetch_tools_with_parameters_schema():
 
 @pytest.mark.asyncio
 async def test_layered_mcp_factory_get_service_info_with_parameters_schema():
-    """Test get_service_info returns inputSchema when tool schema is in parameters."""
+    """List mode is slim — schemas come from get_type_info, not get_service_info."""
     import json
 
     mock_client = MagicMock(spec=Client)
+    mock_client.transport = MagicMock()
 
     with patch(
         "mcp_composer.core.member_servers.layered_factory_mcp.create_proxy"
@@ -128,9 +132,14 @@ async def test_layered_mcp_factory_get_service_info_with_parameters_schema():
         result = await factory.get_service_info()
         result_dict = json.loads(result)
 
-        assert len(result_dict["tools"]) == 1
-        assert result_dict["tools"][0]["name"] == "test_tool"
-        assert result_dict["tools"][0]["inputSchema"] == mock_tool.parameters
+        assert result_dict["mode"] == "list"
+        assert len(result_dict["matches"]) == 1
+        assert result_dict["matches"][0]["name"] == "test_tool"
+        assert "inputSchema" not in result_dict["matches"][0]
+
+        detail = json.loads(await factory.get_service_info(service="test_tool"))
+        assert detail["name"] == "test_tool"
+        assert detail["has_input_schema"] is True
 
 
 @pytest.mark.asyncio
@@ -139,6 +148,7 @@ async def test_layered_mcp_factory_get_type_info_with_parameters_schema():
     import json
 
     mock_client = MagicMock(spec=Client)
+    mock_client.transport = MagicMock()
 
     with patch(
         "mcp_composer.core.member_servers.layered_factory_mcp.create_proxy"
@@ -171,35 +181,35 @@ async def test_layered_mcp_factory_get_type_info_with_parameters_schema():
 
 @pytest.mark.asyncio
 async def test_layered_mcp_factory_get_service_info():
-    """Test that get_service_info returns correct JSON."""
+    """Test that get_service_info returns slim query-first JSON."""
     import json
 
-    # Create a mock client
     mock_client = MagicMock(spec=Client)
+    mock_client.transport = MagicMock()
 
-    # Create a mock proxy server with tools
     with patch(
         "mcp_composer.core.member_servers.layered_factory_mcp.create_proxy"
     ) as mock_create_proxy:
         mock_proxy = MagicMock()
         mock_tool = SimpleNamespace(name="test_tool", description="Test tool")
 
-        # Mock list_tools to return our test tool
         mock_proxy.list_tools = AsyncMock(return_value=[mock_tool])
         mock_create_proxy.return_value = mock_proxy
 
-        # Create the factory
         factory = LayeredMCPFactory(client=mock_client, server_id="test-server")
 
-        # Call get_service_info
         result = await factory.get_service_info()
         result_dict = json.loads(result)
 
-        # Verify result
-        assert "message" in result_dict
-        assert "tools" in result_dict
-        assert len(result_dict["tools"]) == 1
-        assert result_dict["tools"][0]["name"] == "test_tool"
+        assert "matches" in result_dict
+        assert result_dict["total_services"] == 1
+        assert len(result_dict["matches"]) == 1
+        assert result_dict["matches"][0]["name"] == "test_tool"
+
+        searched = json.loads(await factory.get_service_info(query="test"))
+        assert searched["mode"] == "search"
+        assert searched["query"] == "test"
+        assert any(m["name"] == "test_tool" for m in searched["matches"])
 
 
 @pytest.mark.asyncio
@@ -209,6 +219,7 @@ async def test_layered_mcp_factory_make_tool_call():
 
     # Create a mock client
     mock_client = MagicMock(spec=Client)
+    mock_client.transport = MagicMock()
     mock_result = MagicMock()
     mock_content = MagicMock()
     mock_content.text = "Tool execution result"
@@ -248,6 +259,7 @@ async def test_layered_mcp_factory_authorization_success():
 
     # Create a mock client
     mock_client = MagicMock(spec=Client)
+    mock_client.transport = MagicMock()
     mock_result = MagicMock()
     mock_content = MagicMock()
     mock_content.text = "Authorized tool execution result"
@@ -310,6 +322,7 @@ async def test_layered_mcp_factory_authorization_failure():
 
     # Create a mock client
     mock_client = MagicMock(spec=Client)
+    mock_client.transport = MagicMock()
 
     # Create a mock proxy server with tools
     with patch(
@@ -371,6 +384,7 @@ async def test_layered_mcp_factory_no_instances():
 
     # Create a mock client
     mock_client = MagicMock(spec=Client)
+    mock_client.transport = MagicMock()
 
     # Create a mock proxy server with tools
     with patch(
@@ -417,6 +431,7 @@ async def test_layered_mcp_factory_without_auth_context():
     """Test that make_tool_call works when auth context is not available."""
     # Create a mock client
     mock_client = MagicMock(spec=Client)
+    mock_client.transport = MagicMock()
     mock_result = MagicMock()
     mock_content = MagicMock()
     mock_content.text = "Tool execution without auth"
@@ -459,6 +474,7 @@ async def test_layered_mcp_factory_make_tool_call_proxied_tool_error():
     import json
 
     mock_client = MagicMock(spec=Client)
+    mock_client.transport = MagicMock()
 
     with patch(
         "mcp_composer.core.member_servers.layered_factory_mcp.create_proxy"

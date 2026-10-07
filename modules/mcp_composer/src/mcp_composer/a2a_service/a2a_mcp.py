@@ -64,7 +64,12 @@ except ImportError:
     a2a_available = False
 from mcp_composer.core.utils.logger import LoggerFactory
 from mcp_composer.core.utils.utils import load_from_json, save_to_json
-from mcp_composer.middleware.auth_context_middleware import get_auth_context
+
+
+def get_auth_context() -> dict[str, Any] | None:
+    """Auth context middleware is not part of the open-source build."""
+    return None
+
 
 logger = LoggerFactory.get_logger()
 
@@ -129,36 +134,17 @@ def _unauthorized_a2a_response(reason: str) -> dict[str, Any]:
 
 def _require_authenticated_context_for_a2a_runtime() -> dict[str, Any] | None:
     """
-    Require middleware-provided authenticated context for A2A runtime tools.
-
-    We consume auth context prepared by auth middlewares and fail closed when:
-    - auth context is absent
-    - authenticated flag is not true
-    - neither ISV token nor auth cookie token is present
-
-    Security: Cookies must be exchanged for valid ISV tokens before use.
-    The ToolAuthenticationMiddleware validates cookies and sets authenticated=True
-    only after successful ISV token exchange.
+    If an auth context middleware is present and has set context, require it to
+    be authenticated. When no auth context is available, allow the call so that
+    process-level OAuth / JWT (if configured) remains the gate.
     """
     auth_context = get_auth_context()
     if not auth_context:
-        return _unauthorized_a2a_response(
-            "Authentication context is required for A2A runtime tools"
-        )
-
-    # Require authenticated flag - set only after ISV token validation
+        return None
     if not auth_context.get("authenticated"):
         return _unauthorized_a2a_response(
             "Authenticated context is required for A2A runtime tools"
         )
-
-    # Require ISV token to be present
-    token_present = bool(auth_context.get("isv_token"))
-    if not token_present:
-        return _unauthorized_a2a_response(
-            "Authenticated token is required for A2A runtime tools"
-        )
-
     return None
 
 

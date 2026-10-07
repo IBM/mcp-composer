@@ -8,9 +8,11 @@ from typing import Any
 from urllib.parse import urlparse
 
 import asyncpg
-
-from mcp_composer.core.utils import LoggerFactory
-from mcp_composer.core.models.catalog_constants import RegistryResourceKind
+from mcp_composer.core.models.catalog_constants import (
+    SKILL_CATALOG_UNCATEGORIZED,
+    RegistryResourceKind,
+)
+from mcp_composer.core.utils.logger import LoggerFactory
 
 from .catalog_database import CatalogDatabaseInterface
 
@@ -20,9 +22,7 @@ _SKILL_KIND = RegistryResourceKind.SKILL.value
 _PROMPT_KIND = RegistryResourceKind.PROMPT.value
 _AGENT_KIND = RegistryResourceKind.AGENT.value
 _WORKFLOW_KIND = RegistryResourceKind.WORKFLOW.value
-_KNOWN_RESOURCE_KINDS = frozenset(
-    {_SKILL_KIND, _PROMPT_KIND, _AGENT_KIND, _WORKFLOW_KIND}
-)
+_KNOWN_RESOURCE_KINDS = frozenset({_SKILL_KIND, _PROMPT_KIND, _AGENT_KIND, _WORKFLOW_KIND})
 
 
 def _expect_resource_kind(kind: str) -> str:
@@ -32,6 +32,16 @@ def _expect_resource_kind(kind: str) -> str:
 
 
 # Columns returned for every resource SELECT
+_JSONB_ROW_FIELDS = frozenset({"payload", "official_meta", "agent_card"})
+
+
+def _row_field_sql_param(key: str, value: Any) -> tuple[Any, str]:
+    """Serialize a catalog row UPDATE value; json-encode jsonb columns for asyncpg."""
+    if key in _JSONB_ROW_FIELDS and isinstance(value, (dict, list)):
+        return json.dumps(value), "::jsonb"
+    return value, ""
+
+
 _SKILL_COLUMNS = """
     id,
     kind,
@@ -41,6 +51,7 @@ _SKILL_COLUMNS = """
     official_meta,
     is_latest,
     tenant_ids,
+    agent_card,
     created_at,
     updated_at
 """
@@ -49,7 +60,7 @@ _SKILL_COLUMNS = """
 def _row_to_dict(record: asyncpg.Record) -> dict:
     """Convert an asyncpg Record to a plain dict, normalising JSON and UUID fields."""
     row = dict(record)
-    for key in ("payload", "official_meta"):
+    for key in ("payload", "official_meta", "agent_card"):
         val = row.get(key)
         if isinstance(val, str):
             row[key] = json.loads(val)
@@ -163,7 +174,7 @@ class CatalogPostgresAdapter(CatalogDatabaseInterface):
             raise ValueError(f"Invalid PostgreSQL URL: {exc}") from exc
 
     async def initialize(self) -> None:
-        """Create the asyncpg connection pool."""
+        """Create the asyncpg connection pool and apply schema migrations."""
         if self._pool is not None:
             return
         self._pool = await asyncpg.create_pool(
@@ -172,6 +183,20 @@ class CatalogPostgresAdapter(CatalogDatabaseInterface):
             **self._connection_params,
         )
         logger.info("CatalogPostgresAdapter pool created")
+        await self._apply_migrations()
+
+    async def _apply_migrations(self) -> None:
+        """Idempotent schema migrations — run on every startup."""
+        pool = self._get_pool()
+        async with pool.acquire() as conn:
+            # Add agent_card column if missing (A2A well-known card verbatim storage)
+            await conn.execute(
+                """
+                ALTER TABLE catalog_resources
+                    ADD COLUMN IF NOT EXISTS agent_card JSONB
+                """
+            )
+        logger.info("CatalogPostgresAdapter migrations applied")
 
     async def close(self) -> None:
         """Close the asyncpg connection pool."""
@@ -183,9 +208,7 @@ class CatalogPostgresAdapter(CatalogDatabaseInterface):
     def _get_pool(self) -> asyncpg.Pool:
         """Return the active pool, raising RuntimeError if initialize() was not called."""
         if self._pool is None:
-            raise RuntimeError(
-                "CatalogPostgresAdapter.initialize() has not been called"
-            )
+            raise RuntimeError("CatalogPostgresAdapter.initialize() has not been called")
         return self._pool
 
     # ── kind-aware catalog resources ───────────────────────────────────────────
@@ -195,6 +218,7 @@ class CatalogPostgresAdapter(CatalogDatabaseInterface):
 
         If ``row["content"]`` is present it is written to the ``content`` column
         but is NOT included in the returned row (use ``get_resource_content``).
+        If ``row["agent_card"]`` is present it is stored in the ``agent_card`` JSONB column.
         """
         kind = _expect_resource_kind(kind)
         pool = self._get_pool()
@@ -202,20 +226,22 @@ class CatalogPostgresAdapter(CatalogDatabaseInterface):
         official_meta = json.dumps(row.get("official_meta", {}))
         tenant_ids = row.get("tenant_ids") or []
         content: str | None = row.get("content")
+        agent_card: str | None = json.dumps(row["agent_card"]) if row.get("agent_card") else None
 
         async with pool.acquire() as conn:
             if content is not None:
                 record = await conn.fetchrow(
                     f"""
                     INSERT INTO {self.TABLE}
-                        (kind, name, version, payload, official_meta, is_latest, tenant_ids, content)
-                    VALUES ($1, $2, $3, $4::jsonb, $5::jsonb, $6, $7, $8)
+                        (kind, name, version, payload, official_meta, is_latest, tenant_ids, content, agent_card)
+                    VALUES ($1, $2, $3, $4::jsonb, $5::jsonb, $6, $7, $8, $9::jsonb)
                     ON CONFLICT (kind, name, version) DO UPDATE
                         SET payload       = EXCLUDED.payload,
                             official_meta = EXCLUDED.official_meta,
                             is_latest     = EXCLUDED.is_latest,
                             tenant_ids    = EXCLUDED.tenant_ids,
                             content       = EXCLUDED.content,
+                            agent_card    = COALESCE(EXCLUDED.agent_card, {self.TABLE}.agent_card),
                             updated_at    = now()
                     RETURNING {_SKILL_COLUMNS}
                     """,
@@ -227,18 +253,20 @@ class CatalogPostgresAdapter(CatalogDatabaseInterface):
                     row.get("is_latest", False),
                     tenant_ids,
                     content,
+                    agent_card,
                 )
             else:
                 record = await conn.fetchrow(
                     f"""
                     INSERT INTO {self.TABLE}
-                        (kind, name, version, payload, official_meta, is_latest, tenant_ids)
-                    VALUES ($1, $2, $3, $4::jsonb, $5::jsonb, $6, $7)
+                        (kind, name, version, payload, official_meta, is_latest, tenant_ids, agent_card)
+                    VALUES ($1, $2, $3, $4::jsonb, $5::jsonb, $6, $7, $8::jsonb)
                     ON CONFLICT (kind, name, version) DO UPDATE
                         SET payload       = EXCLUDED.payload,
                             official_meta = EXCLUDED.official_meta,
                             is_latest     = EXCLUDED.is_latest,
                             tenant_ids    = EXCLUDED.tenant_ids,
+                            agent_card    = COALESCE(EXCLUDED.agent_card, {self.TABLE}.agent_card),
                             updated_at    = now()
                     RETURNING {_SKILL_COLUMNS}
                     """,
@@ -249,6 +277,7 @@ class CatalogPostgresAdapter(CatalogDatabaseInterface):
                     official_meta,
                     row.get("is_latest", False),
                     tenant_ids,
+                    agent_card,
                 )
         return _row_to_dict(record)
 
@@ -269,9 +298,7 @@ class CatalogPostgresAdapter(CatalogDatabaseInterface):
             )
         return _row_to_dict(record) if record else None
 
-    async def get_resource_by_filter(
-        self, kind: str, name: str, is_latest: bool
-    ) -> dict | None:
+    async def get_resource_by_filter(self, kind: str, name: str, is_latest: bool) -> dict | None:
         """SELECT … WHERE kind=$1 AND name=$2 AND is_latest=$3."""
         kind = _expect_resource_kind(kind)
         pool = self._get_pool()
@@ -297,6 +324,7 @@ class CatalogPostgresAdapter(CatalogDatabaseInterface):
         status_filter: str | None = None,
         keywords: list[str] | None = None,
         tenant: str | None = None,
+        category: str | None = None,
         offset: int = 0,
         limit: int = 50,
     ) -> tuple[list[dict], bool]:
@@ -331,6 +359,20 @@ class CatalogPostgresAdapter(CatalogDatabaseInterface):
                 )
             conditions.append("(" + " OR ".join(kw_clauses) + ")")
 
+        if category is not None and kind == _SKILL_KIND:
+            raw_cat = category.strip()
+            if not raw_cat or raw_cat.lower() == SKILL_CATALOG_UNCATEGORIZED.lower():
+                conditions.append(
+                    "(payload->'metadata'->>'category' IS NULL "
+                    "OR TRIM(payload->'metadata'->>'category') = '')"
+                )
+            else:
+                params.append(raw_cat)
+                n = len(params)
+                conditions.append(
+                    f"lower(trim(payload->'metadata'->>'category')) = lower(trim(${n}))"
+                )
+
         if tenant:
             params.append(tenant)
             conditions.append(f"${len(params)} = ANY(tenant_ids)")
@@ -361,6 +403,66 @@ class CatalogPostgresAdapter(CatalogDatabaseInterface):
 
         return rows, has_more
 
+    async def list_distinct_skill_categories(
+        self,
+        *,
+        is_latest_only: bool = True,
+        status_filter: str | None = None,
+        keywords: list[str] | None = None,
+        tenant: str | None = None,
+    ) -> list[dict[str, Any]]:
+        """GROUP BY trimmed ``metadata.category`` for skill rows matching the same filters as list."""
+        pool = self._get_pool()
+        conditions = ["kind = $1"]
+        params: list[Any] = [_SKILL_KIND]
+
+        if is_latest_only:
+            conditions.append("is_latest = TRUE")
+
+        if status_filter:
+            params.append(status_filter)
+            conditions.append(
+                f"(official_meta->>'status' = ${len(params)} OR official_meta->>'status' IS NULL)"
+            )
+
+        if keywords:
+            kw_clauses = []
+            for kw in keywords:
+                params.append(f"%{kw.lower()}%")
+                n = len(params)
+                kw_clauses.append(
+                    f"  name ILIKE ${n}"
+                    f"  OR EXISTS (SELECT 1 FROM jsonb_array_elements_text(payload->'metadata'->'products') p WHERE lower(p) LIKE ${n})"
+                    f"  OR EXISTS (SELECT 1 FROM jsonb_array_elements_text(payload->'metadata'->'tags') t WHERE lower(t) LIKE ${n})"
+                )
+            conditions.append("(" + " OR ".join(kw_clauses) + ")")
+
+        if tenant:
+            params.append(tenant)
+            conditions.append(f"${len(params)} = ANY(tenant_ids)")
+
+        where_clause = " AND ".join(conditions)
+        unc_sql = SKILL_CATALOG_UNCATEGORIZED.replace("'", "''")
+        query = f"""
+            SELECT cat_label AS name, COUNT(*)::int AS skill_count
+            FROM (
+                SELECT CASE
+                    WHEN NULLIF(TRIM(payload->'metadata'->>'category'), '') IS NULL
+                    THEN '{unc_sql}'
+                    ELSE TRIM(payload->'metadata'->>'category')
+                END AS cat_label
+                FROM {self.TABLE}
+                WHERE {where_clause}
+            ) sub
+            GROUP BY cat_label
+            ORDER BY cat_label ASC
+        """
+
+        async with pool.acquire() as conn:
+            records = await conn.fetch(query, *params)
+
+        return [{"name": str(r["name"]), "skill_count": int(r["skill_count"])} for r in records]
+
     async def count_resource_versions(self, kind: str, name: str) -> int:
         """SELECT count(*) WHERE kind=$1 AND name=$2."""
         kind = _expect_resource_kind(kind)
@@ -385,9 +487,7 @@ class CatalogPostgresAdapter(CatalogDatabaseInterface):
                 version,
             )
 
-    async def update_resource_row(
-        self, kind: str, name: str, version: str, fields: dict
-    ) -> None:
+    async def update_resource_row(self, kind: str, name: str, version: str, fields: dict) -> None:
         """UPDATE SET <only the keys in fields> WHERE kind=$1 AND name=$2 AND version=$3."""
         if not fields:
             return
@@ -397,8 +497,9 @@ class CatalogPostgresAdapter(CatalogDatabaseInterface):
         set_parts = []
         params: list[Any] = [kind, name, version]
         for key, value in fields.items():
-            params.append(value)
-            set_parts.append(f"{key} = ${len(params)}")
+            param_value, cast = _row_field_sql_param(key, value)
+            params.append(param_value)
+            set_parts.append(f"{key} = ${len(params)}{cast}")
         set_parts.append("updated_at = now()")
 
         query = (
@@ -427,9 +528,7 @@ class CatalogPostgresAdapter(CatalogDatabaseInterface):
 
     # ── resource content methods ───────────────────────────────────────────────
 
-    async def get_resource_content(
-        self, kind: str, name: str, version: str
-    ) -> str | None:
+    async def get_resource_content(self, kind: str, name: str, version: str) -> str | None:
         """SELECT content FROM catalog_resources WHERE kind/name/version match."""
         pool = self._get_pool()
         async with pool.acquire() as conn:
@@ -441,9 +540,7 @@ class CatalogPostgresAdapter(CatalogDatabaseInterface):
             )
         return val  # already str or None
 
-    async def save_resource_content(
-        self, kind: str, name: str, version: str, content: str
-    ) -> None:
+    async def save_resource_content(self, kind: str, name: str, version: str, content: str) -> None:
         """UPDATE … SET content=$4 for an already-saved resource row."""
         pool = self._get_pool()
         async with pool.acquire() as conn:
@@ -464,9 +561,7 @@ class CatalogPostgresAdapter(CatalogDatabaseInterface):
 
     METADATA_TABLE = "catalog_resource_metadata"
 
-    async def save_resource_metadata(
-        self, resource_id: str, private_meta: dict
-    ) -> None:
+    async def save_resource_metadata(self, resource_id: str, private_meta: dict) -> None:
         """Upsert private metadata for a catalog resource row (see ``_metadata_json_column``)."""
         pool = self._get_pool()
         col = self._metadata_json_column

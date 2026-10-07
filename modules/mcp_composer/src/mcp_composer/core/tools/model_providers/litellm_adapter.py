@@ -17,6 +17,7 @@ try:
 
     LITELLM_AVAILABLE = True
 except ImportError:
+    litellm = None  # type: ignore[assignment]
     LITELLM_AVAILABLE = False
     logger.warning("LiteLLM not available. Please install it with: pip install litellm")
 

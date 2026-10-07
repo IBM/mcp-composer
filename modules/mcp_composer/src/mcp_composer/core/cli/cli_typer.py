@@ -23,8 +23,8 @@ from mcp_composer.core.auth_handler.oauth import ServerSettings
 from mcp_composer.core.auth_handler.providers import OAuthProviderFactory
 from mcp_composer.core.utils import MemberServerType
 from mcp_composer.core.utils.logger import LoggerFactory
+from mcp_composer.core.utils.stdio_allowlist import assert_network_bind_allowed
 from mcp_composer.core.utils.oauth_cli_utils import (
-    create_mcp_server,
     oauth_pkce_login_async,
     get_issuer,
 )
@@ -310,7 +310,7 @@ def run_composer(
     # Server configuration
     host: Annotated[
         str, Option("--host", help="Host for SSE or HTTP server")
-    ] = "0.0.0.0",
+    ] = "127.0.0.1",
     port: Annotated[
         int, Option("--port", "-p", help="Port for SSE or HTTP server")
     ] = 9000,
@@ -327,9 +327,8 @@ def run_composer(
         Option(
             "--auth_provider",
             help=(
-                "Optional auth provider. by default 'IBM W3' is used for OAuth. "
-                "Currently only 'oidc' is supported support GitHub, Google, "
-                "AWS Cognito and Azure"
+                "Optional auth provider (github, google, aws, azure, oidc). "
+                "For oidc set OAUTH_CONFIG_URL and related OAUTH_* env vars"
             ),
         ),
     ] = "oidc",
@@ -565,7 +564,7 @@ def init_command(
     ] = 9000,
     host: Annotated[
         str, Option("--host", help="Default host for HTTP/SSE server")
-    ] = "0.0.0.0",
+    ] = "127.0.0.1",
     server_mode: Annotated[
         str | None,
         Option(
@@ -672,9 +671,8 @@ def main_callback(
         Option(
             "--auth_provider",
             help=(
-                "Optional auth provider. by default 'IBM W3' is used for OAuth. "
-                "Currently only 'oidc' is supported support GitHub, Google, "
-                "AWS Cognito and Azure"
+                "Optional auth provider (github, google, aws, azure, oidc). "
+                "For oidc set OAUTH_CONFIG_URL and related OAUTH_* env vars"
             ),
         ),
     ] = "oidc",
@@ -829,7 +827,7 @@ def main_callback(
     if id is None:
         id = "mcp-local"
     if host is None:
-        host = "0.0.0.0"
+        host = "127.0.0.1"
     if port is None:
         port = 9000
     if remote_auth_type is None:
@@ -838,6 +836,11 @@ def main_callback(
         client_auth_type = "none"
     if pass_environment is None:
         pass_environment = False
+
+    try:
+        assert_network_bind_allowed(mode or "stdio", host, auth_type)
+    except ValueError as exc:
+        raise typer.BadParameter(str(exc)) from exc
 
     # Set timeout if provided
     if timeout is not None:
@@ -968,15 +971,12 @@ async def run_dynamic_composer(
 ) -> None:
     """Run MCP Composer with dynamically constructed configuration."""
     logger.info("Running MCP Composer with dynamic configuration... %s", auth_type)
+    try:
+        assert_network_bind_allowed(mode, host, auth_type)
+    except ValueError as exc:
+        raise typer.BadParameter(str(exc)) from exc
 
-    # For IBM W3 OAuth, use old server creation method
-    # backward compatibility
-    if auth_type == "oauth" and auth_provider == "oidc":
-        logger.info("Detected --auth_type oauth and --auth_provider oidc")
-        settings = ServerSettings()
-        mcp = create_mcp_server(settings)
-
-    elif auth_type == "oauth":
+    if auth_type == "oauth":
         logger.info("Detected --auth_type oauth and provider: %s", auth_provider)
         settings = ServerSettings(provider=auth_provider)
         # 2. Filter out keys whose values are empty strings
@@ -1286,7 +1286,7 @@ def _apply_config_and_start_server(
         # Start the server
         asyncio.run(
             _start_server(
-                composer, mode, host or "0.0.0.0", port or 9000, log_level or "debug"
+                composer, mode, host or "127.0.0.1", port or 9000, log_level or "debug"
             )
         )
 
@@ -1321,9 +1321,14 @@ def _create_composer_instance(
     if id is None:
         id = "mcp-local"
     if host is None:
-        host = "0.0.0.0"
+        host = "127.0.0.1"
     if port is None:
         port = 9000
+
+    try:
+        assert_network_bind_allowed(mode, host, auth_type)
+    except ValueError as exc:
+        raise typer.BadParameter(str(exc)) from exc
 
     # Build configuration from args
     config = []

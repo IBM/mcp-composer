@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from mcp_composer.core.catalog.catalog_exceptions import (
+    CatalogResourceAlreadyExistsError,
     CatalogResourceNotFoundError,
     CatalogVersionCapError,
     InvalidCatalogResourceStatusError,
@@ -29,8 +30,8 @@ from mcp_composer.core.models.catalog_agent import (
 )
 from mcp_composer.core.models.catalog_constants import (
     MAX_VERSIONS_PER_RESOURCE,
-    RegistryResourceKind,
     VALID_CATALOG_RESOURCE_STATUSES,
+    RegistryResourceKind,
 )
 from mcp_composer.store.catalog_database import CatalogDatabaseInterface
 
@@ -54,12 +55,8 @@ def _row_to_agent_response(
     official_meta_data: dict[str, Any] = row.get("official_meta") or {}
 
     if agent.remotes:
-        official_remotes_cfg: dict[str, Any] = (
-            official_meta_data.get("remotes_config") or {}
-        )
-        private_remotes_cfg: dict[str, Any] = (private_meta or {}).get(
-            "remotes_config"
-        ) or {}
+        official_remotes_cfg: dict[str, Any] = official_meta_data.get("remotes_config") or {}
+        private_remotes_cfg: dict[str, Any] = (private_meta or {}).get("remotes_config") or {}
         enriched: list[AgentRegistryTransport] = []
         for remote in agent.remotes:
             url = remote.url or ""
@@ -99,8 +96,17 @@ class AgentManager(CatalogManager):
         self,
         agent_json: AgentJSON,
         tenant_ids: list[str] | None = None,
+        agent_card: dict[str, Any] | None = None,
     ) -> AgentResponse:
-        """Publish (create or update) an agent version; recompute ``is_latest``."""
+        """Publish (create or update) an agent version; recompute ``is_latest``.
+
+        Args:
+            agent_json:  Validated agent payload.
+            tenant_ids:  Optional tenant scope.
+            agent_card:  Raw A2A well-known agent card dict to store verbatim in
+                         the ``agent_card`` JSONB column.  Pass the full dict
+                         returned by ``/.well-known/agent-card.json``.
+        """
         await self._ensure_initialized()
         name = agent_json.name
         version = agent_json.version
@@ -131,15 +137,19 @@ class AgentManager(CatalogManager):
                 public_remotes.append({"url": url, "type": tt})
             payload["remotes"] = public_remotes
 
+        # Always force "active" on publish/create — the agent card may carry an
+        # arbitrary status value (e.g. "deleted") that must never override the
+        # registration lifecycle status.  Status transitions are made exclusively
+        # via update_status().
         official_meta: dict[str, Any] = {
-            "status": agent_json.status or "active",
+            "status": "active",
             "published_at": now,
             "updated_at": now,
             "is_latest": False,
         }
         if official_remotes_config:
             official_meta["remotes_config"] = official_remotes_config
-        row = {
+        row: dict[str, Any] = {
             "name": name,
             "version": version,
             "payload": payload,
@@ -147,6 +157,8 @@ class AgentManager(CatalogManager):
             "is_latest": False,
             "tenant_ids": normalised_tenants,
         }
+        if agent_card:
+            row["agent_card"] = agent_card
         saved = await self._db.save_resource(_AGENT_KIND, row)
 
         if private_remotes_config:
@@ -162,6 +174,33 @@ class AgentManager(CatalogManager):
         private_meta = await self._db.get_resource_metadata(str(final_row["id"]))
         return _row_to_agent_response(final_row, private_meta)
 
+    async def create(
+        self,
+        agent_json: AgentJSON,
+        tenant_ids: list[str] | None = None,
+        agent_card: dict[str, Any] | None = None,
+    ) -> AgentResponse:
+        """Create a new agent version; raise ``CatalogResourceAlreadyExistsError`` if already present.
+
+        Unlike :meth:`publish`, this method is **create-only**: it will not overwrite an
+        existing ``name+version`` pair.  Use ``publish`` directly when upsert semantics
+        are required (e.g. the catalog MCP tools).
+
+        Exception: if the existing row has ``status="deleted"``, the agent is treated as
+        re-registered — the row is overwritten via :meth:`publish` and its status is
+        reset to ``"active"``.
+        """
+        await self._ensure_initialized()
+        existing = await self._db.get_resource(_AGENT_KIND, agent_json.name, agent_json.version)
+        if existing is not None:
+            existing_status = (existing.get("official_meta") or {}).get("status") or "active"
+            if existing_status != "deleted":
+                raise CatalogResourceAlreadyExistsError(
+                    _AGENT_KIND, agent_json.name, agent_json.version
+                )
+            # Deleted agent — re-registration is allowed; fall through to publish().
+        return await self.publish(agent_json, tenant_ids=tenant_ids, agent_card=agent_card)
+
     async def publish_with_resource_metadata(
         self,
         agent_json: AgentJSON,
@@ -173,13 +212,9 @@ class AgentManager(CatalogManager):
         response = await self.publish(agent_json, tenant_ids=tenant_ids)
         if not resource_metadata:
             return response
-        row = await self._db.get_resource(
-            _AGENT_KIND, agent_json.name, agent_json.version
-        )
+        row = await self._db.get_resource(_AGENT_KIND, agent_json.name, agent_json.version)
         if row is None:
-            raise CatalogResourceNotFoundError(
-                _AGENT_KIND, agent_json.name, agent_json.version
-            )
+            raise CatalogResourceNotFoundError(_AGENT_KIND, agent_json.name, agent_json.version)
         existing_raw = await self._db.get_resource_metadata(str(row["id"]))
         existing: dict[str, Any] = dict(existing_raw or {})
         merged: dict[str, Any] = {**existing, **resource_metadata}
@@ -220,6 +255,39 @@ class AgentManager(CatalogManager):
         metadata = registry_list_metadata_for_page(filter.start, agents, has_more)
         return AgentListResponse(agents=agents, metadata=metadata)
 
+    async def get_by_url(self, url: str) -> AgentResponse | None:
+        """Return the latest active agent whose ``url`` or ``remotes`` URL matches *url*.
+
+        Performs normalised trailing-slash comparison so that ``http://x`` and
+        ``http://x/`` match each other.  Returns ``None`` when no matching agent
+        is found; never raises.
+
+        This avoids the O(n) full-catalog scan in ``send_message`` and eliminates
+        the hard-coded ``limit=200`` ceiling.
+        """
+        await self._ensure_initialized()
+        _norm = url.rstrip("/") if url else url
+        rows, _ = await self._db.list_resources(
+            _AGENT_KIND,
+            name_like=None,
+            is_latest_only=True,
+            status_filter="active",
+            keywords=None,
+            tenant=None,
+            offset=0,
+            limit=1000,
+        )
+        for row in rows:
+            payload = row.get("payload") or {}
+            agent_url = (payload.get("url") or "").rstrip("/")
+            if agent_url == _norm:
+                return _row_to_agent_response(row)
+            for remote in payload.get("remotes") or []:
+                remote_url = (remote.get("url") or "").rstrip("/")
+                if remote_url == _norm:
+                    return _row_to_agent_response(row)
+        return None
+
     async def delete(self, name: str, version: str) -> None:
         await self._ensure_initialized()
         row = await self._db.get_resource(_AGENT_KIND, name, version)
@@ -245,3 +313,5 @@ class AgentManager(CatalogManager):
             version,
             {"payload": payload, "official_meta": official_meta},
         )
+        # Recompute is_latest so deleted versions do not remain marked as latest.
+        await self.recompute_is_latest_for_agent_name(name)

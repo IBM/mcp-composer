@@ -2,35 +2,38 @@
 
 from __future__ import annotations
 
+import builtins
 from typing import Any
 
-from mcp_composer.core.catalog.catalog_helpers import (
-    registry_list_metadata_for_page,
-    registry_official_extensions_from_row,
-    utc_now_iso,
-)
-from mcp_composer.core.models.catalog_constants import (
-    MAX_VERSIONS_PER_RESOURCE,
-    RegistryResourceKind,
-    VALID_CATALOG_RESOURCE_STATUSES,
-)
-from mcp_composer.core.models.catalog_skill import (
-    SkillJSON,
-    SkillListResponse,
-    SkillRemoteInfo,
-    SkillResponse,
-    SkillResponseMeta,
-)
 from mcp_composer.core.catalog.catalog_exceptions import (
     CatalogResourceNotFoundError,
     CatalogVersionCapError,
     InvalidCatalogResourceStatusError,
+)
+from mcp_composer.core.catalog.catalog_helpers import (
+    registry_list_metadata_for_page,
+    registry_official_extensions_from_row,
+    utc_now_iso,
 )
 from mcp_composer.core.catalog.catalog_manager import (
     CatalogManager,
     CatalogResourceListFilter,
     expect_catalog_list_filter_kind,
     normalize_tenant_ids,
+)
+from mcp_composer.core.models.catalog_constants import (
+    MAX_VERSIONS_PER_RESOURCE,
+    VALID_CATALOG_RESOURCE_STATUSES,
+    RegistryResourceKind,
+)
+from mcp_composer.core.models.catalog_skill import (
+    SkillJSON,
+    SkillListResponse,
+    SkillListSummaryItem,
+    SkillListSummaryResponse,
+    SkillRemoteInfo,
+    SkillResponse,
+    SkillResponseMeta,
 )
 from mcp_composer.store.catalog_database import CatalogDatabaseInterface
 
@@ -71,12 +74,8 @@ def _row_to_skill_response(
     official_meta_data: dict[str, Any] = row.get("official_meta") or {}
 
     if skill.remotes:
-        official_remotes_cfg: dict[str, Any] = (
-            official_meta_data.get("remotes_config") or {}
-        )
-        private_remotes_cfg: dict[str, Any] = (private_meta or {}).get(
-            "remotes_config"
-        ) or {}
+        official_remotes_cfg: dict[str, Any] = official_meta_data.get("remotes_config") or {}
+        private_remotes_cfg: dict[str, Any] = (private_meta or {}).get("remotes_config") or {}
         enriched = []
         for remote in skill.remotes:
             url = remote.url
@@ -106,6 +105,24 @@ def _row_to_skill_response(
         }
     )
     return SkillResponse(skill=skill, _meta=meta)
+
+
+def _row_to_list_summary_item(row: dict[str, Any]) -> SkillListSummaryItem:
+    """Build a list summary from a DB row without constructing ``SkillJSON`` (avoids large payload parse)."""
+    payload = row.get("payload") or {}
+    name = str(payload.get("name") or row.get("name") or "")
+    description = str(payload.get("description") or "")
+    tags: list[str] = []
+    category: str | None = None
+    md = payload.get("metadata")
+    if isinstance(md, dict):
+        raw = md.get("tags")
+        if isinstance(raw, list):
+            tags = [str(x) for x in raw]
+        cat = md.get("category")
+        if isinstance(cat, str) and cat.strip():
+            category = cat.strip()
+    return SkillListSummaryItem(name=name, description=description, tags=tags, category=category)
 
 
 # ── SkillManager ──────────────────────────────────────────────────────────────
@@ -235,13 +252,9 @@ class SkillManager(CatalogManager):
         response = await self.publish(skill_json, tenant_ids=tenant_ids)
         if not resource_metadata:
             return response
-        row = await self._db.get_resource(
-            _SKILL_KIND, skill_json.name, skill_json.version
-        )
+        row = await self._db.get_resource(_SKILL_KIND, skill_json.name, skill_json.version)
         if row is None:
-            raise CatalogResourceNotFoundError(
-                _SKILL_KIND, skill_json.name, skill_json.version
-            )
+            raise CatalogResourceNotFoundError(_SKILL_KIND, skill_json.name, skill_json.version)
         existing_raw = await self._db.get_resource_metadata(str(row["id"]))
         existing: dict[str, Any] = dict(existing_raw or {})
         merged: dict[str, Any] = {**existing, **resource_metadata}
@@ -281,6 +294,23 @@ class SkillManager(CatalogManager):
 
     # ── list ──────────────────────────────────────────────────────────────────
 
+    async def _list_skill_rows(
+        self, filter: CatalogResourceListFilter
+    ) -> tuple[list[dict[str, Any]], bool]:
+        await self._ensure_initialized()
+        expect_catalog_list_filter_kind(filter, RegistryResourceKind.SKILL)
+        return await self._db.list_resources(
+            _SKILL_KIND,
+            name_like=filter.name_like,
+            is_latest_only=filter.is_latest_only,
+            status_filter=filter.status_filter,
+            keywords=filter.keywords,
+            tenant=filter.tenant,
+            category=filter.category,
+            offset=filter.start,
+            limit=filter.limit,
+        )
+
     async def list(self, filter: CatalogResourceListFilter) -> SkillListResponse:
         """Return a paginated list of skills matching *filter*.
 
@@ -291,21 +321,41 @@ class SkillManager(CatalogManager):
         Returns:
             SkillListResponse with items and pagination metadata.
         """
-        await self._ensure_initialized()
-        expect_catalog_list_filter_kind(filter, RegistryResourceKind.SKILL)
-        rows, has_more = await self._db.list_resources(
-            _SKILL_KIND,
-            name_like=filter.name_like,
-            is_latest_only=filter.is_latest_only,
-            status_filter=filter.status_filter,
-            keywords=filter.keywords,
-            tenant=filter.tenant,
-            offset=filter.start,
-            limit=filter.limit,
-        )
+        rows, has_more = await self._list_skill_rows(filter)
         skills = [_row_to_skill_response(r) for r in rows]
         metadata = registry_list_metadata_for_page(filter.start, skills, has_more)
         return SkillListResponse(skills=skills, metadata=metadata)
+
+    async def list_summaries(self, filter: CatalogResourceListFilter) -> SkillListSummaryResponse:
+        """Return the same page as :meth:`list` but without full ``SkillJSON`` parsing.
+
+        Each row is mapped from raw ``payload`` JSON only (``name``, ``description``,
+        ``metadata.tags``). Use for MCP ``catalog_list_skills(verbose=false)`` to avoid
+        validating megabyte-scale ``instructions`` / ``references`` on every list call.
+        """
+        rows, has_more = await self._list_skill_rows(filter)
+        summaries = [_row_to_list_summary_item(r) for r in rows]
+        metadata = registry_list_metadata_for_page(filter.start, summaries, has_more)
+        return SkillListSummaryResponse(skills=summaries, metadata=metadata)
+
+    async def list_skill_categories(
+        self,
+        *,
+        keywords: builtins.list[str] | None = None,
+        tenant: str | None = None,
+    ) -> builtins.list[dict[str, Any]]:
+        """Distinct ``metadata.category`` values for active, latest skills (layered browse).
+
+        Returns rows ``{"name": <category>, "skill_count": <int>}`` sorted by name.
+        Skills without a category are grouped under ``SKILL_CATALOG_UNCATEGORIZED``.
+        """
+        await self._ensure_initialized()
+        return await self._db.list_distinct_skill_categories(
+            is_latest_only=True,
+            status_filter="active",
+            keywords=keywords,
+            tenant=tenant,
+        )
 
     # ── delete ────────────────────────────────────────────────────────────────
 
@@ -338,9 +388,7 @@ class SkillManager(CatalogManager):
         """
         await self._ensure_initialized()
         if version is None:
-            row = await self._db.get_resource_by_filter(
-                _SKILL_KIND, name, is_latest=True
-            )
+            row = await self._db.get_resource_by_filter(_SKILL_KIND, name, is_latest=True)
             if row is None:
                 raise CatalogResourceNotFoundError(_SKILL_KIND, name, "latest")
             version = row["version"]

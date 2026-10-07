@@ -10,7 +10,7 @@ hero:
       link: /guide/
     - theme: alt
       text: View on GitHub
-      link: https://github.ibm.com/ai-elite/mcp-composer
+      link: https://github.com/ibm/mcp-composer
 features:
   - icon: 🚀
     title: Dynamic Tool Registration

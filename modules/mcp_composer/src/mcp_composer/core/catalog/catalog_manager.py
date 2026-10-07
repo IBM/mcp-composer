@@ -2,11 +2,10 @@
 
 from __future__ import annotations
 
-from packaging.version import InvalidVersion, Version
-from pydantic import BaseModel, Field
-
 from mcp_composer.core.models.catalog_constants import RegistryResourceKind
 from mcp_composer.store.catalog_database import CatalogDatabaseInterface
+from packaging.version import InvalidVersion, Version
+from pydantic import BaseModel, Field
 
 
 class CatalogResourceListFilter(BaseModel):
@@ -25,6 +24,10 @@ class CatalogResourceListFilter(BaseModel):
     status_filter: str | None = None
     keywords: list[str] | None = None
     tenant: str | None = None
+    #: When set (skill lists only), restrict to ``metadata.category`` for this value.
+    #: Use :data:`~mcp_composer.core.models.catalog_constants.SKILL_CATALOG_UNCATEGORIZED`
+    #: to match skills with no category.
+    category: str | None = None
     start: int = Field(default=0, ge=0)
     limit: int = Field(default=50, ge=1, le=1000)
 
@@ -35,9 +38,7 @@ def expect_catalog_list_filter_kind(
 ) -> None:
     """Raise ``ValueError`` if *filter*.kind does not match *expected*."""
     if filter.kind != expected:
-        raise ValueError(
-            f"list filter kind must be {expected.value!r}, got {filter.kind.value!r}"
-        )
+        raise ValueError(f"list filter kind must be {expected.value!r}, got {filter.kind.value!r}")
 
 
 def normalize_tenant_ids(tenant_ids: list[str] | None) -> list[str]:
@@ -85,8 +86,10 @@ class CatalogManager:
     async def recompute_is_latest_for_resource_name(self, kind: str, name: str) -> None:
         """Set ``is_latest`` on all rows for *kind* + *name* so exactly one row is latest.
 
-        The latest row is the greatest version under :func:`max_catalog_version_string`
-        (PEP 440). Updates both the ``is_latest`` column and ``official_meta["is_latest"]``.
+        The latest row is the greatest **non-deleted** version under
+        :func:`max_catalog_version_string` (PEP 440).  Deleted versions are never
+        marked as ``is_latest``.  Updates both the ``is_latest`` column and
+        ``official_meta["is_latest"]``.
 
         Non-latest rows are updated before the latest row so filesystem adapters can keep
         the ``latest`` marker consistent.
@@ -99,15 +102,18 @@ class CatalogManager:
         if not rows:
             return
 
-        versions = [r["version"] for r in rows]
-        latest_ver = max_catalog_version_string(versions)
-        if latest_ver is None:
-            return
+        # Only non-deleted versions are eligible to be "latest".
+        active_versions = [
+            r["version"]
+            for r in rows
+            if (r.get("official_meta") or {}).get("status", "active") != "deleted"
+        ]
+        latest_ver = max_catalog_version_string(active_versions) if active_versions else None
 
         # Single pass: update all rows in one iteration
         for row in rows:
             ver = row["version"]
-            is_latest = ver == latest_ver
+            is_latest = latest_ver is not None and ver == latest_ver
             official_meta = dict(row.get("official_meta") or {})
             official_meta["is_latest"] = is_latest
             await self._db.update_resource_row(

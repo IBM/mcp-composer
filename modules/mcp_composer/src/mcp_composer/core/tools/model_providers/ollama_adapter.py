@@ -18,6 +18,8 @@ try:
 
     OLLAMA_PYTHON_AVAILABLE = True
 except ImportError:
+    AsyncClient = None  # type: ignore[misc,assignment]
+    Client = None  # type: ignore[misc,assignment]
     OLLAMA_PYTHON_AVAILABLE = False
     logger.warning(
         "ollama-python not available. Please install it with: pip install ollama"

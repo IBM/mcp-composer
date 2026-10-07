@@ -1,0 +1,29 @@
+changelog:
+  exclude:
+    labels:
+      - ignore in release notes
+  categories:
+    - title: Breaking Changes
+      labels:
+        - breaking change
+    - title: Security
+      labels:
+        - security
+    - title: New Features
+      labels:
+        - feature
+    - title: Enhancements
+      labels:
+        - enhancement
+    - title: Fixes
+      labels:
+        - bug
+    - title: Docs
+      labels:
+        - documentation
+    - title: Dependencies
+      labels:
+        - dependencies
+    - title: Other Changes
+      labels:
+        - "*"

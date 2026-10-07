@@ -133,5 +133,3 @@ podman run -d --name jaeger \
 
 Open Jaeger UI at http://localhost:16686 and search for `service.name = mcp-composer` (or your configured `OTEL_SERVICE_NAME`).
 
-<img width="1696" alt="image" src="https://github.ibm.com/ai-elite/mcp-composer/assets/3014/0c1e551b-8073-4b6c-8b61-644ee728b64f">
-

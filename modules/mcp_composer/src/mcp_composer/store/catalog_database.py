@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from typing import Any
 
 
 class CatalogDatabaseInterface(ABC):
@@ -42,9 +43,7 @@ class CatalogDatabaseInterface(ABC):
         """Return the row for (kind, name, version), or None if not found."""
 
     @abstractmethod
-    async def get_resource_by_filter(
-        self, kind: str, name: str, is_latest: bool
-    ) -> dict | None:
+    async def get_resource_by_filter(self, kind: str, name: str, is_latest: bool) -> dict | None:
         """Return a row matching ``name`` and ``is_latest``, or None."""
 
     @abstractmethod
@@ -57,6 +56,7 @@ class CatalogDatabaseInterface(ABC):
         status_filter: str | None = None,
         keywords: list[str] | None = None,
         tenant: str | None = None,
+        category: str | None = None,
         offset: int = 0,
         limit: int = 50,
     ) -> tuple[list[dict], bool]:
@@ -64,6 +64,24 @@ class CatalogDatabaseInterface(ABC):
 
         ``keywords`` is applied only when ``kind`` is skill (metadata search); ignored
         for other kinds.
+
+        ``category`` is applied only when ``kind`` is skill (``metadata.category`` match);
+        ignored for other kinds.
+        """
+
+    @abstractmethod
+    async def list_distinct_skill_categories(
+        self,
+        *,
+        is_latest_only: bool = True,
+        status_filter: str | None = None,
+        keywords: list[str] | None = None,
+        tenant: str | None = None,
+    ) -> list[dict[str, Any]]:
+        """Return ``[{"name": <category>, "skill_count": <int>}, ...]`` for active skill rows.
+
+        Skills with no ``metadata.category`` are grouped under
+        ``SKILL_CATALOG_UNCATEGORIZED`` (see ``catalog_constants``). Sorted by category name.
         """
 
     @abstractmethod
@@ -75,9 +93,7 @@ class CatalogDatabaseInterface(ABC):
         """Delete the row for (kind, name, version)."""
 
     @abstractmethod
-    async def update_resource_row(
-        self, kind: str, name: str, version: str, fields: dict
-    ) -> None:
+    async def update_resource_row(self, kind: str, name: str, version: str, fields: dict) -> None:
         """Patch columns on the row for (kind, name, version)."""
 
     @abstractmethod
@@ -87,9 +103,7 @@ class CatalogDatabaseInterface(ABC):
     # ── resource content (raw file body — fetched only on explicit request) ─────
 
     @abstractmethod
-    async def get_resource_content(
-        self, kind: str, name: str, version: str
-    ) -> str | None:
+    async def get_resource_content(self, kind: str, name: str, version: str) -> str | None:
         """Return the raw content string for (kind, name, version), or None if absent.
 
         Content is intentionally excluded from all standard list/get queries.
@@ -98,9 +112,7 @@ class CatalogDatabaseInterface(ABC):
         """
 
     @abstractmethod
-    async def save_resource_content(
-        self, kind: str, name: str, version: str, content: str
-    ) -> None:
+    async def save_resource_content(self, kind: str, name: str, version: str, content: str) -> None:
         """Persist raw content for a catalog resource.
 
         May be called after ``save_resource``, or ``save_resource`` may persist

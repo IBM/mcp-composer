@@ -48,9 +48,7 @@ class ServerSettings(BaseSettings):
     client_id: str = ""
     client_secret: str = ""
     callback_path: str = ""
-    config_url: AnyHttpUrl = AnyHttpUrl(
-        "https://preprod.login.w3.ibm.com/oidc/endpoint/default/.well-known/openid-configuration"
-    )  # by default points to IBM Cloud OIDC provider
+    config_url: AnyHttpUrl | None = None  # set via OAUTH_CONFIG_URL for OIDC
 
     # OAuth URLs - these will be loaded from OAUTH_AUTH_URL, OAUTH_TOKEN_URL, etc.
     auth_url: str = ""

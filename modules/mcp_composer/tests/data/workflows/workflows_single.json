@@ -1,0 +1,13 @@
+{
+  "name": "wf-single",
+  "instruction": "Run single workflow",
+  "version": "1.0.0",
+  "output": [
+    {
+      "step": 1,
+      "product": "gurdium",
+      "tool": "list_vulnerabilities",
+      "input": {}
+    }
+  ]
+}

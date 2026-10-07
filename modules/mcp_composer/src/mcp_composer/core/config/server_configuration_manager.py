@@ -17,7 +17,6 @@ from mcp_composer.core.utils import (
 )
 from mcp_composer.core.utils.logger import LoggerFactory
 from mcp_composer.store.database import DatabaseInterface
-from mcp_composer.store.cloudant_adapter import CloudantAdapter
 from mcp_composer.store.local_file_adapter import LocalFileAdapter
 from mcp_composer.store.postgres_adapter import PostgresAdapter
 
@@ -89,19 +88,6 @@ class ServerConfigurationManager:
                     logger.info(
                         "Database configuration loaded successfully (Custom Database Interface)"
                     )
-                elif effective_db_config.get("type") == "cloudant":
-                    required_keys = ["api_key", "service_url"]
-                    if not all(k in effective_db_config for k in required_keys):
-                        error_msg = "Missing required Cloudant config keys: api_key, service_url"
-                        logger.error("Database configuration error: %s", error_msg)
-                        raise ValueError(error_msg)
-
-                    database = CloudantAdapter(
-                        api_key=effective_db_config["api_key"],
-                        service_url=effective_db_config["service_url"],
-                        db_name=effective_db_config.get("db_name", "mcp_server"),
-                    )
-                    logger.info("Database configuration loaded successfully (Cloudant)")
                 elif effective_db_config.get("type") == "local_file":
                     database = LocalFileAdapter(
                         file_path=effective_db_config.get("file_path")
@@ -176,9 +162,7 @@ class ServerConfigurationManager:
         Get database configuration from environment variables.
 
         Environment variables:
-        - MCP_DATABASE_TYPE: Type of database ("cloudant", "local_file", or "postgres")
-        - MCP_DATABASE_API_KEY: API key for Cloudant (required for cloudant type)
-        - MCP_DATABASE_SERVICE_URL: Service URL for Cloudant (required for cloudant type)
+        - MCP_DATABASE_TYPE: Type of database ("local_file" or "postgres")
         - MCP_DATABASE_NAME: Database name (optional, defaults to "mcp_servers")
         - MCP_DATABASE_FILE_PATH: File path for local file storage (optional for local_file type)
         - MCP_DATABASE_URL: PostgreSQL connection URL (preferred for postgres type)
@@ -198,47 +182,16 @@ class ServerConfigurationManager:
 
         # Validate database type
         db_type = db_type.strip().lower()
-        if db_type not in ["cloudant", "local_file", "postgres"]:
+        if db_type not in ["local_file", "postgres"]:
             logger.warning(
-                "Unsupported database type in environment: %s. Supported types: cloudant, local_file, postgres",
+                "Unsupported database type in environment: %s. Supported types: local_file, postgres",
                 db_type,
             )
             return None
 
         config = {"type": db_type}
 
-        if db_type == "cloudant":
-            api_key = os.getenv("MCP_DATABASE_API_KEY")
-            service_url = os.getenv("MCP_DATABASE_SERVICE_URL")
-
-            # Validate required fields - fail fast on missing required fields
-            if not api_key or not api_key.strip():
-                error_msg = "Cloudant database type specified but MCP_DATABASE_API_KEY is missing or empty"
-                logger.error("Database configuration error: %s", error_msg)
-                raise ValueError(error_msg)
-            if not service_url or not service_url.strip():
-                error_msg = "Cloudant database type specified but MCP_DATABASE_SERVICE_URL is missing or empty"
-                logger.error("Database configuration error: %s", error_msg)
-                raise ValueError(error_msg)
-
-            # Validate service URL format - fail fast on invalid format
-            if not service_url.startswith(("http://", "https://")):
-                error_msg = f"Invalid service URL format: {service_url}. Must start with http:// or https://"
-                logger.error("Database configuration error: %s", error_msg)
-                raise ValueError(error_msg)
-
-            config.update(
-                {
-                    "api_key": api_key.strip(),
-                    "service_url": service_url.strip(),
-                    "db_name": os.getenv("MCP_DATABASE_DB_NAME", "mcp_servers").strip(),
-                }
-            )
-            logger.info(
-                "Database configuration loaded from environment variables (Cloudant)"
-            )
-
-        elif db_type == "local_file":
+        if db_type == "local_file":
             file_path = os.getenv("MCP_DATABASE_FILE_PATH")
             if file_path and file_path.strip():
                 # Validate file path format - warn but don't fail for file extensions

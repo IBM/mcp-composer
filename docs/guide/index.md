@@ -96,7 +96,7 @@ MCP Composer extends FastMCP with advanced orchestration capabilities:
 │  ┌─────────────────┐  ┌─────────────────┐  ┌──────────────┐ │
 │  │ Config Manager  │  │ Database        │  │ Monitoring   │ │
 │  │                 │  │ Interface       │  │              │ │
-│  │ • Version       │  │ • Cloudant      │  │ • Performance│ │
+│  │ • Version       │  │ • PostgreSQL    │  │ • Performance│ │
 │  │   Control       │  │ • Local File    │  │ • Health     │ │
 │  │ • Validation    │  │ • Custom        │  │ • Audit      │ │
 │  │ • Migration     │  │ • Persistence   │  │ • Metrics    │ │
@@ -302,18 +302,10 @@ server_tools = await composer.get_tool_config_by_server("server-id")
 Persistent configuration storage with support for multiple database backends.
 
 ```python
-# Cloudant database
-composer = MCPComposer(
-    database_config={
-        "type": "cloudant",
-        "api_key": "key",
-        "service_url": "url",
-        "db_name": "mcp_servers"
-    }
-)
-
 # Local file storage (development)
-composer = MCPComposer()  # Uses local file storage by default
+composer = MCPComposer(
+    database_config={"type": "local_file", "file_path": "./mcp_servers.json"}
+)
 
 # Custom database adapter
 class CustomDatabaseAdapter(DatabaseInterface):
@@ -484,3 +476,5 @@ This comprehensive feature set makes MCP Composer the ideal solution for enterpr
 - [Configuration](/guide/configuration) - Learn about configuration options
 - [Middleware Guide](/guide/middleware) - Create and use middleware components
 - [Examples](/examples/) - See practical examples and demos
+- [Contributing](https://github.com/ibm/mcp-composer/blob/main/CONTRIBUTING.md) - Report issues and send pull requests
+- [Security](https://github.com/ibm/mcp-composer/blob/main/SECURITY.md) - Report vulnerabilities privately

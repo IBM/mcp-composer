@@ -323,24 +323,6 @@ class TestDatabaseConfig:
         """Test PostgreSQL configuration with missing parameters."""
         with pytest.raises(ValueError, match="PostgreSQL requires"):
             DatabaseConfig(type="postgres", host="localhost")
-
-    def test_cloudant_config_valid(self):
-        """Test valid Cloudant configuration."""
-        config = DatabaseConfig(
-            type="cloudant",
-            api_key="test-key", # pragma: allowlist secret
-            service_url="https://my-instance.cloudant.com",    # pragma: allowlist secret
-            db_name="mcp_servers",
-        )
-        assert config.type == DatabaseType.CLOUDANT
-        assert config.api_key == "test-key" # pragma: allowlist secret
-
-        assert config.db_name == "mcp_servers"
-    def test_cloudant_config_missing_fields(self):
-        """Test Cloudant configuration with missing fields."""
-        with pytest.raises(ValueError, match="Cloudant requires"):
-            DatabaseConfig(type="cloudant", api_key="test-key") # pragma: allowlist secret
-
     def test_local_file_config_valid(self):
         """Test valid local file configuration."""
         config = DatabaseConfig(type="local_file", file_path="/path/to/config.json")
@@ -368,21 +350,6 @@ class TestDatabaseConfig:
 # ============================================================================
 class TestMiddlewareConfig:
     """Tests for MiddlewareConfig model."""
-
-    def test_middleware_config_valid(self):
-        """Test valid middleware configuration."""
-        config = MiddlewareConfig(
-            name="auth-middleware",
-            kind="mcp_composer.middleware.auth_context_middleware.AuthContextMiddleware",
-            mode="enabled",
-            priority=100,
-            applied_hooks=["before_request", "after_request"],
-            version="1.0.0",
-        )
-        assert config.name == "auth-middleware"
-        assert config.mode == MiddlewareMode.ENABLED
-        assert config.priority == 100
-
     def test_middleware_config_invalid_name(self):
         """Test middleware configuration with invalid name."""
         with pytest.raises(ValueError, match="must contain only alphanumeric"):

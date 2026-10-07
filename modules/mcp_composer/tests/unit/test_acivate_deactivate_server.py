@@ -22,9 +22,8 @@ def server_config():
     """Mock server configuration for testing without live endpoints"""
     return {
         "id": "test-server",
-        "type": "stdio",
-        "command": "uv",
-        "args": ["run", "test-server"],
+        "type": "http",
+        "endpoint": "http://127.0.0.1:9999/mcp",
     }
 
 

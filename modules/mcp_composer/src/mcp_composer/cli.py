@@ -3,13 +3,13 @@ import asyncio
 import argparse
 
 from mcp_composer import MCPComposer
-from mcp_composer.middleware.tool_filter import ListFilteredTool
+from mcp_composer.core.utils.stdio_allowlist import assert_network_bind_allowed
 
 mcp = MCPComposer("composer")
 
 
 async def run(mode: str, host: str, port: int, log_level: str, path: str) -> None:
-    mcp.add_middleware(ListFilteredTool(mcp))
+    assert_network_bind_allowed(mode, host, auth_type=None)
     await mcp.setup_member_servers()
 
     if mode == "http":
@@ -29,7 +29,7 @@ def main() -> None:
         default="http",
         help="MCP mode to run (http or stdio)",
     )
-    parser.add_argument("--host", default="0.0.0.0", help="Host to bind (http mode)")
+    parser.add_argument("--host", default="127.0.0.1", help="Host to bind (http mode)")
     parser.add_argument(
         "--port", type=int, default=9000, help="Port to bind (http mode)"
     )

@@ -30,11 +30,8 @@ mcp-composer --mode http --port 9000
 ### Option B: Using Python Script
 
 ```bash
-# Navigate to src directory
-cd src
-
-# Run the test composer
-uv run test/test_composer.py
+cd modules/mcp_composer
+uv run tests/test_composer.py
 ```
 
 ### Verify MCP Composer is Running

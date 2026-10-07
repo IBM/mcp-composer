@@ -59,7 +59,6 @@ class DatabaseType(str, Enum):
 
     POSTGRES = "postgres"
     POSTGRESQL = "postgresql"
-    CLOUDANT = "cloudant"
     LOCAL_FILE = "local_file"
     FAKE = "fake"
 
@@ -475,18 +474,16 @@ class ServerConfig(BaseConfig):
 class DatabaseConfig(BaseConfig):
     """Database configuration for persistent storage.
 
-    Supports PostgreSQL, Cloudant, and local file storage.
+    Supports PostgreSQL and local file storage.
 
     Attributes:
-        type: Database type (postgres, cloudant, local_file, fake)
+        type: Database type (postgres, local_file, fake)
         host: Database host (for PostgreSQL)
         port: Database port (for PostgreSQL)
         database: Database name (for PostgreSQL)
         user: Database username (for PostgreSQL)
         password: Database password (for PostgreSQL)
         url: Database connection URL (alternative to individual params)
-        api_key: API key (for Cloudant)
-        service_url: Service URL (for Cloudant)
         db_name: Database/collection name
         table_name: Table name (for PostgreSQL)
         file_path: File path (for local_file type)
@@ -508,13 +505,6 @@ class DatabaseConfig(BaseConfig):
         ...     max_pool_size=10
         ... )
         >>>
-        >>> # Cloudant configuration
-        >>> cloudant_config = DatabaseConfig(
-        ...     type="cloudant",
-        ...     api_key="value", # pragma: allowlist secret
-        ...     service_url="https://my-instance.cloudant.com",
-        ...     db_name="mcp_servers"
-        ... )
         >>>
         >>> # Local file configuration
         >>> file_config = DatabaseConfig(
@@ -533,9 +523,6 @@ class DatabaseConfig(BaseConfig):
     password: str | None = Field(None, description="Database password")
     url: str | None = Field(None, description="Database connection URL")
 
-    # Cloudant fields
-    api_key: str | None = Field(None, description="API key (for Cloudant)")
-    service_url: str | None = Field(None, description="Service URL (for Cloudant)")
 
     # Common fields
     db_name: str | None = Field("mcp_servers", description="Database/collection name")
@@ -563,10 +550,6 @@ class DatabaseConfig(BaseConfig):
                     raise ValueError(
                         "PostgreSQL requires either 'url' or all of 'host', 'database', 'user', 'password'"
                     )
-
-        elif self.type == DatabaseType.CLOUDANT:
-            if not self.api_key or not self.service_url:
-                raise ValueError("Cloudant requires 'api_key' and 'service_url'")
 
         elif self.type == DatabaseType.LOCAL_FILE:
             if not self.file_path:

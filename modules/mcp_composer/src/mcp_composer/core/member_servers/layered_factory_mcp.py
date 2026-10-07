@@ -8,25 +8,29 @@ from fastmcp import FastMCP, Client  # type: ignore
 from fastmcp.exceptions import ToolError  # type: ignore
 from fastmcp.server import create_proxy  # type: ignore
 from fastmcp.tools import Tool  # type: ignore
+from mcp_composer.core.member_servers.layered_constants import (
+    LAYERED_DISCOVERY_INSTRUCTIONS,
+)
+from mcp_composer.core.member_servers.layered_discovery import (
+    DEFAULT_LIMIT,
+    DISCOVERY_USAGE,
+    ToolCatalogEntry,
+    parse_tags_arg,
+    resolve_discovery_response,
+    suggest_names,
+)
 from mcp_composer.core.utils import LoggerFactory
 
 logger = LoggerFactory.get_logger()
 
-# Import auth context helper to get authentication headers
-AUTH_CONTEXT_AVAILABLE = False
-try:
-    from mcp_composer.middleware.auth_context_middleware import (
-        AUTH_KEY_USER_INSTANCES_FULL,
-        get_auth_context,
-    )
+AUTH_KEY_USER_INSTANCES_FULL = "user_instances_full"
 
-    AUTH_CONTEXT_AVAILABLE = True
-except ImportError:
-    AUTH_KEY_USER_INSTANCES_FULL = "user_instances_full"
-    get_auth_context = lambda: None  # type: ignore[assignment]
-    logger.debug(
-        "AuthContextMiddleware not available - auth context forwarding disabled"
-    )
+
+def get_auth_context():  # type: ignore[no-redef]
+    return None
+
+
+AUTH_CONTEXT_AVAILABLE = True
 
 
 class LayeredMCPFactory(FastMCP):
@@ -63,18 +67,10 @@ class LayeredMCPFactory(FastMCP):
         # Initialize the parent FastMCP class
         super().__init__(
             name="Layered MCP FastMCP",
-            instructions="""This MCP server provides a discovery layer on top of a native MCP protocol server with three main capabilities:
-
-1. **get_service_info** - Discover and list all available tools from the underlying MCP server
-2. **get_type_info** - Get detailed information about a specific tool including its schema and usage
-3. **make_tool_call** - Execute a tool call on the underlying MCP server with the provided arguments
-
-Usage workflow:
-1. First use get_service_info() to see what's available
-2. Then use get_type_info(tool_name) to understand the specific tool
-3. Finally use make_tool_call(tool_name, arguments) to execute the tool
-
-All tools are proxied from the underlying MCP server.""",
+            instructions=(
+                LAYERED_DISCOVERY_INSTRUCTIONS
+                + "\n\nAll tools are proxied from the underlying MCP server."
+            ),
         )
 
         # Create the underlying proxy that forwards all tools from the client
@@ -92,7 +88,8 @@ All tools are proxied from the underlying MCP server.""",
                 self.get_service_info,
                 description=self._safe_tool_description(
                     "get_service_info",
-                    "Discover and list all available tools from the underlying MCP server.",
+                    "Discover tools via query-first search (or name overview on large catalogs). "
+                    "Prefer get_service_info(query='...', limit=20).",
                 ),
             )
         )
@@ -419,12 +416,48 @@ All tools are proxied from the underlying MCP server.""",
         self._cached_tools = []
         return []
 
-    async def get_service_info(self) -> str:
+    def _tools_to_entries(self, tools: list[dict[str, Any]]) -> list[ToolCatalogEntry]:
+        """Normalize fetched MCP tools into discovery catalog entries."""
+        entries: list[ToolCatalogEntry] = []
+        for tool in tools:
+            name = str(tool.get("name") or "")
+            description = str(tool.get("description") or "")
+            entries.append(
+                ToolCatalogEntry(
+                    name=name,
+                    summary=description,
+                    description=description,
+                    tags=[],
+                )
+            )
+        return entries
+
+    def _mcp_not_found(self, tool_name: str, tools: list[dict[str, Any]]) -> dict[str, Any]:
+        entries = self._tools_to_entries(tools)
+        return {
+            "error": f"Tool '{tool_name}' not found",
+            "suggestions": suggest_names(entries, tool_name, limit=10),
+            "usage": DISCOVERY_USAGE,
+        }
+
+    async def get_service_info(
+        self,
+        service: str | None = None,
+        query: str | None = None,
+        tags: list[str] | str | None = None,
+        limit: int = DEFAULT_LIMIT,
+    ) -> str:
         """
-        Discover and list all available tools from the underlying MCP server.
+        Discover available tools with query-first ranking (slim list, no schemas).
+
+        Args:
+            service: Optional exact tool name for a concise summary (schemas via get_type_info).
+            query: Search text to rank relevant tools.
+            tags: Optional tag filter (list or comma-separated string).
+            limit: Max matches to return (default 20, max 50).
 
         Returns:
-            JSON string with tool information
+            JSON string with discovery payload (matches / overview / service summary).
         """
         import json
 
@@ -434,29 +467,38 @@ All tools are proxied from the underlying MCP server.""",
             return json.dumps(
                 {
                     "message": "No tools available from the underlying MCP server",
-                    "tools": [],
+                    "matches": [],
+                    "total_services": 0,
+                    "mode": "list",
                 },
                 indent=2,
             )
 
-        # Format tools for display
-        formatted_tools = []
-        for tool in tools:
-            formatted_tool = {
-                "name": tool["name"],
-                "description": tool["description"],
-            }
-            if tool.get("inputSchema") is not None:
-                formatted_tool["inputSchema"] = tool["inputSchema"]
-            formatted_tools.append(formatted_tool)
+        entries = self._tools_to_entries(tools)
 
-        return json.dumps(
-            {
-                "message": f"Found {len(formatted_tools)} tools",
-                "tools": formatted_tools,
-            },
-            indent=2,
+        if service is not None:
+            tool = next((t for t in tools if t["name"] == service), None)
+            if not tool:
+                return json.dumps(self._mcp_not_found(service, tools), indent=2)
+            return json.dumps(
+                {
+                    "name": tool["name"],
+                    "description": tool["description"],
+                    "has_input_schema": tool.get("inputSchema") is not None,
+                    "next": "Call get_type_info(tool_name) for full inputSchema and parameters.",
+                },
+                indent=2,
+            )
+
+        payload = resolve_discovery_response(
+            entries,
+            query=query,
+            tags=parse_tags_arg(tags),
+            limit=limit,
+            total_key="total_services",
+            matches_key="matches",
         )
+        return json.dumps(payload, indent=2)
 
     async def get_type_info(self, tool_name: str) -> str:
         """
@@ -476,14 +518,7 @@ All tools are proxied from the underlying MCP server.""",
         tool = next((t for t in tools if t["name"] == tool_name), None)
 
         if not tool:
-            available_tools = [t["name"] for t in tools]
-            return json.dumps(
-                {
-                    "error": f"Tool '{tool_name}' not found",
-                    "available_tools": available_tools,
-                },
-                indent=2,
-            )
+            return json.dumps(self._mcp_not_found(tool_name, tools), indent=2)
 
         result = {
             "name": tool["name"],

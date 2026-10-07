@@ -2,18 +2,13 @@
 
 from __future__ import annotations
 
-
-from pydantic import BaseModel, ConfigDict, Field, field_validator
-
-from mcp_composer.core.models.catalog_common import (
-    RegistryListMetadata,
-    RegistryOfficialExtensions,
-)
+from mcp_composer.core.models.catalog_common import RegistryListMetadata, RegistryOfficialExtensions
 from mcp_composer.core.utils.catalog_validators import (
     require_non_empty_after_strip,
     validate_registry_version,
     validate_skill_or_prompt_name,
 )
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class PromptJSON(BaseModel):

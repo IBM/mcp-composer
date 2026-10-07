@@ -715,7 +715,7 @@ MCP Composer's prompt management system provides a flexible and powerful way to 
 ### Architecture Benefits
 
 - **Extensible Design**: Built on FastMCP framework for easy extension and customization
-- **Persistent Storage**: All changes are persisted to the database (local file, Cloudant, etc.)
+- **Persistent Storage**: All changes are persisted to the database (local file, PostgreSQL, etc.)
 - **Server Management**: Integrated with the server management system for seamless operation
 - **Filtering Logic**: Intelligent filtering that handles prompt naming conventions and server prefixes
 - **Performance Optimized**: Efficient prompt discovery and filtering algorithms

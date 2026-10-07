@@ -1,30 +1,51 @@
 # Security Policy
 
-Thank you for helping us keep this solution — and the systems it interacts with — secure. We appreciate your commitment to responsible disclosure.
+## Supported Versions
 
-## Before Reporting
+| Version | Supported |
+| ------- | --------- |
+| Latest release and `main` | :white_check_mark: |
+| Older releases | :x: |
 
-- **Check existing issues**: Please review the repository’s [Issues](../../issues) to ensure the vulnerability hasn’t already been reported.
-- **Avoid duplicates**: If a similar issue exists, feel free to add relevant details or subscribe for updates.
+Security fixes ship on the default branch and in the next release. Pin a current release in production.
 
 ## Reporting a Vulnerability
 
-If you believe you’ve discovered a security vulnerability:
+Report security vulnerabilities privately using [GitHub Security Advisories](https://github.com/ibm/mcp-composer/security/advisories/new).
 
-1. **Do not open a public issue.**
-2. **Contact the team (code owners)** directly via Slack. You can find the appropriate contact in the repository’s `CODEOWNERS` file or team Slack channel.
-3. Provide as much detail as possible:
-   - Description of the issue
-   - Steps to reproduce
-   - Potential impact
-   - Any suggested fixes or mitigations
+Do not open a public issue for security concerns. Do not include exploit details in pull requests, discussions, or chat until an advisory is published.
 
-## Our Commitment
+Please include:
 
-We will:
+- A description of the issue
+- Steps to reproduce, or a minimal proof of concept
+- The version or commit you tested
+- The impact you believe the issue has
 
-- Acknowledge your report promptly
-- Investigate and address valid issues
-- Keep you informed throughout the process
+## Scope
 
-Thank you again for helping us protect our users and systems.
+Reports are in scope when they show a vulnerability in MCP Composer itself: the library and server in this repository.
+
+The following are out of scope:
+
+- Vulnerabilities in third-party dependencies, including FastMCP and the MCP SDK. We raise version floors for known CVEs. The fix belongs upstream when the flaw is not in our code.
+- Vulnerabilities in member servers, OpenAPI backends, or identity providers that MCP Composer is configured to call.
+- A deployment that turns a protection off. Binding a non-loopback address without authentication, or placing an untrusted path on `MCP_COMPOSER_STDIO_ALLOWLIST`, removes that protection on purpose.
+
+### Security boundaries
+
+- **Network bind.** The CLI defaults to `127.0.0.1`. Serving HTTP or SSE on a non-loopback address requires authentication. A report that only shows an unauthenticated server the operator bound to `0.0.0.0` without auth is out of scope.
+- **Stdio member servers.** A stdio `command` must resolve to a real path listed in `MCP_COMPOSER_STDIO_ALLOWLIST`. That allowlist is the trust boundary for local subprocesses. An empty or missing allowlist fails closed.
+- **Tool visibility and catalog metadata** are routing and discovery hints. They are not access control. Authorization is the auth and policy configuration on the server.
+
+Reports that show an enabled authentication, policy, or allowlist check failing remain in scope.
+
+## Disclosure Process
+
+When we receive a valid report:
+
+1. We acknowledge the report and confirm whether it affects MCP Composer directly.
+2. We develop and test a fix on a private branch.
+3. We coordinate CVE assignment through GitHub's advisory process when warranted.
+4. We publish the advisory and release a patched version.
+5. We credit the reporter in the advisory unless they prefer otherwise.

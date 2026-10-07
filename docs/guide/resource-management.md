@@ -729,7 +729,7 @@ MCP Composer's resource management system provides a flexible and powerful way t
 - **Error Handling**: Robust error handling with meaningful error messages
 - **Type Safety**: Support for both `Resource` and `ResourceTemplate` objects
 - **Architecture Benefits**: Built on FastMCP framework for easy extension and customization
-- **Persistent Storage**: All changes are persisted to the database (local file, Cloudant, etc.)
+- **Persistent Storage**: All changes are persisted to the database (local file, PostgreSQL, etc.)
 - **Server Management**: Integrated with the server management system for seamless operation
 - **Filtering Logic**: Intelligent filtering that handles resource naming conventions and URI patterns
 - **Performance Optimized**: Efficient resource discovery and filtering algorithms

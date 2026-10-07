@@ -1,13 +1,21 @@
 """
 Catalog Composer — skill, agent, and workflow catalog MCP surfaces only.
 
-Use this process when you need catalog management tools without Solis ISV / doc search.
+Use this process when you need catalog management tools without product-specific
+auth middleware.
 
 Environment variables:
 - MCP_ENABLE_SKILL_CATALOG_MCP: true|false (default true)
 - MCP_ENABLE_AGENT_CATALOG_MCP: true|false (default true)
 - MCP_ENABLE_WORKFLOW_CATALOG_MCP: true|false (default true)
-- SOLIS_TENANT_ID, SOLIS_ALLOWED_TOOLS, SOLIS_SKILL_REFRESH_INTERVAL_SECS — startup skill loader (optional)
+- MCP_SKILL_CATALOG_LAYERED: true|false (default false) — when true, skill-catalog
+  ``list_skills`` uses category-first browse (see MCP server instructions in
+  ``skill_catalog_mcp.py``)
+- MCP_COMPOSER_TENANT_ID, MCP_COMPOSER_ALLOWED_TOOLS,
+  MCP_COMPOSER_SKILL_REFRESH_INTERVAL_SECS — startup skill loader (optional)
+- MCP_WORKFLOW_FILES_SYNC: true|false (default true) — publish
+  resources/workflows/workflows_*.json bundles to catalog on startup
+- MCP_WORKFLOW_FILES_DIR: optional path to workflow JSON directory
 - MCP_MODE: http | sse | stdio (default sse)
 """
 
@@ -22,30 +30,17 @@ from mcp_composer import MCPComposer
 from mcp_composer.core.catalog import CatalogResourceListFilter, SkillManager
 from mcp_composer.core.models.catalog_constants import RegistryResourceKind
 from mcp_composer.core.tools.catalog import get_agent_mcp, get_skill_mcp, get_workflow_mcp
-from mcp_composer.core.utils import LoggerFactory
+from mcp_composer.core.tools.catalog.workflow_catalog_mcp import bootstrap_workflow_catalog_from_env
+from mcp_composer.core.utils import env_bool_flag
+from mcp_composer.core.utils.logger import LoggerFactory
 from mcp_composer.store.catalog_factory import get_catalog_db
 
 _log_level = (os.getenv("MCP_COMPOSER_LOG_LEVEL") or "INFO").strip().upper()
 logger = LoggerFactory.get_logger(level=_log_level)
 
-_TRUTHY = frozenset({"true", "1", "yes", "on"})
-_FALSEY = frozenset({"false", "0", "no", "off"})
-
-
-def _env_flag(name: str, *, default: bool = True) -> bool:
-    raw = (os.getenv(name) or "").strip().lower()
-    if not raw:
-        return default
-    if raw in _TRUTHY:
-        return True
-    if raw in _FALSEY:
-        return False
-    return default
-
-
-_enable_skill_catalog_mcp = _env_flag("MCP_ENABLE_SKILL_CATALOG_MCP", default=True)
-_enable_agent_catalog_mcp = _env_flag("MCP_ENABLE_AGENT_CATALOG_MCP", default=True)
-_enable_workflow_catalog_mcp = _env_flag("MCP_ENABLE_WORKFLOW_CATALOG_MCP", default=True)
+_enable_skill_catalog_mcp = env_bool_flag("MCP_ENABLE_SKILL_CATALOG_MCP", default=True)
+_enable_agent_catalog_mcp = env_bool_flag("MCP_ENABLE_AGENT_CATALOG_MCP", default=True)
+_enable_workflow_catalog_mcp = env_bool_flag("MCP_ENABLE_WORKFLOW_CATALOG_MCP", default=True)
 
 gw = MCPComposer(name="catalog-composer", auth=None)
 _startup_skill_loader_task: asyncio.Task | None = None
@@ -65,21 +60,21 @@ def _skill_allowed_for_tools(
         return True
     if not skill_allowed_tools:
         return True
-    # Avoid set conversion if already a set/frozenset
     if isinstance(skill_allowed_tools, (set, frozenset)):
         return bool(skill_allowed_tools.intersection(agent_allowed_tools))
-    # Use any() to avoid creating intermediate set for iterables
     return any(tool in agent_allowed_tools for tool in skill_allowed_tools)
 
 
 class StartupSkillLoader:
-    """Polls load-onstartup skills for runtime refresh (same behaviour as former Solis hook)."""
+    """Polls load-onstartup skills for runtime refresh."""
 
     def __init__(self) -> None:
         self._manager = SkillManager(get_catalog_db())
-        self._tenant_id = (os.getenv("SOLIS_TENANT_ID") or "").strip() or None
-        self._agent_allowed_tools = _parse_csv_set(os.getenv("SOLIS_ALLOWED_TOOLS"))
-        self._refresh_interval = int(os.getenv("SOLIS_SKILL_REFRESH_INTERVAL_SECS", "30"))
+        self._tenant_id = (os.getenv("MCP_COMPOSER_TENANT_ID") or "").strip() or None
+        self._agent_allowed_tools = _parse_csv_set(os.getenv("MCP_COMPOSER_ALLOWED_TOOLS"))
+        self._refresh_interval = int(
+            os.getenv("MCP_COMPOSER_SKILL_REFRESH_INTERVAL_SECS", "30")
+        )
         self._loaded_skill_keys: set[tuple[str, str]] = set()
 
     async def _load_once(self) -> None:
@@ -123,7 +118,7 @@ async def setup_catalog_mcp(composer: MCPComposer) -> None:
     global _startup_skill_loader_task, _startup_skill_loader
 
     if _enable_skill_catalog_mcp:
-        composer.mount(get_skill_mcp(), "skill-catalog")
+        composer.mount(get_skill_mcp(), "")
         logger.info("Skill catalog MCP mounted")
     else:
         logger.info("Skill catalog MCP skipped")
@@ -135,7 +130,14 @@ async def setup_catalog_mcp(composer: MCPComposer) -> None:
         logger.info("Agent catalog MCP skipped")
 
     if _enable_workflow_catalog_mcp:
-        composer.mount(get_workflow_mcp(), "workflow-catalog")
+        composer.mount(get_workflow_mcp(), "")
+        sync_result = await bootstrap_workflow_catalog_from_env()
+        if sync_result:
+            logger.info(
+                "Workflow file sync complete: published=%d directory=%s",
+                sync_result.get("published_count", 0),
+                sync_result.get("directory"),
+            )
         logger.info("Workflow catalog MCP mounted")
     else:
         logger.info("Workflow catalog MCP skipped")
@@ -147,7 +149,7 @@ async def setup_catalog_mcp(composer: MCPComposer) -> None:
 
 
 async def run_http_mode(composer: MCPComposer) -> None:
-    await composer.run_http_async(host="0.0.0.0", port=9000, log_level="debug", path="/mcp")
+    await composer.run_http_async(host="127.0.0.1", port=9000, log_level="debug", path="/mcp")
 
 
 async def run_stdio_mode(composer: MCPComposer) -> None:
@@ -156,7 +158,7 @@ async def run_stdio_mode(composer: MCPComposer) -> None:
 
 
 async def run_sse_mode(composer: MCPComposer) -> None:
-    await composer.run_async(transport="sse", host="0.0.0.0", port=9000, log_level="debug")
+    await composer.run_async(transport="sse", host="127.0.0.1", port=9000, log_level="debug")
 
 
 MODE_HANDLERS = {

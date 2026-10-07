@@ -19,15 +19,10 @@ def detect_required_extras() -> set[str]:
     """
     extras = set()
     
-    # Check for IBM Cloud
-    if any(os.getenv(var) for var in [
-        "CLOUDANT_URL",
-        "CLOUDANT_APIKEY",
-        "IBM_SECRETS_MANAGER_URL",
-        "IBM_CLOUD_API_KEY",
-    ]):
+    # Check for IBM Secrets Manager (optional)
+    if os.getenv("IBM_SECRETS_MANAGER_URL") or os.getenv("IBM_CLOUD_API_KEY"):
         extras.add("ibm-cloud")
-    
+
     # Check for PostgreSQL
     if os.getenv("POSTGRES_URL") or os.getenv("DATABASE_URL", "").startswith("postgres"):
         extras.add("databases")

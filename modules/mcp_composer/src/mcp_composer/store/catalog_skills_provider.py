@@ -2,7 +2,8 @@
 
 Implements agentskills.io progressive disclosure Level 3:
 
-    Level 1 — catalog_list_skills()       → name + description (~100 tokens)
+    Level 1 — catalog_list_skills()       → default: ``name``, ``description``, ``tags`` only;
+                                            pass ``verbose=true`` for full ``skill`` + ``_meta`` per row
     Level 2 — catalog_get_skill(name)     → full payload + instructions (<5 000 tokens)
     Level 3 — skill://{name}/SKILL.md     → raw content stored in DB (references,
                                             scripts, extended docs — no token limit)
@@ -42,14 +43,12 @@ except ImportError:
     _HAS_YAML = False
 
 from fastmcp import FastMCP
-from fastmcp.server.providers.base import Provider
 from fastmcp.resources import Resource, TextResource
-
-from mcp_composer.store.catalog_factory import get_catalog_db
+from fastmcp.server.providers.base import Provider
 from mcp_composer.core.catalog.catalog_manager import CatalogResourceListFilter
-from mcp_composer.core.models.catalog_constants import RegistryResourceKind
 from mcp_composer.core.catalog.skill_manager import SkillManager
-
+from mcp_composer.core.models.catalog_constants import RegistryResourceKind
+from mcp_composer.store.catalog_factory import get_catalog_db
 
 # ── helpers ───────────────────────────────────────────────────────────────────
 
@@ -314,11 +313,7 @@ class CatalogSkillsProvider(Provider):
         if suffix == "SKILL.md":
             # Prefer stored content column (Level 3 raw asset) if present.
             stored_content = await self._mgr.get_content(name)
-            text = (
-                stored_content
-                if stored_content
-                else _render_skill_md(payload, official_meta)
-            )
+            text = stored_content if stored_content else _render_skill_md(payload, official_meta)
             return SkillMarkdownResource(
                 uri=uri,  # type: ignore[arg-type]
                 name=f"{title} — SKILL.md",

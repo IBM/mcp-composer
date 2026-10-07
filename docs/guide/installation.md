@@ -12,7 +12,7 @@ This guide covers different ways to install and set up MCP Composer.
 ### 1. Clone the Repository
 
 ```bash
-git clone https://github.ibm.com/ai-elite/mcp-composer.git
+git clone https://github.com/ibm/mcp-composer.git
 cd mcp-composer
 ```
 
@@ -199,7 +199,7 @@ mcp-composer/
 
 ### Getting Help
 
-- Review [GitHub Issues](https://github.ibm.com/ai-elite/mcp-composer/issues)
+- Review [GitHub Issues](https://github.com/ibm/mcp-composer/issues)
 - Consult the [API Documentation](/api/)
 
 ## Next Steps

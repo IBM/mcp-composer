@@ -9,8 +9,11 @@ MAX_VERSIONS_PER_RESOURCE = 10000
 
 # Lifecycle status values shared by all catalog resource kinds (skill, prompt, …).
 VALID_CATALOG_RESOURCE_STATUSES: frozenset[str] = frozenset(
-    {"active", "draft", "deprecated", "deleted", "load-onstartup"}
+    {"active", "draft", "deprecated", "deleted", "deactivated", "load-onstartup"}
 )
+
+# Bucket label for skills with no ``metadata.category`` (layered browse + filters).
+SKILL_CATALOG_UNCATEGORIZED = "(uncategorized)"
 
 
 class RegistryResourceKind(str, Enum):

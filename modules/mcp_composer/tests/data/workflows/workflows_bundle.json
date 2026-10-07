@@ -1,0 +1,28 @@
+[
+  {
+    "name": "wf-alpha",
+    "instruction": "Run alpha workflow",
+    "version": "1.0.0",
+    "output": [
+      {
+        "step": 1,
+        "product": "gurdium",
+        "tool": "list_vulnerabilities",
+        "input": {}
+      }
+    ]
+  },
+  {
+    "name": "wf-beta",
+    "instruction": "Run beta workflow",
+    "version": "1.0.0",
+    "output": [
+      {
+        "step": 1,
+        "product": "gurdium",
+        "tool": "get_asset_list",
+        "input": {}
+      }
+    ]
+  }
+]

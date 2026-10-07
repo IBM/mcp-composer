@@ -59,7 +59,7 @@ Also, you can manage multiple MCP servers and tools with dynamic registration, a
 
 ## Usage
 
-MCOP composer itself act as mcp server and can be started at any of the available tarnsport
+MCP Composer itself acts as an MCP server and can be started on any supported transport.
 
 ```bash
 # Run with STDIO transport (default)
@@ -214,3 +214,11 @@ In order to disable the admisnitrative tools start mcp-composer with following t
 # Disable built-in composer tools
 mcp-composer --disable-composer-tools --mode stdio
 ```
+
+## License
+
+Apache License 2.0. See the repository [LICENSE](https://github.com/ibm/mcp-composer/blob/main/LICENSE).
+
+## Contributing
+
+Issues and pull requests are welcome. Read [CONTRIBUTING.md](https://github.com/ibm/mcp-composer/blob/main/CONTRIBUTING.md) and report vulnerabilities through [SECURITY.md](https://github.com/ibm/mcp-composer/blob/main/SECURITY.md).

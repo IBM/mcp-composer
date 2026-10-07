@@ -4,12 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
-
-from mcp_composer.core.models.catalog_common import (
-    RegistryListMetadata,
-    RegistryOfficialExtensions,
-)
+from mcp_composer.core.models.catalog_common import RegistryListMetadata, RegistryOfficialExtensions
 from mcp_composer.core.utils.catalog_validators import (
     require_non_empty_after_strip,
     validate_agentskills_compatibility,
@@ -18,6 +13,7 @@ from mcp_composer.core.utils.catalog_validators import (
     validate_agentskills_name,
     validate_registry_version,
 )
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
 class SkillRepository(BaseModel):
@@ -31,9 +27,7 @@ class SkillRepository(BaseModel):
 class SkillCatalogReference(BaseModel):
     """URL + relative file name for a bundled artifact (same shape as ``_meta.metadata.references``)."""
 
-    model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, str_strip_whitespace=True
-    )
+    model_config = ConfigDict(extra="forbid", populate_by_name=True, str_strip_whitespace=True)
 
     url: str
     file: str
@@ -92,9 +86,7 @@ class SkillJSON(BaseModel):
     alongside other discovery metadata (title, category, products, tags).
     """
 
-    model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, str_strip_whitespace=True
-    )
+    model_config = ConfigDict(extra="forbid", populate_by_name=True, str_strip_whitespace=True)
 
     # ------------------------------------------------------------------ required
     name: str
@@ -176,4 +168,23 @@ class SkillListResponse(BaseModel):
     model_config = ConfigDict(extra="forbid", populate_by_name=True)
 
     skills: list[SkillResponse]
+    metadata: RegistryListMetadata
+
+
+class SkillListSummaryItem(BaseModel):
+    """Token-light list row: no full ``SkillJSON`` parse (used by ``SkillManager.list_summaries``)."""
+
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
+    name: str
+    description: str
+    tags: list[str] = Field(default_factory=list)
+    #: From ``metadata.category`` when present (``None`` if unset).
+    category: str | None = None
+
+
+class SkillListSummaryResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+
+    skills: list[SkillListSummaryItem]
     metadata: RegistryListMetadata

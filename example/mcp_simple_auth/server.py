@@ -1,4 +1,4 @@
-"""Simple MCP Server with W3 OAuth Authentication."""
+"""Sample MCP server with an OAuth authorization-code provider."""
 
 import logging
 import secrets
@@ -46,10 +46,8 @@ class ServerSettings(BaseSettings):
     w3_callback_path: str = "https://localhost:8080/auth/idaas/callback"
 
     # w3 OAuth URLs
-    w3_auth_url: str = (
-        "https://preprod.login.w3.ibm.com/v1.0/endpoint/default/authorize"
-    )
-    w3_token_url: str = "https://preprod.login.w3.ibm.com/v1.0/endpoint/default/token"
+    w3_auth_url: str = "https://example.com/authorize"
+    w3_token_url: str = "https://example.com/token"
 
     mcp_scope: str = "user"
     w3_scope: str = "openid"

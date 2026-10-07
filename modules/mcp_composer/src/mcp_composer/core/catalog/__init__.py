@@ -1,11 +1,12 @@
 from mcp_composer.core.models.catalog_constants import VALID_CATALOG_RESOURCE_STATUSES
 
+from .agent_manager import AgentManager
 from .catalog_exceptions import (
+    CatalogResourceAlreadyExistsError,
     CatalogResourceNotFoundError,
     CatalogVersionCapError,
     InvalidCatalogResourceStatusError,
 )
-from .agent_manager import AgentManager
 from .catalog_manager import (
     CatalogManager,
     CatalogResourceListFilter,
@@ -19,7 +20,7 @@ __all__ = [
     "AgentManager",
     "CatalogManager",
     "CatalogResourceListFilter",
-    "expect_catalog_list_filter_kind",
+    "CatalogResourceAlreadyExistsError",
     "CatalogResourceNotFoundError",
     "CatalogVersionCapError",
     "InvalidCatalogResourceStatusError",

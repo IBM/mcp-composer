@@ -97,7 +97,7 @@ So the tool access policy are as follows:
 
 ```bash
 export POLICY_ENFORCER_MODE=vault
-uv run test/test_policy.py
+cd modules/mcp_composer && uv run pytest tests/test_policy.py
 ```
 
 ---
@@ -118,7 +118,7 @@ uv run test/test_policy.py
 
 ```bash
 export POLICY_ENFORCER_MODE=file
-uv run test/test_policy.py
+cd modules/mcp_composer && uv run pytest tests/test_policy.py
 ```
 
 ---

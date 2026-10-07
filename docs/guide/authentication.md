@@ -573,9 +573,8 @@ await composer.register_mcp_server({
 composer = MCPComposer(
     name="Production Composer",
     database_config={
-        "type": "cloudant",
-        "api_key": os.getenv("CLOUDANT_API_KEY"),
-        "service_url": os.getenv("CLOUDANT_SERVICE_URL")
+        "type": "local_file",
+        "file_path": "./mcp_servers.json"
     }
 )
 

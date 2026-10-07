@@ -154,7 +154,7 @@ def check_dependencies() -> None:
     if not required:
         rprint("[green]✓[/green] No optional dependencies detected from environment")
         rprint("\n[dim]Set environment variables to enable optional features:[/dim]")
-        rprint("  • IBM Cloud: CLOUDANT_URL, IBM_CLOUD_API_KEY")
+        rprint("  • IBM Cloud: IBM_SECRETS_MANAGER_URL, IBM_CLOUD_API_KEY")
         rprint("  • PostgreSQL: POSTGRES_URL or DATABASE_URL")
         rprint("  • Vault: VAULT_ADDR, VAULT_TOKEN")
         rprint("  • AI features: GOOGLE_API_KEY, LITELLM_API_KEY, OLLAMA_HOST")

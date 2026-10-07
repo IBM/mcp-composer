@@ -6,6 +6,7 @@ This guide explains how to run and use the catalog-focused composer at `modules/
 - skill catalog MCP
 - agent catalog MCP
 - workflow catalog MCP
+- scheduled-tasks MCP (optional; Langflow cron schedules — see [Schedule management](./schedule-management.md))
 - startup skill loader refresh loop
 
 Use this when you need catalog management without Solis ISV auth/doc-search middleware.
@@ -14,10 +15,11 @@ Use this when you need catalog management without Solis ISV auth/doc-search midd
 
 ### What it starts
 
-When enabled, the composer mounts three MCP sub-servers:
+When enabled, the composer mounts MCP sub-servers:
 - `skill-catalog`
 - `agent-catalog`
 - `workflow-catalog`
+- `scheduled-tasks` tools (`schedule_create`, `schedule_list`, `schedule_cancel`) when `MCP_ENABLE_SCHEDULED_TASKS_MCP=true` (no namespace prefix)
 
 The server transport is controlled by `MCP_MODE`:
 - `sse` (default)
@@ -44,11 +46,17 @@ python composers/catalog_composer.py
 - `MCP_ENABLE_SKILL_CATALOG_MCP`: `true|false` (default `true`)
 - `MCP_ENABLE_AGENT_CATALOG_MCP`: `true|false` (default `true`)
 - `MCP_ENABLE_WORKFLOW_CATALOG_MCP`: `true|false` (default `true`)
+- `MCP_ENABLE_SCHEDULED_TASKS_MCP`: `true|false` (default `false`) — requires Redis; see [Schedule management](./schedule-management.md)
+- `SCHEDULED_TASKS_REDIS_URL`: Redis URL for schedules (default `redis://localhost:6379/0`)
 
 Optional startup skill loader controls:
-- `SOLIS_TENANT_ID`: only load startup skills visible to a tenant
-- `SOLIS_ALLOWED_TOOLS`: comma-separated tool allowlist filter
-- `SOLIS_SKILL_REFRESH_INTERVAL_SECS`: polling interval (seconds, min effective 5)
+- `MCP_COMPOSER_TENANT_ID`: only load startup skills visible to a tenant
+- `MCP_COMPOSER_ALLOWED_TOOLS`: comma-separated tool allowlist filter
+- `MCP_COMPOSER_SKILL_REFRESH_INTERVAL_SECS`: polling interval (seconds, min effective 5)
+
+Workflow bundle sync (see [Workflow management](./workflow-management.md)):
+- `MCP_WORKFLOW_FILES_SYNC`: `true|false` (default `true`) — publish `resources/workflows/workflows_*.json` on startup
+- `MCP_WORKFLOW_FILES_DIR`: override path to bundle files
 
 ## 2) Database Setup for Catalog Composer
 
@@ -210,7 +218,7 @@ The mounted MCPs expose CRUD-style tools for each catalog type.
 
 ### Skill catalog tools (`skill-catalog`)
 
-- `list_skills(keywords?, tenant?, start=0, limit=50)`
+- `list_skills(keywords?, tenant?, offset=0, limit=50)`
 - `get_skill(name, version?)`
 - `load_skill_reference(name, file, version?)`
 - `add_skill(skill_json, tenant_ids?)`
@@ -225,7 +233,7 @@ Notes:
 
 ### Agent catalog tools (`agent-catalog`)
 
-- `list_agents(tenant?, start=0, limit=50)`
+- `list_agents(tenant?, offset=0, limit=50)`
 - `get_agent(name, version?)`
 - `add_agent(agent_json, tenant_ids?)`
 - `publish_agent_bundle(bundle_json, tenant_ids?)`
@@ -234,12 +242,22 @@ Notes:
 
 ### Workflow catalog tools (`workflow-catalog`)
 
-- `list_workflows(tenant?, start=0, limit=50)`
+Catalog CRUD:
+
+- `list_workflows(tenant?, offset=0, limit=50)`
 - `get_workflow(name, version?)`
 - `add_workflow(workflow_json, tenant_ids?)`
 - `publish_workflow_bundle(bundle_json, tenant_ids?)`
 - `delete_workflow(name, version)`
 - `update_workflow_status(name, version, status)`
+- `sync_workflows_from_files(directory?, tenant_ids?)` — load `workflows_*.json` bundles; **one DB row per array entry**
+
+Agent playbook:
+
+- `get_workflow_catalog_execution_guide()` — how to run workflows (sequential steps, layered vs direct MCP)
+- **One MCP tool per active workflow** (name = workflow `name`) — returns an execution plan JSON, not auto-execution
+
+Full usage: [Workflow management](./workflow-management.md).
 
 ## 4) How to Use Those Tools
 
@@ -258,7 +276,7 @@ Typical sequence:
 For each resource type (skill/agent/workflow):
 
 1. Browse:
-   - `list_*` with `start`/`limit` pagination
+   - `list_*` with `offset`/`limit` pagination
 2. Read:
    - `get_*` by name (optionally version)
 3. Publish:
@@ -350,7 +368,7 @@ MCP_USE_LOCAL_FILE_STORAGE=true
 MCP_CATALOG_FILE_PATH=./catalog
 
 # Optional startup loader controls
-SOLIS_TENANT_ID=
-SOLIS_ALLOWED_TOOLS=
-SOLIS_SKILL_REFRESH_INTERVAL_SECS=30
+MCP_COMPOSER_TENANT_ID=
+MCP_COMPOSER_ALLOWED_TOOLS=
+MCP_COMPOSER_SKILL_REFRESH_INTERVAL_SECS=30
 ```

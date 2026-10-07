@@ -9,7 +9,6 @@ This module provides various middleware implementations including:
 - PII and secrets handling
 - XML to JSON conversion
 - Tracing and logging
-- Tool-level authentication
 """
 
 from .prompt_injection import PromptInjectionMiddleware
@@ -20,8 +19,6 @@ from .pii_middleware import SecretsAndPIIMiddleware, RedactionStrategy
 from .xml2json import FormatXml2Json
 from .json_extraction_middleware import JSONExtractionMiddleware
 from .error_sanitization_middleware import ErrorSanitizationMiddleware
-from .tool_auth_middleware import ToolAuthenticationMiddleware
-
 from .tracing_middleware import TracingMiddleware
 
 __all__ = [
@@ -34,6 +31,5 @@ __all__ = [
     "FormatXml2Json",
     "JSONExtractionMiddleware",
     "ErrorSanitizationMiddleware",
-    "ToolAuthenticationMiddleware",
     "TracingMiddleware",
 ]

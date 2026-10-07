@@ -8,17 +8,15 @@ composer ``*_prompts`` table).
 
 from __future__ import annotations
 
-from pydantic import BaseModel, Field
-
-from mcp_composer.core.catalog.catalog_helpers import (
-    registry_list_metadata_for_page,
-    registry_official_extensions_from_row,
-    utc_now_iso,
-)
 from mcp_composer.core.catalog.catalog_exceptions import (
     CatalogResourceNotFoundError,
     CatalogVersionCapError,
     InvalidCatalogResourceStatusError,
+)
+from mcp_composer.core.catalog.catalog_helpers import (
+    registry_list_metadata_for_page,
+    registry_official_extensions_from_row,
+    utc_now_iso,
 )
 from mcp_composer.core.catalog.catalog_manager import (
     CatalogManager,
@@ -28,8 +26,8 @@ from mcp_composer.core.catalog.catalog_manager import (
 )
 from mcp_composer.core.models.catalog_constants import (
     MAX_VERSIONS_PER_RESOURCE,
-    RegistryResourceKind,
     VALID_CATALOG_RESOURCE_STATUSES,
+    RegistryResourceKind,
 )
 from mcp_composer.core.models.catalog_prompt import (
     PromptJSON,
@@ -38,6 +36,7 @@ from mcp_composer.core.models.catalog_prompt import (
     PromptResponseMeta,
 )
 from mcp_composer.store.catalog_database import CatalogDatabaseInterface
+from pydantic import BaseModel, Field
 
 _PROMPT_KIND = RegistryResourceKind.PROMPT.value
 

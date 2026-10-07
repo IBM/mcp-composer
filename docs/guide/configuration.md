@@ -312,7 +312,7 @@ OAUTH_CLIENT_SECRET=xxxxxxx
 **Example:**
 
 ```bash
-OAUTH_CONFIG_URL=https://preprod.login.w3.ibm.com/oidc/endpoint/default/.well-known/openid-configuration
+OAUTH_CONFIG_URL=https://example.com/.well-known/openid-configuration
 ```
 
 #### `OAUTH_INTROSPECTION_URL`
@@ -324,7 +324,7 @@ OAUTH_CONFIG_URL=https://preprod.login.w3.ibm.com/oidc/endpoint/default/.well-kn
 **Example:**
 
 ```bash
-OAUTH_INTROSPECTION_URL=https://preprod.login.w3.ibm.com/v1.0/endpoint/default/introspect
+OAUTH_INTROSPECTION_URL=https://example.com/introspect
 ```
 
 **Complete IBM W3 OAuth (New) Example:**
@@ -334,8 +334,8 @@ ENABLE_OAUTH=True
 OAUTH_CLIENT_ID=xxxxxxx
 OAUTH_CLIENT_SECRET=xxxxxxx
 OAUTH_BASE_URL=http://localhost:9000
-OAUTH_CONFIG_URL=https://preprod.login.w3.ibm.com/oidc/endpoint/default/.well-known/openid-configuration
-OAUTH_INTROSPECTION_URL=https://preprod.login.w3.ibm.com/v1.0/endpoint/default/introspect
+OAUTH_CONFIG_URL=https://example.com/.well-known/openid-configuration
+OAUTH_INTROSPECTION_URL=https://example.com/introspect
 ```
 
 ---
@@ -400,7 +400,7 @@ OAUTH_CALLBACK_PATH=http://localhost:9000/auth/idaas/callback
 
 ```bash
 # IBM W3
-OAUTH_AUTH_URL=https://preprod.login.w3.ibm.com/v1.0/endpoint/default/authorize
+OAUTH_AUTH_URL=https://example.com/authorize
 
 # GitHub
 OAUTH_AUTH_URL=https://github.com/login/oauth/authorize
@@ -416,7 +416,7 @@ OAUTH_AUTH_URL=https://github.com/login/oauth/authorize
 
 ```bash
 # IBM W3
-OAUTH_TOKEN_URL=https://preprod.login.w3.ibm.com/v1.0/endpoint/default/token
+OAUTH_TOKEN_URL=https://example.com/token
 
 # GitHub
 OAUTH_TOKEN_URL=https://github.com/login/oauth/access_token
@@ -456,8 +456,8 @@ OAUTH_SERVER_URL=http://localhost:9000
 OAUTH_CALLBACK_PATH=http://localhost:9000/auth/idaas/callback
 OAUTH_CLIENT_ID=xxxxxxx
 OAUTH_CLIENT_SECRET=xxxxxxx
-OAUTH_AUTH_URL=https://preprod.login.w3.ibm.com/v1.0/endpoint/default/authorize
-OAUTH_TOKEN_URL=https://preprod.login.w3.ibm.com/v1.0/endpoint/default/token
+OAUTH_AUTH_URL=https://example.com/authorize
+OAUTH_TOKEN_URL=https://example.com/token
 OAUTH_MCP_SCOPE=user
 OAUTH_PROVIDER_SCOPE=openid
 ```
@@ -897,14 +897,6 @@ DATABASE_TYPE=local_file
 DATABASE_PATH=data/mcp_composer.db
 ```
 
-### Cloudant Database
-
-```env
-DATABASE_TYPE=cloudant
-CLOUDANT_URL=https://your-account.cloudant.com
-CLOUDANT_API_KEY=your-api-key
-CLOUDANT_DB_NAME=mcp_composer
-```
 
 ### Database Configuration File
 
@@ -1015,7 +1007,7 @@ METRICS_ENABLED=true
 
 ```env
 LOG_LEVEL=INFO
-DATABASE_TYPE=cloudant
+DATABASE_TYPE=postgres
 CACHE_ENABLED=true
 METRICS_ENABLED=true
 RATE_LIMIT_ENABLED=true

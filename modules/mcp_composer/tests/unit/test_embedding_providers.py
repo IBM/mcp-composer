@@ -106,6 +106,7 @@ class TestSentenceTransformerAdapter:
 class TestLiteLLMEmbedding:
     """Test LiteLLM embedding functionality."""
 
+    @patch("mcp_composer.core.tools.model_providers.litellm_adapter.LITELLM_AVAILABLE", True)
     @patch("mcp_composer.core.tools.model_providers.litellm_adapter.litellm")
     def test_encode_single_text(self, mock_litellm):
         """Test encoding a single text with LiteLLM."""
@@ -118,6 +119,7 @@ class TestLiteLLMEmbedding:
         assert result == [0.1, 0.2, 0.3]
         mock_litellm.embedding.assert_called_once()
 
+    @patch("mcp_composer.core.tools.model_providers.litellm_adapter.LITELLM_AVAILABLE", True)
     @patch("mcp_composer.core.tools.model_providers.litellm_adapter.litellm")
     def test_encode_multiple_texts(self, mock_litellm):
         """Test encoding multiple texts with LiteLLM."""
@@ -131,6 +133,7 @@ class TestLiteLLMEmbedding:
 
         assert result == [[0.1, 0.2, 0.3], [0.4, 0.5, 0.6]]
 
+    @patch("mcp_composer.core.tools.model_providers.litellm_adapter.LITELLM_AVAILABLE", True)
     @patch("mcp_composer.core.tools.model_providers.litellm_adapter.litellm")
     def test_encode_error_handling(self, mock_litellm):
         """Test error handling in encode."""
@@ -145,6 +148,7 @@ class TestLiteLLMEmbedding:
 class TestOllamaEmbedding:
     """Test Ollama embedding functionality."""
 
+    @patch("mcp_composer.core.tools.model_providers.ollama_adapter.OLLAMA_PYTHON_AVAILABLE", True)
     @patch("mcp_composer.core.tools.model_providers.ollama_adapter.Client")
     @patch("mcp_composer.core.tools.model_providers.ollama_adapter.AsyncClient")
     def test_encode_single_text(self, mock_async_client, mock_client):
@@ -162,6 +166,7 @@ class TestOllamaEmbedding:
             model="nomic-embed-text", prompt="test text"
         )
 
+    @patch("mcp_composer.core.tools.model_providers.ollama_adapter.OLLAMA_PYTHON_AVAILABLE", True)
     @patch("mcp_composer.core.tools.model_providers.ollama_adapter.Client")
     @patch("mcp_composer.core.tools.model_providers.ollama_adapter.AsyncClient")
     def test_encode_multiple_texts(self, mock_async_client, mock_client):
@@ -180,6 +185,7 @@ class TestOllamaEmbedding:
         assert result == [[0.1, 0.2, 0.3], [0.4, 0.5, 0.6]]
         assert mock_sync_client.embeddings.call_count == 2
 
+    @patch("mcp_composer.core.tools.model_providers.ollama_adapter.OLLAMA_PYTHON_AVAILABLE", True)
     @patch("mcp_composer.core.tools.model_providers.ollama_adapter.Client")
     @patch("mcp_composer.core.tools.model_providers.ollama_adapter.AsyncClient")
     def test_encode_model_not_found(self, mock_async_client, mock_client):
@@ -431,19 +437,17 @@ class TestEmbeddingProviderFactory:
         assert "litellm" in providers
         assert "ollama" in providers
 
-    def test_unsupported_model_provider_warning(self):
+    @patch("mcp_composer.core.tools.model_providers.factory.LiteLLMAdapter")
+    def test_unsupported_model_provider_warning(self, mock_adapter):
         """Test that unsupported model_provider still creates adapter."""
-        # Even with unsupported provider, adapter should be created
-        # (warning is logged but doesn't prevent creation)
+        mock_adapter.return_value = MagicMock()
         adapter = ModelProviderFactory.create_embedding_provider(
             provider_name="litellm",
             model_provider="unsupported_provider",
             api_key="test-key",
         )
 
-        # Should still create adapter despite unsupported provider
         assert adapter is not None
-        # API key should be set as LITELLM_API_KEY for unsupported providers
         import os
 
         assert os.environ.get("LITELLM_API_KEY") == "test-key"

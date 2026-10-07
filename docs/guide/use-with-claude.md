@@ -115,8 +115,7 @@ python3 -m pip install mcp_composer-0.1.0-py3-none-any.whl
    }]
    ```
    
-9. Run claude desktop
-![image](https://github.ibm.com/ai-elite/mcp-composer/assets/3014/d44c5fe2-e07c-4a5b-8187-32fcc0429fbd)
+9. Run Claude Desktop and confirm the composer server is connected.
 
 
 ## Run from cli

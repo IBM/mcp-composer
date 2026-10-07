@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from mcp_composer.core.models.catalog_constants import (
     MAX_VERSIONS_PER_RESOURCE,
-    RegistryResourceKind,
     VALID_CATALOG_RESOURCE_STATUSES,
+    RegistryResourceKind,
 )
 
 _KIND_LABEL: dict[str, str] = {
@@ -42,6 +42,20 @@ class CatalogVersionCapError(ValueError):
         super().__init__(
             f"{label} '{name}' has reached the maximum version limit "
             f"({count}/{MAX_VERSIONS_PER_RESOURCE})"
+        )
+
+
+class CatalogResourceAlreadyExistsError(ValueError):
+    """Raised when a create-only publish finds the name+version already exists."""
+
+    def __init__(self, kind: str, name: str, version: str) -> None:
+        self.kind = kind
+        self.name = name
+        self.version = version
+        label = _kind_label(kind)
+        super().__init__(
+            f"{label} '{name}@{version}' already exists. "
+            "Use update to overwrite an existing version."
         )
 
 

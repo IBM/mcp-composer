@@ -6,7 +6,6 @@ import json
 from typing import Any
 
 from fastmcp import FastMCP
-
 from mcp_composer.core.catalog import (
     CatalogResourceNotFoundError,
     CatalogVersionCapError,
@@ -14,8 +13,8 @@ from mcp_composer.core.catalog import (
 )
 from mcp_composer.core.catalog.agent_manager import AgentManager
 from mcp_composer.core.catalog.catalog_manager import CatalogResourceListFilter
-from mcp_composer.core.models.catalog_constants import RegistryResourceKind
 from mcp_composer.core.models.catalog_agent import AgentJSON
+from mcp_composer.core.models.catalog_constants import RegistryResourceKind
 from mcp_composer.store.catalog_factory import get_catalog_db
 
 _agent_manager = AgentManager(get_catalog_db())
@@ -34,7 +33,7 @@ def get_agent_mcp() -> FastMCP:
 @agent_catalog_mcp.tool()
 async def list_agents(
     tenant: str | None = None,
-    start: int = 0,
+    offset: int = 0,
     limit: int = 50,
 ) -> dict:
     """List active, latest agents in the catalog (mirrors skill list semantics).
@@ -49,7 +48,7 @@ async def list_agents(
                 is_latest_only=True,
                 status_filter="active",
                 tenant=tenant,
-                start=start,
+                start=offset,
                 limit=limit,
             )
         )

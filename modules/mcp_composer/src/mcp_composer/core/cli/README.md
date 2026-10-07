@@ -187,8 +187,8 @@ mcp-composer --mode http \
   --env OAUTH_CALLBACK_PATH http://localhost:9000/auth/idaas/callback \
   --env OAUTH_CLIENT_ID your_client_id \
   --env OAUTH_CLIENT_SECRET your_client_secret \
-  --env OAUTH_AUTH_URL https://preprod.login.w3.ibm.com/v1.0/endpoint/default/authorize \
-  --env OAUTH_TOKEN_URL https://preprod.login.w3.ibm.com/v1.0/endpoint/default/token \
+  --env OAUTH_AUTH_URL https://example.com/authorize \
+  --env OAUTH_TOKEN_URL https://example.com/token \
   --env OAUTH_MCP_SCOPE user \
   --env OAUTH_PROVIDER_SCOPE openid
 ```
@@ -865,8 +865,8 @@ mcp-composer --mode http \
   --env OAUTH_CALLBACK_PATH=http://localhost:9000/auth/idaas/callback \
   --env OAUTH_CLIENT_ID=your_client_id \
   --env OAUTH_CLIENT_SECRET=your_client_secret \
-  --env OAUTH_AUTH_URL=https://preprod.login.w3.ibm.com/v1.0/endpoint/default/authorize \
-  --env OAUTH_TOKEN_URL=https://preprod.login.w3.ibm.com/v1.0/endpoint/default/token \
+  --env OAUTH_AUTH_URL=https://example.com/authorize \
+  --env OAUTH_TOKEN_URL=https://example.com/token \
   --env OAUTH_MCP_SCOPE=user \
   --env OAUTH_PROVIDER_SCOPE=openid
 ```
@@ -1021,8 +1021,8 @@ mcp-composer --mode http \
   --env ENABLE_OAUTH=True \
   --env OAUTH_CLIENT_ID=your_client_id \
   --env OAUTH_CLIENT_SECRET=your_client_secret \
-  --env OAUTH_AUTH_URL=https://preprod.login.w3.ibm.com/v1.0/endpoint/default/authorize \
-  --env OAUTH_TOKEN_URL=https://preprod.login.w3.ibm.com/v1.0/endpoint/default/token
+  --env OAUTH_AUTH_URL=https://example.com/authorize \
+  --env OAUTH_TOKEN_URL=https://example.com/token
 
 # Start OAuth server as daemon
 mcp-composer composer start --mode http \

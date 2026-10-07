@@ -1,0 +1,28 @@
+name: Enhancement request
+description: Suggest an idea or improvement for MCP Composer
+labels: [enhancement]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for suggesting an improvement.
+
+        Enhancement issues are how features enter the project. Maintainers use a clear problem statement to decide the design. See [CONTRIBUTING.md](../../CONTRIBUTING.md). Please wait for agreement on the issue before opening a large pull request.
+
+        If your request leads to a merged change implemented by a maintainer, we will credit you on the commit. Opening an issue does not guarantee implementation.
+
+        ### Before you submit
+
+        - Search existing issues first.
+        - Describe the problem and a concrete use case. You do not need to propose an API.
+        - Keep it short enough to read on one screen.
+        - AI assistance is fine when it follows [CONTRIBUTING.md](../../CONTRIBUTING.md).
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Enhancement
+      description: |
+        What problem or use case does this solve? How does current behavior fall short?
+    validations:
+      required: true

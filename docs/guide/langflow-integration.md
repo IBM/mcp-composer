@@ -9,7 +9,7 @@
 1. **Clone the MCP Composer Repository**  
 
 ```bash
-   git clone https://github.ibm.com/ai-elite/mcp-composer.git
+   git clone https://github.com/ibm/mcp-composer.git
    cd mcp-composer
 ```
 
@@ -94,8 +94,8 @@ OAUTH_SERVER_URL=http://localhost:9000
 OAUTH_CALLBACK_PATH=
 OAUTH_CLIENT_ID=<your-client-id>
 OAUTH_CLIENT_SECRET=<your-client-secret>
-OAUTH_AUTH_URL=https://preprod.login.w3.ibm.com/v1.0/endpoint/default/authorize
-OAUTH_TOKEN_URL=https://preprod.login.w3.ibm.com/v1.0/endpoint/default/token
+OAUTH_AUTH_URL=https://example.com/authorize
+OAUTH_TOKEN_URL=https://example.com/token
 OAUTH_MCP_SCOPE=user
 OAUTH_PROVIDER_SCOPE=openid
 ```

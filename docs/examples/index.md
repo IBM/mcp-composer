@@ -24,7 +24,6 @@ The examples demonstrate how to:
 
 ### 🧪 Integration with APIs
 
-- [IBM watsonx.data Demo](/examples/watsonx-data) - Integrate MCP Composer with IBM watsonx.data
 
 ## Quick Examples
 
@@ -257,7 +256,7 @@ await composer.register_mcp_server(oauth_config)
 ### 1. Clone and Setup
 
 ```bash
-git clone https://github.ibm.com/ai-elite/mcp-composer.git
+git clone https://github.com/ibm/mcp-composer.git
 cd mcp-composer
 uv venv
 source .venv/bin/activate
@@ -325,7 +324,7 @@ We welcome contributions! To add your example:
 
 - [API Reference](/api/) - Complete API documentation
 - [Configuration Guide](/guide/configuration) - Learn about configuration options
-- [GitHub Issues](https://github.ibm.com/ai-elite/mcp-composer/issues) - Report bugs or request features
+- [GitHub Issues](https://github.com/ibm/mcp-composer/issues) - Report bugs or request features
 
 ## Next Steps
 

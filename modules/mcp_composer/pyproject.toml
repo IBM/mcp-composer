@@ -3,13 +3,25 @@ name = "mcp-composer"
 dynamic = ["version"]                      # <- dynamic version comes from tags in git
 description = "FastMCP-based MCP Server Orchestrator"
 readme = { file = "PACKAGE.md", content-type = "text/markdown" }
+license = "Apache-2.0"
 requires-python = ">=3.11, <3.14"
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Software Development :: Libraries",
+]
 keywords = [
     "mcp", "mcp server", "mcp client", "mcp developer kit",
-    "ibm", "model context protocol", "llm", "agent",
+    "model context protocol", "llm", "agent",
 ]
 dependencies = [
-    "fastmcp==3.2.0",
+    "fastmcp==3.4.7",
     "requests==2.33.1",
     "httpx==0.28.1",
     "beautifulsoup4>=4.12.0",
@@ -17,8 +29,8 @@ dependencies = [
     "aiohttp==3.13.5",
     "jsonschema>=4.24.0",
     "uncurl==0.0.11",
-    "pydantic==2.13.3",
-    "pydantic-settings==2.14.0",
+    "pydantic==2.13.4",
+    "pydantic-settings==2.14.1",
     "types-requests>=2.32.4.20250611",
     "jsonref>=1.1.0",
     "deepdiff>=8.6.1",
@@ -33,15 +45,15 @@ dependencies = [
     "pyasn1>=0.6.2",
     "filelock>=3.20.3",
     "packaging>=24.0",
-    "sentence-transformers==5.4.1",
+    "sentence-transformers==5.6.0",
     "a2a-sdk==0.3.26",
     "asyncpg>=0.29.0",
     "numpy==2.4.4",
     "pandas==3.0.2",
     "authlib==1.7.1",
     "boto3>=1.34.0",
-    "python-multipart==0.0.27",
-    "urllib3>=2.7.0"
+    "python-multipart==0.0.32",
+    "urllib3>=2.8.0"
 ]
 
 [project.urls]
@@ -78,12 +90,6 @@ tracing = [
     "opentelemetry-exporter-otlp>=1.39.0",
 ]
 
-# IBM Cloud integration
-ibm-cloud = [
-    "ibmcloudant==0.11.6",
-    "ibm-cloud-sdk-core==3.24.4",
-    "ibm-secrets-manager-sdk==2.1.13",
-]
 
 # Secrets management
 secrets = [
@@ -92,7 +98,7 @@ secrets = [
 
 # AI/ML features
 ai = [
-    "google-genai==1.72.0",
+    "google-genai==2.14.0",
     "litellm==1.83.0",
     "ollama>=0.6.1",
     "scikit-learn>=1.7.1"
@@ -107,7 +113,7 @@ search = [
 
 # All optional features
 all = [
-    "mcp-composer[tracing,ibm-cloud,secrets,ai,search]",
+    "mcp-composer[tracing,secrets,ai,search]",
 ]
 
 [project.scripts]
@@ -191,7 +197,11 @@ ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 pythonpath = ["src"]
-testpaths = ["test"]
+testpaths = ["tests/unit"]
+asyncio_default_fixture_loop_scope = "function"
+markers = [
+    "e2e: end-to-end tests that need a running server",
+]
 
 [tool.coverage.run]
 branch = true

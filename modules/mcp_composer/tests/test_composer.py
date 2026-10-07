@@ -1,7 +1,6 @@
 import os
 import sys
 import asyncio
-from mcp_composer.middleware.tool.tool_filter import ListFilteredTool
 from mcp_composer import MCPComposer
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../src")))
@@ -16,7 +15,6 @@ async def main():
         ValueError: _description_
     """
     mode = os.getenv("MCP_MODE", "stdio").lower()
-    gw.add_middleware(ListFilteredTool(gw))
     await gw.setup_member_servers()
 
     if mode == "http":

@@ -92,8 +92,41 @@ DEFAULT_VALUES = {
 
 # Usage messages
 USAGE_MESSAGES = {
-    "GET_SERVICE_INFO": "Call get_service_info(service='operationId') for detailed info"
+    "GET_SERVICE_INFO": (
+        "Call get_service_info(query='...') to search; "
+        "get_service_info(service='operationId') for a concise summary; "
+        "then get_type_info for schemas and make_tool_call to execute."
+    ),
+    "GET_TYPE_INFO": (
+        "Call get_type_info(service='operationId') for full "
+        "parameter/request/response schemas."
+    ),
 }
+
+# Cap on make_tool_call response payload returned to the agent (chars of JSON/text).
+MAX_TOOL_RESPONSE_CHARS = 50_000
+
+# Shared LLM instructions for layered discovery (OA + MCP)
+LAYERED_DISCOVERY_INSTRUCTIONS = """This MCP server provides layered access with three capabilities:
+
+1. **get_service_info** - Discover available operations/tools (query-first):
+   - Prefer get_service_info(query='...', limit=20) to search the catalog
+   - Optional tags filter: get_service_info(query='...', tags=['tag'])
+   - Call with service='name' (or tool name) for a concise summary (no full schemas)
+   - With no args on a large catalog you get 'names' (every available name) plus
+     'groups'/'tags' facets — names only, no summaries or schemas. Pick a name or search.
+   - If a search returns no matches, 'names' is included: retry with different
+     wording, or pick a name from it directly.
+
+2. **get_type_info** - Get detailed schemas/parameters for a specific service/tool:
+   - Call after you know the exact name from discovery
+
+3. **make_tool_call** - Execute the operation/tool with arguments
+
+Usage workflow:
+1. get_service_info(query='...') to find relevant operations (never dump the full large catalog)
+2. get_type_info(name) for schemas
+3. make_tool_call(...) to execute"""
 
 
 # OpenAPI spec keys

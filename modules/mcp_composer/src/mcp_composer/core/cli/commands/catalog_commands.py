@@ -7,7 +7,6 @@ from MCP servers using fastmcp client to discover tools, resources, and prompts.
 
 import asyncio
 import json
-from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Annotated, Any
 from urllib.parse import urlparse
@@ -16,9 +15,8 @@ import typer
 import yaml
 from fastmcp.client import Client
 from fastmcp.client.transports import SSETransport, StreamableHttpTransport
-from typer import Option
-
 from mcp_composer.core.utils.logger import LoggerFactory
+from typer import Option
 
 # Initialize logger
 logger = LoggerFactory.get_logger()
@@ -36,16 +34,12 @@ app = typer.Typer(
 def generate_catalog(
     mcp_url: Annotated[
         str,
-        Option(
-            "--mcp-url", "-u", help="URL of the MCP server to generate catalog from"
-        ),
+        Option("--mcp-url", "-u", help="URL of the MCP server to generate catalog from"),
     ],
     mcp_scan_output: str = typer.Option(None, help="Path to MCP-Scan output JSON"),
     output_dir: Annotated[
         str,
-        Option(
-            "--outputdir", "-o", help="Output directory for generated catalog files"
-        ),
+        Option("--outputdir", "-o", help="Output directory for generated catalog files"),
     ] = "./catalog",
     dry_run: Annotated[
         bool,
@@ -180,9 +174,7 @@ async def _generate_catalog_async(
                 component = _create_backstage_component(
                     name=resource["name"],
                     title=resource.get("title", resource["name"]),
-                    description=resource.get(
-                        "description", f"MCP Resource: {resource['name']}"
-                    ),
+                    description=resource.get("description", f"MCP Resource: {resource['name']}"),
                     component_type="resource",
                     owner=owner,
                     system=system,
@@ -208,9 +200,7 @@ async def _generate_catalog_async(
                 component = _create_backstage_component(
                     name=prompt["name"],
                     title=prompt.get("title", prompt["name"]),
-                    description=prompt.get(
-                        "description", f"MCP Prompt: {prompt['name']}"
-                    ),
+                    description=prompt.get("description", f"MCP Prompt: {prompt['name']}"),
                     component_type="prompt",
                     owner=owner,
                     system=system,
@@ -315,9 +305,7 @@ async def _discover_resources(client: Client) -> list[dict[str, Any]]:
             resource_data = {
                 "name": getattr(resource, "uri", "unknown-resource"),
                 "description": getattr(resource, "description", ""),
-                "title": getattr(
-                    resource, "title", getattr(resource, "uri", "unknown-resource")
-                ),
+                "title": getattr(resource, "title", getattr(resource, "uri", "unknown-resource")),
                 "type": getattr(resource, "type", "unknown"),
             }
             resources.append(resource_data)
@@ -353,9 +341,7 @@ async def _discover_prompts(client: Client) -> list[dict[str, Any]]:
             prompt_data = {
                 "name": getattr(prompt, "name", "unknown-prompt"),
                 "description": getattr(prompt, "description", ""),
-                "title": getattr(
-                    prompt, "title", getattr(prompt, "name", "unknown-prompt")
-                ),
+                "title": getattr(prompt, "title", getattr(prompt, "name", "unknown-prompt")),
                 "template": getattr(prompt, "template", ""),
             }
             prompts.append(prompt_data)
@@ -388,7 +374,6 @@ def _create_backstage_component(
     """Create a Backstage-compatible component definition."""
 
     try:
-
         # Sanitize name for Backstage (lowercase, hyphens instead of underscores)
         sanitized_name = name.lower().replace("_", "-").replace(" ", "-")
 
@@ -486,9 +471,7 @@ async def _write_components_to_files(
         raise
 
 
-def _display_dry_run_results(
-    components: list[dict[str, Any]], catalog_format: str
-) -> None:
+def _display_dry_run_results(components: list[dict[str, Any]], catalog_format: str) -> None:
     """Display dry run results."""
 
     typer.echo(f"\n🔍 Dry run results - would generate {len(components)} components:")
@@ -513,9 +496,7 @@ def _display_dry_run_results(
     if components:
         typer.echo(f"\n📋 Sample component ({components[0]['metadata']['name']}):")
         if catalog_format == "yaml":
-            typer.echo(
-                yaml.dump(components[0], default_flow_style=False, sort_keys=False)
-            )
+            typer.echo(yaml.dump(components[0], default_flow_style=False, sort_keys=False))
         else:
             typer.echo(json.dumps(components[0], indent=2, ensure_ascii=False))
 
