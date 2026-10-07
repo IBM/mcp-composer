@@ -7,7 +7,10 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 from mcp_composer.core.catalog.skill_manager import _row_to_list_summary_item
-from mcp_composer.core.models.catalog_common import RegistryListMetadata, RegistryOfficialExtensions
+from mcp_composer.core.models.catalog_common import (
+    RegistryListMetadata,
+    RegistryOfficialExtensions,
+)
 from mcp_composer.core.models.catalog_skill import (
     SkillJSON,
     SkillListResponse,

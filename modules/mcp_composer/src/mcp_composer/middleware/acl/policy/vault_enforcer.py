@@ -5,6 +5,7 @@ from typing import Any, TYPE_CHECKING
 # Lazy import for optional HashiCorp Vault dependency
 try:
     import hvac
+
     _HVAC_AVAILABLE = True
 except ImportError:
     _HVAC_AVAILABLE = False

@@ -26,13 +26,17 @@ def test_parse_stdio_allowlist_empty(monkeypatch: pytest.MonkeyPatch) -> None:
     assert parse_stdio_allowlist(None) == set()
 
 
-def test_assert_stdio_denied_when_allowlist_unset(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_assert_stdio_denied_when_allowlist_unset(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     monkeypatch.delenv(STDIO_ALLOWLIST_ENV, raising=False)
     with pytest.raises(ValueError, match="disabled until"):
         assert_stdio_command_allowed("/bin/sh")
 
 
-def test_assert_stdio_rejects_relative_command(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+def test_assert_stdio_rejects_relative_command(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
     allowed = tmp_path / "allowed-bin"
     allowed.write_text("#!/bin/sh\n")
     monkeypatch.setenv(STDIO_ALLOWLIST_ENV, str(allowed.resolve()))

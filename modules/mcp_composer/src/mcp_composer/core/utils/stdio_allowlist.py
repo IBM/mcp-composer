@@ -52,7 +52,9 @@ def assert_stdio_command_allowed(command: str | None) -> str:
     try:
         resolved = str(cmd_path.resolve())
     except OSError as exc:
-        raise ValueError(f"stdio command path could not be resolved: {command}") from exc
+        raise ValueError(
+            f"stdio command path could not be resolved: {command}"
+        ) from exc
 
     allowlist = parse_stdio_allowlist()
     if not allowlist:
@@ -61,9 +63,7 @@ def assert_stdio_command_allowed(command: str | None) -> str:
             "to a comma-separated list of absolute command paths"
         )
     if resolved not in allowlist:
-        raise ValueError(
-            f"stdio command '{resolved}' is not on {STDIO_ALLOWLIST_ENV}"
-        )
+        raise ValueError(f"stdio command '{resolved}' is not on {STDIO_ALLOWLIST_ENV}")
     return resolved
 
 

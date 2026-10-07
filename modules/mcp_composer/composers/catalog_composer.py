@@ -29,8 +29,14 @@ from typing import Iterable
 from mcp_composer import MCPComposer
 from mcp_composer.core.catalog import CatalogResourceListFilter, SkillManager
 from mcp_composer.core.models.catalog_constants import RegistryResourceKind
-from mcp_composer.core.tools.catalog import get_agent_mcp, get_skill_mcp, get_workflow_mcp
-from mcp_composer.core.tools.catalog.workflow_catalog_mcp import bootstrap_workflow_catalog_from_env
+from mcp_composer.core.tools.catalog import (
+    get_agent_mcp,
+    get_skill_mcp,
+    get_workflow_mcp,
+)
+from mcp_composer.core.tools.catalog.workflow_catalog_mcp import (
+    bootstrap_workflow_catalog_from_env,
+)
 from mcp_composer.core.utils import env_bool_flag
 from mcp_composer.core.utils.logger import LoggerFactory
 from mcp_composer.store.catalog_factory import get_catalog_db
@@ -40,7 +46,9 @@ logger = LoggerFactory.get_logger(level=_log_level)
 
 _enable_skill_catalog_mcp = env_bool_flag("MCP_ENABLE_SKILL_CATALOG_MCP", default=True)
 _enable_agent_catalog_mcp = env_bool_flag("MCP_ENABLE_AGENT_CATALOG_MCP", default=True)
-_enable_workflow_catalog_mcp = env_bool_flag("MCP_ENABLE_WORKFLOW_CATALOG_MCP", default=True)
+_enable_workflow_catalog_mcp = env_bool_flag(
+    "MCP_ENABLE_WORKFLOW_CATALOG_MCP", default=True
+)
 
 gw = MCPComposer(name="catalog-composer", auth=None)
 _startup_skill_loader_task: asyncio.Task | None = None
@@ -71,7 +79,9 @@ class StartupSkillLoader:
     def __init__(self) -> None:
         self._manager = SkillManager(get_catalog_db())
         self._tenant_id = (os.getenv("MCP_COMPOSER_TENANT_ID") or "").strip() or None
-        self._agent_allowed_tools = _parse_csv_set(os.getenv("MCP_COMPOSER_ALLOWED_TOOLS"))
+        self._agent_allowed_tools = _parse_csv_set(
+            os.getenv("MCP_COMPOSER_ALLOWED_TOOLS")
+        )
         self._refresh_interval = int(
             os.getenv("MCP_COMPOSER_SKILL_REFRESH_INTERVAL_SECS", "30")
         )
@@ -90,7 +100,9 @@ class StartupSkillLoader:
         filtered = [
             item
             for item in result.skills
-            if _skill_allowed_for_tools(item.skill.allowed_tools, self._agent_allowed_tools)
+            if _skill_allowed_for_tools(
+                item.skill.allowed_tools, self._agent_allowed_tools
+            )
         ]
         loaded_now = {(item.skill.name, item.skill.version) for item in filtered}
         if loaded_now != self._loaded_skill_keys:
@@ -144,12 +156,16 @@ async def setup_catalog_mcp(composer: MCPComposer) -> None:
 
     _startup_skill_loader = StartupSkillLoader()
     await _startup_skill_loader._load_once()
-    _startup_skill_loader_task = asyncio.create_task(_startup_skill_loader.run_forever())
+    _startup_skill_loader_task = asyncio.create_task(
+        _startup_skill_loader.run_forever()
+    )
     logger.info("Startup skill loader started")
 
 
 async def run_http_mode(composer: MCPComposer) -> None:
-    await composer.run_http_async(host="127.0.0.1", port=9000, log_level="debug", path="/mcp")
+    await composer.run_http_async(
+        host="127.0.0.1", port=9000, log_level="debug", path="/mcp"
+    )
 
 
 async def run_stdio_mode(composer: MCPComposer) -> None:
@@ -158,7 +174,9 @@ async def run_stdio_mode(composer: MCPComposer) -> None:
 
 
 async def run_sse_mode(composer: MCPComposer) -> None:
-    await composer.run_async(transport="sse", host="127.0.0.1", port=9000, log_level="debug")
+    await composer.run_async(
+        transport="sse", host="127.0.0.1", port=9000, log_level="debug"
+    )
 
 
 MODE_HANDLERS = {

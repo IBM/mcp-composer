@@ -250,6 +250,8 @@ async def test_layered_mcp_factory_make_tool_call():
 
         # Call make_tool_call
         result = await factory.make_tool_call("test_tool", {"arg1": "value1"})
+        assert result is not None
+        mock_proxy.call_tool.assert_awaited()
 
 
 @pytest.mark.asyncio

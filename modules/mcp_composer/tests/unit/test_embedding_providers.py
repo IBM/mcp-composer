@@ -106,7 +106,10 @@ class TestSentenceTransformerAdapter:
 class TestLiteLLMEmbedding:
     """Test LiteLLM embedding functionality."""
 
-    @patch("mcp_composer.core.tools.model_providers.litellm_adapter.LITELLM_AVAILABLE", True)
+    @patch(
+        "mcp_composer.core.tools.model_providers.litellm_adapter.LITELLM_AVAILABLE",
+        True,
+    )
     @patch("mcp_composer.core.tools.model_providers.litellm_adapter.litellm")
     def test_encode_single_text(self, mock_litellm):
         """Test encoding a single text with LiteLLM."""
@@ -119,7 +122,10 @@ class TestLiteLLMEmbedding:
         assert result == [0.1, 0.2, 0.3]
         mock_litellm.embedding.assert_called_once()
 
-    @patch("mcp_composer.core.tools.model_providers.litellm_adapter.LITELLM_AVAILABLE", True)
+    @patch(
+        "mcp_composer.core.tools.model_providers.litellm_adapter.LITELLM_AVAILABLE",
+        True,
+    )
     @patch("mcp_composer.core.tools.model_providers.litellm_adapter.litellm")
     def test_encode_multiple_texts(self, mock_litellm):
         """Test encoding multiple texts with LiteLLM."""
@@ -133,7 +139,10 @@ class TestLiteLLMEmbedding:
 
         assert result == [[0.1, 0.2, 0.3], [0.4, 0.5, 0.6]]
 
-    @patch("mcp_composer.core.tools.model_providers.litellm_adapter.LITELLM_AVAILABLE", True)
+    @patch(
+        "mcp_composer.core.tools.model_providers.litellm_adapter.LITELLM_AVAILABLE",
+        True,
+    )
     @patch("mcp_composer.core.tools.model_providers.litellm_adapter.litellm")
     def test_encode_error_handling(self, mock_litellm):
         """Test error handling in encode."""
@@ -148,7 +157,10 @@ class TestLiteLLMEmbedding:
 class TestOllamaEmbedding:
     """Test Ollama embedding functionality."""
 
-    @patch("mcp_composer.core.tools.model_providers.ollama_adapter.OLLAMA_PYTHON_AVAILABLE", True)
+    @patch(
+        "mcp_composer.core.tools.model_providers.ollama_adapter.OLLAMA_PYTHON_AVAILABLE",
+        True,
+    )
     @patch("mcp_composer.core.tools.model_providers.ollama_adapter.Client")
     @patch("mcp_composer.core.tools.model_providers.ollama_adapter.AsyncClient")
     def test_encode_single_text(self, mock_async_client, mock_client):
@@ -166,7 +178,10 @@ class TestOllamaEmbedding:
             model="nomic-embed-text", prompt="test text"
         )
 
-    @patch("mcp_composer.core.tools.model_providers.ollama_adapter.OLLAMA_PYTHON_AVAILABLE", True)
+    @patch(
+        "mcp_composer.core.tools.model_providers.ollama_adapter.OLLAMA_PYTHON_AVAILABLE",
+        True,
+    )
     @patch("mcp_composer.core.tools.model_providers.ollama_adapter.Client")
     @patch("mcp_composer.core.tools.model_providers.ollama_adapter.AsyncClient")
     def test_encode_multiple_texts(self, mock_async_client, mock_client):
@@ -185,7 +200,10 @@ class TestOllamaEmbedding:
         assert result == [[0.1, 0.2, 0.3], [0.4, 0.5, 0.6]]
         assert mock_sync_client.embeddings.call_count == 2
 
-    @patch("mcp_composer.core.tools.model_providers.ollama_adapter.OLLAMA_PYTHON_AVAILABLE", True)
+    @patch(
+        "mcp_composer.core.tools.model_providers.ollama_adapter.OLLAMA_PYTHON_AVAILABLE",
+        True,
+    )
     @patch("mcp_composer.core.tools.model_providers.ollama_adapter.Client")
     @patch("mcp_composer.core.tools.model_providers.ollama_adapter.AsyncClient")
     def test_encode_model_not_found(self, mock_async_client, mock_client):
@@ -223,7 +241,7 @@ class TestEmbeddingProviderFactory:
     @patch("mcp_composer.core.tools.model_providers.factory.LiteLLMAdapter")
     def test_create_litellm_provider(self, mock_adapter):
         """Test creating litellm provider."""
-        adapter = ModelProviderFactory.create_embedding_provider(
+        ModelProviderFactory.create_embedding_provider(
             provider_name="litellm",
             model_name="text-embedding-ada-002",
             base_url="http://localhost:11434",
@@ -240,7 +258,7 @@ class TestEmbeddingProviderFactory:
         mock_instance = Mock()
         mock_adapter.return_value = mock_instance
 
-        adapter = ModelProviderFactory.create_embedding_provider(
+        ModelProviderFactory.create_embedding_provider(
             provider_name="litellm",
             model_provider="openai",
             model_name="text-embedding-ada-002",
@@ -261,7 +279,7 @@ class TestEmbeddingProviderFactory:
         mock_instance = Mock()
         mock_adapter.return_value = mock_instance
 
-        adapter = ModelProviderFactory.create_embedding_provider(
+        ModelProviderFactory.create_embedding_provider(
             provider_name="litellm",
             model_provider="gemini",
             model_name="gemini/text-embedding-004",
@@ -282,7 +300,7 @@ class TestEmbeddingProviderFactory:
         mock_instance = Mock()
         mock_adapter.return_value = mock_instance
 
-        adapter = ModelProviderFactory.create_embedding_provider(
+        ModelProviderFactory.create_embedding_provider(
             provider_name="litellm",
             model_provider="azure",
             model_name="azure/text-embedding-ada-002",
@@ -304,7 +322,7 @@ class TestEmbeddingProviderFactory:
         mock_instance = Mock()
         mock_adapter.return_value = mock_instance
 
-        adapter = ModelProviderFactory.create_embedding_provider(
+        ModelProviderFactory.create_embedding_provider(
             provider_name="litellm",
             model_provider="cohere",
             model_name="cohere/embed-english-v3.0",
@@ -325,7 +343,7 @@ class TestEmbeddingProviderFactory:
         mock_instance = Mock()
         mock_adapter.return_value = mock_instance
 
-        adapter = ModelProviderFactory.create_embedding_provider(
+        ModelProviderFactory.create_embedding_provider(
             provider_name="litellm",
             model_name="gemini/text-embedding-004",
             api_key="AIza-test-key",
@@ -344,7 +362,7 @@ class TestEmbeddingProviderFactory:
         mock_instance = Mock()
         mock_adapter.return_value = mock_instance
 
-        adapter = ModelProviderFactory.create_embedding_provider(
+        ModelProviderFactory.create_embedding_provider(
             provider_name="litellm",
             model_name="azure/text-embedding-ada-002",
             api_key="azure-test-key",
@@ -363,7 +381,7 @@ class TestEmbeddingProviderFactory:
         mock_instance = Mock()
         mock_adapter.return_value = mock_instance
 
-        adapter = ModelProviderFactory.create_embedding_provider(
+        ModelProviderFactory.create_embedding_provider(
             provider_name="litellm",
             model_name="text-embedding-ada-002",
             api_key="sk-test-key",
@@ -382,7 +400,7 @@ class TestEmbeddingProviderFactory:
         mock_instance = Mock()
         mock_adapter.return_value = mock_instance
 
-        adapter = ModelProviderFactory.create_embedding_provider(
+        ModelProviderFactory.create_embedding_provider(
             provider_name="litellm", model_provider="openai", api_key="sk-test-key"
         )
 
@@ -398,7 +416,7 @@ class TestEmbeddingProviderFactory:
         mock_instance = Mock()
         mock_adapter.return_value = mock_instance
 
-        adapter = ModelProviderFactory.create_embedding_provider(
+        ModelProviderFactory.create_embedding_provider(
             provider_name="litellm", model_provider="gemini", api_key="AIza-test-key"
         )
 
@@ -408,7 +426,7 @@ class TestEmbeddingProviderFactory:
     @patch("mcp_composer.core.tools.model_providers.factory.OllamaAdapter")
     def test_create_ollama_provider(self, mock_adapter):
         """Test creating ollama provider."""
-        adapter = ModelProviderFactory.create_embedding_provider(
+        ModelProviderFactory.create_embedding_provider(
             provider_name="ollama",
             model_name="nomic-embed-text",
             base_url="http://localhost:11434",

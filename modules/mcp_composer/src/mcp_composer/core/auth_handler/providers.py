@@ -10,7 +10,6 @@ from fastmcp.server.auth.providers.introspection import IntrospectionTokenVerifi
 
 from mcp_composer.core.utils import LoggerFactory
 
-
 logger = LoggerFactory.get_logger()
 
 

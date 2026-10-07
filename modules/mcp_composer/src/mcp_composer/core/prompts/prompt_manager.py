@@ -270,7 +270,6 @@ class MCPPromptManager:
         """
         return self._filter_disabled_prompts(self._prompts)
 
-
     async def list_prompts(self) -> list[Prompt]:
         """
         Lists all prompts, applying protocol filtering and our custom disabled prompt filtering.

@@ -218,7 +218,6 @@ async def test_rollback_restores_previous_version(
         assert rollback_config["tags"] == ["v1"]
 
 
-
 @pytest.mark.asyncio
 async def test_list_servers_filters_deactivated(fake_db):
     """Test that list_servers() filters out deactivated servers."""
@@ -257,12 +256,12 @@ async def test_list_servers_filters_deactivated(fake_db):
         # Verify only active server is in the list
         assert isinstance(members, list)
         server_ids = [m["id"] for m in members]
-        
+
         assert "active-server" in server_ids, "Active server should be in the list"
         assert (
             "deactivated-server" not in server_ids
         ), "Deactivated server should NOT be in the list"
-        
+
         # Verify the active server has correct status
         active_member = next(m for m in members if m["id"] == "active-server")
         assert active_member["status"] != "deactivated"

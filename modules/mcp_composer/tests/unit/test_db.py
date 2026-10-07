@@ -28,7 +28,7 @@ def server_config():
     return {
         "id": "mcp-stock-info",
         "type": "http",
-        "endpoint": "https://mcp-stock-info.1vgzmntiwjzl.eu-es.codeengine.appdomain.cloud/mcp",
+        "endpoint": "http://127.0.0.1:9/mcp",
     }
 
 
@@ -58,10 +58,16 @@ async def test_composer_restart_persists_and_restores_server(
     mock_proxy = MagicMock()
     mock_proxy.list_tools = AsyncMock(return_value=[mock_tool])
 
-    with patch(
-        "mcp_composer.core.member_servers.server_manager.MCPServerBuilder"
-    ) as mock_builder, patch("fastmcp.server.server.FastMCP.as_proxy") as mock_as_proxy:
+    # setup_member_servers mounts via composer.MCPServerBuilder (not server_manager)
+    with (
+        patch("mcp_composer.core.composer.MCPServerBuilder") as mock_builder,
+        patch(
+            "mcp_composer.core.member_servers.server_manager.MCPServerBuilder"
+        ) as mock_sm_builder,
+        patch("fastmcp.server.server.FastMCP.as_proxy") as mock_as_proxy,
+    ):
         mock_builder.return_value.build = AsyncMock(return_value=mock_server)
+        mock_sm_builder.return_value.build = AsyncMock(return_value=mock_server)
         mock_as_proxy.return_value = mock_proxy
 
         # -------- First run --------
@@ -69,20 +75,23 @@ async def test_composer_restart_persists_and_restores_server(
             "composer", config=[server_config], database_config=fake_db
         )
         await composer_1.setup_member_servers()
-        tools_1 = await composer_1.list_tools()
-        logger.debug("[First run] Tools: %s", tools_1)
+        mounted_1 = composer_1._server_manager.list()
+        logger.debug("[First run] Mounted: %s", [m.id for m in mounted_1])
         assert any(
-            server_config["id"] in t.name for t in tools_1
-        ), "Server tools not available after registration"
+            m.id == server_config["id"] for m in mounted_1
+        ), "Server not mounted after registration"
+        assert (
+            server_config["id"] in fake_db._servers
+        ), "Server not persisted to database"
 
         # -------- Simulate restart --------
         composer_2 = MCPComposer("composer", database_config=fake_db)
         await composer_2.setup_member_servers()
-        tools_2 = await composer_2.list_tools()
-        logger.debug("[After restart] Tools: %s", tools_2)
+        mounted_2 = composer_2._server_manager.list()
+        logger.debug("[After restart] Mounted: %s", [m.id for m in mounted_2])
         assert any(
-            server_config["id"] in t.name for t in tools_2
-        ), "Server tool not found after restart"
+            m.id == server_config["id"] for m in mounted_2
+        ), "Server not restored after restart"
 
 
 @pytest.mark.asyncio
@@ -98,9 +107,12 @@ async def test_duplicate_registration_skips_duplicate(fake_db, server_config, ca
     mock_proxy = MagicMock()
     mock_proxy.list_tools = AsyncMock(return_value=[])
 
-    with patch(
-        "mcp_composer.core.member_servers.server_manager.MCPServerBuilder"
-    ) as mock_builder, patch("fastmcp.server.server.FastMCP.as_proxy") as mock_as_proxy:
+    with (
+        patch(
+            "mcp_composer.core.member_servers.server_manager.MCPServerBuilder"
+        ) as mock_builder,
+        patch("fastmcp.server.server.FastMCP.as_proxy") as mock_as_proxy,
+    ):
         mock_builder.return_value.build = AsyncMock(return_value=mock_server)
         mock_as_proxy.return_value = mock_proxy
 
@@ -198,20 +210,25 @@ async def test_no_database_config_works(fake_db, server_config):
     mock_proxy = MagicMock()
     mock_proxy.list_tools = AsyncMock(return_value=[mock_tool])
 
-    with patch(
-        "mcp_composer.core.member_servers.server_manager.MCPServerBuilder"
-    ) as mock_builder, patch("fastmcp.server.server.FastMCP.as_proxy") as mock_as_proxy:
+    with (
+        patch("mcp_composer.core.composer.MCPServerBuilder") as mock_builder,
+        patch(
+            "mcp_composer.core.member_servers.server_manager.MCPServerBuilder"
+        ) as mock_sm_builder,
+        patch("fastmcp.server.server.FastMCP.as_proxy") as mock_as_proxy,
+    ):
         mock_builder.return_value.build = AsyncMock(return_value=mock_server)
+        mock_sm_builder.return_value.build = AsyncMock(return_value=mock_server)
         mock_as_proxy.return_value = mock_proxy
 
         composer = MCPComposer("composer", config=[server_config])
         await composer.setup_member_servers()
 
-        # Should still work but not persist
-        tools = await composer.list_tools()
-        assert any(server_config["id"] in t.name for t in tools)
+        # Should still mount without a database config
+        mounted = composer._server_manager.list()
+        assert any(m.id == server_config["id"] for m in mounted)
 
-        # Verify nothing was persisted to database
+        # Verify nothing was persisted to the unused fake_db fixture
         assert len(fake_db._servers) == 0
 
 

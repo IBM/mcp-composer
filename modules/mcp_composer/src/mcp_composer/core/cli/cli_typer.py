@@ -43,7 +43,6 @@ from mcp_composer.core.cli.commands import (
 from mcp_composer.core.config.config_loader import ConfigManager
 from mcp_composer.core.config.unified_config import ConfigSection, ConfigValidationError
 
-
 # Load environment variables
 load_dotenv()
 

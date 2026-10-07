@@ -78,7 +78,9 @@ async def test_refresh_tools_paginates_catalog_list() -> None:
         description="One",
         version="1.0.0",
         goal="One",
-        steps=[WorkflowStep(step=1, toolname="mcp-gurdium", tool="list_policy", input={})],
+        steps=[
+            WorkflowStep(step=1, toolname="mcp-gurdium", tool="list_policy", input={})
+        ],
     )
     page1 = MagicMock()
     page1.workflows = [MagicMock(workflow=wf)]

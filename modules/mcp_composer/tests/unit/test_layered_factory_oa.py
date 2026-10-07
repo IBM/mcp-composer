@@ -339,7 +339,10 @@ class TestLayeredOpenAPIFactory:
             "name": "test-instance",
             "state": "active",
             "dashboardURL": "https://example.com/dashboard",
-            "subscription": {"subscriptionName": "watsonx.data", "productId": "lakehouse"},
+            "subscription": {
+                "subscriptionName": "watsonx.data",
+                "productId": "lakehouse",
+            },
         }
         auth_context = {
             "isv_token": "client-isv-token-from-inspector",
@@ -391,7 +394,9 @@ class TestLayeredOpenAPIFactory:
         assert user_instances_json
         user_instances = json.loads(user_instances_json)
         assert len(user_instances) == 1
-        assert user_instances[0]["instance_id"] == "20251128-1445-2831-7084-4a9a364b8b6b"
+        assert (
+            user_instances[0]["instance_id"] == "20251128-1445-2831-7084-4a9a364b8b6b"
+        )
         assert user_instances[0]["subscriptionName"] == "watsonx.data"
         assert user_instances[0]["productId"] == "lakehouse"
 

@@ -383,7 +383,11 @@ class ConfigLoader:
 
     async def _apply_servers(self, servers: list[Any]) -> dict[str, Any]:
         """Apply server configurations with optimized error handling."""
-        results: dict[str, Any] = {"registered": [], "failed": [], "total": len(servers)}
+        results: dict[str, Any] = {
+            "registered": [],
+            "failed": [],
+            "total": len(servers),
+        }
 
         for server_config in servers:
             try:
@@ -508,7 +512,12 @@ class ConfigLoader:
 
     async def _apply_prompts(self, prompts: list[Any]) -> dict[str, Any]:
         """Apply prompt configurations."""
-        results: dict[str, Any] = {"registered": [], "failed": [], "skipped": [], "total": len(prompts)}
+        results: dict[str, Any] = {
+            "registered": [],
+            "failed": [],
+            "skipped": [],
+            "total": len(prompts),
+        }
 
         # Convert prompts to the format expected by the prompt manager
         prompt_configs = []
@@ -570,7 +579,12 @@ class ConfigLoader:
 
     async def _apply_tools(self, tools: dict[str, Any]) -> dict[str, Any]:
         """Apply tool configurations."""
-        results: dict[str, Any] = {"registered": [], "failed": [], "skipped": [], "total": len(tools)}
+        results: dict[str, Any] = {
+            "registered": [],
+            "failed": [],
+            "skipped": [],
+            "total": len(tools),
+        }
 
         for tool_name, tool_config in tools.items():
             try:

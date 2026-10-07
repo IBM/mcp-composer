@@ -161,9 +161,7 @@ class JWEJWTPolicyEnforcer(BasePolicyEnforcer):
 
         return is_allowed
 
-    def get_claims_from_context(
-        self, context: dict[str, Any]
-    ) -> dict[str, Any] | None:
+    def get_claims_from_context(self, context: dict[str, Any]) -> dict[str, Any] | None:
         """
         Get JWT claims from context for debugging/inspection.
 

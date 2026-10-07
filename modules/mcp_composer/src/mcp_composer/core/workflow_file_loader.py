@@ -54,7 +54,9 @@ def resolve_tool_prefix(
 def prefixed_tool_name(server_prefix: str, tool: str) -> str:
     """Compose the composer-visible tool name (``{server_id}_{tool}``)."""
     if server_prefix.endswith("_") or tool.startswith(f"{server_prefix}_"):
-        return tool if tool.startswith(f"{server_prefix}_") else f"{server_prefix}{tool}"
+        return (
+            tool if tool.startswith(f"{server_prefix}_") else f"{server_prefix}{tool}"
+        )
     return f"{server_prefix}_{tool}"
 
 
@@ -75,7 +77,9 @@ def parse_workflow_file_entries(
         entries: list[dict[str, Any]] = []
         for idx, item in enumerate(raw):
             if not isinstance(item, dict):
-                raise ValueError(f"{source_file}: workflow[{idx}] must be a JSON object")
+                raise ValueError(
+                    f"{source_file}: workflow[{idx}] must be a JSON object"
+                )
             entries.append(item)
         if not entries:
             raise ValueError(f"{source_file}: workflow array must not be empty")
@@ -124,7 +128,9 @@ def file_entry_to_workflow_json(
 
     output = entry.get("output") or entry.get("steps")
     if not isinstance(output, list) or not output:
-        raise ValueError(f"entry '{name}' in {source_file} must include non-empty 'output'")
+        raise ValueError(
+            f"entry '{name}' in {source_file} must include non-empty 'output'"
+        )
 
     steps: list[WorkflowStep] = []
     for raw_step in output:
@@ -295,7 +301,12 @@ def workflow_document_from_entry(
 ) -> WorkflowJSON:
     """Convert one API/file workflow object into ``WorkflowJSON``."""
     steps = entry.get("steps")
-    if isinstance(steps, list) and steps and isinstance(steps[0], dict) and "toolname" in steps[0]:
+    if (
+        isinstance(steps, list)
+        and steps
+        and isinstance(steps[0], dict)
+        and "toolname" in steps[0]
+    ):
         return WorkflowJSON.model_validate(entry)
     if entry.get("output") is not None or entry.get("instruction"):
         return file_entry_to_workflow_json(

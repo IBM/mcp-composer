@@ -664,7 +664,7 @@ surface-level responses. Always discover current documentation dynamically via `
 - Stay within IBM documentation domains"""
 
         if params.sub_questions:
-            guidance += f"\n\n**Your Sub-questions:**\n" + "\n".join(
+            guidance += "\n\n**Your Sub-questions:**\n" + "\n".join(
                 f"  {i+1}. {q}" for i, q in enumerate(params.sub_questions)
             )
         if params.sources_count is not None:
@@ -739,7 +739,7 @@ surface-level responses. Always discover current documentation dynamically via `
                     return json.loads(json_match.group())
                 except json.JSONDecodeError:
                     pass
-            raise ValueError(f"Could not extract valid JSON from string")
+            raise ValueError("Could not extract valid JSON from string")
 
     @staticmethod
     def _extract_question_from_args(arguments: dict[str, Any]) -> str:

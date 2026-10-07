@@ -10,6 +10,7 @@ import concurrent.futures
 # Lazy import for optional PostgreSQL dependency
 try:
     import asyncpg
+
     _POSTGRES_AVAILABLE = True
 except ImportError:
     _POSTGRES_AVAILABLE = False
@@ -176,15 +177,12 @@ class PostgresAdapter(DatabaseInterface):
             await conn.execute(create_table_query)
 
             # Create index on id for faster lookups
-            await conn.execute(
-                f"""
+            await conn.execute(f"""
                 CREATE INDEX IF NOT EXISTS idx_{self._table_name}_id
                 ON {self._table_name} (id);
-            """
-            )
+            """)
 
-            await conn.execute(
-                f"""
+            await conn.execute(f"""
                 CREATE TABLE IF NOT EXISTS {self._resources_table_name} (
                     id VARCHAR(255) PRIMARY KEY,
                     data JSONB NOT NULL,
@@ -192,72 +190,59 @@ class PostgresAdapter(DatabaseInterface):
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 );
-                """
-            )
-            await conn.execute(
-                f"""
+                """)
+            await conn.execute(f"""
                 CREATE INDEX IF NOT EXISTS idx_{self._resources_table_name}_id
                 ON {self._resources_table_name} (id);
-                """
-            )
+                """)
 
             # Create prompts table
             try:
                 # Check if table exists with correct schema
-                table_exists = await conn.fetchval(
-                    f"""
+                table_exists = await conn.fetchval(f"""
                     SELECT EXISTS (
                         SELECT FROM information_schema.tables
                         WHERE table_schema = 'public'
                         AND table_name = '{self._prompts_table_name}'
                     );
-                    """
-                )
+                    """)
 
                 if not table_exists:
                     # Create new table
-                    await conn.execute(
-                        f"""
+                    await conn.execute(f"""
                         CREATE TABLE {self._prompts_table_name} (
                             name VARCHAR(255) PRIMARY KEY,
                             data JSONB NOT NULL,
                             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                         );
-                        """
-                    )
+                        """)
                     logger.info("Prompts table created successfully")
 
                     # Create index
-                    await conn.execute(
-                        f"""
+                    await conn.execute(f"""
                         CREATE INDEX idx_{self._prompts_table_name}_name
                         ON {self._prompts_table_name} (name);
-                        """
-                    )
+                        """)
                     logger.info("Prompts table index created successfully")
                 else:
                     # Table exists, verify it has the correct schema
-                    has_name_column = await conn.fetchval(
-                        f"""
+                    has_name_column = await conn.fetchval(f"""
                         SELECT EXISTS (
                             SELECT FROM information_schema.columns
                             WHERE table_name = '{self._prompts_table_name}'
                             AND column_name = 'name'
                         );
-                        """
-                    )
+                        """)
 
                     if has_name_column:
                         logger.info("Prompts table already exists with correct schema")
                         # Try to create index if it doesn't exist
                         try:
-                            await conn.execute(
-                                f"""
+                            await conn.execute(f"""
                                 CREATE INDEX IF NOT EXISTS idx_{self._prompts_table_name}_name
                                 ON {self._prompts_table_name} (name);
-                                """
-                            )
+                                """)
                         except Exception:
                             pass  # Index might already exist
                     else:
@@ -1027,7 +1012,9 @@ class PostgresAdapter(DatabaseInterface):
         try:
             conn = await self._get_connection()
             try:
-                rows = await conn.fetch(f"SELECT data FROM {self._prompts_table_name} ORDER BY created_at")
+                rows = await conn.fetch(
+                    f"SELECT data FROM {self._prompts_table_name} ORDER BY created_at"
+                )
                 prompts = [self._parse_config(row["data"]) for row in rows]
                 logger.info("Loaded %d prompts from PostgreSQL", len(prompts))
                 return prompts
@@ -1080,7 +1067,10 @@ class PostgresAdapter(DatabaseInterface):
         try:
             conn = await self._get_connection()
             try:
-                result = await conn.execute(f"DELETE FROM {self._prompts_table_name} WHERE name = $1", prompt_name)
+                result = await conn.execute(
+                    f"DELETE FROM {self._prompts_table_name} WHERE name = $1",
+                    prompt_name,
+                )
                 if result == "DELETE 1":
                     logger.info("Deleted prompt '%s' from PostgreSQL", prompt_name)
                 else:
@@ -1088,7 +1078,9 @@ class PostgresAdapter(DatabaseInterface):
             finally:
                 await conn.close()
         except Exception as e:
-            logger.error("Failed to delete prompt '%s' from PostgreSQL: %s", prompt_name, e)
+            logger.error(
+                "Failed to delete prompt '%s' from PostgreSQL: %s", prompt_name, e
+            )
 
     def get_prompt(self, prompt_name: str) -> dict[str, object]:
         """Get a specific prompt from PostgreSQL"""
@@ -1099,7 +1091,10 @@ class PostgresAdapter(DatabaseInterface):
         try:
             conn = await self._get_connection()
             try:
-                row = await conn.fetchrow(f"SELECT data FROM {self._prompts_table_name} WHERE name = $1", prompt_name)
+                row = await conn.fetchrow(
+                    f"SELECT data FROM {self._prompts_table_name} WHERE name = $1",
+                    prompt_name,
+                )
                 if row:
                     prompt = self._parse_config(row["data"])
                     logger.info("Retrieved prompt '%s' from PostgreSQL", prompt_name)
@@ -1110,5 +1105,7 @@ class PostgresAdapter(DatabaseInterface):
             finally:
                 await conn.close()
         except Exception as e:
-            logger.error("Failed to get prompt '%s' from PostgreSQL: %s", prompt_name, e)
+            logger.error(
+                "Failed to get prompt '%s' from PostgreSQL: %s", prompt_name, e
+            )
             return {}

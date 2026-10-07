@@ -23,7 +23,6 @@ from fastmcp.server.providers import LocalProvider
 
 from mcp_composer.core.member_servers.member_server import HealthStatus, MemberMCPServer
 from mcp_composer.middleware.auth_utils import tool_name_to_server_id
-from mcp_composer.core.models import tool
 from mcp_composer.core.utils.exceptions import ToolDisableError, ToolDuplicateError
 from mcp_composer.store.database import DatabaseInterface
 from mcp_composer.core.utils import LoggerFactory, get_server_doc_info

@@ -130,7 +130,9 @@ def validate_agentskills_compatibility(compatibility: str) -> str:
     """Validate a skill compatibility string against the agentskills.io spec (max 500 chars)."""
     s = require_non_empty_after_strip(compatibility, "compatibility")
     if len(s) > 500:
-        raise ValueError(f"compatibility must be 500 characters or fewer (got {len(s)})")
+        raise ValueError(
+            f"compatibility must be 500 characters or fewer (got {len(s)})"
+        )
     return s
 
 
@@ -144,7 +146,9 @@ def validate_agentskills_instructions(instructions: str) -> str:
     """
     s = require_non_empty_after_strip(instructions, "metadata.instructions")
     if len(s) > 2048:
-        raise ValueError(f"metadata.instructions must be 2048 characters or fewer (got {len(s)})")
+        raise ValueError(
+            f"metadata.instructions must be 2048 characters or fewer (got {len(s)})"
+        )
     return s
 
 

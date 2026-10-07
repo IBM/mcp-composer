@@ -500,13 +500,13 @@ class ErrorSanitizationMiddleware(Middleware):
             # Log error with context
             self._log_error(e, method, category, tool_name)
 
-            # Generate sanitized message
+            # Generate sanitized message for structured payload
             sanitized_msg = self._sanitize_error_message(e)
             alternatives = self._get_alternative_suggestions(tool_name, category)
 
             # Create user-friendly error message
             error_details = {
-                "error": user_msg,
+                "error": sanitized_msg or user_msg,
                 "suggestion": suggestion,
                 "alternatives": alternatives,
                 "tool": tool_name,
@@ -536,13 +536,13 @@ class ErrorSanitizationMiddleware(Middleware):
             # Log error with context
             self._log_error(e, method, category, tool_name)
 
-            # Generate sanitized message
+            # Generate sanitized message for structured payload
             sanitized_msg = self._sanitize_error_message(e)
             alternatives = self._get_alternative_suggestions(tool_name, category)
 
             # Create user-friendly error message
             error_details = {
-                "error": user_msg,
+                "error": sanitized_msg or user_msg,
                 "suggestion": suggestion,
                 "alternatives": alternatives,
                 "tool": tool_name,

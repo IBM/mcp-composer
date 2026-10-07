@@ -61,19 +61,21 @@ async def test_activate_mcp_server_invalid_id(fake_db):
 async def test_deactivate_mcp_server_success(fake_db, server_config):
     """Test deactivating an active server"""
     server_config["status"] = "active"
-    
+
     # Mock the server builder to avoid actual server connection
     with patch(
         "mcp_composer.core.member_servers.server_manager.MCPServerBuilder"
     ) as mock_builder_class:
         mock_server = AsyncMock()
         mock_server.get_tools = AsyncMock(return_value={})
-        
+
         mock_builder = MagicMock()
         mock_builder.build = AsyncMock(return_value=mock_server)
         mock_builder_class.return_value = mock_builder
-        
-        composer = MCPComposer("composer", config=[server_config], database_config=fake_db)
+
+        composer = MCPComposer(
+            "composer", config=[server_config], database_config=fake_db
+        )
         await composer.setup_member_servers()
 
         # Confirm it's mounted
@@ -96,19 +98,21 @@ async def test_deactivate_mcp_server_success(fake_db, server_config):
 async def test_deactivate_mcp_server_twice(fake_db, server_config):
     """Test that deactivating a server twice raises an error"""
     server_config["status"] = "active"
-    
+
     # Mock the server builder to avoid actual server connection
     with patch(
         "mcp_composer.core.member_servers.server_manager.MCPServerBuilder"
     ) as mock_builder_class:
         mock_server = AsyncMock()
         mock_server.get_tools = AsyncMock(return_value={})
-        
+
         mock_builder = MagicMock()
         mock_builder.build = AsyncMock(return_value=mock_server)
         mock_builder_class.return_value = mock_builder
-        
-        composer = MCPComposer("composer", config=[server_config], database_config=fake_db)
+
+        composer = MCPComposer(
+            "composer", config=[server_config], database_config=fake_db
+        )
         await composer.setup_member_servers()
 
         await composer.deactivate_mcp_server(server_config["id"])

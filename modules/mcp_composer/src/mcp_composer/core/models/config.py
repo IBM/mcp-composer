@@ -226,7 +226,7 @@ class AuthConfig(BaseConfig):
         if strategy in [AuthStrategy.OAUTH, AuthStrategy.OAUTH2]:
             if not self.client_id or not self.client_secret or not self.token_url:
                 raise ValueError(
-                    f"OAuth2 authentication requires client_id, client_secret, and token_url"
+                    "OAuth2 authentication requires client_id, client_secret, and token_url"
                 )
 
         elif strategy == AuthStrategy.BEARER:

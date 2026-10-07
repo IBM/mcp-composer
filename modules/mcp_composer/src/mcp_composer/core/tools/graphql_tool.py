@@ -12,7 +12,6 @@ from starlette.exceptions import HTTPException
 
 from mcp_composer.core.utils import ConfigKey, LoggerFactory, AuthStrategy
 
-
 logger = LoggerFactory.get_logger()
 
 

@@ -17,7 +17,11 @@ from mcp_composer.core.models.catalog_constants import (
     VALID_CATALOG_RESOURCE_STATUSES,
     RegistryResourceKind,
 )
-from mcp_composer.core.models.catalog_skill import SkillJSON, SkillListResponse, SkillResponse
+from mcp_composer.core.models.catalog_skill import (
+    SkillJSON,
+    SkillListResponse,
+    SkillResponse,
+)
 from mcp_composer.store.catalog_in_memory_database import CatalogInMemoryDatabase
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -92,8 +96,12 @@ async def test_publish_demotes_previous_latest(mgr, db):
     await mgr.publish(_skill(version="1.0.0"))
     await mgr.publish(_skill(version="2.0.0"))
 
-    old_row = await db.get_resource(RegistryResourceKind.SKILL.value, "my-skill", "1.0.0")
-    new_row = await db.get_resource(RegistryResourceKind.SKILL.value, "my-skill", "2.0.0")
+    old_row = await db.get_resource(
+        RegistryResourceKind.SKILL.value, "my-skill", "1.0.0"
+    )
+    new_row = await db.get_resource(
+        RegistryResourceKind.SKILL.value, "my-skill", "2.0.0"
+    )
 
     assert old_row["is_latest"] is False
     assert new_row["is_latest"] is True
@@ -157,7 +165,10 @@ async def test_publish_upsert_existing_version(mgr, db):
 
     row = await db.get_resource(RegistryResourceKind.SKILL.value, "my-skill", "1.0.0")
     assert row["payload"]["description"] == "v1-updated"
-    assert await db.count_resource_versions(RegistryResourceKind.SKILL.value, "my-skill") == 1
+    assert (
+        await db.count_resource_versions(RegistryResourceKind.SKILL.value, "my-skill")
+        == 1
+    )
 
 
 @pytest.mark.asyncio
@@ -196,7 +207,9 @@ async def test_publish_raises_version_cap_error(mgr):
     """CatalogVersionCapError is raised when MAX_VERSIONS_PER_RESOURCE is exceeded."""
     cap = 3
 
-    with patch("mcp_composer.core.catalog.skill_manager.MAX_VERSIONS_PER_RESOURCE", cap):
+    with patch(
+        "mcp_composer.core.catalog.skill_manager.MAX_VERSIONS_PER_RESOURCE", cap
+    ):
         for i in range(cap):
             await mgr.publish(_skill(version=f"{i}.0.0"))
 
@@ -213,7 +226,9 @@ async def test_publish_upsert_at_cap_does_not_raise(mgr):
     """Re-publishing an already-stored version at the cap does not raise."""
     cap = 2
 
-    with patch("mcp_composer.core.catalog.skill_manager.MAX_VERSIONS_PER_RESOURCE", cap):
+    with patch(
+        "mcp_composer.core.catalog.skill_manager.MAX_VERSIONS_PER_RESOURCE", cap
+    ):
         await mgr.publish(_skill(version="1.0.0"))
         await mgr.publish(_skill(version="2.0.0"))
 
@@ -369,8 +384,12 @@ async def test_list_summaries_aligns_with_list_discovery_fields(mgr):
 
 @pytest.mark.asyncio
 async def test_list_skill_categories_counts_by_metadata_category(mgr):
-    await mgr.publish(_skill(name="a", metadata={"category": "observability", "tags": []}))
-    await mgr.publish(_skill(name="b", metadata={"category": "observability", "tags": []}))
+    await mgr.publish(
+        _skill(name="a", metadata={"category": "observability", "tags": []})
+    )
+    await mgr.publish(
+        _skill(name="b", metadata={"category": "observability", "tags": []})
+    )
     await mgr.publish(_skill(name="c", metadata={"tags": []}))
 
     cats = await mgr.list_skill_categories()
@@ -462,7 +481,9 @@ async def test_list_pagination(mgr):
     for i in range(5):
         await mgr.publish(_skill(name=f"skill-{i:02d}", version="1.0.0"))
 
-    page1 = await mgr.list(CatalogResourceListFilter(kind=RegistryResourceKind.SKILL, limit=3))
+    page1 = await mgr.list(
+        CatalogResourceListFilter(kind=RegistryResourceKind.SKILL, limit=3)
+    )
     assert page1.metadata.count == 3
     assert page1.metadata.next_start == 3
 
@@ -539,7 +560,9 @@ async def test_delete_non_latest_no_promotion(mgr, db):
 
     await mgr.delete("my-skill", "1.0.0")
 
-    latest = await db.get_resource(RegistryResourceKind.SKILL.value, "my-skill", "2.0.0")
+    latest = await db.get_resource(
+        RegistryResourceKind.SKILL.value, "my-skill", "2.0.0"
+    )
     assert latest["is_latest"] is True
 
 

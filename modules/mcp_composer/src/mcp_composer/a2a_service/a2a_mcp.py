@@ -15,6 +15,9 @@ from fastmcp import Context
 import httpx
 from starlette.exceptions import HTTPException
 
+from mcp_composer.core.utils.logger import LoggerFactory
+from mcp_composer.core.utils.utils import load_from_json, save_to_json
+
 # Lazy import for optional AI dependencies
 ai_available = True
 genai: Any = None
@@ -62,8 +65,6 @@ try:
     ClientConfig = a2a_client.ClientConfig
 except ImportError:
     a2a_available = False
-from mcp_composer.core.utils.logger import LoggerFactory
-from mcp_composer.core.utils.utils import load_from_json, save_to_json
 
 
 def get_auth_context() -> dict[str, Any] | None:

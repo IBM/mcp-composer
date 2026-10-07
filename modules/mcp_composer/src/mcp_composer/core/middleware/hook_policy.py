@@ -4,7 +4,6 @@ from typing import Any
 # FastMCP interfaces
 from fastmcp.server.middleware import MiddlewareContext
 
-
 # =========================
 # Utilities
 # =========================

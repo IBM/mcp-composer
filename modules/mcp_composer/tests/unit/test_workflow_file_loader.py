@@ -25,7 +25,9 @@ from mcp_composer.store.catalog_in_memory_database import CatalogInMemoryDatabas
 
 
 def test_slug_from_instruction_strips_product_tag():
-    slug = slug_from_instruction("[gurdium] List all open vulnerabilities across data stores")
+    slug = slug_from_instruction(
+        "[gurdium] List all open vulnerabilities across data stores"
+    )
     assert slug.startswith("list-all-open")
     assert "[" not in slug
 

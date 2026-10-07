@@ -2,7 +2,7 @@
 
 Identifying a real problem is often the most valuable contribution you can make. A clear issue with a reproducible bug or a concrete use case is a contribution on its own. If it leads to a merged change implemented by a maintainer, you receive contributor credit for that change.
 
-Participation follows our [Code of Conduct](CODE_OF_CONDUCT.md). The project maintainer is listed in [MAINTAINERS.md](MAINTAINERS.md). Report vulnerabilities privately through [SECURITY.md](SECURITY.md). Contributions are licensed under [Apache 2.0](LICENSE).
+Participation follows our [Code of Conduct](CODE_OF_CONDUCT.md). Maintainers are listed in the [README](README.md#project). Report vulnerabilities privately through [SECURITY.md](SECURITY.md). Contributions are licensed under [Apache 2.0](LICENSE).
 
 Agents should also read [AGENTS.md](AGENTS.md).
 

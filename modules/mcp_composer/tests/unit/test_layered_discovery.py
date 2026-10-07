@@ -348,9 +348,7 @@ def test_tfidf_fallback_when_bm25_finds_nothing():
         "mcp_composer.core.member_servers.layered_rankers._bm25_scores",
         return_value=[0.0, 0.0],
     ):
-        ranked = rank_entries(
-            "abc", entries, limit=5, ranker=Bm25FallbackRanker()
-        )
+        ranked = rank_entries("abc", entries, limit=5, ranker=Bm25FallbackRanker())
     assert ranked
     assert ranked[0][0].name == "abcxyz"
     assert ranked[0][1] > 0
@@ -397,9 +395,7 @@ def test_resolve_discovery_bm25_search_still_slim():
             tags=["users"],
         ),
     ]
-    result = resolve_discovery_response(
-        entries, query="database security", limit=10
-    )
+    result = resolve_discovery_response(entries, query="database security", limit=10)
     assert result["mode"] == "search"
     assert len(result["matches"]) == 1
     assert result["matches"][0]["name"] == "getDatabaseSecurityPolicies"
@@ -434,9 +430,7 @@ def test_rank_entries_respects_injected_tfidf_ranker():
         ToolCatalogEntry(name="listUsers", summary="users"),
     ]
     # Pure BM25: NL tokens match camelCase op only.
-    bm25 = rank_entries(
-        "database security", entries, limit=5, ranker=Bm25Ranker()
-    )
+    bm25 = rank_entries("database security", entries, limit=5, ranker=Bm25Ranker())
     assert [e.name for e, _ in bm25] == ["getDatabaseSecurityPolicies"]
 
     # Pure TF-IDF may still surface char-overlap noise; call must succeed.

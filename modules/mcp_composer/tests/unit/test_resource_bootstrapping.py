@@ -193,14 +193,12 @@ class TestConfigLoaderResourceDetection:
     def test_detect_resources_yaml(self, tmp_path):
         """Test detection of resources in YAML file."""
         config_file = tmp_path / "resources.yaml"
-        config_file.write_text(
-            """
+        config_file.write_text("""
 resources:
   - name: "test"
     uri: "resource://test"
     text: "content"
-"""
-        )
+""")
 
         loader = ConfigLoader()
         config_type = loader.detect_config_type(str(config_file))
@@ -209,8 +207,7 @@ resources:
     def test_detect_resources_json(self, tmp_path):
         """Test detection of resources in JSON file."""
         config_file = tmp_path / "resources.json"
-        config_file.write_text(
-            """
+        config_file.write_text("""
 {
   "resources": [
     {
@@ -220,8 +217,7 @@ resources:
     }
   ]
 }
-"""
-        )
+""")
 
         loader = ConfigLoader()
         config_type = loader.detect_config_type(str(config_file))
@@ -230,13 +226,11 @@ resources:
     def test_detect_resource_list_format(self, tmp_path):
         """Test detection of resources in list format."""
         config_file = tmp_path / "resources.yaml"
-        config_file.write_text(
-            """
+        config_file.write_text("""
 - name: "test"
   uri: "resource://test"
   text: "content"
-"""
-        )
+""")
 
         loader = ConfigLoader()
         config_type = loader.detect_config_type(str(config_file))
@@ -249,8 +243,7 @@ class TestConfigLoaderResourceLoading:
     def test_load_resources_yaml(self, tmp_path):
         """Test loading resources from YAML file."""
         config_file = tmp_path / "resources.yaml"
-        config_file.write_text(
-            """
+        config_file.write_text("""
 resources:
   - name: "test_resource"
     description: "Test resource"
@@ -258,8 +251,7 @@ resources:
     text: "Test content"
     mime_type: "text/plain"
     tags: ["test"]
-"""
-        )
+""")
 
         loader = ConfigLoader()
         config = loader.load_from_file(str(config_file))
@@ -273,8 +265,7 @@ resources:
     def test_load_resources_json(self, tmp_path):
         """Test loading resources from JSON file."""
         config_file = tmp_path / "resources.json"
-        config_file.write_text(
-            """
+        config_file.write_text("""
 {
   "resources": [
     {
@@ -284,8 +275,7 @@ resources:
     }
   ]
 }
-"""
-        )
+""")
 
         loader = ConfigLoader()
         config = loader.load_from_file(str(config_file))
@@ -297,16 +287,14 @@ resources:
     def test_load_unified_config_with_resources(self, tmp_path):
         """Test loading unified config with resources."""
         config_file = tmp_path / "unified.yaml"
-        config_file.write_text(
-            """
+        config_file.write_text("""
 servers: []
 prompts: []
 resources:
   - name: "test"
     uri: "resource://test"
     text: "content"
-"""
-        )
+""")
 
         loader = ConfigLoader()
         config = loader.load_from_file(str(config_file))
@@ -319,8 +307,7 @@ resources:
     def test_load_multiple_resources(self, tmp_path):
         """Test loading multiple resources."""
         config_file = tmp_path / "resources.yaml"
-        config_file.write_text(
-            """
+        config_file.write_text("""
 resources:
   - name: "resource1"
     uri: "resource://test1"
@@ -331,8 +318,7 @@ resources:
   - name: "template1"
     uri_template: "resource://test/{id}"
     template: "Template {id}"
-"""
-        )
+""")
 
         loader = ConfigLoader()
         config = loader.load_from_file(str(config_file))

@@ -50,7 +50,7 @@ class TestMCPComposerError:
         """Test error creation with context."""
         context = {"server_id": "test-server", "operation": "mount"}
         error = MCPComposerError("Test error", context=context)
-        
+
         assert error.message == "Test error"
         assert error.context == context
         assert "server_id=test-server" in str(error)
@@ -61,7 +61,7 @@ class TestMCPComposerError:
         context = {"key": "value"}
         error = MCPComposerError("Test error", context=context)
         repr_str = repr(error)
-        
+
         assert "MCPComposerError" in repr_str
         assert "Test error" in repr_str
         assert "key" in repr_str
@@ -131,7 +131,7 @@ class TestServerExceptions:
         """Test ServerMountError with context."""
         context = {"server_id": "test-server", "config": {"type": "stdio"}}
         error = ServerMountError("Failed to mount server", context=context)
-        
+
         assert "Failed to mount server" in str(error)
         assert "server_id=test-server" in str(error)
         assert error.context["server_id"] == "test-server"
@@ -155,7 +155,7 @@ class TestToolExceptions:
         """Test ToolRegistrationError."""
         context = {"tool_name": "test_tool", "server_id": "test-server"}
         error = ToolRegistrationError("Failed to register tool", context=context)
-        
+
         assert "Failed to register tool" in str(error)
         assert "tool_name=test_tool" in str(error)
 
@@ -163,7 +163,7 @@ class TestToolExceptions:
         """Test ToolValidationError."""
         context = {"tool_name": "invalid_tool", "reason": "missing description"}
         error = ToolValidationError("Tool validation failed", context=context)
-        
+
         assert "Tool validation failed" in str(error)
         assert error.context["reason"] == "missing description"
 
@@ -180,7 +180,7 @@ class TestDatabaseExceptions:
         """Test DatabaseConnectionError."""
         context = {"host": "localhost", "port": 5432}
         error = DatabaseConnectionError("Failed to connect", context=context)
-        
+
         assert "Failed to connect" in str(error)
         assert "host=localhost" in str(error)
 
@@ -188,7 +188,7 @@ class TestDatabaseExceptions:
         """Test DatabaseOperationError."""
         context = {"operation": "save", "collection": "servers"}
         error = DatabaseOperationError("Operation failed", context=context)
-        
+
         assert "Operation failed" in str(error)
         assert error.context["operation"] == "save"
 
@@ -200,7 +200,7 @@ class TestAuthenticationExceptions:
         """Test TokenExpiredError."""
         context = {"token_type": "JWT", "expired_at": "2024-01-01"}
         error = TokenExpiredError("Token has expired", context=context)
-        
+
         assert "Token has expired" in str(error)
         assert error.context["token_type"] == "JWT"
 
@@ -213,7 +213,7 @@ class TestAuthenticationExceptions:
         """Test AuthorizationError."""
         context = {"user": "test_user", "required_permission": "admin"}
         error = AuthorizationError("Insufficient permissions", context=context)
-        
+
         assert "Insufficient permissions" in str(error)
         assert error.context["required_permission"] == "admin"
 
@@ -225,7 +225,7 @@ class TestValidationExceptions:
         """Test ConfigValidationError."""
         context = {"field": "server_id", "value": None}
         error = ConfigValidationError("Invalid configuration", context=context)
-        
+
         assert "Invalid configuration" in str(error)
         assert error.context["field"] == "server_id"
 
@@ -233,7 +233,7 @@ class TestValidationExceptions:
         """Test InputValidationError."""
         context = {"parameter": "port", "expected": "integer", "got": "string"}
         error = InputValidationError("Invalid input", context=context)
-        
+
         assert "Invalid input" in str(error)
         assert error.context["expected"] == "integer"
 
@@ -245,7 +245,7 @@ class TestMiddlewareExceptions:
         """Test MiddlewareExecutionError."""
         context = {"middleware": "auth_middleware", "phase": "pre_request"}
         error = MiddlewareExecutionError("Middleware failed", context=context)
-        
+
         assert "Middleware failed" in str(error)
         assert error.context["middleware"] == "auth_middleware"
 
@@ -264,7 +264,9 @@ class TestExceptionChaining:
             try:
                 raise ServerBuildError("Build failed")
             except ServerBuildError as e:
-                raise ServerMountError("Mount failed", context={"server_id": "test"}) from e
+                raise ServerMountError(
+                    "Mount failed", context={"server_id": "test"}
+                ) from e
         except ServerMountError as e:
             assert isinstance(e.__cause__, ServerBuildError)
             assert "Mount failed" in str(e)
@@ -274,7 +276,7 @@ class TestExceptionChaining:
         """Test that context is preserved through exception handling."""
         context = {"server_id": "test", "operation": "mount", "attempt": 1}
         error = ServerMountError("Failed", context=context)
-        
+
         # Simulate catching and re-raising
         try:
             raise error
@@ -290,7 +292,7 @@ class TestBackwardCompatibility:
     def test_member_server_error_compatibility(self):
         """Test that MemberServerError still works for backward compatibility."""
         error = MemberServerError("Server error")
-        
+
         # Should inherit from ServerError
         assert isinstance(error, ServerError)
         assert isinstance(error, MCPComposerError)
@@ -302,9 +304,11 @@ class TestBackwardCompatibility:
         filter_error = ToolFilterError("Filter failed")
         generate_error = ToolGenerateError("Generation failed")
         disable_error = ToolDisableError("Disable failed")
-        
-        assert all(isinstance(e, ToolError) for e in [
-            duplicate_error, filter_error, generate_error, disable_error
-        ])
+
+        assert all(
+            isinstance(e, ToolError)
+            for e in [duplicate_error, filter_error, generate_error, disable_error]
+        )
+
 
 # Made with Bob

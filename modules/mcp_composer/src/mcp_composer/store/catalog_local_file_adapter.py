@@ -115,7 +115,9 @@ class CatalogLocalFileAdapter(CatalogDatabaseInterface):
             _WORKFLOW: self._clear_workflow_latest_marker,
         }
 
-        logger.info("CatalogLocalFileAdapter configured with root: %s", self._root.resolve())
+        logger.info(
+            "CatalogLocalFileAdapter configured with root: %s", self._root.resolve()
+        )
 
     # ── lifecycle ──────────────────────────────────────────────────────────────
 
@@ -270,7 +272,9 @@ class CatalogLocalFileAdapter(CatalogDatabaseInterface):
             return reader(name)
         _reject_unknown_kind(kind)
 
-    def _write_latest_version_for_kind(self, kind: str, name: str, version: str) -> None:
+    def _write_latest_version_for_kind(
+        self, kind: str, name: str, version: str
+    ) -> None:
         writer = self._latest_writers.get(kind)
         if writer:
             writer(name, version)
@@ -345,7 +349,9 @@ class CatalogLocalFileAdapter(CatalogDatabaseInterface):
             return None
         return self._read_row(path)
 
-    async def get_resource_by_filter(self, kind: str, name: str, is_latest: bool) -> dict | None:
+    async def get_resource_by_filter(
+        self, kind: str, name: str, is_latest: bool
+    ) -> dict | None:
         kind = _expect_kind(kind)
         if is_latest:
             ver = self._read_latest_version_for_kind(kind, name)
@@ -414,7 +420,8 @@ class CatalogLocalFileAdapter(CatalogDatabaseInterface):
                     continue
                 if (
                     status_filter
-                    and (row.get("official_meta", {}).get("status") or "active") != status_filter
+                    and (row.get("official_meta", {}).get("status") or "active")
+                    != status_filter
                 ):
                     continue
                 if keywords and kind == _SKILL:
@@ -433,7 +440,10 @@ class CatalogLocalFileAdapter(CatalogDatabaseInterface):
                     raw_cat = category.strip()
                     meta = row.get("payload", {}).get("metadata") or {}
                     cat_val = meta.get("category")
-                    if not raw_cat or raw_cat.lower() == SKILL_CATALOG_UNCATEGORIZED.lower():
+                    if (
+                        not raw_cat
+                        or raw_cat.lower() == SKILL_CATALOG_UNCATEGORIZED.lower()
+                    ):
                         if isinstance(cat_val, str) and cat_val.strip():
                             continue
                     else:
@@ -479,7 +489,10 @@ class CatalogLocalFileAdapter(CatalogDatabaseInterface):
             else:
                 labels.append(SKILL_CATALOG_UNCATEGORIZED)
         counts = Counter(labels)
-        return [{"name": name, "skill_count": counts[name]} for name in sorted(counts.keys())]
+        return [
+            {"name": name, "skill_count": counts[name]}
+            for name in sorted(counts.keys())
+        ]
 
     async def count_resource_versions(self, kind: str, name: str) -> int:
         kind = _expect_kind(kind)
@@ -544,7 +557,9 @@ class CatalogLocalFileAdapter(CatalogDatabaseInterface):
         if parent.exists() and not any(parent.iterdir()):
             parent.rmdir()
 
-    async def update_resource_row(self, kind: str, name: str, version: str, fields: dict) -> None:
+    async def update_resource_row(
+        self, kind: str, name: str, version: str, fields: dict
+    ) -> None:
         if not fields:
             return
         kind = _expect_kind(kind)
@@ -601,14 +616,18 @@ class CatalogLocalFileAdapter(CatalogDatabaseInterface):
             return self._workflow_content_file(name, version)
         _reject_unknown_kind(kind)
 
-    async def get_resource_content(self, kind: str, name: str, version: str) -> str | None:
+    async def get_resource_content(
+        self, kind: str, name: str, version: str
+    ) -> str | None:
         """Return the raw content string for (kind, name, version), or None if absent."""
         path = self._content_file(kind, name, version)
         if not path.exists():
             return None
         return path.read_text(encoding="utf-8")
 
-    async def save_resource_content(self, kind: str, name: str, version: str, content: str) -> None:
+    async def save_resource_content(
+        self, kind: str, name: str, version: str, content: str
+    ) -> None:
         """Write raw content to the sibling <version>.content file."""
         path = self._content_file(kind, name, version)
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -619,7 +638,9 @@ class CatalogLocalFileAdapter(CatalogDatabaseInterface):
     def _metadata_file_for_resource_id(self, resource_id: str) -> Path:
         return self._metadata_dir / f"{resource_id}.json"
 
-    async def save_resource_metadata(self, resource_id: str, private_meta: dict) -> None:
+    async def save_resource_metadata(
+        self, resource_id: str, private_meta: dict
+    ) -> None:
         path = self._metadata_file_for_resource_id(resource_id)
         path.parent.mkdir(parents=True, exist_ok=True)
         self._write_row(path, private_meta)

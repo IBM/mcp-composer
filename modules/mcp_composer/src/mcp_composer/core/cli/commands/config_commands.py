@@ -141,6 +141,7 @@ def apply_config(
         rprint(f"❌ [red]Error applying configuration: {e}[/red]")
         raise typer.Exit(1)
 
+
 @app.command("check-dependencies")
 def check_dependencies() -> None:
     """Check which optional dependencies are needed based on environment variables."""
@@ -148,9 +149,9 @@ def check_dependencies() -> None:
         detect_required_extras,
         get_missing_extras_message,
     )
-    
+
     required = detect_required_extras()
-    
+
     if not required:
         rprint("[green]✓[/green] No optional dependencies detected from environment")
         rprint("\n[dim]Set environment variables to enable optional features:[/dim]")
@@ -161,11 +162,11 @@ def check_dependencies() -> None:
         rprint("  • A2A: A2A_ENABLED=true")
         rprint("  • Search: ENABLE_SEARCH=true")
         return
-    
+
     rprint("[yellow]Optional dependencies detected from environment:[/yellow]")
     for extra in sorted(required):
         rprint(f"  • {extra}")
-    
+
     rprint("\n" + get_missing_extras_message(required))
 
 

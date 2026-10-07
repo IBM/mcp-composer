@@ -32,9 +32,7 @@ except ImportError:
 # Okapi BM25 parameters (classic defaults).
 _BM25_K1 = 1.5
 _BM25_B = 0.75
-_CAMEL_BOUNDARY = re.compile(
-    r"[A-Z]?[a-z]+|[A-Z]+(?=[A-Z][a-z]|\d|\b)|\d+"
-)
+_CAMEL_BOUNDARY = re.compile(r"[A-Z]?[a-z]+|[A-Z]+(?=[A-Z][a-z]|\d|\b)|\d+")
 _ALNUM_RUNS = re.compile(r"[A-Za-z0-9]+")
 
 # Config name: tool_discovery_ranker

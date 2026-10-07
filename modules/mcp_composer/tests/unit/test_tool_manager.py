@@ -101,7 +101,7 @@ def test_filter_tools_exception(tool_manager):  # pylint: disable=redefined-oute
     tool_manager._server_manager.list.side_effect = Exception(
         "fail"
     )  # pylint: disable=protected-access
-    
+
     tool = MagicMock()
     tool.name = "a"
     with pytest.raises(Exception, match="fail"):

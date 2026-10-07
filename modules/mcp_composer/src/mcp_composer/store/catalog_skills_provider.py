@@ -313,7 +313,11 @@ class CatalogSkillsProvider(Provider):
         if suffix == "SKILL.md":
             # Prefer stored content column (Level 3 raw asset) if present.
             stored_content = await self._mgr.get_content(name)
-            text = stored_content if stored_content else _render_skill_md(payload, official_meta)
+            text = (
+                stored_content
+                if stored_content
+                else _render_skill_md(payload, official_meta)
+            )
             return SkillMarkdownResource(
                 uri=uri,  # type: ignore[arg-type]
                 name=f"{title} — SKILL.md",

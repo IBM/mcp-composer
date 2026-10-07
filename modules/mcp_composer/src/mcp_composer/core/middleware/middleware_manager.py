@@ -50,9 +50,7 @@ class MiddlewareManager:
     Builds, orders, and attaches middleware instances from declarative config.
     """
 
-    def __init__(
-        self, config_path: str | None = None, *, ensure_imports: bool = False
-    ):
+    def __init__(self, config_path: str | None = None, *, ensure_imports: bool = False):
         self._config_path = config_path
         self._config: MiddlewareConfig | None = None
         self._middlewares: list[Middleware] = []

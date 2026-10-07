@@ -17,30 +17,30 @@ from typing import Any
 
 class MCPComposerError(Exception):
     """Base error for MCP Composer Server.
-    
+
     All MCP Composer exceptions inherit from this class and support
     optional context information for better error diagnostics.
-    
+
     Args:
         message: Human-readable error message
         context: Optional dictionary with additional error context
-    
+
     Attributes:
         message: The error message
         context: Dictionary containing error context (empty if not provided)
     """
-    
+
     def __init__(self, message: str, context: dict[str, Any] | None = None):
         self.message = message
         self.context = context or {}
         super().__init__(message)
-    
+
     def __str__(self) -> str:
         if self.context:
             context_str = ", ".join(f"{k}={v}" for k, v in self.context.items())
             return f"{self.message} ({context_str})"
         return self.message
-    
+
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}(message={self.message!r}, context={self.context!r})"
 
@@ -48,6 +48,7 @@ class MCPComposerError(Exception):
 # ============================================================================
 # Server-related Exceptions
 # ============================================================================
+
 
 class ServerError(MCPComposerError):
     """Base exception for server-related errors."""
@@ -76,6 +77,7 @@ class ServerBuildError(ServerError):
 # ============================================================================
 # Tool-related Exceptions
 # ============================================================================
+
 
 class ToolError(MCPComposerError):
     """Base exception for tool-related errors."""
@@ -117,6 +119,7 @@ class ToolDisableError(ToolError):
 # Database-related Exceptions
 # ============================================================================
 
+
 class DatabaseError(MCPComposerError):
     """Base exception for database-related errors."""
 
@@ -136,6 +139,7 @@ class DatabaseNotAvailableError(DatabaseError):
 # ============================================================================
 # Authentication-related Exceptions
 # ============================================================================
+
 
 class AuthenticationError(MCPComposerError):
     """Base exception for authentication-related errors."""
@@ -157,6 +161,7 @@ class AuthorizationError(AuthenticationError):
 # Validation-related Exceptions
 # ============================================================================
 
+
 class ValidationError(MCPComposerError):
     """Base exception for validation errors."""
 
@@ -172,6 +177,7 @@ class InputValidationError(ValidationError):
 # ============================================================================
 # Middleware-related Exceptions
 # ============================================================================
+
 
 class MiddlewareError(MCPComposerError):
     """Base exception for middleware-related errors."""
@@ -189,11 +195,13 @@ class MiddlewareConfigurationError(MiddlewareError):
 # Legacy Exceptions (maintained for backward compatibility)
 # ============================================================================
 
+
 class MemberServerError(ServerError):
     """Error in Member Server.
-    
+
     Note: This is maintained for backward compatibility.
     New code should use more specific ServerError subclasses.
     """
+
 
 # Made with Bob

@@ -43,3 +43,21 @@
 - Call sites now use the neutral members (`API_SCHEME`, `OAUTH_CLIENT`, `OAUTH_PROOF`, `OAUTH_REFRESH`, `GEN_AUTH`, `GEN_METHOD`, `IdentityMode.keyed`). The old credential-shaped aliases are removed. JSON values are unchanged.
 
 
+
+## 2026-10-07 15:25 UTC — Code quality debug (ruff / black / unit tests)
+
+- **ruff**: 84 → 0 (whitespace, unused vars/imports, bare `except`, E402, F811 `tool` import shadow)
+- **black**: 54 files reformatted
+- **tests**: 2 `test_db.py` failures fixed — `setup_member_servers` patches `composer.MCPServerBuilder` (not only `server_manager`); assert mounted servers; fixture URL is loopback (`127.0.0.1:9`) not Code Engine
+- Result: **1200 passed**; `ruff check .` + `black --check .` green
+- GitHub issue/project board: blocked (`gh` token invalid / GraphQL Forbidden). Re-auth: `gh auth refresh -h github.ibm.com` then add task to https://github.ibm.com/users/MANSURAH/projects/3
+
+## 2026-10-07 15:25 UTC — MAINTAINERS.md synced to GitHub direct access
+
+- Added Roy Derks (`royderks`, admin), Naveed Syed (`NaveedSyed98`, maintain), Saravanan N (`sarvan-nov14`, maintain) alongside Mansura Habiba
+- Source: IBM/mcp-composer Manage access → Direct access
+
+## 2026-10-07 15:26 UTC — Drop MAINTAINERS.md
+
+- Removed `MAINTAINERS.md`; GitHub Direct access is source of truth for roles
+- Maintainers listed in README Project table; CONTRIBUTING / CODE_OF_CONDUCT point there

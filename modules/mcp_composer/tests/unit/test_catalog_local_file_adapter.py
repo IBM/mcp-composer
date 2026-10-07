@@ -112,7 +112,9 @@ async def test_save_and_get(adapter):
 async def test_upsert_preserves_id_and_created_at(adapter):
     """A second save_skill for the same key preserves the original id and created_at."""
     first = await adapter.save_resource(_SKILL, _skill())
-    second = await adapter.save_resource(_SKILL, {**_skill(), "payload": {"description": "new"}})
+    second = await adapter.save_resource(
+        _SKILL, {**_skill(), "payload": {"description": "new"}}
+    )
     assert second["id"] == first["id"]
     assert second["created_at"] == first["created_at"]
     assert second["payload"]["description"] == "new"
@@ -231,7 +233,9 @@ async def test_list_tenant_filter(adapter):
 async def test_list_pagination(adapter):
     """Offset-based pagination splits results across two pages correctly."""
     for i in range(5):
-        await adapter.save_resource(_SKILL, _skill(f"skill-{i:02d}", "1.0.0", is_latest=True))
+        await adapter.save_resource(
+            _SKILL, _skill(f"skill-{i:02d}", "1.0.0", is_latest=True)
+        )
 
     page1, has_more1 = await adapter.list_resources(
         _SKILL,

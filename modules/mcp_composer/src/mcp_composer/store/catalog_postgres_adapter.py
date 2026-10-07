@@ -22,7 +22,9 @@ _SKILL_KIND = RegistryResourceKind.SKILL.value
 _PROMPT_KIND = RegistryResourceKind.PROMPT.value
 _AGENT_KIND = RegistryResourceKind.AGENT.value
 _WORKFLOW_KIND = RegistryResourceKind.WORKFLOW.value
-_KNOWN_RESOURCE_KINDS = frozenset({_SKILL_KIND, _PROMPT_KIND, _AGENT_KIND, _WORKFLOW_KIND})
+_KNOWN_RESOURCE_KINDS = frozenset(
+    {_SKILL_KIND, _PROMPT_KIND, _AGENT_KIND, _WORKFLOW_KIND}
+)
 
 
 def _expect_resource_kind(kind: str) -> str:
@@ -190,12 +192,10 @@ class CatalogPostgresAdapter(CatalogDatabaseInterface):
         pool = self._get_pool()
         async with pool.acquire() as conn:
             # Add agent_card column if missing (A2A well-known card verbatim storage)
-            await conn.execute(
-                """
+            await conn.execute("""
                 ALTER TABLE catalog_resources
                     ADD COLUMN IF NOT EXISTS agent_card JSONB
-                """
-            )
+                """)
         logger.info("CatalogPostgresAdapter migrations applied")
 
     async def close(self) -> None:
@@ -208,7 +208,9 @@ class CatalogPostgresAdapter(CatalogDatabaseInterface):
     def _get_pool(self) -> asyncpg.Pool:
         """Return the active pool, raising RuntimeError if initialize() was not called."""
         if self._pool is None:
-            raise RuntimeError("CatalogPostgresAdapter.initialize() has not been called")
+            raise RuntimeError(
+                "CatalogPostgresAdapter.initialize() has not been called"
+            )
         return self._pool
 
     # ── kind-aware catalog resources ───────────────────────────────────────────
@@ -226,7 +228,9 @@ class CatalogPostgresAdapter(CatalogDatabaseInterface):
         official_meta = json.dumps(row.get("official_meta", {}))
         tenant_ids = row.get("tenant_ids") or []
         content: str | None = row.get("content")
-        agent_card: str | None = json.dumps(row["agent_card"]) if row.get("agent_card") else None
+        agent_card: str | None = (
+            json.dumps(row["agent_card"]) if row.get("agent_card") else None
+        )
 
         async with pool.acquire() as conn:
             if content is not None:
@@ -298,7 +302,9 @@ class CatalogPostgresAdapter(CatalogDatabaseInterface):
             )
         return _row_to_dict(record) if record else None
 
-    async def get_resource_by_filter(self, kind: str, name: str, is_latest: bool) -> dict | None:
+    async def get_resource_by_filter(
+        self, kind: str, name: str, is_latest: bool
+    ) -> dict | None:
         """SELECT … WHERE kind=$1 AND name=$2 AND is_latest=$3."""
         kind = _expect_resource_kind(kind)
         pool = self._get_pool()
@@ -461,7 +467,10 @@ class CatalogPostgresAdapter(CatalogDatabaseInterface):
         async with pool.acquire() as conn:
             records = await conn.fetch(query, *params)
 
-        return [{"name": str(r["name"]), "skill_count": int(r["skill_count"])} for r in records]
+        return [
+            {"name": str(r["name"]), "skill_count": int(r["skill_count"])}
+            for r in records
+        ]
 
     async def count_resource_versions(self, kind: str, name: str) -> int:
         """SELECT count(*) WHERE kind=$1 AND name=$2."""
@@ -487,7 +496,9 @@ class CatalogPostgresAdapter(CatalogDatabaseInterface):
                 version,
             )
 
-    async def update_resource_row(self, kind: str, name: str, version: str, fields: dict) -> None:
+    async def update_resource_row(
+        self, kind: str, name: str, version: str, fields: dict
+    ) -> None:
         """UPDATE SET <only the keys in fields> WHERE kind=$1 AND name=$2 AND version=$3."""
         if not fields:
             return
@@ -528,7 +539,9 @@ class CatalogPostgresAdapter(CatalogDatabaseInterface):
 
     # ── resource content methods ───────────────────────────────────────────────
 
-    async def get_resource_content(self, kind: str, name: str, version: str) -> str | None:
+    async def get_resource_content(
+        self, kind: str, name: str, version: str
+    ) -> str | None:
         """SELECT content FROM catalog_resources WHERE kind/name/version match."""
         pool = self._get_pool()
         async with pool.acquire() as conn:
@@ -540,7 +553,9 @@ class CatalogPostgresAdapter(CatalogDatabaseInterface):
             )
         return val  # already str or None
 
-    async def save_resource_content(self, kind: str, name: str, version: str, content: str) -> None:
+    async def save_resource_content(
+        self, kind: str, name: str, version: str, content: str
+    ) -> None:
         """UPDATE … SET content=$4 for an already-saved resource row."""
         pool = self._get_pool()
         async with pool.acquire() as conn:
@@ -561,7 +576,9 @@ class CatalogPostgresAdapter(CatalogDatabaseInterface):
 
     METADATA_TABLE = "catalog_resource_metadata"
 
-    async def save_resource_metadata(self, resource_id: str, private_meta: dict) -> None:
+    async def save_resource_metadata(
+        self, resource_id: str, private_meta: dict
+    ) -> None:
         """Upsert private metadata for a catalog resource row (see ``_metadata_json_column``)."""
         pool = self._get_pool()
         col = self._metadata_json_column

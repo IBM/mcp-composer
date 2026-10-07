@@ -608,9 +608,7 @@ class LayeredOpenAPIFactory(FastMCP):
                     path=str(info.get(SERVICE_KEYS["PATH"]) or ""),
                     http_method=str(info.get(SERVICE_KEYS["HTTP_METHOD"]) or ""),
                     tags=list(info.get(SERVICE_KEYS["TAGS"]) or []),
-                    extra={
-                        "operationId": info.get(SERVICE_KEYS["OPERATION_ID"], name)
-                    },
+                    extra={"operationId": info.get(SERVICE_KEYS["OPERATION_ID"], name)},
                 )
             )
         return entries
@@ -681,7 +679,9 @@ class LayeredOpenAPIFactory(FastMCP):
             # Concise summary only — full schemas live in get_type_info.
             return {
                 "service": service,
-                SERVICE_KEYS["OPERATION_ID"]: service_data[SERVICE_KEYS["OPERATION_ID"]],
+                SERVICE_KEYS["OPERATION_ID"]: service_data[
+                    SERVICE_KEYS["OPERATION_ID"]
+                ],
                 SERVICE_KEYS["SUMMARY"]: service_data[SERVICE_KEYS["SUMMARY"]],
                 SERVICE_KEYS["DESCRIPTION"]: service_data[SERVICE_KEYS["DESCRIPTION"]],
                 SERVICE_KEYS["HTTP_METHOD"]: service_data[SERVICE_KEYS["HTTP_METHOD"]],
@@ -998,7 +998,7 @@ class LayeredOpenAPIFactory(FastMCP):
                 logger.info("Query Parameters:")
                 try:
                     logger.info("%s", json.dumps(query_params, indent=2))
-                except:
+                except (TypeError, ValueError):
                     logger.info("%s", query_params)
 
             logger.info("-" * 80)
@@ -1054,14 +1054,16 @@ class LayeredOpenAPIFactory(FastMCP):
                         logger.info("... (+%d chars)", len(body_json) - 2000)
                     else:
                         logger.info("%s", body_json)
-                except:
+                except (TypeError, ValueError):
                     logger.info("%s", str(request_body)[:2000])
 
             logger.info("=" * 80)
 
             # Make the actual HTTP request with merged headers
             if auth_headers.get("Authorization"):
-                logger.info("Using plain HTTP client with explicit Authorization header")
+                logger.info(
+                    "Using plain HTTP client with explicit Authorization header"
+                )
                 async with httpx.AsyncClient(
                     base_url=self.client.base_url,
                     timeout=(
@@ -1145,7 +1147,7 @@ class LayeredOpenAPIFactory(FastMCP):
                     logger.info("... (+%d chars)", len(response_json) - 2000)
                 else:
                     logger.info("%s", response_json)
-            except:
+            except (TypeError, ValueError, json.JSONDecodeError):
                 response_data = response.text
                 if len(response_data) > 2000:
                     logger.info("%s", response_data[:2000])

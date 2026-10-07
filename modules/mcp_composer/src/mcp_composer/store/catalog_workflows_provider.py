@@ -119,6 +119,8 @@ class CatalogWorkflowsProvider(Provider):
     async def _list_tools(self) -> list[Tool]:
         return list(self._tools_by_name.values())
 
-    async def _get_tool(self, name: str, version: VersionSpec | None = None) -> Tool | None:
+    async def _get_tool(
+        self, name: str, version: VersionSpec | None = None
+    ) -> Tool | None:
         del version  # workflow tools are not versioned separately from catalog rows
         return self._tools_by_name.get(name)

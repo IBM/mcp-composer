@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
-from mcp_composer.core.models.catalog_common import RegistryListMetadata, RegistryOfficialExtensions
+from mcp_composer.core.models.catalog_common import (
+    RegistryListMetadata,
+    RegistryOfficialExtensions,
+)
 from mcp_composer.core.utils.catalog_validators import (
     require_non_empty_after_strip,
     validate_registry_version,
@@ -12,7 +15,9 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class PromptJSON(BaseModel):
-    model_config = ConfigDict(extra="forbid", populate_by_name=True, str_strip_whitespace=True)
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, str_strip_whitespace=True
+    )
 
     name: str
     description: str | None = None

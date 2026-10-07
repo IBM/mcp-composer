@@ -5,7 +5,10 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any
 
-from mcp_composer.core.models.catalog_common import RegistryListMetadata, RegistryOfficialExtensions
+from mcp_composer.core.models.catalog_common import (
+    RegistryListMetadata,
+    RegistryOfficialExtensions,
+)
 from mcp_composer.core.models.catalog_skill import SkillCatalogReference
 from mcp_composer.core.utils.catalog_validators import (
     require_non_empty_after_strip,
@@ -67,26 +70,36 @@ class ResourceDeploymentsMeta(BaseModel):
 
 
 class SkillRef(BaseModel):
-    model_config = ConfigDict(extra="forbid", populate_by_name=True, str_strip_whitespace=True)
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, str_strip_whitespace=True
+    )
 
     name: str
     image: str | None = None
     registry_url: str | None = Field(default=None, alias="registryURL")
     registry_skill_name: str | None = Field(default=None, alias="registrySkillName")
-    registry_skill_version: str | None = Field(default=None, alias="registrySkillVersion")
+    registry_skill_version: str | None = Field(
+        default=None, alias="registrySkillVersion"
+    )
 
 
 class PromptRef(BaseModel):
-    model_config = ConfigDict(extra="forbid", populate_by_name=True, str_strip_whitespace=True)
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, str_strip_whitespace=True
+    )
 
     name: str
     registry_url: str | None = Field(default=None, alias="registryURL")
     registry_prompt_name: str | None = Field(default=None, alias="registryPromptName")
-    registry_prompt_version: str | None = Field(default=None, alias="registryPromptVersion")
+    registry_prompt_version: str | None = Field(
+        default=None, alias="registryPromptVersion"
+    )
 
 
 class McpServerType(BaseModel):
-    model_config = ConfigDict(extra="forbid", populate_by_name=True, str_strip_whitespace=True)
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, str_strip_whitespace=True
+    )
 
     server_type: str = Field(..., alias="type")
     name: str
@@ -99,7 +112,9 @@ class McpServerType(BaseModel):
     headers: dict[str, str] | None = None
     registry_url: str | None = Field(default=None, alias="registryURL")
     registry_server_name: str | None = Field(default=None, alias="registryServerName")
-    registry_server_version: str | None = Field(default=None, alias="registryServerVersion")
+    registry_server_version: str | None = Field(
+        default=None, alias="registryServerVersion"
+    )
     registry_server_prefer_remote: bool | None = Field(
         default=None, alias="registryServerPreferRemote"
     )
@@ -117,7 +132,9 @@ class AgentJSON(BaseModel):
     ``extra="ignore"`` allows unknown agent card fields to pass through without error.
     """
 
-    model_config = ConfigDict(extra="ignore", populate_by_name=True, str_strip_whitespace=True)
+    model_config = ConfigDict(
+        extra="ignore", populate_by_name=True, str_strip_whitespace=True
+    )
 
     # ── required catalog fields ────────────────────────────────────────────────
     name: str
@@ -127,8 +144,12 @@ class AgentJSON(BaseModel):
     # ── A2A agent card fields (all optional — sourced from well-known endpoint) ─
     url: str | None = None
     capabilities: dict[str, Any] | None = None
-    default_input_modes: list[str] | None = Field(default=None, alias="defaultInputModes")
-    default_output_modes: list[str] | None = Field(default=None, alias="defaultOutputModes")
+    default_input_modes: list[str] | None = Field(
+        default=None, alias="defaultInputModes"
+    )
+    default_output_modes: list[str] | None = Field(
+        default=None, alias="defaultOutputModes"
+    )
     preferred_transport: str | None = Field(default=None, alias="preferredTransport")
     protocol_version: str | None = Field(default=None, alias="protocolVersion")
     provider: dict[str, Any] | None = None

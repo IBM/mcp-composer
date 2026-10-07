@@ -68,7 +68,9 @@ def get_catalog_db() -> CatalogDatabaseInterface:
         return CatalogLocalFileAdapter(root_path=root)
 
     # Default fallback: local files, no external service required
-    logger.info("Catalog DB factory → CatalogLocalFileAdapter (default fallback, root=%s)", root)
+    logger.info(
+        "Catalog DB factory → CatalogLocalFileAdapter (default fallback, root=%s)", root
+    )
     return CatalogLocalFileAdapter(root_path=root)
 
 

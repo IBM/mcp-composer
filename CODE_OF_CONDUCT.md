@@ -59,7 +59,7 @@ representative at an online or offline event.
 ## Enforcement
 
 Instances of abusive, harassing, or otherwise unacceptable behavior may be
-reported to the maintainer listed in [MAINTAINERS.md](MAINTAINERS.md).
+reported to a maintainer listed in the [README](README.md#project).
 Do not open a public issue for conduct reports.
 
 All complaints will be reviewed and investigated promptly and fairly.

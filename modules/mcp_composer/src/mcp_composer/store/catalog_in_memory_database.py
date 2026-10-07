@@ -103,9 +103,7 @@ class CatalogInMemoryDatabase(CatalogDatabaseInterface):
             "agent_card": (
                 copy.deepcopy(row["agent_card"])
                 if row.get("agent_card")
-                else copy.deepcopy(existing.get("agent_card"))
-                if existing
-                else None
+                else copy.deepcopy(existing.get("agent_card")) if existing else None
             ),
             "created_at": existing["created_at"] if existing else now,
             "updated_at": now,
@@ -120,7 +118,9 @@ class CatalogInMemoryDatabase(CatalogDatabaseInterface):
         row = self._store(kind).get((name, version))
         return copy.deepcopy(row) if row else None
 
-    async def get_resource_by_filter(self, kind: str, name: str, is_latest: bool) -> dict | None:
+    async def get_resource_by_filter(
+        self, kind: str, name: str, is_latest: bool
+    ) -> dict | None:
         """Return the first row matching name and is_latest flag, or None."""
         for row in self._store(kind).values():
             if row["name"] == name and row["is_latest"] == is_latest:
@@ -150,7 +150,8 @@ class CatalogInMemoryDatabase(CatalogDatabaseInterface):
             rows = [
                 r
                 for r in rows
-                if (r.get("official_meta", {}).get("status") or "active") == status_filter
+                if (r.get("official_meta", {}).get("status") or "active")
+                == status_filter
             ]
 
         if name_like:
@@ -165,7 +166,9 @@ class CatalogInMemoryDatabase(CatalogDatabaseInterface):
                 tags = [str(v).lower() for v in meta.get("tags", [])]
                 name_lower = r["name"].lower()
                 return any(
-                    kw in name_lower or any(kw in p for p in products) or any(kw in t for t in tags)
+                    kw in name_lower
+                    or any(kw in p for p in products)
+                    or any(kw in t for t in tags)
                     for kw in [k.lower() for k in keywords]
                 )
 
@@ -229,7 +232,10 @@ class CatalogInMemoryDatabase(CatalogDatabaseInterface):
             else:
                 labels.append(SKILL_CATALOG_UNCATEGORIZED)
         counts = Counter(labels)
-        out = [{"name": name, "skill_count": counts[name]} for name in sorted(counts.keys())]
+        out = [
+            {"name": name, "skill_count": counts[name]}
+            for name in sorted(counts.keys())
+        ]
         return out
 
     async def count_resource_versions(self, kind: str, name: str) -> int:
@@ -246,7 +252,9 @@ class CatalogInMemoryDatabase(CatalogDatabaseInterface):
             self._resource_content.pop((kind, name, version), None)
         store.pop((name, version), None)
 
-    async def update_resource_row(self, kind: str, name: str, version: str, fields: dict) -> None:
+    async def update_resource_row(
+        self, kind: str, name: str, version: str, fields: dict
+    ) -> None:
         """Patch the specified fields on the stored row; no-op for empty dict or missing row."""
         if not fields:
             return
@@ -267,17 +275,23 @@ class CatalogInMemoryDatabase(CatalogDatabaseInterface):
 
     # ── resource content methods ───────────────────────────────────────────────
 
-    async def get_resource_content(self, kind: str, name: str, version: str) -> str | None:
+    async def get_resource_content(
+        self, kind: str, name: str, version: str
+    ) -> str | None:
         """Return the raw content string for (kind, name, version), or None if absent."""
         return self._resource_content.get((kind, name, version))
 
-    async def save_resource_content(self, kind: str, name: str, version: str, content: str) -> None:
+    async def save_resource_content(
+        self, kind: str, name: str, version: str, content: str
+    ) -> None:
         """Store raw content for a catalog resource."""
         self._resource_content[(kind, name, version)] = content
 
     # ── resource metadata methods ──────────────────────────────────────────────
 
-    async def save_resource_metadata(self, resource_id: str, private_meta: dict) -> None:
+    async def save_resource_metadata(
+        self, resource_id: str, private_meta: dict
+    ) -> None:
         """Upsert private metadata for a catalog resource row."""
         self._resource_metadata[str(resource_id)] = copy.deepcopy(private_meta)
 

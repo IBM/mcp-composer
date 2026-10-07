@@ -32,11 +32,15 @@ class TestS3SpecLoading:
 
         # Mock S3 response
         mock_response = {
-            "Body": MagicMock(read=MagicMock(return_value=json.dumps(sample_spec).encode("utf-8")))
+            "Body": MagicMock(
+                read=MagicMock(return_value=json.dumps(sample_spec).encode("utf-8"))
+            )
         }
         mock_s3_client.get_object.return_value = mock_response
 
-        with patch.dict('sys.modules', {'boto3': mock_boto3, 'botocore.exceptions': MagicMock()}):
+        with patch.dict(
+            "sys.modules", {"boto3": mock_boto3, "botocore.exceptions": MagicMock()}
+        ):
             # Call the function
             result = await load_spec_from_url("https://api.example.com", s3_url)
 
@@ -52,7 +56,9 @@ class TestS3SpecLoading:
     @pytest.mark.asyncio
     async def test_s3_path_style_url_detection(self, sample_spec):
         """Test detection and parsing of S3 path-style URLs"""
-        s3_url = "https://s3.eu-west-1.amazonaws.com/my-specs/services/api/v1/openapi.json"
+        s3_url = (
+            "https://s3.eu-west-1.amazonaws.com/my-specs/services/api/v1/openapi.json"
+        )
 
         # Mock boto3 at import time
         mock_boto3 = MagicMock()
@@ -61,11 +67,15 @@ class TestS3SpecLoading:
 
         # Mock S3 response
         mock_response = {
-            "Body": MagicMock(read=MagicMock(return_value=json.dumps(sample_spec).encode("utf-8")))
+            "Body": MagicMock(
+                read=MagicMock(return_value=json.dumps(sample_spec).encode("utf-8"))
+            )
         }
         mock_s3_client.get_object.return_value = mock_response
 
-        with patch.dict('sys.modules', {'boto3': mock_boto3, 'botocore.exceptions': MagicMock()}):
+        with patch.dict(
+            "sys.modules", {"boto3": mock_boto3, "botocore.exceptions": MagicMock()}
+        ):
             # Call the function
             result = await load_spec_from_url("https://api.example.com", s3_url)
 
@@ -87,7 +97,9 @@ class TestS3SpecLoading:
         class MockClientError(Exception):
             def __init__(self, error_response, operation_name):
                 self.response = error_response
-                super().__init__(f"An error occurred ({error_response['Error']['Code']}) when calling the {operation_name} operation")
+                super().__init__(
+                    f"An error occurred ({error_response['Error']['Code']}) when calling the {operation_name} operation"
+                )
 
         # Mock boto3 and botocore with proper exception
         mock_boto3 = MagicMock()
@@ -95,7 +107,9 @@ class TestS3SpecLoading:
         mock_boto3.client.return_value = mock_s3_client
 
         error_response = {"Error": {"Code": "AccessDenied", "Message": "Access Denied"}}
-        mock_s3_client.get_object.side_effect = MockClientError(error_response, "GetObject")
+        mock_s3_client.get_object.side_effect = MockClientError(
+            error_response, "GetObject"
+        )
 
         # Create mock botocore module with ClientError
         mock_botocore_module = MagicMock()
@@ -103,7 +117,14 @@ class TestS3SpecLoading:
         mock_botocore_exceptions.ClientError = MockClientError
         mock_botocore_module.exceptions = mock_botocore_exceptions
 
-        with patch.dict('sys.modules', {'boto3': mock_boto3, 'botocore': mock_botocore_module, 'botocore.exceptions': mock_botocore_exceptions}):
+        with patch.dict(
+            "sys.modules",
+            {
+                "boto3": mock_boto3,
+                "botocore": mock_botocore_module,
+                "botocore.exceptions": mock_botocore_exceptions,
+            },
+        ):
             # Verify the error is raised with proper message
             with pytest.raises(ValueError) as exc_info:
                 await load_spec_from_url("https://api.example.com", s3_url)
@@ -120,15 +141,24 @@ class TestS3SpecLoading:
         class MockClientError(Exception):
             def __init__(self, error_response, operation_name):
                 self.response = error_response
-                super().__init__(f"An error occurred ({error_response['Error']['Code']}) when calling the {operation_name} operation")
+                super().__init__(
+                    f"An error occurred ({error_response['Error']['Code']}) when calling the {operation_name} operation"
+                )
 
         # Mock boto3 and botocore with proper exception
         mock_boto3 = MagicMock()
         mock_s3_client = MagicMock()
         mock_boto3.client.return_value = mock_s3_client
 
-        error_response = {"Error": {"Code": "NoSuchBucket", "Message": "The specified bucket does not exist"}}
-        mock_s3_client.get_object.side_effect = MockClientError(error_response, "GetObject")
+        error_response = {
+            "Error": {
+                "Code": "NoSuchBucket",
+                "Message": "The specified bucket does not exist",
+            }
+        }
+        mock_s3_client.get_object.side_effect = MockClientError(
+            error_response, "GetObject"
+        )
 
         # Create mock botocore module with ClientError
         mock_botocore_module = MagicMock()
@@ -136,7 +166,14 @@ class TestS3SpecLoading:
         mock_botocore_exceptions.ClientError = MockClientError
         mock_botocore_module.exceptions = mock_botocore_exceptions
 
-        with patch.dict('sys.modules', {'boto3': mock_boto3, 'botocore': mock_botocore_module, 'botocore.exceptions': mock_botocore_exceptions}):
+        with patch.dict(
+            "sys.modules",
+            {
+                "boto3": mock_boto3,
+                "botocore": mock_botocore_module,
+                "botocore.exceptions": mock_botocore_exceptions,
+            },
+        ):
             # Verify the error is raised with proper message
             with pytest.raises(ValueError) as exc_info:
                 await load_spec_from_url("https://api.example.com", s3_url)
@@ -152,7 +189,9 @@ class TestS3SpecLoading:
         class MockClientError(Exception):
             def __init__(self, error_response, operation_name):
                 self.response = error_response
-                super().__init__(f"An error occurred ({error_response['Error']['Code']}) when calling the {operation_name} operation")
+                super().__init__(
+                    f"An error occurred ({error_response['Error']['Code']}) when calling the {operation_name} operation"
+                )
 
         # Mock boto3
         mock_boto3 = MagicMock()
@@ -160,7 +199,9 @@ class TestS3SpecLoading:
         mock_boto3.client.return_value = mock_s3_client
 
         # Mock S3 response with invalid JSON
-        mock_response = {"Body": MagicMock(read=MagicMock(return_value=b"not valid json {"))}
+        mock_response = {
+            "Body": MagicMock(read=MagicMock(return_value=b"not valid json {"))
+        }
         mock_s3_client.get_object.return_value = mock_response
 
         # Create mock botocore module with ClientError
@@ -169,7 +210,14 @@ class TestS3SpecLoading:
         mock_botocore_exceptions.ClientError = MockClientError
         mock_botocore_module.exceptions = mock_botocore_exceptions
 
-        with patch.dict('sys.modules', {'boto3': mock_boto3, 'botocore': mock_botocore_module, 'botocore.exceptions': mock_botocore_exceptions}):
+        with patch.dict(
+            "sys.modules",
+            {
+                "boto3": mock_boto3,
+                "botocore": mock_botocore_module,
+                "botocore.exceptions": mock_botocore_exceptions,
+            },
+        ):
             # Verify the error is raised with proper message
             with pytest.raises(ValueError) as exc_info:
                 await load_spec_from_url("https://api.example.com", s3_url)
@@ -183,7 +231,7 @@ class TestS3SpecLoading:
         s3_url = "https://bucket-name.s3.us-east-1.amazonaws.com/spec.json"
 
         # Remove boto3 from sys.modules to simulate it not being installed
-        with patch.dict('sys.modules', {'boto3': None}):
+        with patch.dict("sys.modules", {"boto3": None}):
             with pytest.raises(ValueError) as exc_info:
                 await load_spec_from_url("https://api.example.com", s3_url)
 
@@ -204,9 +252,11 @@ class TestS3SpecLoading:
             # Create async context manager mock
             mock_client_instance = MagicMock()
             mock_client_instance.get = AsyncMock(return_value=mock_response)
-            
+
             # Setup context manager
-            mock_client_class.return_value.__aenter__ = AsyncMock(return_value=mock_client_instance)
+            mock_client_class.return_value.__aenter__ = AsyncMock(
+                return_value=mock_client_instance
+            )
             mock_client_class.return_value.__aexit__ = AsyncMock(return_value=None)
 
             # Call the function
@@ -230,9 +280,11 @@ class TestS3SpecLoading:
             # Create async context manager mock
             mock_client_instance = MagicMock()
             mock_client_instance.get = AsyncMock(return_value=mock_response)
-            
+
             # Setup context manager
-            mock_client_class.return_value.__aenter__ = AsyncMock(return_value=mock_client_instance)
+            mock_client_class.return_value.__aenter__ = AsyncMock(
+                return_value=mock_client_instance
+            )
             mock_client_class.return_value.__aexit__ = AsyncMock(return_value=None)
 
             # Call the function
@@ -254,11 +306,15 @@ class TestS3SpecLoading:
 
         # Mock S3 response
         mock_response = {
-            "Body": MagicMock(read=MagicMock(return_value=json.dumps(sample_spec).encode("utf-8")))
+            "Body": MagicMock(
+                read=MagicMock(return_value=json.dumps(sample_spec).encode("utf-8"))
+            )
         }
         mock_s3_client.get_object.return_value = mock_response
 
-        with patch.dict('sys.modules', {'boto3': mock_boto3, 'botocore.exceptions': MagicMock()}):
+        with patch.dict(
+            "sys.modules", {"boto3": mock_boto3, "botocore.exceptions": MagicMock()}
+        ):
             # Call the function
             result = await load_spec_from_url("https://api.example.com", s3_url)
 
@@ -271,7 +327,9 @@ class TestS3SpecLoading:
     @pytest.mark.asyncio
     async def test_s3_url_with_special_characters_in_key(self, sample_spec):
         """Test S3 URL with special characters in the key"""
-        s3_url = "https://bucket-name.s3.us-east-1.amazonaws.com/specs/api-v1.0_final.json"
+        s3_url = (
+            "https://bucket-name.s3.us-east-1.amazonaws.com/specs/api-v1.0_final.json"
+        )
 
         # Mock boto3
         mock_boto3 = MagicMock()
@@ -280,11 +338,15 @@ class TestS3SpecLoading:
 
         # Mock S3 response
         mock_response = {
-            "Body": MagicMock(read=MagicMock(return_value=json.dumps(sample_spec).encode("utf-8")))
+            "Body": MagicMock(
+                read=MagicMock(return_value=json.dumps(sample_spec).encode("utf-8"))
+            )
         }
         mock_s3_client.get_object.return_value = mock_response
 
-        with patch.dict('sys.modules', {'boto3': mock_boto3, 'botocore.exceptions': MagicMock()}):
+        with patch.dict(
+            "sys.modules", {"boto3": mock_boto3, "botocore.exceptions": MagicMock()}
+        ):
             # Call the function
             result = await load_spec_from_url("https://api.example.com", s3_url)
 
@@ -293,5 +355,6 @@ class TestS3SpecLoading:
                 Bucket="bucket-name", Key="specs/api-v1.0_final.json"
             )
             assert result == sample_spec
+
 
 # Made with Bob

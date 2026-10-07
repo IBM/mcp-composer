@@ -387,7 +387,9 @@ def test_error_sanitization_categorize_error():
     assert "unavailable" in msg.lower()
 
     # Validation errors
-    cat, msg, sugg = middleware._categorize_error(Exception("ValidationError: invalid input"))
+    cat, msg, sugg = middleware._categorize_error(
+        Exception("ValidationError: invalid input")
+    )
     assert cat == "validation"
     assert "invalid" in msg.lower()
 
@@ -406,12 +408,16 @@ def test_error_sanitization_sanitize_error_message():
     middleware = ErrorSanitizationMiddleware(track_statistics=False)
 
     # File paths
-    result = middleware._sanitize_error_message(Exception("Error in /home/user/secret.py"))
+    result = middleware._sanitize_error_message(
+        Exception("Error in /home/user/secret.py")
+    )
     assert "[path]" in result
     assert "/home/user" not in result
 
     # IP addresses
-    result = middleware._sanitize_error_message(Exception("Connection to 192.168.1.1 failed"))
+    result = middleware._sanitize_error_message(
+        Exception("Connection to 192.168.1.1 failed")
+    )
     assert "[ip]" in result
     assert "192.168.1.1" not in result
 

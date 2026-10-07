@@ -51,7 +51,7 @@ Think Composer (`think-composer`) exposes `sequential_thinking`. Catalog Compose
 | Contributing | [CONTRIBUTING.md](CONTRIBUTING.md) |
 | Security | [SECURITY.md](SECURITY.md) |
 | Code of conduct | [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) |
-| Maintainer | [Mansura Habiba](https://github.com/mansura-habiba) |
+| Maintainers | [Mansura Habiba](https://github.com/mansura-habiba), [Roy Derks](https://github.com/royderks), [Naveed Syed](https://github.com/NaveedSyed98), [Saravanan N](https://github.com/sarvan-nov14) |
 | Changelog | [CHANGELOG.md](CHANGELOG.md) |
 
 Report vulnerabilities privately. See [SECURITY.md](SECURITY.md).

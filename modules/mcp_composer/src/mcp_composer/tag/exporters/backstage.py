@@ -3,7 +3,6 @@ import os
 import json
 from ..models import TagReport
 
-
 BACKSTAGE_HEADER = """apiVersion: backstage.io/v1alpha1
 kind: Component
 metadata:

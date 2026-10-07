@@ -209,7 +209,9 @@ class TracingMiddleware(Middleware):
             tool_calls.add(1, {"tool": tool})
         if in_bytes:
             try:
-                in_bytes.record(len(json.dumps(args, default=str).encode("utf-8")), {"tool": tool})
+                in_bytes.record(
+                    len(json.dumps(args, default=str).encode("utf-8")), {"tool": tool}
+                )
             except Exception:
                 pass
 
@@ -222,7 +224,9 @@ class TracingMiddleware(Middleware):
 
             # Log session and context info
             session_id = ctx_get(context, "fastmcp_context.session_id", "session_id")
-            composer_name = ctx_get(context, "fastmcp_context.fastmcp.name", "composer_name")
+            composer_name = ctx_get(
+                context, "fastmcp_context.fastmcp.name", "composer_name"
+            )
             tenant_id = ctx_get(context, "tenant_id")
 
             logger.debug("Session ID: %s", session_id or "N/A")
@@ -251,7 +255,9 @@ class TracingMiddleware(Middleware):
                                 if cookie_header:
                                     # Show cookie names but redact values
                                     cookies = cookie_header.split(";")
-                                    cookie_names = [c.split("=")[0].strip() for c in cookies]
+                                    cookie_names = [
+                                        c.split("=")[0].strip() for c in cookies
+                                    ]
                                     logger.debug("  Cookies present: %s", cookie_names)
                                 else:
                                     logger.debug("  Cookies: Not present")
@@ -262,13 +268,18 @@ class TracingMiddleware(Middleware):
                                     logger.debug("  Grant Type: %s", grant_type)
 
                             # Log authenticated user info
-                            if hasattr(request, "state") and hasattr(request.state, "user"):
+                            if hasattr(request, "state") and hasattr(
+                                request.state, "user"
+                            ):
                                 user = request.state.user
                                 logger.debug("  Authenticated User:")
                                 if hasattr(user, "identity"):
                                     logger.debug("    Identity: %s", user.identity)
                                 if hasattr(user, "is_authenticated"):
-                                    logger.debug("    Is Authenticated: %s", user.is_authenticated)
+                                    logger.debug(
+                                        "    Is Authenticated: %s",
+                                        user.is_authenticated,
+                                    )
                                 if hasattr(user, "access_token"):
                                     token = user.access_token
                                     if len(token) > 20:
@@ -320,20 +331,32 @@ class TracingMiddleware(Middleware):
                             if hasattr(server_manager, "servers"):
                                 # Look for the server
                                 for srv_name, srv_obj in server_manager.servers.items():
-                                    if srv_name == server_prefix or srv_name.startswith(server_prefix):
-                                        logger.debug("  Member Server Found: %s", srv_name)
+                                    if (
+                                        srv_name == server_prefix
+                                        or srv_name.startswith(server_prefix)
+                                    ):
+                                        logger.debug(
+                                            "  Member Server Found: %s", srv_name
+                                        )
                                         if hasattr(srv_obj, "config"):
                                             config = srv_obj.config
                                             if isinstance(config, dict):
                                                 # Log endpoint/URL if available
                                                 endpoint = (
-                                                    config.get("url") or config.get("endpoint") or config.get("command")
+                                                    config.get("url")
+                                                    or config.get("endpoint")
+                                                    or config.get("command")
                                                 )
                                                 if endpoint:
-                                                    logger.debug("  Server Endpoint: %s", endpoint)
+                                                    logger.debug(
+                                                        "  Server Endpoint: %s",
+                                                        endpoint,
+                                                    )
                                                 transport = config.get("transport")
                                                 if transport:
-                                                    logger.debug("  Transport: %s", transport)
+                                                    logger.debug(
+                                                        "  Transport: %s", transport
+                                                    )
                                         break
                 except Exception as e:
                     logger.debug("Could not extract member server info: %s", e)
@@ -344,7 +367,9 @@ class TracingMiddleware(Middleware):
 
         start = time.time()
         span_cm = (
-            _TRACER.start_as_current_span(self._span_name("agent.tool", tool)) if self.enable_tracing else nullcontext()
+            _TRACER.start_as_current_span(self._span_name("agent.tool", tool))
+            if self.enable_tracing
+            else nullcontext()
         )
         span = None
 
@@ -374,13 +399,19 @@ class TracingMiddleware(Middleware):
 
                 result = await call_next(context)
 
-                if self.enable_tracing and self.trace_results_digest and span is not None:
+                if (
+                    self.enable_tracing
+                    and self.trace_results_digest
+                    and span is not None
+                ):
                     span.add_event(
                         "tool.output",
                         {
                             "sha256": _json_sha256(result),
                             **(
-                                {"size_bytes": len(json.dumps(result, default=str))} if self.trace_payload_sizes else {}
+                                {"size_bytes": len(json.dumps(result, default=str))}
+                                if self.trace_payload_sizes
+                                else {}
                             ),
                         },
                     )
@@ -397,15 +428,29 @@ class TracingMiddleware(Middleware):
                                 logger.debug("  Response Type: ToolResult")
                                 if isinstance(content, list):
                                     logger.debug("  Content Items: %d", len(content))
-                                    for idx, item in enumerate(content[:3]):  # First 3 items
+                                    for idx, item in enumerate(
+                                        content[:3]
+                                    ):  # First 3 items
                                         if hasattr(item, "type"):
-                                            logger.debug("    Item %d Type: %s", idx, item.type)
+                                            logger.debug(
+                                                "    Item %d Type: %s", idx, item.type
+                                            )
                                         if hasattr(item, "text"):
-                                            logger.debug("    Item %d Text: %s", idx, _truncate(item.text, 200))
+                                            logger.debug(
+                                                "    Item %d Text: %s",
+                                                idx,
+                                                _truncate(item.text, 200),
+                                            )
                                     if len(content) > 3:
-                                        logger.debug("    ... and %d more items", len(content) - 3)
+                                        logger.debug(
+                                            "    ... and %d more items",
+                                            len(content) - 3,
+                                        )
                                 else:
-                                    logger.debug("  Content: %s", _truncate(content, self.max_len))
+                                    logger.debug(
+                                        "  Content: %s",
+                                        _truncate(content, self.max_len),
+                                    )
 
                                 # Log if there's an error
                                 if hasattr(result, "isError") and result.isError:
@@ -415,13 +460,21 @@ class TracingMiddleware(Middleware):
                                 logger.debug("  Response Type: Raw")
                                 result_json = json.dumps(result, indent=2, default=str)
                                 if len(result_json) > self.max_len:
-                                    logger.debug("  Result (truncated):\n%s", result_json[: self.max_len])
-                                    logger.debug("  ... (+%d chars)", len(result_json) - self.max_len)
+                                    logger.debug(
+                                        "  Result (truncated):\n%s",
+                                        result_json[: self.max_len],
+                                    )
+                                    logger.debug(
+                                        "  ... (+%d chars)",
+                                        len(result_json) - self.max_len,
+                                    )
                                 else:
                                     logger.debug("  Result:\n%s", result_json)
                         except Exception as e:
                             logger.debug("Could not parse result details: %s", e)
-                            logger.debug("  Result: %s", _truncate(result, self.max_len))
+                            logger.debug(
+                                "  Result: %s", _truncate(result, self.max_len)
+                            )
 
                         logger.debug("✅ Tool execution successful")
                     else:
@@ -432,7 +485,9 @@ class TracingMiddleware(Middleware):
 
                 # Duration
                 if tool_duration:
-                    tool_duration.record(int((time.time() - start) * 1000), {"tool": tool})
+                    tool_duration.record(
+                        int((time.time() - start) * 1000), {"tool": tool}
+                    )
 
                 # Output size
                 if out_bytes:
@@ -475,11 +530,19 @@ class TracingMiddleware(Middleware):
 
             # Log context information
             session_id = ctx_get(context, "fastmcp_context.session_id", "session_id")
-            composer_name = ctx_get(context, "fastmcp_context.fastmcp.name", "composer_name")
+            composer_name = ctx_get(
+                context, "fastmcp_context.fastmcp.name", "composer_name"
+            )
             tenant_id = ctx_get(context, "tenant_id")
-            
-            logger.debug("Request: %s", ctx_get(context, "fastmcp_context.request_context.request"))
-            logger.debug("Request headers: %s", ctx_get(context, "fastmcp_context.request_context.request.headers"))
+
+            logger.debug(
+                "Request: %s",
+                ctx_get(context, "fastmcp_context.request_context.request"),
+            )
+            logger.debug(
+                "Request headers: %s",
+                ctx_get(context, "fastmcp_context.request_context.request.headers"),
+            )
             logger.debug("Session ID: %s", session_id or "N/A")
             logger.debug("Composer: %s", composer_name or "N/A")
             logger.debug("Tenant ID: %s", tenant_id or "N/A")
@@ -539,7 +602,9 @@ class TracingMiddleware(Middleware):
                             # Redact sensitive headers
                             if header_name.lower() in ["authorization", "cookie"]:
                                 if len(header_value) > 20:
-                                    redacted = f"{header_value[:10]}...{header_value[-10:]}"
+                                    redacted = (
+                                        f"{header_value[:10]}...{header_value[-10:]}"
+                                    )
                                 else:
                                     redacted = "***REDACTED***"
                                 logger.debug("  %s: %s", header_name, redacted)
@@ -574,7 +639,9 @@ class TracingMiddleware(Middleware):
             logger.debug("-" * 80)
 
         span_cm = (
-            _TRACER.start_as_current_span(self._span_name("mcp.list.tools")) if self.enable_tracing else nullcontext()
+            _TRACER.start_as_current_span(self._span_name("mcp.list.tools"))
+            if self.enable_tracing
+            else nullcontext()
         )
 
         with span_cm as span:

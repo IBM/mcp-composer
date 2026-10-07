@@ -668,7 +668,10 @@ def test_is_iam_enabled_for_server_solis_config_iam_false():
     """Member has solis_config but isIamEnabled false -> False."""
     manager = ServerManager()
     mock_member = MagicMock()
-    mock_member.config = {"id": "srv1", "solis_config": {"product_id": "gi", "isIamEnabled": False}}
+    mock_member.config = {
+        "id": "srv1",
+        "solis_config": {"product_id": "gi", "isIamEnabled": False},
+    }
     manager._member_servers["srv1"] = mock_member
     assert manager.is_iam_enabled_for_server("srv1") is False
 
@@ -677,7 +680,10 @@ def test_is_iam_enabled_for_server_solis_config_iam_true():
     """Member has solis_config.isIamEnabled true -> True."""
     manager = ServerManager()
     mock_member = MagicMock()
-    mock_member.config = {"id": "srv1", "solis_config": {"product_id": "gi", "isIamEnabled": True}}
+    mock_member.config = {
+        "id": "srv1",
+        "solis_config": {"product_id": "gi", "isIamEnabled": True},
+    }
     manager._member_servers["srv1"] = mock_member
     assert manager.is_iam_enabled_for_server("srv1") is True
 

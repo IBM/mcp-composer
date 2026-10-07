@@ -4,7 +4,10 @@ from __future__ import annotations
 
 from typing import Any
 
-from mcp_composer.core.models.catalog_common import RegistryListMetadata, RegistryOfficialExtensions
+from mcp_composer.core.models.catalog_common import (
+    RegistryListMetadata,
+    RegistryOfficialExtensions,
+)
 from mcp_composer.core.utils.catalog_validators import (
     require_non_empty_after_strip,
     validate_agentskills_compatibility,
@@ -27,7 +30,9 @@ class SkillRepository(BaseModel):
 class SkillCatalogReference(BaseModel):
     """URL + relative file name for a bundled artifact (same shape as ``_meta.metadata.references``)."""
 
-    model_config = ConfigDict(extra="forbid", populate_by_name=True, str_strip_whitespace=True)
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, str_strip_whitespace=True
+    )
 
     url: str
     file: str
@@ -86,7 +91,9 @@ class SkillJSON(BaseModel):
     alongside other discovery metadata (title, category, products, tags).
     """
 
-    model_config = ConfigDict(extra="forbid", populate_by_name=True, str_strip_whitespace=True)
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, str_strip_whitespace=True
+    )
 
     # ------------------------------------------------------------------ required
     name: str

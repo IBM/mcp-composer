@@ -101,7 +101,6 @@ async def composite_update_file_and_pr(
 
         client = _get_github_client(base_url=base_url)
         repo = client.get_repo(repo_name)
-        base_branch = repo.default_branch
 
         # Step 1: Get current file content and SHA
         contents = repo.get_contents(file_path, ref=branch_name)
