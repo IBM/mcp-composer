@@ -149,7 +149,7 @@ Auto-generate tools from OpenAPI spec using `add_tools_from_openapi()`
 openapi_spec = {
   "openapi": "3.0.1",
   "info": {
-    "title": "IBM Concert API v1.1.0",
+    "title": "Example API",
     "version": "1.1.0",
     ...
     ...
@@ -173,4 +173,4 @@ await composer.add_tools_from_openapi(
 
 ## 🗂️ Where Are These Tools Stored?
 
-Currently, all dynamically created tools are stored in a **custom tools folder** within the MCP Composer. However, there's a roadmap to move this storage to **databases or S3** for better scalability and management.
+Dynamically created tools are stored with the composer configuration.

@@ -73,7 +73,7 @@ class DynamicTokenClient(httpx.AsyncClient):
             auth_data.get("auth_prefix", "Bearer") if auth_data else "Bearer"
         )
         self._refresh_token_value = (
-            resolve_env_value(auth_data.get(ConfigKey.REFRESH_TOKEN))
+            resolve_env_value(auth_data.get(ConfigKey.OAUTH_REFRESH))
             if auth_data
             else None
         )
@@ -104,12 +104,10 @@ class DynamicTokenClient(httpx.AsyncClient):
                 raise ValueError("token_url must be provided in auth_data.")
 
             # OAuth: client_id + client_secret (+ optional refresh_token)
-            client_id = resolve_env_value(self.auth_data.get(ConfigKey.CLIENT_ID))
-            client_secret = resolve_env_value(
-                self.auth_data.get(ConfigKey.CLIENT_SECRET)
-            )
+            client_id = resolve_env_value(self.auth_data.get(ConfigKey.OAUTH_CLIENT))
+            client_secret = resolve_env_value(self.auth_data.get(ConfigKey.OAUTH_PROOF))
             refresh_token_value = (
-                resolve_env_value(self.auth_data.get(ConfigKey.REFRESH_TOKEN))
+                resolve_env_value(self.auth_data.get(ConfigKey.OAUTH_REFRESH))
                 or self._refresh_token_value
             )
             if client_id and client_secret:
@@ -160,9 +158,7 @@ class DynamicTokenClient(httpx.AsyncClient):
             apikey = resolve_env_value(self.auth_data.get(ConfigKey.APIKEY, None))
             scope = self.auth_data.get(ConfigKey.SCOPE, None)
             server = self.auth_data.get(ConfigKey.SERVER, "").lower()
-            auth_generation_method = self.auth_data.get(
-                ConfigKey.TOKEN_GEN_AUTH_METHOD, ""
-            )
+            auth_generation_method = self.auth_data.get(ConfigKey.GEN_AUTH, "")
 
             if not apikey and not (_id and _secret):
                 raise ValueError(
@@ -206,7 +202,7 @@ class DynamicTokenClient(httpx.AsyncClient):
                 try:
                     auth = httpx.BasicAuth(str(_id), str(_secret))
                     if (
-                        self.auth_data.get(ConfigKey.TOKEN_GEN_METHOD, "get").lower()
+                        self.auth_data.get(ConfigKey.GEN_METHOD, "get").lower()
                         == "post"
                     ):
                         response = await super().post(

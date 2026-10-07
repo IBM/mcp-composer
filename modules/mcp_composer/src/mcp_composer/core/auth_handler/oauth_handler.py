@@ -104,7 +104,6 @@ async def get_access_token_client_credentials(
                 "Failed to get access token via client_credentials"
             ) from exc
 
-
     token_payload = response.json()
     access_token = token_payload.get("access_token") or token_payload.get("id_token")
     if not access_token:
@@ -131,12 +130,12 @@ async def build_oauth_client(
         the actual token will be read from that environment variable.
     """
     # Accept both naming styles
-    client_id = resolve_env_value(auth_config.get(ConfigKey.CLIENT_ID))
-    client_secret = resolve_env_value(auth_config.get(ConfigKey.CLIENT_SECRET))
+    client_id = resolve_env_value(auth_config.get(ConfigKey.OAUTH_CLIENT))
+    client_secret = resolve_env_value(auth_config.get(ConfigKey.OAUTH_PROOF))
     token_url = resolve_env_value(auth_config.get(ConfigKey.Token_URL))
     scope = auth_config.get(ConfigKey.SCOPE)
 
-    refresh_token_value = resolve_env_value(auth_config.get(ConfigKey.REFRESH_TOKEN))
+    refresh_token_value = resolve_env_value(auth_config.get(ConfigKey.OAUTH_REFRESH))
 
     if not all([client_id, client_secret, token_url, refresh_token_value]):
         raise RuntimeError(

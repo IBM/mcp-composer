@@ -174,7 +174,7 @@ mcp-composer --mode sse --endpoint http://localhost:8001/sse
 # With OAuth authentication
 mcp-composer --mode sse --auth-type oauth --host localhost --port 9000
 
-# With comprehensive OAuth configuration (W3 IBM OAuth)
+# With OAuth configuration
 mcp-composer --mode http \
   --host localhost \
   --port 9000 \
@@ -184,7 +184,7 @@ mcp-composer --mode http \
   --env OAUTH_HOST localhost \
   --env OAUTH_PORT 9000 \
   --env OAUTH_SERVER_URL http://localhost:9000 \
-  --env OAUTH_CALLBACK_PATH http://localhost:9000/auth/idaas/callback \
+  --env OAUTH_CALLBACK_PATH http://localhost:9000/callback \
   --env OAUTH_CLIENT_ID your_client_id \
   --env OAUTH_CLIENT_SECRET your_client_secret \
   --env OAUTH_AUTH_URL https://example.com/authorize \
@@ -848,9 +848,9 @@ mcp-composer composer restart --mode sse --auth-type oauth --port 9000
 mcp-composer --mode http --auth-type oauth --host localhost --port 9000
 ```
 
-### W3 IBM OAuth Configuration
+### OAuth configuration
 
-For IBM W3 OAuth integration, use the following comprehensive configuration:
+For an OAuth identity provider, use the following configuration:
 
 ```bash
 mcp-composer --mode http \
@@ -862,7 +862,7 @@ mcp-composer --mode http \
   --env OAUTH_HOST=localhost \
   --env OAUTH_PORT=9000 \
   --env OAUTH_SERVER_URL=http://localhost:9000 \
-  --env OAUTH_CALLBACK_PATH=http://localhost:9000/auth/idaas/callback \
+  --env OAUTH_CALLBACK_PATH=http://localhost:9000/callback \
   --env OAUTH_CLIENT_ID=your_client_id \
   --env OAUTH_CLIENT_SECRET=your_client_secret \
   --env OAUTH_AUTH_URL=https://example.com/authorize \
@@ -879,7 +879,7 @@ mcp-composer --mode http \
 | `OAUTH_HOST` | OAuth server host | `localhost` |
 | `OAUTH_PORT` | OAuth server port | `9000` |
 | `OAUTH_SERVER_URL` | Base URL for OAuth server | `http://localhost:9000` |
-| `OAUTH_CALLBACK_PATH` | OAuth callback URL path | `http://localhost:9000/auth/idaas/callback` |
+| `OAUTH_CALLBACK_PATH` | OAuth callback URL path | `http://localhost:9000/callback` |
 | `OAUTH_CLIENT_ID` | OAuth client ID | `your_client_id` |
 | `OAUTH_CLIENT_SECRET` | OAuth client secret | `your_client_secret` |
 | `OAUTH_AUTH_URL` | OAuth authorization endpoint | `https://provider.com/oauth/authorize` |
@@ -1107,7 +1107,7 @@ mcp-composer run --mode http --auth-type oauth --env ENABLE_OAUTH=True --env OAU
 mcp-composer composer logs --port 9000 --lines 50
 
 # Test OAuth callback URL
-curl -I http://localhost:9000/auth/idaas/callback
+curl -I http://localhost:9000/callback
 ```
 
 #### 5. Configuration Validation Errors

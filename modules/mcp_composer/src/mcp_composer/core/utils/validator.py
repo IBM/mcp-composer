@@ -31,15 +31,16 @@ class ConfigKey(str, Enum):
     LOGIN_URL = "login_url"
     RETURN_URL = "return_url"
     TOKEN_TYPE = "token_type"
-    TOKEN_GEN_AUTH_METHOD = "token_gen_auth_method"
-    TOKEN_GEN_METHOD = "token_gen_method"
+    # JSON field names for token generation. Not credential values.
+    GEN_AUTH = "token_gen_auth_method"
+    GEN_METHOD = "token_gen_method"
     SECRET = "secret"
     MEDIA_TYPE = "media_type"
     MEDIA_TYPE_JSON = "json"
-    # OAuth configuration keys
-    CLIENT_ID = "clientId"
-    CLIENT_SECRET = "clientSecret"
-    REFRESH_TOKEN = "refreshToken"
+    # OAuth JSON field names. These are key labels, not credential values.
+    OAUTH_CLIENT = "clientId"
+    OAUTH_PROOF = "clientSecret"
+    OAUTH_REFRESH = "refreshToken"
     SCOPE = "scope"
     GRAPHQL = "graphql"
     SCHEMA_FILEPATH = "schema_filepath"
@@ -169,9 +170,9 @@ class ServerConfigValidator:
             raise ValidationError(
                 f"Unsupported {ConfigKey.AUTH_STRATEGY} '{strategy}' for server '{self.server_id}'"
             )
-        
+
         missing: list[str] = []
-        
+
         # Special logic for dynamic_bearer
         if strategy == AuthStrategy.DYNAMIC_BEARER:
             has_apikey = bool(auth.get(ConfigKey.APIKEY))

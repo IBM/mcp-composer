@@ -113,24 +113,6 @@ app.add_middleware(YetAnotherMiddleware())
 
 MCP Composer provides several built-in middleware components for common use cases.
 
-### Auth Context Middleware
-
-Extracts authentication information from incoming requests (ISV token, platform cookies, user instances) and makes it available to member server tools via context variables. Automatically forwards these as headers to downstream API calls.
-
-See [Auth Context Middleware Guide](auth-context-middleware.md) for full documentation, header examples, and user instances format.
-
-```python
-from mcp_composer.middleware.auth_context_middleware import AuthContextMiddleware, REQUEST_CONTEXT_KEY
-
-composer.add_middleware(
-    AuthContextMiddleware(
-        forward_cookies=["mcsp-glb-iam-test", REQUEST_CONTEXT_KEY],
-        add_isv_token=True,
-        add_cookie_header=True,
-    )
-)
-```
-
 ### Circuit Breaker Middleware
 
 Prevents cascading failures by temporarily stopping calls to failing services.

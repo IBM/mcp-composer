@@ -421,7 +421,7 @@ No migration. Rollback = revert deploy.
 
 ## 14. Rollout Plan
 
-1. Internal / test Composer with large member APIs & Aspera layered members
+1. A test composer with large member APIs and layered OpenAPI servers
 2. Watch truncation + tool-call success
 3. GA as default layered contract (no feature flag in v1)
 

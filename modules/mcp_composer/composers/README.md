@@ -25,13 +25,21 @@ Environment:
 
 HTTP and SSE modes bind `127.0.0.1` by default. Use the CLI with `--auth-type oauth` when binding a non-loopback host.
 
-## Thinker Composer
+## Think Composer
 
-Specialized composer with sequential thinking and deep research tools.
+Sequential thinking process. The server name is `think-composer`. It registers `sequential_thinking`, hides the generic management tools, and still mounts member servers from the usual config. HTTP and SSE bind `127.0.0.1`.
 
 ```bash
-uv run composers/thinker_composer.py
+uv run composers/think_composer.py
 ```
+
+`composers/thinker_composer.py` starts the same process.
+
+| Variable | Default | Purpose |
+|----------|---------|---------|
+| `MCP_MODE` | `http` | `http`, `sse`, or `stdio` |
+| `MCP_HOST` | `127.0.0.1` | Loopback name only |
+| `MCP_PORT` | `9000` | Listen port |
 
 ## Generic CLI
 

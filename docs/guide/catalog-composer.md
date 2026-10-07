@@ -6,10 +6,10 @@ This guide explains how to run and use the catalog-focused composer at `modules/
 - skill catalog MCP
 - agent catalog MCP
 - workflow catalog MCP
-- scheduled-tasks MCP (optional; Langflow cron schedules — see [Schedule management](./schedule-management.md))
+- scheduled-tasks MCP (optional; off unless `MCP_ENABLE_SCHEDULED_TASKS_MCP=true`)
 - startup skill loader refresh loop
 
-Use this when you need catalog management without Solis ISV auth/doc-search middleware.
+Use this when you only need the catalog tools.
 
 ## 1) How to Use the Catalog Feature
 
@@ -46,7 +46,7 @@ python composers/catalog_composer.py
 - `MCP_ENABLE_SKILL_CATALOG_MCP`: `true|false` (default `true`)
 - `MCP_ENABLE_AGENT_CATALOG_MCP`: `true|false` (default `true`)
 - `MCP_ENABLE_WORKFLOW_CATALOG_MCP`: `true|false` (default `true`)
-- `MCP_ENABLE_SCHEDULED_TASKS_MCP`: `true|false` (default `false`) — requires Redis; see [Schedule management](./schedule-management.md)
+- `MCP_ENABLE_SCHEDULED_TASKS_MCP`: `true|false` (default `false`) — requires Redis when enabled
 - `SCHEDULED_TASKS_REDIS_URL`: Redis URL for schedules (default `redis://localhost:6379/0`)
 
 Optional startup skill loader controls:

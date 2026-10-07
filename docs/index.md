@@ -23,10 +23,10 @@ features:
     details: Expose all tools across registered servers through a single, unified MCP-compliant interface with automatic request forwarding.
   - icon: 🏥
     title: Health Monitoring
-    details: Built-in health monitoring and status tracking for all member servers with automatic failover and recovery.
+    details: Built-in health checks for member servers.
   - icon: 🛠️
     title: CLI & API
-    details: Launch via CLI or integrate via API. Support for both HTTP and stdio modes with flexible configuration options.
+    details: Launch with the CLI. Clients connect over MCP using stdio, HTTP, or SSE.
   - icon: 🤖
     title: MCP Clients
     details: Connect any MCP client, including MCP Inspector, over stdio, HTTP, or SSE. 

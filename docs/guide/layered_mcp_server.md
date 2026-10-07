@@ -70,7 +70,7 @@ This document explains the step-by-step process of how MCP Composer processes Op
   "id": "mcp-hybrid-mesh",
   "type": "openapi",
   "open_api": {
-    "endpoint": "https://app.hybridcloudmesh.ibm.com/api/v1",
+    "endpoint": "https://api.example.com/v1",
     "spec_filepath": "./spec/hybrid_mesh.json",
     "orges": true,
     "custom_routes": [

@@ -1,0 +1,15 @@
+[
+  {
+    "id": "example-http-server",
+    "type": "http",
+    "endpoint": "https://example.com/mcp"
+  },
+  {
+    "id": "mcp-countries",
+    "type": "graphql",
+    "graphql": {
+      "endpoint": "https://countries.trevorblades.com/",
+      "schema_filepath": "example/graphql-to-mcp/countries.graphql"
+    }
+  }
+]

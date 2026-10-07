@@ -355,7 +355,7 @@ Principles reflected in code:
 | **Tool policy** | Composer-side **policy / ACL** (see [Policy Based ACL](./policy-acl.md)), middleware, and agent-level **`MCP_COMPOSER_ALLOWED_TOOLS`** intersect with Skill `allowed-tools` where configured. |
 | **Lifecycle** | `status` transitions (`update_skill_status`) support deprecation and controlled retirement without deleting history immediately. |
 
-**Enterprise note**: Hardening also depends on **deployment** (network egress for reference URLs, Vault-backed credentials for upstream MCP, audit logging)—see roadmap and operational guides rather than only the Skill JSON.
+**Deployment note**: egress for reference URLs, credential storage, and audit logging are deployment concerns. They are not fields in the Skill JSON.
 
 ---
 
@@ -366,13 +366,13 @@ Principles reflected in code:
 | **Backend / orchestration** | Primary: catalog storage, MCP tools/resources, tenant filtering, progressive disclosure, agent `SkillRef` wiring. |
 | **Agent / IDE** | Primary consumer: loads instructions and discovers tools by name. |
 | **UI** | **`metadata.title`**, **`category`**, **`products`**, **`tags`** support listing and routing UIs; not a separate UI protocol today. |
-| **Workflow products** | Roadmap items include **Langflow** integration and Sidekick-style orchestration—Skills complement **MCP tool catalogs** there as **semantic overlays**, not replacements for Langflow nodes. |
+| **Workflow products** | Skills describe tools and instructions. They do not replace a workflow engine. |
 
 So: Skills are **not only** backend artifacts—they are **agent- and UI-adjacent** through metadata—but **there is no distinct “Skill UI schema”** beyond registry fields and MCP resources.
 
 ---
 
-## 9. Reference implementations and roadmap
+## 9. Reference implementations
 
 ### 9.1 In this repository
 
@@ -390,11 +390,7 @@ So: Skills are **not only** backend artifacts—they are **agent- and UI-adjacen
 - **[agentskills.io](https://agentskills.io)** — base Skill document shape.
 - **Agentregistry extensions** — official extensions block, `remotes`, repository fields, list pagination metadata.
 
-### 9.3 Roadmap (high level)
-
-See [Roadmap](./roadmap.md): multi-tenancy, policy-aware RBAC, middleware plugins, Langflow integration. **Enterprise-grade** deployments combine those platform features with **catalog governance** (publish audits, tenant boundaries, secret stores, egress controls)—not a separate “Skill runtime” product in-tree today.
-
-### 9.4 Cursor-style repo Skills vs. catalog Skills
+### 9.3 Cursor-style repo Skills vs. catalog Skills
 
 **Cursor Agent Skills** (e.g. `.cursor/skills/**/SKILL.md`) are **local developer ergonomics** for this repo. **Catalog Skills** are **central registry records** with versioning, tenancy, MCP exposure, and optional DB-backed `SKILL.md` content. Conceptually similar (**instructions + metadata**), different **distribution and lifecycle**.
 
@@ -411,6 +407,6 @@ See [Roadmap](./roadmap.md): multi-tenancy, policy-aware RBAC, middleware plugin
 7. **Schema**: **`SkillJSON`** + **`SkillResponse`** (`skill` + `_meta`); versioning per semver row; instructions bounded at publish.
 8. **Discovery**: MCP tools + **`skill://`** resources + DB indexes for keywords/tags/products.
 9. **Security**: Split public/private metadata, HTTPS-only reference fetch, tenant lists, policy middleware—plus organizational controls outside the JSON.
-10. **UI/workflows**: Metadata supports discoverability; orchestration integrations (e.g. Langflow) are roadmap-aligned companions to MCP tools.
+10. **UI/workflows**: Metadata supports discoverability. A workflow engine is a separate system.
 
 For operational catalog scanning and tool tagging (Backstage export path, not the runtime DB), see [Catalog and Tool Tagging](./catalog-and-tool-tagging.md).

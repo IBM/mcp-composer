@@ -2,9 +2,12 @@
 
 import asyncio
 import importlib.util
+import inspect
 import json
+import keyword
 import os
 import re
+import string
 import subprocess
 from typing import Any, Callable
 
@@ -67,43 +70,45 @@ async def load_spec_from_url(base_url, openapi_spec_url):
     """
     Load JSON spec from URL or S3.
     Automatically detects S3 URLs and uses boto3 for authenticated access.
-    
+
     Supports two S3 URL formats:
     1. Virtual-hosted style: https://bucket-name.s3.region.amazonaws.com/path/to/file.json
     2. Path-style: https://s3.region.amazonaws.com/bucket-name/path/to/file.json
-    
+
     Args:
         base_url: Base URL for the API endpoint
         openapi_spec_url: URL to the OpenAPI spec (HTTP/HTTPS or S3)
-        
+
     Returns:
         dict: Parsed JSON specification
-        
+
     Raises:
         ValueError: If S3 access fails or JSON is invalid
         httpx.HTTPStatusError: If HTTP request fails
     """
     logger.info("Loading OpenAPI spec from: %s", openapi_spec_url)
-    
+
     # Check if URL is an S3 URL (virtual-hosted style)
-    s3_virtual_pattern = r'https://([^.]+)\.s3\.([^.]+)\.amazonaws\.com/(.+)'
+    s3_virtual_pattern = r"https://([^.]+)\.s3\.([^.]+)\.amazonaws\.com/(.+)"
     s3_virtual_match = re.match(s3_virtual_pattern, openapi_spec_url)
-    
+
     # Check if URL is an S3 URL (path-style)
-    s3_path_pattern = r'https://s3\.([^.]+)\.amazonaws\.com/([^/]+)/(.+)'
+    s3_path_pattern = r"https://s3\.([^.]+)\.amazonaws\.com/([^/]+)/(.+)"
     s3_path_match = re.match(s3_path_pattern, openapi_spec_url)
-    
+
     if s3_virtual_match or s3_path_match:
         # Import boto3 only when needed (optional dependency)
         try:
             import boto3
             from botocore.exceptions import ClientError
         except ImportError as e:
-            logger.error("boto3 is required for S3 URL support. Install with: pip install mcp-composer[aws]")
+            logger.error(
+                "boto3 is required for S3 URL support. Install with: pip install mcp-composer[aws]"
+            )
             raise ValueError(
                 "boto3 is not installed. Install with: pip install mcp-composer[aws]"
             ) from e
-        
+
         # Extract bucket, region, and key based on URL format
         if s3_virtual_match:
             bucket = s3_virtual_match.group(1)
@@ -111,7 +116,9 @@ async def load_spec_from_url(base_url, openapi_spec_url):
             key = s3_virtual_match.group(3)
             logger.info(
                 "Detected S3 virtual-hosted style URL - bucket: %s, region: %s, key: %s",
-                bucket, region, key
+                bucket,
+                region,
+                key,
             )
         elif s3_path_match:
             region = s3_path_match.group(1)
@@ -119,36 +126,50 @@ async def load_spec_from_url(base_url, openapi_spec_url):
             key = s3_path_match.group(3)
             logger.info(
                 "Detected S3 path-style URL - bucket: %s, region: %s, key: %s",
-                bucket, region, key
+                bucket,
+                region,
+                key,
             )
         else:
             # This should never happen due to the outer if condition, but added for type safety
             raise ValueError(f"Failed to parse S3 URL: {openapi_spec_url}")
-        
+
         try:
-            s3_client = boto3.client('s3', region_name=region)
+            s3_client = boto3.client("s3", region_name=region)
             response = s3_client.get_object(Bucket=bucket, Key=key)
-            spec_content = response['Body'].read().decode('utf-8')
+            spec_content = response["Body"].read().decode("utf-8")
             spec = json.loads(spec_content)
-            logger.info("Successfully loaded OpenAPI spec from S3: s3://%s/%s", bucket, key)
+            logger.info(
+                "Successfully loaded OpenAPI spec from S3: s3://%s/%s", bucket, key
+            )
             return spec
         except ClientError as e:
-            error_code = e.response['Error']['Code']
-            error_message = e.response['Error'].get('Message', 'Unknown error')
+            error_code = e.response["Error"]["Code"]
+            error_message = e.response["Error"].get("Message", "Unknown error")
             logger.error(
                 "Failed to load spec from S3 (s3://%s/%s): %s - %s",
-                bucket, key, error_code, error_message
+                bucket,
+                key,
+                error_code,
+                error_message,
             )
             raise ValueError(
                 f"Cannot load OpenAPI spec from S3 (s3://{bucket}/{key}): {error_code} - {error_message}"
             ) from e
         except json.JSONDecodeError as e:
-            logger.error("Invalid JSON in S3 object (s3://%s/%s): %s", bucket, key, str(e))
+            logger.error(
+                "Invalid JSON in S3 object (s3://%s/%s): %s", bucket, key, str(e)
+            )
             raise ValueError(
                 f"Invalid JSON in OpenAPI spec from S3 (s3://{bucket}/{key})"
             ) from e
         except Exception as e:
-            logger.error("Unexpected error loading spec from S3 (s3://%s/%s): %s", bucket, key, str(e))
+            logger.error(
+                "Unexpected error loading spec from S3 (s3://%s/%s): %s",
+                bucket,
+                key,
+                str(e),
+            )
             raise ValueError(
                 f"Unexpected error loading OpenAPI spec from S3 (s3://{bucket}/{key}): {str(e)}"
             ) from e
@@ -373,31 +394,79 @@ def save_to_json(data: dict[str, Any], filename: str) -> bool:
         return False
 
 
+_PROMPT_ARG_NAME = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
+
+
+class _PromptFormatter(string.Formatter):
+    """Substitute named arguments only. Reject attribute and index access."""
+
+    def __init__(self, allowed: set[str]) -> None:
+        self._allowed = allowed
+
+    def get_field(self, field_name: str, args: Any, kwargs: Any) -> tuple[Any, str]:
+        if field_name not in self._allowed:
+            raise KeyError(field_name)
+        return kwargs[field_name], field_name
+
+    def convert_field(self, value: Any, conversion: str | None) -> Any:
+        if conversion is not None:
+            raise ValueError("Format conversions are not allowed in prompt templates")
+        return value
+
+    def format_field(self, value: Any, format_spec: str) -> str:
+        if format_spec:
+            raise ValueError(
+                "Format specifications are not allowed in prompt templates"
+            )
+        return format(value, "")
+
+
+def _render_prompt_template(template: str, values: dict[str, Any]) -> str:
+    """Fill a prompt template. The template is data, never source."""
+    try:
+        return _PromptFormatter(set(values)).format(template, **values)
+    except KeyError as exc:
+        raise ValueError(f"Template references undefined argument: {exc}") from exc
+    except ValueError:
+        raise
+    except Exception as exc:
+        raise ValueError(f"Error formatting template: {exc}") from exc
+
+
 def _create_prompt_function(template: str, arguments: list[Any]) -> Callable:
     """
-    Dynamically build a function for the prompt using provided template and arguments.
+    Build a prompt callable that substitutes argument values into ``template``.
+
+    The template is kept as a string. It is not interpolated into source and
+    it is not passed to ``exec``.
     """
+    if not isinstance(template, str):
+        raise ValueError("Prompt template must be a string")
     if not arguments:
         return lambda: template
 
     arg_names = _extract_argument_names(arguments)
-    param_list = ", ".join(arg_names)
-    format_args = ", ".join([f"{name}={name}" for name in arg_names])
 
-    func_code = f"""
-def prompt_fn({param_list}):
-    template = \"\"\"{template}\"\"\"
-    try:
-        return template.format({format_args})
-    except KeyError as e:
-        raise ValueError(f"Template references undefined argument: {{e}}")
-    except Exception as e:
-        raise ValueError(f"Error formatting template: {{e}}")
-"""
+    def prompt_fn(*args: Any, **kwargs: Any) -> str:
+        if args and kwargs:
+            raise ValueError("Pass prompt arguments by name or by position")
+        if args:
+            if len(args) != len(arg_names):
+                raise ValueError(
+                    f"Expected {len(arg_names)} prompt arguments, got {len(args)}"
+                )
+            values = dict(zip(arg_names, args, strict=True))
+        else:
+            values = {name: kwargs[name] for name in arg_names}
+        return _render_prompt_template(template, values)
 
-    namespace: dict[str, Any] = {}
-    exec(func_code, namespace)
-    return namespace["prompt_fn"]
+    prompt_fn.__signature__ = inspect.Signature(  # type: ignore[attr-defined]
+        [
+            inspect.Parameter(name, inspect.Parameter.POSITIONAL_OR_KEYWORD)
+            for name in arg_names
+        ]
+    )
+    return prompt_fn
 
 
 def _extract_argument_names(arguments: list[Any]) -> list[str]:
@@ -409,11 +478,20 @@ def _extract_argument_names(arguments: list[Any]) -> list[str]:
         if isinstance(arg, dict):
             if "name" not in arg:
                 raise ValueError("Argument name is required")
-            arg_names.append(arg["name"])
+            name = arg["name"]
         elif isinstance(arg, str):
-            arg_names.append(arg)
+            name = arg
         else:
             raise ValueError(f"Invalid argument format: {arg}")
+        if (
+            not isinstance(name, str)
+            or keyword.iskeyword(name)
+            or not _PROMPT_ARG_NAME.fullmatch(name)
+        ):
+            raise ValueError(f"Invalid prompt argument name: {name}")
+        if name in arg_names:
+            raise ValueError(f"Duplicate prompt argument name: {name}")
+        arg_names.append(name)
     return arg_names
 
 

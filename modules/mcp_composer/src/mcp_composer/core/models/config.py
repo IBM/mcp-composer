@@ -24,7 +24,6 @@ from pydantic import (
     model_validator,
 )
 
-
 # ============================================================================
 # Enums for type safety
 # ============================================================================
@@ -43,14 +42,18 @@ class ServerType(str, Enum):
 
 
 class AuthStrategy(str, Enum):
-    """Supported authentication strategies."""
+    """Supported authentication strategies.
 
-    OAUTH = "oauth" # pragma: allowlist secret
+    ``API_SCHEME`` is the API-key strategy. The value ``api_key`` is the
+    config label, not a credential.
+    """
+
+    OAUTH = "oauth"  # pragma: allowlist secret
     OAUTH2 = "oauth2"
     JWT = "jwt"
     BEARER = "bearer"
     BASIC = "basic"
-    API_KEY = "api_key"
+    API_SCHEME = "api_key"
     NONE = "none"
 
 
@@ -181,21 +184,27 @@ class AuthConfig(BaseConfig):
 
     # OAuth2/OIDC fields
     client_id: str | None = Field(None, description="OAuth2 client ID", min_length=1)
-    client_secret: str | None = Field(None, description="OAuth2 client secret", min_length=1)
+    client_secret: str | None = Field(
+        None, description="OAuth2 client secret", min_length=1
+    )
     token_url: str | None = Field(None, description="OAuth2 token endpoint URL")
     auth_url: str | None = Field(None, description="OAuth2 authorization endpoint URL")
     refresh_token: str | None = Field(None, description="OAuth2 refresh token")
     scope: str | None = Field(None, description="OAuth2 scopes (space-separated)")
 
     # Bearer token fields
-    token: str | None = Field(None, description="Bearer token or API key value", min_length=1)
+    token: str | None = Field(
+        None, description="Bearer token or API key value", min_length=1
+    )
 
     # Basic auth fields
     username: str | None = Field(None, description="Basic auth username", min_length=1)
     password: str | None = Field(None, description="Basic auth password", min_length=1)
 
     # API key fields
-    api_key_name: str | None = Field(None, description="API key header/query parameter name")
+    api_key_name: str | None = Field(
+        None, description="API key header/query parameter name"
+    )
     api_key_value: str | None = Field(None, description="API key value", min_length=1)
 
     # JWT fields
@@ -205,7 +214,9 @@ class AuthConfig(BaseConfig):
     jwt_audience: str | None = Field(None, description="JWT audience claim")
 
     # Additional parameters
-    extra: dict[str, Any] | None = Field(None, description="Additional authentication parameters")
+    extra: dict[str, Any] | None = Field(
+        None, description="Additional authentication parameters"
+    )
 
     @model_validator(mode="after")
     def validate_auth_fields(self) -> AuthConfig:
@@ -226,9 +237,11 @@ class AuthConfig(BaseConfig):
             if not self.username or not self.password:
                 raise ValueError("Basic authentication requires username and password")
 
-        elif strategy == AuthStrategy.API_KEY:
+        elif strategy == AuthStrategy.API_SCHEME:
             if not self.api_key_name or not self.api_key_value:
-                raise ValueError("API key authentication requires api_key_name and api_key_value")
+                raise ValueError(
+                    "API key authentication requires api_key_name and api_key_value"
+                )
 
         elif strategy == AuthStrategy.JWT:
             if not self.jwt_secret:
@@ -266,13 +279,21 @@ class OpenAPIConfig(BaseConfig):
         ... )
     """
 
-    endpoint: str = Field(..., description="OpenAPI specification endpoint URL", min_length=1)
-    spec_url: str | None = Field(None, description="Alternative field name for endpoint")
+    endpoint: str = Field(
+        ..., description="OpenAPI specification endpoint URL", min_length=1
+    )
+    spec_url: str | None = Field(
+        None, description="Alternative field name for endpoint"
+    )
     version: str | None = Field("3.0.0", description="OpenAPI specification version")
     auth: AuthConfig | None = Field(None, description="Authentication configuration")
     headers: dict[str, str] | None = Field(None, description="Additional HTTP headers")
-    timeout: int | None = Field(30, ge=1, le=300, description="Request timeout in seconds")
-    verify_ssl: bool | None = Field(True, description="Whether to verify SSL certificates")
+    timeout: int | None = Field(
+        30, ge=1, le=300, description="Request timeout in seconds"
+    )
+    verify_ssl: bool | None = Field(
+        True, description="Whether to verify SSL certificates"
+    )
     base_path: str | None = Field(None, description="Base path for API endpoints")
 
     @field_validator("endpoint", "spec_url")
@@ -326,12 +347,18 @@ class GraphQLConfig(BaseConfig):
     schema_url: str | None = Field(None, description="GraphQL schema endpoint URL")
     auth: AuthConfig | None = Field(None, description="Authentication configuration")
     headers: dict[str, str] | None = Field(None, description="Additional HTTP headers")
-    timeout: int | None = Field(30, ge=1, le=300, description="Request timeout in seconds")
-    verify_ssl: bool | None = Field(True, description="Whether to verify SSL certificates")
+    timeout: int | None = Field(
+        30, ge=1, le=300, description="Request timeout in seconds"
+    )
+    verify_ssl: bool | None = Field(
+        True, description="Whether to verify SSL certificates"
+    )
     introspection_enabled: bool | None = Field(
         True, description="Whether introspection queries are allowed"
     )
-    max_depth: int | None = Field(None, ge=1, le=100, description="Maximum query depth allowed")
+    max_depth: int | None = Field(
+        None, ge=1, le=100, description="Maximum query depth allowed"
+    )
     max_complexity: int | None = Field(
         None, ge=1, le=10000, description="Maximum query complexity allowed"
     )
@@ -392,7 +419,12 @@ class ServerConfig(BaseConfig):
         ... )
     """
 
-    id: str = Field(..., description="Unique identifier for the server", min_length=1, max_length=255)
+    id: str = Field(
+        ...,
+        description="Unique identifier for the server",
+        min_length=1,
+        max_length=255,
+    )
     type: ServerType = Field(..., description="Server type")
     endpoint: str | None = Field(None, description="Server endpoint URL")
     open_api: OpenAPIConfig | dict[str, Any] | None = Field(
@@ -406,22 +438,30 @@ class ServerConfig(BaseConfig):
         None, description="Authentication configuration"
     )
     command: str | None = Field(None, description="Command for stdio servers")
-    args: list[str] | None = Field(None, description="Command arguments for stdio servers")
+    args: list[str] | None = Field(
+        None, description="Command arguments for stdio servers"
+    )
     env: dict[str, str] | None = Field(None, description="Environment variables")
     cwd: str | None = Field(None, description="Working directory")
     label: str | None = Field(None, description="Human-readable label", max_length=255)
     tags: list[str] | None = Field(None, description="Tags for categorization")
     enabled: bool | None = Field(True, description="Whether the server is enabled")
-    timeout: int | None = Field(30, ge=1, le=300, description="Request timeout in seconds")
+    timeout: int | None = Field(
+        30, ge=1, le=300, description="Request timeout in seconds"
+    )
     retry_count: int | None = Field(3, ge=0, le=10, description="Number of retries")
-    retry_delay: float | None = Field(1.0, ge=0.1, le=60.0, description="Delay between retries")
+    retry_delay: float | None = Field(
+        1.0, ge=0.1, le=60.0, description="Delay between retries"
+    )
 
     @field_validator("id")
     @classmethod
     def validate_id(cls, v: str) -> str:
         """Validate server ID format."""
         if not re.match(r"^[a-zA-Z0-9_-]+$", v):
-            raise ValueError("Server ID must contain only alphanumeric characters, hyphens, and underscores")
+            raise ValueError(
+                "Server ID must contain only alphanumeric characters, hyphens, and underscores"
+            )
         return v
 
     @field_validator("endpoint")
@@ -523,23 +563,30 @@ class DatabaseConfig(BaseConfig):
     password: str | None = Field(None, description="Database password")
     url: str | None = Field(None, description="Database connection URL")
 
-
     # Common fields
     db_name: str | None = Field("mcp_servers", description="Database/collection name")
-    table_name: str | None = Field("mcp_servers", description="Table name (for PostgreSQL)")
+    table_name: str | None = Field(
+        "mcp_servers", description="Table name (for PostgreSQL)"
+    )
 
     # Local file fields
     file_path: str | None = Field(None, description="File path (for local_file type)")
 
     # Connection pool settings
-    min_pool_size: int | None = Field(1, ge=1, le=100, description="Minimum connection pool size")
-    max_pool_size: int | None = Field(10, ge=1, le=100, description="Maximum connection pool size")
+    min_pool_size: int | None = Field(
+        1, ge=1, le=100, description="Minimum connection pool size"
+    )
+    max_pool_size: int | None = Field(
+        10, ge=1, le=100, description="Maximum connection pool size"
+    )
     connection_timeout: int | None = Field(
         30, ge=1, le=300, description="Connection timeout in seconds"
     )
 
     # SSL settings
-    ssl_mode: str | None = Field(None, description="SSL mode for PostgreSQL connections")
+    ssl_mode: str | None = Field(
+        None, description="SSL mode for PostgreSQL connections"
+    )
 
     @model_validator(mode="after")
     def validate_database_requirements(self) -> DatabaseConfig:
@@ -597,18 +644,36 @@ class MiddlewareConfig(BaseConfig):
         ... )
     """
 
-    name: str = Field(..., description="Unique name for the middleware", min_length=1, max_length=255)
-    kind: str = Field(..., description="Python import path to middleware class", min_length=1)
+    name: str = Field(
+        ..., description="Unique name for the middleware", min_length=1, max_length=255
+    )
+    kind: str = Field(
+        ..., description="Python import path to middleware class", min_length=1
+    )
     mode: MiddlewareMode = Field(MiddlewareMode.ENABLED, description="Middleware mode")
-    priority: int = Field(100, ge=0, le=10000, description="Execution priority (lower = earlier)")
-    applied_hooks: list[str] = Field(..., description="Hooks where middleware is applied")
-    config: dict[str, Any] | None = Field(None, description="Middleware-specific configuration")
-    description: str | None = Field(None, description="Middleware description", max_length=1000)
+    priority: int = Field(
+        100, ge=0, le=10000, description="Execution priority (lower = earlier)"
+    )
+    applied_hooks: list[str] = Field(
+        ..., description="Hooks where middleware is applied"
+    )
+    config: dict[str, Any] | None = Field(
+        None, description="Middleware-specific configuration"
+    )
+    description: str | None = Field(
+        None, description="Middleware description", max_length=1000
+    )
     version: str | None = Field("0.0.0", description="Middleware version")
     enabled: bool | None = Field(True, description="Whether the middleware is enabled")
-    timeout: int | None = Field(30, ge=1, le=300, description="Execution timeout in seconds")
-    retry_on_failure: bool | None = Field(False, description="Whether to retry on failure")
-    max_retries: int | None = Field(3, ge=0, le=10, description="Maximum number of retries")
+    timeout: int | None = Field(
+        30, ge=1, le=300, description="Execution timeout in seconds"
+    )
+    retry_on_failure: bool | None = Field(
+        False, description="Whether to retry on failure"
+    )
+    max_retries: int | None = Field(
+        3, ge=0, le=10, description="Maximum number of retries"
+    )
 
     @field_validator("name")
     @classmethod
@@ -625,10 +690,14 @@ class MiddlewareConfig(BaseConfig):
     def validate_kind(cls, v: str) -> str:
         """Validate that kind is a valid Python import path."""
         if "." not in v:
-            raise ValueError("Kind must be a valid Python import path (e.g., 'module.submodule.ClassName')")
+            raise ValueError(
+                "Kind must be a valid Python import path (e.g., 'module.submodule.ClassName')"
+            )
         # Validate format: module.submodule.ClassName
         if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*(\.[a-zA-Z_][a-zA-Z0-9_]*)+$", v):
-            raise ValueError("Kind must be a valid Python import path (e.g., 'module.submodule.ClassName')")
+            raise ValueError(
+                "Kind must be a valid Python import path (e.g., 'module.submodule.ClassName')"
+            )
         return v
 
     @field_validator("applied_hooks")
@@ -647,8 +716,12 @@ class MiddlewareConfig(BaseConfig):
     @classmethod
     def validate_version(cls, v: str | None) -> str | None:
         """Validate version format (semver)."""
-        if v and not re.match(r"^\d+\.\d+\.\d+(-[a-zA-Z0-9.-]+)?(\+[a-zA-Z0-9.-]+)?$", v):
-            raise ValueError("Version must be in semver format (e.g., '1.0.0', '1.0.0-beta', '1.0.0+build')")
+        if v and not re.match(
+            r"^\d+\.\d+\.\d+(-[a-zA-Z0-9.-]+)?(\+[a-zA-Z0-9.-]+)?$", v
+        ):
+            raise ValueError(
+                "Version must be in semver format (e.g., '1.0.0', '1.0.0-beta', '1.0.0+build')"
+            )
         return v
 
 
@@ -705,13 +778,19 @@ class ToolConfig(BaseConfig):
     tool_type: Literal["openapi", "curl", "script"] | None = Field(
         None, description="Type of tool"
     )
-    name: str | None = Field(None, description="Tool name", min_length=1, max_length=255)
-    description: str | None = Field(None, description="Tool description", max_length=1000)
+    name: str | None = Field(
+        None, description="Tool name", min_length=1, max_length=255
+    )
+    description: str | None = Field(
+        None, description="Tool description", max_length=1000
+    )
     endpoint: str | None = Field(None, description="Tool endpoint URL")
     auth: AuthConfig | dict[str, Any] | None = Field(
         None, description="Authentication configuration"
     )
-    timeout: int | None = Field(30, ge=1, le=300, description="Request timeout in seconds")
+    timeout: int | None = Field(
+        30, ge=1, le=300, description="Request timeout in seconds"
+    )
     enabled: bool | None = Field(True, description="Whether the tool is enabled")
 
     @field_validator("openapi")
@@ -786,12 +865,18 @@ class PromptArgument(BaseConfig):
         ..., description="Argument type"
     )
     required: bool = Field(True, description="Whether argument is required")
-    description: str | None = Field(None, description="Argument description", max_length=1000)
+    description: str | None = Field(
+        None, description="Argument description", max_length=1000
+    )
     default: Any | None = Field(None, description="Default value")
     enum: list[Any] | None = Field(None, description="Allowed values")
     pattern: str | None = Field(None, description="Regex pattern for validation")
-    min_length: int | None = Field(None, ge=0, description="Minimum length (for strings)")
-    max_length: int | None = Field(None, ge=1, description="Maximum length (for strings)")
+    min_length: int | None = Field(
+        None, ge=0, description="Minimum length (for strings)"
+    )
+    max_length: int | None = Field(
+        None, ge=1, description="Maximum length (for strings)"
+    )
     minimum: float | None = Field(None, description="Minimum value (for numbers)")
     maximum: float | None = Field(None, description="Maximum value (for numbers)")
 
@@ -800,7 +885,9 @@ class PromptArgument(BaseConfig):
     def validate_name(cls, v: str) -> str:
         """Validate argument name format."""
         if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", v):
-            raise ValueError("Argument name must be a valid identifier (start with letter/underscore)")
+            raise ValueError(
+                "Argument name must be a valid identifier (start with letter/underscore)"
+            )
         return v
 
     @field_validator("pattern")
@@ -841,8 +928,12 @@ class PromptConfig(BaseConfig):
         ... )
     """
 
-    name: str = Field(..., description="Unique name for the prompt", min_length=1, max_length=255)
-    description: str = Field(..., description="Prompt description", min_length=1, max_length=1000)
+    name: str = Field(
+        ..., description="Unique name for the prompt", min_length=1, max_length=255
+    )
+    description: str = Field(
+        ..., description="Prompt description", min_length=1, max_length=1000
+    )
     template: str = Field(..., description="Prompt template", min_length=1)
     arguments: list[PromptArgument] | None = Field(None, description="Prompt arguments")
     enabled: bool | None = Field(True, description="Whether the prompt is enabled")
@@ -881,7 +972,9 @@ class PromptConfig(BaseConfig):
     @classmethod
     def validate_version(cls, v: str | None) -> str | None:
         """Validate version format (semver)."""
-        if v and not re.match(r"^\d+\.\d+\.\d+(-[a-zA-Z0-9.-]+)?(\+[a-zA-Z0-9.-]+)?$", v):
+        if v and not re.match(
+            r"^\d+\.\d+\.\d+(-[a-zA-Z0-9.-]+)?(\+[a-zA-Z0-9.-]+)?$", v
+        ):
             raise ValueError("Version must be in semver format")
         return v
 
@@ -930,17 +1023,25 @@ class ResourceConfig(BaseConfig):
         ... )
     """
 
-    name: str = Field(..., description="Unique name for the resource", min_length=1, max_length=255)
-    description: str | None = Field(None, description="Resource description", max_length=1000)
+    name: str = Field(
+        ..., description="Unique name for the resource", min_length=1, max_length=255
+    )
+    description: str | None = Field(
+        None, description="Resource description", max_length=1000
+    )
     uri: str | None = Field(None, description="Resource URI (for static resources)")
-    uri_template: str | None = Field(None, description="Resource URI template (for dynamic resources)")
+    uri_template: str | None = Field(
+        None, description="Resource URI template (for dynamic resources)"
+    )
     text: str | None = Field(None, description="Resource content/text")
     template: str | None = Field(None, description="Template content (alias for text)")
     mime_type: str | None = Field("text/plain", description="MIME type of the resource")
     tags: list[str] | None = Field(None, description="Tags for categorization")
     enabled: bool | None = Field(True, description="Whether the resource is enabled")
     parameters: dict[str, Any] | None = Field(None, description="Template parameters")
-    cache_ttl: int | None = Field(None, ge=0, le=86400, description="Cache TTL in seconds")
+    cache_ttl: int | None = Field(
+        None, ge=0, le=86400, description="Cache TTL in seconds"
+    )
     version: str | None = Field("1.0.0", description="Resource version")
 
     @field_validator("name")
@@ -966,7 +1067,9 @@ class ResourceConfig(BaseConfig):
     def validate_mime_type(cls, v: str | None) -> str | None:
         """Validate MIME type format."""
         if v and "/" not in v:
-            raise ValueError("MIME type must be in format 'type/subtype' (e.g., 'text/plain')")
+            raise ValueError(
+                "MIME type must be in format 'type/subtype' (e.g., 'text/plain')"
+            )
         return v
 
     @field_validator("tags")

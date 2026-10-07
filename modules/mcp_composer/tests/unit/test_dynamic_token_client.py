@@ -68,7 +68,7 @@ class TestDynamicTokenClient:
         auth_data = {
             ConfigKey.Token_URL: "https://auth.example.com/token",
             ConfigKey.APIKEY: "test-api-key",
-            ConfigKey.TOKEN_GEN_AUTH_METHOD: "jwt",
+            ConfigKey.GEN_AUTH: "jwt",
         }
         return DynamicTokenClient(
             base_url="https://api.example.com",
@@ -81,7 +81,7 @@ class TestDynamicTokenClient:
         auth_data = {
             ConfigKey.Token_URL: "https://auth.example.com/token",
             ConfigKey.APIKEY: "test-api-key",
-            ConfigKey.TOKEN_GEN_AUTH_METHOD: "iam",
+            ConfigKey.GEN_AUTH: "iam",
         }
         return DynamicTokenClient(
             base_url="https://api.example.com",
@@ -95,7 +95,7 @@ class TestDynamicTokenClient:
             ConfigKey.Token_URL: "https://auth.example.com/token",
             ConfigKey.ID: "test-id",
             ConfigKey.SECRET: "test-secret",
-            ConfigKey.TOKEN_GEN_AUTH_METHOD: AuthStrategy.BASIC,
+            ConfigKey.GEN_AUTH: AuthStrategy.BASIC,
         }
         return DynamicTokenClient(
             base_url="https://api.example.com",
@@ -108,7 +108,7 @@ class TestDynamicTokenClient:
         auth_data = {
             ConfigKey.Token_URL: "https://auth.example.com/token",
             ConfigKey.APIKEY: "test-api-key",
-            ConfigKey.TOKEN_GEN_AUTH_METHOD: "jwt",
+            ConfigKey.GEN_AUTH: "jwt",
             "auth_prefix": "Token",
         }
         return DynamicTokenClient(
@@ -123,7 +123,7 @@ class TestDynamicTokenClient:
             == "https://auth.example.com/token"
         )
         assert mock_client.auth_data[ConfigKey.APIKEY] == "test-api-key"
-        assert mock_client.auth_data[ConfigKey.TOKEN_GEN_AUTH_METHOD] == "jwt"
+        assert mock_client.auth_data[ConfigKey.GEN_AUTH] == "jwt"
         assert mock_client._access_token is None
         assert mock_client._expires_at == 0
         assert mock_client._auth_prefix == "Bearer"
@@ -136,7 +136,7 @@ class TestDynamicTokenClient:
 
     def test_dynamic_token_client_initialization_iam(self, mock_client_iam):
         """Test DynamicTokenClient initialization with IAM media type"""
-        assert mock_client_iam.auth_data[ConfigKey.TOKEN_GEN_AUTH_METHOD] == "iam"
+        assert mock_client_iam.auth_data[ConfigKey.GEN_AUTH] == "iam"
 
     def test_dynamic_token_client_initialization_invalid_base_url(self):
         """Test DynamicTokenClient initialization with invalid base_url"""
@@ -157,7 +157,7 @@ class TestDynamicTokenClient:
         auth_data = {
             ConfigKey.Token_URL: "https://auth.example.com/token",
             ConfigKey.APIKEY: "test-api-key",
-            ConfigKey.TOKEN_GEN_AUTH_METHOD: "jwt",
+            ConfigKey.GEN_AUTH: "jwt",
         }
         client = DynamicTokenClient(
             base_url="https://api.example.com",

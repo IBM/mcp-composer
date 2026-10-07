@@ -79,7 +79,7 @@ Add the OpenAPI specification file `openapi.json` in `spec` folder
 
 2. By adding the config json directly  
 
-- Add `member_servers.json` in `config` folder with content below
+- Copy `example/member_servers.json` and edit it:
 
 ```json
 [
@@ -102,7 +102,7 @@ Add the OpenAPI specification file `openapi.json` in `spec` folder
 - Set the path to the basic configuration file in your `.env` file using the `SERVER_CONFIG_FILE_PATH` variable:
 
 ```env
-SERVER_CONFIG_FILE_PATH=config/member_servers.json
+SERVER_CONFIG_FILE_PATH=example/member_servers.json
 ```
 
 - Start/Restart the Server

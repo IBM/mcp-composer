@@ -30,7 +30,6 @@ from mcp_composer.core.models.config import (
     ResourceConfig,
 )
 
-
 # ============================================================================
 # AuthConfig Tests
 # ============================================================================
@@ -44,8 +43,8 @@ class TestAuthConfig:
         config = AuthConfig(
             strategy="oauth2",
             client_id="test-client",
-            client_secret="test-secret", # pragma: allowlist secret
-            token_url="https://auth.example.com/token", # pragma: allowlist secret
+            client_secret="test-secret",  # pragma: allowlist secret
+            token_url="https://auth.example.com/token",  # pragma: allowlist secret
             scope="read write",
         )
         assert config.strategy == AuthStrategy.OAUTH2
@@ -63,9 +62,11 @@ class TestAuthConfig:
 
     def test_bearer_config_valid(self):
         """Test valid Bearer token configuration."""
-        config = AuthConfig(strategy="bearer", token="my-bearer-token") # pragma: allowlist secret
+        config = AuthConfig(
+            strategy="bearer", token="my-bearer-token"
+        )  # pragma: allowlist secret
         assert config.strategy == AuthStrategy.BEARER
-        assert config.token == "my-bearer-token" # pragma: allowlist secret
+        assert config.token == "my-bearer-token"  # pragma: allowlist secret
 
     def test_bearer_config_missing_token(self):
         """Test Bearer configuration with missing token."""
@@ -74,10 +75,12 @@ class TestAuthConfig:
 
     def test_basic_auth_config_valid(self):
         """Test valid Basic auth configuration."""
-        config = AuthConfig(strategy="basic", username="user", password="pass") # pragma: allowlist secret
+        config = AuthConfig(
+            strategy="basic", username="user", password="pass"
+        )  # pragma: allowlist secret
         assert config.strategy == AuthStrategy.BASIC
-        assert config.username == "user" # pragma: allowlist secret
-        assert config.password == "pass" # pragma: allowlist secret
+        assert config.username == "user"  # pragma: allowlist secret
+        assert config.password == "pass"  # pragma: allowlist secret
 
     def test_basic_auth_config_missing_fields(self):
         """Test Basic auth configuration with missing fields."""
@@ -87,32 +90,38 @@ class TestAuthConfig:
     def test_api_key_config_valid(self):
         """Test valid API key configuration."""
         config = AuthConfig(
-            strategy="api_key", api_key_name="X-API-Key", api_key_value="secret-key" # pragma: allowlist secret
+            strategy="api_key",
+            api_key_name="X-API-Key",
+            api_key_value="secret-key",  # pragma: allowlist secret
         )
-        assert config.strategy == AuthStrategy.API_KEY # pragma: allowlist secret
-        assert config.api_key_name == "X-API-Key" # pragma: allowlist secret
-        assert config.api_key_value == "secret-key" # pragma: allowlist secret
+        assert config.strategy == AuthStrategy.API_SCHEME  # pragma: allowlist secret
+        assert config.api_key_name == "X-API-Key"  # pragma: allowlist secret
+        assert config.api_key_value == "secret-key"  # pragma: allowlist secret
 
     def test_api_key_config_missing_fields(self):
         """Test API key configuration with missing fields."""
         with pytest.raises(ValueError, match="API key authentication requires"):
-            AuthConfig(strategy="api_key", api_key_name="X-API-Key") # pragma: allowlist secret
+            AuthConfig(
+                strategy="api_key", api_key_name="X-API-Key"
+            )  # pragma: allowlist secret
 
     def test_jwt_config_valid(self):
         """Test valid JWT configuration."""
         config = AuthConfig(
             strategy="jwt",
-            jwt_secret="valid-value", # pragma: allowlist secret
+            jwt_secret="valid-value",  # pragma: allowlist secret
             jwt_algorithm="HS256",
             jwt_issuer="test-issuer",
         )
         assert config.strategy == AuthStrategy.JWT
-        assert config.jwt_secret == "valid-value" # pragma: allowlist secret
+        assert config.jwt_secret == "valid-value"  # pragma: allowlist secret
         assert config.jwt_algorithm == "HS256"
 
     def test_jwt_config_missing_secret(self):
-        """Test JWT configuration with missing secret.""" # pragma: allowlist secret
-        with pytest.raises(ValueError, match="JWT authentication requires jwt_secret"): # pragma: allowlist secret
+        """Test JWT configuration with missing secret."""  # pragma: allowlist secret
+        with pytest.raises(
+            ValueError, match="JWT authentication requires jwt_secret"
+        ):  # pragma: allowlist secret
             AuthConfig(strategy="jwt")
 
     def test_auth_config_serialization(self):
@@ -120,11 +129,11 @@ class TestAuthConfig:
         config = AuthConfig(
             strategy="oauth2",
             client_id="test",
-            client_secret="secret", # pragma: allowlist secret
-            token_url="https://auth.example.com/token", # pragma: allowlist secret
+            client_secret="secret",  # pragma: allowlist secret
+            token_url="https://auth.example.com/token",  # pragma: allowlist secret
         )
         data = config.to_dict()
-        assert data["strategy"] == "oauth2" 
+        assert data["strategy"] == "oauth2"
         assert data["client_id"] == "test"
 
         # Test deserialization
@@ -143,11 +152,13 @@ class TestOpenAPIConfig:
     def test_openapi_config_valid(self):
         """Test valid OpenAPI configuration."""
         config = OpenAPIConfig(
-            endpoint="https://api.example.com/openapi.json", # pragma: allowlist secret
+            endpoint="https://api.example.com/openapi.json",  # pragma: allowlist secret
             version="3.0.0",
             timeout=30,
         )
-        assert config.endpoint == "https://api.example.com/openapi.json" # pragma: allowlist secret
+        assert (
+            config.endpoint == "https://api.example.com/openapi.json"
+        )  # pragma: allowlist secret
         assert config.version == "3.0.0"
         assert config.timeout == 30
 
@@ -160,14 +171,18 @@ class TestOpenAPIConfig:
         """Test OpenAPI configuration with invalid version."""
         with pytest.raises(ValueError, match="Version must be in format"):
             OpenAPIConfig(
-                endpoint="https://api.example.com/openapi.json", version="invalid" # pragma: allowlist secret
+                endpoint="https://api.example.com/openapi.json",
+                version="invalid",  # pragma: allowlist secret
             )
 
     def test_openapi_config_with_auth(self):
         """Test OpenAPI configuration with authentication."""
-        auth = AuthConfig(strategy="bearer", token="test-token") # pragma: allowlist secret
+        auth = AuthConfig(
+            strategy="bearer", token="test-token"
+        )  # pragma: allowlist secret
         config = OpenAPIConfig(
-            endpoint="https://api.example.com/openapi.json", auth=auth # pragma: allowlist secret
+            endpoint="https://api.example.com/openapi.json",
+            auth=auth,  # pragma: allowlist secret
         )
         assert config.auth.strategy == AuthStrategy.BEARER
 
@@ -183,11 +198,13 @@ class TestGraphQLConfig:
     def test_graphql_config_valid(self):
         """Test valid GraphQL configuration."""
         config = GraphQLConfig(
-            endpoint="https://api.example.com/graphql", # pragma: allowlist secret
+            endpoint="https://api.example.com/graphql",  # pragma: allowlist secret
             max_depth=10,
             introspection_enabled=True,
         )
-        assert config.endpoint == "https://api.example.com/graphql" # pragma: allowlist secret
+        assert (
+            config.endpoint == "https://api.example.com/graphql"
+        )  # pragma: allowlist secret
         assert config.max_depth == 10
         assert config.introspection_enabled is True
 
@@ -215,19 +232,21 @@ class TestServerConfig:
         config = ServerConfig(
             id="test-server",
             type="http",
-            endpoint="https://api.example.com", # pragma: allowlist secret
+            endpoint="https://api.example.com",  # pragma: allowlist secret
             tags=["production", "api"],
         )
         assert config.id == "test-server"
         assert config.type == ServerType.HTTP
-        assert config.endpoint == "https://api.example.com" # pragma: allowlist secret
+        assert config.endpoint == "https://api.example.com"  # pragma: allowlist secret
         assert "production" in config.tags
 
     def test_server_config_invalid_id(self):
         """Test server configuration with invalid ID."""
         with pytest.raises(ValueError, match="must contain only alphanumeric"):
             ServerConfig(
-                id="invalid id with spaces", type="http", endpoint="https://api.example.com" # pragma: allowlist secret
+                id="invalid id with spaces",
+                type="http",
+                endpoint="https://api.example.com",  # pragma: allowlist secret
             )
 
     def test_http_server_missing_endpoint(self):
@@ -255,7 +274,9 @@ class TestServerConfig:
 
     def test_openapi_server_config_valid(self):
         """Test valid OpenAPI server configuration."""
-        openapi_config = OpenAPIConfig(endpoint="https://api.example.com/openapi.json") # pragma: allowlist secret
+        openapi_config = OpenAPIConfig(
+            endpoint="https://api.example.com/openapi.json"
+        )  # pragma: allowlist secret
         config = ServerConfig(id="api-server", type="openapi", open_api=openapi_config)
         assert config.type == ServerType.OPENAPI
         assert isinstance(config.open_api, OpenAPIConfig)
@@ -267,9 +288,14 @@ class TestServerConfig:
 
     def test_server_config_with_auth(self):
         """Test server configuration with authentication."""
-        auth = AuthConfig(strategy="bearer", token="test-token") # pragma: allowlist secret
+        auth = AuthConfig(
+            strategy="bearer", token="test-token"
+        )  # pragma: allowlist secret
         config = ServerConfig(
-            id="secure-api", type="http", endpoint="https://api.example.com", auth=auth # pragma: allowlist secret
+            id="secure-api",
+            type="http",
+            endpoint="https://api.example.com",
+            auth=auth,  # pragma: allowlist secret
         )
         assert isinstance(config.auth, AuthConfig)
         assert config.auth.strategy == AuthStrategy.BEARER
@@ -279,7 +305,7 @@ class TestServerConfig:
         config = ServerConfig(
             id="test",
             type="http",
-            endpoint="https://api.example.com", # pragma: allowlist secret
+            endpoint="https://api.example.com",  # pragma: allowlist secret
             tags=["api", "production", "api", "production"],
         )
         assert len(config.tags) == 2
@@ -313,7 +339,7 @@ class TestDatabaseConfig:
             port=5432,
             database="mydb",
             user="admin",
-            password="secret", # pragma: allowlist secret
+            password="secret",  # pragma: allowlist secret
         )
         assert config.host == "localhost"
         assert config.port == 5432
@@ -323,6 +349,7 @@ class TestDatabaseConfig:
         """Test PostgreSQL configuration with missing parameters."""
         with pytest.raises(ValueError, match="PostgreSQL requires"):
             DatabaseConfig(type="postgres", host="localhost")
+
     def test_local_file_config_valid(self):
         """Test valid local file configuration."""
         config = DatabaseConfig(type="local_file", file_path="/path/to/config.json")
@@ -339,7 +366,7 @@ class TestDatabaseConfig:
         with pytest.raises(ValueError, match="min_pool_size cannot be greater"):
             DatabaseConfig(
                 type="postgres",
-                url="postgresql://user:pass@localhost:5432/mydb", # pragma: allowlist secret
+                url="postgresql://user:pass@localhost:5432/mydb",  # pragma: allowlist secret
                 min_pool_size=20,
                 max_pool_size=10,
             )
@@ -350,6 +377,7 @@ class TestDatabaseConfig:
 # ============================================================================
 class TestMiddlewareConfig:
     """Tests for MiddlewareConfig model."""
+
     def test_middleware_config_invalid_name(self):
         """Test middleware configuration with invalid name."""
         with pytest.raises(ValueError, match="must contain only alphanumeric"):
@@ -402,7 +430,7 @@ class TestToolConfig:
         config = ToolConfig(
             openapi="3.0.0",
             info={"title": "My API", "version": "1.0.0"},
-            servers=[{"url": "https://api.example.com"}], # pragma: allowlist secret
+            servers=[{"url": "https://api.example.com"}],  # pragma: allowlist secret
             paths={"/users": {"get": {"summary": "List users"}}},
         )
         assert config.openapi == "3.0.0"
@@ -414,7 +442,9 @@ class TestToolConfig:
             ToolConfig(
                 openapi="3.0.0",
                 info={"title": "My API"},
-                servers=[{"url": "https://api.example.com"}], # pragma: allowlist secret
+                servers=[
+                    {"url": "https://api.example.com"}
+                ],  # pragma: allowlist secret
             )
 
     def test_curl_tool_config_valid(self):
@@ -423,7 +453,7 @@ class TestToolConfig:
             tool_type="curl",
             name="fetch-data",
             description="Fetch data from API",
-            endpoint="https://api.example.com/data", # pragma: allowlist secret
+            endpoint="https://api.example.com/data",  # pragma: allowlist secret
         )
         assert config.tool_type == "curl"
         assert config.name == "fetch-data"
@@ -431,7 +461,9 @@ class TestToolConfig:
     def test_curl_tool_missing_name(self):
         """Test curl tool configuration without name."""
         with pytest.raises(ValueError, match="requires 'name' field"):
-            ToolConfig(tool_type="curl", endpoint="https://api.example.com") # pragma: allowlist secret
+            ToolConfig(
+                tool_type="curl", endpoint="https://api.example.com"
+            )  # pragma: allowlist secret
 
     def test_tool_config_invalid_openapi_version(self):
         """Test tool configuration with invalid OpenAPI version."""
@@ -600,7 +632,7 @@ class TestPerformanceBenchmarks:
         config_data = {
             "id": "test-server",
             "type": "http",
-            "endpoint": "https://api.example.com", # pragma: allowlist secret
+            "endpoint": "https://api.example.com",  # pragma: allowlist secret
             "tags": ["production", "api"],
         }
 
@@ -610,15 +642,17 @@ class TestPerformanceBenchmarks:
         end = time.perf_counter()
 
         avg_time = (end - start) / 1000
-        assert avg_time < 0.001, f"Validation took {avg_time*1000:.2f}ms (expected <1ms)"
+        assert (
+            avg_time < 0.001
+        ), f"Validation took {avg_time*1000:.2f}ms (expected <1ms)"
 
     def test_auth_config_validation_performance(self):
         """Test that auth config validation is fast (<1ms)."""
         config_data = {
             "strategy": "oauth2",
             "client_id": "test",
-            "client_secret": "secret", # pragma: allowlist secret
-            "token_url": "https://auth.example.com/token", # pragma: allowlist secret
+            "client_secret": "secret",  # pragma: allowlist secret
+            "token_url": "https://auth.example.com/token",  # pragma: allowlist secret
         }
 
         start = time.perf_counter()
@@ -627,7 +661,9 @@ class TestPerformanceBenchmarks:
         end = time.perf_counter()
 
         avg_time = (end - start) / 1000
-        assert avg_time < 0.001, f"Validation took {avg_time*1000:.2f}ms (expected <1ms)"
+        assert (
+            avg_time < 0.001
+        ), f"Validation took {avg_time*1000:.2f}ms (expected <1ms)"
 
     def test_middleware_config_validation_performance(self):
         """Test that middleware config validation is fast (<1ms)."""
@@ -643,7 +679,9 @@ class TestPerformanceBenchmarks:
         end = time.perf_counter()
 
         avg_time = (end - start) / 1000
-        assert avg_time < 0.001, f"Validation took {avg_time*1000:.2f}ms (expected <1ms)"
+        assert (
+            avg_time < 0.001
+        ), f"Validation took {avg_time*1000:.2f}ms (expected <1ms)"
 
 
 # ============================================================================
@@ -659,15 +697,15 @@ class TestConfigIntegration:
         auth = AuthConfig(
             strategy="oauth2",
             client_id="test-client",
-            client_secret="test-secret", # pragma: allowlist secret
-            token_url="https://auth.example.com/token", # pragma: allowlist secret
+            client_secret="test-secret",  # pragma: allowlist secret
+            token_url="https://auth.example.com/token",  # pragma: allowlist secret
             scope="read write",
         )
 
         server = ServerConfig(
             id="production-api",
             type="http",
-            endpoint="https://api.example.com", # pragma: allowlist secret
+            endpoint="https://api.example.com",  # pragma: allowlist secret
             auth=auth,
             tags=["production", "api"],
             timeout=60,
@@ -685,9 +723,11 @@ class TestConfigIntegration:
     def test_openapi_server_with_nested_config(self):
         """Test OpenAPI server with nested configuration."""
         openapi_config = OpenAPIConfig(
-            endpoint="https://api.example.com/openapi.json", # pragma: allowlist secret
+            endpoint="https://api.example.com/openapi.json",  # pragma: allowlist secret
             version="3.0.0",
-            auth=AuthConfig(strategy="bearer", token="test-token"), # pragma: allowlist secret
+            auth=AuthConfig(
+                strategy="bearer", token="test-token"
+            ),  # pragma: allowlist secret
         )
 
         server = ServerConfig(
@@ -711,7 +751,7 @@ class TestConfigIntegration:
             port=5432,
             database="mcp_composer",
             user="admin",
-            password="secret", # pragma: allowlist secret
+            password="secret",  # pragma: allowlist secret
             min_pool_size=2,
             max_pool_size=10,
         )
@@ -722,5 +762,6 @@ class TestConfigIntegration:
         assert loaded.host == config.host
         assert loaded.port == config.port
         assert loaded.min_pool_size == config.min_pool_size
+
 
 # Made with Bob

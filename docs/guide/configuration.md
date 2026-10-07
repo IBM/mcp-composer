@@ -25,7 +25,7 @@ MCP Composer uses multiple configuration files and environment variables to mana
 **Example:**
 
 ```bash
-MCP_BASE_URL=http://0.0.0.0:9000/mcp
+MCP_BASE_URL=http://127.0.0.1:9000/mcp
 # For production
 MCP_BASE_URL=https://mcp-composer.example.com/mcp
 ```
@@ -88,20 +88,18 @@ MCP_USE_LOCAL_FILE_STORAGE=True
 
 ### `VERSION_ADAPTER_TYPE`
 
-**Description:** Specifies the adapter type for version management. Use `file` for local file storage or `ibm_vault` for IBM Secret Manager.
+**Description:** Specifies the adapter type for version management. Use `file` for local file storage Stored in a local version file.
 
 **Type:** String
 
 **Default:** `file`
 
-**Allowed Values:** `file`, `ibm_vault`
+**Allowed Values:** `file`
 
 **Example:**
 
 ```bash
 VERSION_ADAPTER_TYPE=file
-# For IBM Secret Manager
-VERSION_ADAPTER_TYPE=ibm_vault
 ```
 
 ---
@@ -301,11 +299,11 @@ OAUTH_CLIENT_SECRET=xxxxxxx
 
 ---
 
-### IBM W3 OAuth (New)
+### OIDC
 
 #### `OAUTH_CONFIG_URL`
 
-**Description:** OpenID Connect configuration URL for IBM W3 authentication.
+**Description:** OpenID Connect discovery URL.
 
 **Type:** URL String
 
@@ -327,7 +325,7 @@ OAUTH_CONFIG_URL=https://example.com/.well-known/openid-configuration
 OAUTH_INTROSPECTION_URL=https://example.com/introspect
 ```
 
-**Complete IBM W3 OAuth (New) Example:**
+**Complete OIDC example:**
 
 ```bash
 ENABLE_OAUTH=True
@@ -340,7 +338,7 @@ OAUTH_INTROSPECTION_URL=https://example.com/introspect
 
 ---
 
-### IBM W3 OAuth (Old)
+### Authorization-code OAuth
 
 #### `OAUTH_HOST`
 
@@ -387,7 +385,7 @@ OAUTH_SERVER_URL=http://localhost:9000
 **Example:**
 
 ```bash
-OAUTH_CALLBACK_PATH=http://localhost:9000/auth/idaas/callback
+OAUTH_CALLBACK_PATH=http://localhost:9000/callback
 ```
 
 #### `OAUTH_AUTH_URL`
@@ -399,7 +397,6 @@ OAUTH_CALLBACK_PATH=http://localhost:9000/auth/idaas/callback
 **Example:**
 
 ```bash
-# IBM W3
 OAUTH_AUTH_URL=https://example.com/authorize
 
 # GitHub
@@ -415,7 +412,6 @@ OAUTH_AUTH_URL=https://github.com/login/oauth/authorize
 **Example:**
 
 ```bash
-# IBM W3
 OAUTH_TOKEN_URL=https://example.com/token
 
 # GitHub
@@ -446,14 +442,14 @@ OAUTH_MCP_SCOPE=user
 OAUTH_PROVIDER_SCOPE=openid
 ```
 
-**Complete IBM W3 OAuth (Old) Example:**
+**Complete authorization-code example:**
 
 ```bash
 ENABLE_OAUTH=True
 OAUTH_HOST=localhost
 OAUTH_PORT=9000
 OAUTH_SERVER_URL=http://localhost:9000
-OAUTH_CALLBACK_PATH=http://localhost:9000/auth/idaas/callback
+OAUTH_CALLBACK_PATH=http://localhost:9000/callback
 OAUTH_CLIENT_ID=xxxxxxx
 OAUTH_CLIENT_SECRET=xxxxxxx
 OAUTH_AUTH_URL=https://example.com/authorize
@@ -598,7 +594,7 @@ MCP_ENV=dev
 
 ```bash
 # Basic dev configuration
-MCP_BASE_URL=http://0.0.0.0:9000/mcp
+MCP_BASE_URL=http://127.0.0.1:9000/mcp
 MCP_COMPOSER_MODE=dev
 MCP_MODE=sse
 MCP_DATABASE_TYPE=local_file
@@ -617,7 +613,7 @@ MCP_MODE=sse
 MCP_DATABASE_TYPE=postgresql
 ENABLE_OAUTH=True
 
-# IBM W3 OAuth
+# OIDC
 OAUTH_CLIENT_ID=your-client-id
 OAUTH_CLIENT_SECRET=your-client-secret
 OAUTH_BASE_URL=https://mcp-composer.example.com
@@ -639,7 +635,7 @@ MCP_ENV=prod
 
 ### Member Servers File
 
-Location: `config/member_servers.json`
+Location: `example/member_servers.json`
 
 ```json
 [
@@ -1062,7 +1058,7 @@ METRICS_ENABLED=false
 
    ```bash
    # Validate JSON files
-   python -m json.tool config/member_servers.json
+   python -m json.tool example/member_servers.json
    ```
 
 3. **Environment variables not loaded**

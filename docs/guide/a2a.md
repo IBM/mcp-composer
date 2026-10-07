@@ -15,7 +15,7 @@ The A2A integration allows MCP Composer to:
 ## 🔌 External A2A Agent Connectivity
 
 This section explains how an external A2A agent (outside MCP Composer) is
-connected and used in the Solis flow.
+connected from a client.
 
 ### Sequence diagram
 
@@ -23,9 +23,9 @@ connected and used in the Solis flow.
 sequenceDiagram
     autonumber
     actor U as User
-    participant UI as Solis UI
+    participant UI as Client
     participant CHAT as Chat Window
-    participant SA as Solis Agent
+    participant SA as Calling agent
     participant C as MCP Composer (A2A Bridge)
     participant EA as External A2A Agent
     participant SUB as External Sub-Agent(s)
@@ -64,10 +64,10 @@ sequenceDiagram
 
 ### End-to-end request path
 
-1. **User request enters Solis**
-   - `Solis UI` -> `Chat Window` -> `Solis Agent`.
-2. **Solis Agent decides to delegate**
-   - Solis Agent selects the external A2A agent (directly by URL or via
+1. **User request enters the client**
+   - The client sends the request to the calling agent.
+2. **The calling agent decides to delegate**
+   - The calling agent selects the external A2A agent (directly by URL or via
      `find_agent`).
 3. **Agent is registered (one-time or startup-time)**
    - Composer calls `register_agent(url)`.
@@ -109,7 +109,7 @@ At minimum, the external service should provide:
 - **Register at startup** to avoid first-request latency.
 - **Pass correlation IDs** (`session_id`, request/transaction ID) on every
   delegated call for observability.
-- **Echo `session_id` in responses** so Composer/Solis can map replies to the
+- **Echo `session_id` in responses** so the composer can map replies to the
   correct conversation and maintain multi-turn context.
 - **Keep task IDs in session state** so UI retries/reconnects can resume
   from `get_task_result`.

@@ -6,24 +6,14 @@ MCP Composer provides comprehensive server management capabilities with support 
 - Presents all tools under a consistent `call_tool(tool_id, input)` interface
 - Supports `local`, `stream` and `nonstream` communication modes
 
-Here are the currently implemented (✅) as well as roadmap features: 
+The composer is the front door. Registered member servers show up as one set of tools, prompts, and resources.
 
-- Register new Virtual or Physical MCP Server from OpenAPI, GraphQL, Client , Proxy ✅ 
-- Multi tenancy
-- Update configuration for existing Virtual or Physical  MCP Server ✅
-- Version control from Virtual or Physical MCP Server
-- Activate / Deactivate Virtual or Physical MCP Server ✅
-- Delete Virtual or Physical MCP Server ✅
-- Get Health for Virtual or Physical MCP Server ✅
-- Owner Management
-- List all member Virtual or Physical MCP Servers ✅
-- Server bootstrap from last state configuration stored in Db or vault ✅
-- Server Discovery - Runtime 
-- Server Discovery - offline 
-- Filter Server based on Context 
-- Filter Server based on id ✅
-- GuardRails for Server
-- Audit for Server activity
+Implemented operations:
+
+- Register a member server from OpenAPI, GraphQL, or another MCP server
+- Update, activate, deactivate, and delete a member server
+- Health checks and listing
+- Restore the last saved configuration from the database or a local file
 
 ---
 

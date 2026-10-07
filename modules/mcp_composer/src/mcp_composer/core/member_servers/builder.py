@@ -321,14 +321,14 @@ class MCPServerBuilder:
             case AuthStrategy.OAUTH:
                 logger.info("Setting up OAuth client with auto-refresh")
                 # Use the generic resolve_env_value function to handle ENV_* values
-                client_id = resolve_env_value(auth_config.get(ConfigKey.CLIENT_ID))  # type: ignore[attr-defined]
+                client_id = resolve_env_value(auth_config.get(ConfigKey.OAUTH_CLIENT))  # type: ignore[attr-defined]
                 client_secret = resolve_env_value(
-                    auth_config.get(ConfigKey.CLIENT_SECRET)  # type: ignore[attr-defined]
+                    auth_config.get(ConfigKey.OAUTH_PROOF)  # type: ignore[attr-defined]
                 )
                 token_url = auth_config.get(ConfigKey.Token_URL)  # type: ignore[attr-defined]
                 scope = auth_config.get(ConfigKey.SCOPE)  # type: ignore[attr-defined]
                 refresh_token_value = resolve_env_value(
-                    auth_config.get(ConfigKey.REFRESH_TOKEN)  # type: ignore[attr-defined]
+                    auth_config.get(ConfigKey.OAUTH_REFRESH)  # type: ignore[attr-defined]
                 )
 
                 if not all([client_id, client_secret, token_url, refresh_token_value]):

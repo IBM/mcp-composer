@@ -19,8 +19,8 @@ A comprehensive guide to the Model Mesh Tool, a configurable small-model mesh MC
 ## Overview
 
 The Model Mesh Tool implements a small-model mesh architecture where different models are configured for specific tasks:
-- **Guardian tasks** → Content safety and moderation models (e.g., `ibm/granite3.3-guardian:8b`)
-- **Vision tasks** → Vision-specialized models (e.g., `ibm/granite3.2-vision`)
+- **Guardian tasks** → Content safety and moderation models (e.g., `a content-safety model`)
+- **Vision tasks** → Vision-specialized models (e.g., `a vision model`)
 - **Speech recognition tasks** → Speech models (e.g., `whisper`)
 - **Text tasks** → General-purpose text models (e.g., `llama2`)
 
@@ -55,8 +55,8 @@ Models are accessed via configurable providers (LiteLLM by default, Ollama as al
    ollama serve
    
    # Pull required models
-   ollama pull ibm/granite3.3-guardian:8b
-   ollama pull ibm/granite3.2-vision
+   ollama pull a content-safety model
+   ollama pull a vision model
    ```
 
 ---
@@ -189,8 +189,8 @@ The Model Mesh Tool follows a layered architecture with clear separation of conc
                      ↓
 ┌─────────────────────────────────────────────────────────┐
 │              Specialized Model                          │
-│  - Guardian: ibm/granite3.3-guardian:8b                │
-│  - Vision: ibm/granite3.2-vision / llava               │
+│  - Guardian: a content-safety model                │
+│  - Vision: a vision model / llava               │
 │  - Text: llama2 / other text models                    │
 │  - Speech: whisper                                     │
 └────────────────────┬────────────────────────────────────┘
@@ -345,8 +345,8 @@ The tool supports two providers:
 
 #### 2. Ollama-Python Provider (Direct)
 - **Library**: `ollama` (from ollama-python)
-- **Format**: Direct model name (e.g., `ibm/granite3.3-guardian:8b`)
-- **Usage**: `AsyncClient().chat(model="ibm/granite3.3-guardian:8b", think=True, ...)`
+- **Format**: Direct model name (e.g., `a content-safety model`)
+- **Usage**: `AsyncClient().chat(model="a content-safety model", think=True, ...)`
 - **Pros**: Full access to Ollama-specific features (think, streaming, etc.)
 - **Cons**: Ollama-specific only
 
@@ -363,7 +363,7 @@ from ollama import AsyncClient
 client = AsyncClient(host=base_url)
 
 response = await client.chat(
-    model="ibm/granite3.3-guardian:8b",
+    model="a content-safety model",
     think=True,  # From config options
     messages=[
         {
@@ -457,12 +457,12 @@ The `model_config` dictionary maps **task names** to **model configurations**:
 ```python
 model_config = {
     "vision": {                    # Task name
-        "model": "ibm/granite3.2-vision",  # Model to use
+        "model": "a vision model",  # Model to use
         "provider": "ollama",
         "options": {...}
     },
     "guardian": {                  # Task name
-        "model": "ibm/granite3.3-guardian:8b",  # Model to use
+        "model": "a content-safety model",  # Model to use
         "provider": "ollama",
         "options": {
             "think": True,
@@ -497,7 +497,7 @@ The tool:
 Task names are **case-insensitive** and can be any string. Common conventions:
 
 - **Task type**: `"vision"`, `"speech"`, `"text"`, `"guardian"`
-- **Model-specific**: `"granite-vision"`, `"granite-guardian"`
+- **Model-specific**: a vision model or a content-safety model
 - **Use case**: `"image-analysis"`, `"safety-check"`, `"transcription"`
 
 ```python
@@ -516,7 +516,7 @@ You can override the model selection at runtime:
 # Runtime override:
 await tool.run({
     "task": "vision",
-    "model_override": "ibm/granite3.2-vision",  # Overrides config
+    "model_override": "a vision model",  # Overrides config
     "prompt": "..."
 })
 ```
@@ -541,7 +541,7 @@ This uses LiteLLM by default with format `ollama/model_name`.
 ```json
 {
   "guardian": {
-    "model": "ibm/granite3.3-guardian:8b",
+    "model": "a content-safety model",
     "provider": "ollama",
     "base_url": "http://localhost:11434",
     "options": {
@@ -550,7 +550,7 @@ This uses LiteLLM by default with format `ollama/model_name`.
     }
   },
   "vision": {
-    "model": "ibm/granite3.2-vision",
+    "model": "a vision model",
     "provider": "ollama",
     "base_url": "http://localhost:11434"
   },
@@ -572,7 +572,7 @@ model_mesh_tool = ModelMeshTool({
     "prompt_config_path": "./example/model_mesh_prompts.json",
     "model_config": {
         "guardian": {
-            "model": "ibm/granite3.3-guardian:8b",
+            "model": "a content-safety model",
             "provider": "ollama",
             "options": {
                 "think": True,
@@ -580,7 +580,7 @@ model_mesh_tool = ModelMeshTool({
             }
         },
         "vision": {
-            "model": "ibm/granite3.2-vision",
+            "model": "a vision model",
             "provider": "ollama"
         }
     },
@@ -630,7 +630,7 @@ Each task in `model_config` can be:
 2. **Dictionary with provider**:
    ```python
    "guardian": {
-       "model": "ibm/granite3.3-guardian:8b",  # Required
+       "model": "a content-safety model",  # Required
        "provider": "ollama",                    # Required: "litellm" or "ollama"
        "base_url": "http://localhost:11434",   # Optional
        "options": {                             # Optional, model-specific options
@@ -688,7 +688,7 @@ async def main():
         "name": "model_mesh",
         "model_config": {
             "guardian": {
-                "model": "ibm/granite3.3-guardian:8b",
+                "model": "a content-safety model",
                 "provider": "ollama",
                 "base_url": "http://localhost:11434",
                 "options": {
@@ -718,7 +718,7 @@ from ollama import AsyncClient
 
 client = AsyncClient(host="http://localhost:11434")
 response = await client.chat(
-    model="ibm/granite3.3-guardian:8b",
+    model="a content-safety model",
     think=True,
     messages=[{"role": "user", "content": "hello world"}],
     options={"temperature": 0}
@@ -739,12 +739,12 @@ model_mesh_tool = ModelMeshTool({
     "prompt_config_path": "./config/prompts.json",
     "model_config": {
         "guardian": {
-            "model": "ibm/granite3.3-guardian:8b",
+            "model": "a content-safety model",
             "provider": "ollama",
             "options": {"think": True, "temperature": 0}
         },
         "vision": {
-            "model": "ibm/granite3.2-vision",
+            "model": "a vision model",
             "provider": "ollama"
         }
     }
@@ -791,7 +791,7 @@ The tool returns a JSON response with comprehensive information:
 {
   "status": "success",
   "task": "guardian",
-  "model": "ibm/granite3.3-guardian:8b",
+  "model": "a content-safety model",
   "provider": "ollama",
   "prompt": "Analyze this content for safety: 'Hello world'",
   "response": "Model response text...",
@@ -799,7 +799,7 @@ The tool returns a JSON response with comprehensive information:
     "task_type": "guardian",
     "description": "Content Safety & Moderation - Analyzes content for safety, toxicity, policy compliance, and risk assessment",
     "prompt_template": "guardian_content_safety",
-    "model_used": "ibm/granite3.3-guardian:8b",
+    "model_used": "a content-safety model",
     "provider_used": "ollama"
   },
   "usage": {
@@ -926,12 +926,12 @@ The tool is designed to handle unavailable models gracefully:
 ┌─────────────────────────────────────────────────────────┐
 │  Lookup in model_config:                                │
 │  model_config.get("guardian")                            │
-│  → {"model": "ibm/granite3.3-guardian:8b", ...}         │
+│  → {"model": "a content-safety model", ...}         │
 └─────────────────────────────────────────────────────────┘
                         ↓
 ┌─────────────────────────────────────────────────────────┐
 │  Get model configuration:                                │
-│  - model: "ibm/granite3.3-guardian:8b"                   │
+│  - model: "a content-safety model"                   │
 │  - provider: "ollama"                                    │
 │  - options: {"think": True, "temperature": 0}            │
 └─────────────────────────────────────────────────────────┘
@@ -944,7 +944,7 @@ The tool is designed to handle unavailable models gracefully:
 ┌─────────────────────────────────────────────────────────┐
 │  Call adapter.chat()                                     │
 │  → AsyncClient().chat(                                   │
-│      model="ibm/granite3.3-guardian:8b",                 │
+│      model="a content-safety model",                 │
 │      think=True,                                         │
 │      options={"temperature": 0}                         │
 │    )                                                     │

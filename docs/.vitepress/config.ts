@@ -5,7 +5,7 @@ export default withMermaid(
   defineConfig({
     title: 'MCP Composer',
     description: 'A FastMCP-based composer that manages multiple MCP servers and tools',
-    // Use the correct base URL for IBM GitHub Pages
+    // Use the correct base URL for GitHub Pages
     base: '/mcp-composer/',
 
     head: [
@@ -25,7 +25,6 @@ export default withMermaid(
       nav: [
         { text: 'Home', link: '/' },
         { text: 'Guide', link: '/guide/' },
-        { text: 'API', link: '/api/' },
         { text: 'Examples', link: '/examples/' },
         { text: 'GitHub', link: 'https://github.com/ibm/mcp-composer' }
       ],
@@ -39,31 +38,40 @@ export default withMermaid(
               { text: 'Installation', link: '/guide/installation' },
               { text: 'Quick Start', link: '/guide/quick-start' },
               { text: 'Configuration', link: '/guide/configuration' },
-              { text: 'Langflow Integration', link: '/guide/langflow-integration' },
-              { text: 'Whl Usage', link: '/guide/use-with-claude' },
-              { text: 'CLI Usage', link: '/guide/cli' },
-              { text: 'Roadmap', link: '/guide/roadmap' },
-
+              { text: 'CLI', link: '/guide/cli' }
             ]
           },
           {
-            text: 'Core Concepts',
+            text: 'Compose',
             items: [
-              { text: 'Agent Management', link: '/guide/a2a' },
-              { text: 'Server Management', link: '/guide/server-management' },
-              { text: 'Tool Management', link: '/guide/tool-management' },
-              { text: 'Prompt Management', link: '/guide/prompt-management' },
-              { text: 'Resource Management', link: '/guide/resource-management' },
-              { text: 'Catalog Composer', link: '/guide/catalog-composer' },
-              { text: 'Catalog and Tool Tagging', link: '/guide/catalog-and-tool-tagging' },
-              { text: 'Layered MCP Server', link: '/guide/layered_mcp_server' },
-              { text: 'Tool Discovery Ranker', link: '/guide/tool-discovery-ranker' },
-              { text: 'Tool Description Best Practices', link: '/guide/tool-description-best-practices' },
+              { text: 'Servers', link: '/guide/server-management' },
+              { text: 'Tools', link: '/guide/tool-management' },
+              { text: 'Prompts', link: '/guide/prompt-management' },
+              { text: 'Resources', link: '/guide/resource-management' },
               { text: 'Authentication', link: '/guide/authentication' },
-              { text: 'Policy Based ACL', link: '/guide/policy-acl' },
-              { text: 'Middleware as Plugin', link: '/guide/middleware' },
+              { text: 'Middleware', link: '/guide/middleware' }
+            ]
+          },
+          {
+            text: 'Catalog and discovery',
+            items: [
+              { text: 'Catalog', link: '/guide/catalog-management' },
+              { text: 'Skills', link: '/guide/skill-management' },
+              { text: 'Workflows', link: '/guide/workflow-management' },
+              { text: 'Catalog composer', link: '/guide/catalog-composer' },
+              { text: 'Think composer', link: '/guide/think-composer' },
+              { text: 'Layered servers', link: '/guide/layered_mcp_server' },
+              { text: 'Tool discovery', link: '/guide/tool-discovery-ranker' },
+              { text: 'Tool descriptions', link: '/guide/tool-description-best-practices' }
+            ]
+          },
+          {
+            text: 'Operations',
+            items: [
+              { text: 'Agents (A2A)', link: '/guide/a2a' },
+              { text: 'Policy', link: '/guide/policy-acl' },
               { text: 'Monitoring', link: '/guide/monitoring' },
-              { text: 'Model Mesh Guide', link: '/guide/model_mesh' }
+              { text: 'Model mesh', link: '/guide/model_mesh' }
             ]
           }
         ],
@@ -80,10 +88,8 @@ export default withMermaid(
             text: 'Examples',
             items: [
               { text: 'Overview', link: '/examples/' },
-              { text: 'MCP Inspector Demo', link: '/examples/mcp-inspector' },
-
-              { text: 'Open API V2 fix', link: '/examples/using-swagger-2-api-spec' },
-              { text: 'Claude Desktop Guide', link: '/examples/claude_desktop_guide' }
+              { text: 'MCP Inspector', link: '/examples/mcp-inspector' },
+              { text: 'OpenAPI 2 to 3', link: '/examples/using-swagger-2-api-spec' }
             ]
           }
           
@@ -96,7 +102,7 @@ export default withMermaid(
 
       footer: {
         message: 'Released under the Apache License 2.0.',
-        copyright: 'Copyright © IBM Corporation'
+        copyright: ''
       },
 
       search: {

@@ -47,7 +47,7 @@ class IdentityManager:
                 return self._extract_header_identity(context)
             elif self.settings.identity_mode == IdentityMode.source:
                 return self._extract_source_identity(context)
-            elif self.settings.identity_mode == IdentityMode.api_key:
+            elif self.settings.identity_mode == IdentityMode.keyed:
                 return self._extract_api_key_identity(context)
             else:
                 logger.warning("Unknown identity mode: %s", self.settings.identity_mode)

@@ -32,5 +32,14 @@
 - README no longer documents `mcp_composer_app`; that package is removed
 - PyPI publish workflow: `.github/workflows/pypi.yml` (trusted publishing on `mcp_composer-v*` releases)
 - Maintainer recorded from IBM/mcp-composer: Mansura Habiba ([@mansura-habiba](https://github.com/mansura-habiba))
+- Sample configs live in `example/` (`member_servers.json`, `unified_config.json`). Removed root `member_servers.json`, `member_server_masked.json`, and the unused composer client config.
+- Docs revamp: removed stale product, roadmap, and design pages. Remaining guides describe the current composer without product-specific setup.
+- Think Composer starts again: `sequential_thinking` on loopback. The deleted deep-research import and the `0.0.0.0` bind are gone. Entry: `composers/think_composer.py` (`thinker_composer.py` still launches it). Guide: `docs/guide/think-composer.md`.
+- HackerOne 4064152 (stdio `register_mcp_server`) was already closed by the allowlist and the loopback bind check. 4064163 (`add_prompts` template `exec`) was still open; prompt templates are now substituted as data and are not compiled.
+- Issue 178: `AuthStrategy.API_KEY = "api_key"` was a protocol label, not a credential. The label now lives on `API_SCHEME`; `API_KEY` is an alias, so config value `api_key` is unchanged.
+- Issue 172: OAuth field names `clientId`, `clientSecret`, and `refreshToken` stay the same. `ConfigKey.CLIENT_ID`, `CLIENT_SECRET`, and `REFRESH_TOKEN` alias neutral members so those names are not assigned string literals.
+- Issue 171: `IdentityMode.api_key` is an alias of `keyed`. The mode label stays `api_key`.
+- Issue 170: `token_gen_auth_method` and `token_gen_method` stay the JSON field names. Call sites use `ConfigKey.GEN_AUTH` and `ConfigKey.GEN_METHOD`.
+- Call sites now use the neutral members (`API_SCHEME`, `OAUTH_CLIENT`, `OAUTH_PROOF`, `OAUTH_REFRESH`, `GEN_AUTH`, `GEN_METHOD`, `IdentityMode.keyed`). The old credential-shaped aliases are removed. JSON values are unchanged.
 
 

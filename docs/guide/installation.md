@@ -130,14 +130,14 @@ docker run -p 9000:9000 mcp-composer
 1. Copy the example environment file:
 
 ```bash
-cp src/.env.example src/.env
+cp .env.example .env
 ```
 
-2. Configure your settings in `src/.env`:
+2. Configure your settings in `.env`:
 
 ```env
 # Server Configuration
-MCP_SERVER_CONFIG_PATH=config/member_servers.json
+MCP_SERVER_CONFIG_PATH=example/member_servers.json
 MCP_TOOL_CONFIG_PATH=config/tools.json
 
 # Database Configuration
@@ -157,8 +157,10 @@ mcp-composer/
 ├── src/
 │   ├── .env                    # Environment configuration
 │   └── mcp_composer/          # Main package
+├── example/
+│   ├── member_servers.json    # Sample member servers
+│   └── unified_config.json    # Sample unified config
 ├── config/
-│   ├── member_servers.json    # Server configurations
 │   └── tools.json             # Tool configurations
 ├── data/                      # Database files
 └── .venv/                     # Virtual environment

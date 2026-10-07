@@ -9,9 +9,6 @@ Authentication in MCP Composer works at multiple levels:
 1. **Composer-level authentication** - Secures the MCP Composer itself
 2. **Server-level authentication** - Handles authentication for each member server
 3. **Tool-level authentication** - Applies specific authentication for individual tools
-4. **Solis Platform authentication** - Applies specific authentication for individual tools
-
-For the end-to-end ISV/IAM request path (token validation, auth context extraction, and middleware-driven header propagation), see the **[Solis Auth Context Middleware Guide](/guide/auth-context-middleware)**.
 
 ## 🔐 Authentication Methods
 
@@ -235,22 +232,22 @@ sequenceDiagram
    - Client receives the response without needing to handle OAuth complexity
    - Token management is completely transparent to the client
 
-### 5. Dynamic Bearer (IBM IAM-style)
+### 5. Dynamic bearer
 
 Dynamic token management for cloud services that require token exchange.
 
 ```python
 await composer.register_mcp_server({
-    "id": "ibm-service",
+    "id": "example-service",
     "type": "openapi",
     "open_api": {
-        "endpoint": "https://api.service.ibm.com/instances/{instance-id}/v1/",
+        "endpoint": "https://api.example.com/v1/",
         "spec_filepath": "/path/to/openapi-spec.json"
     },
     "auth_strategy": "dynamic_bearer",
     "auth": {
         "apikey": "your_ibm_cloud_apikey",
-        "token_url": "https://iam.cloud.ibm.com/identity/token",
+        "token_url": "https://example.com/identity/token",
         "media_type": "json"  # Optional
     }
 })
@@ -755,9 +752,7 @@ logging.getLogger("mcp_composer.auth_handler").setLevel(logging.DEBUG)
 logging.getLogger("mcp_composer.core.member_servers.builder").setLevel(logging.DEBUG)
 ```
 
-## 📚 Next Steps
+## Next steps
 
-- **[Solis Auth Context Middleware Guide](/guide/auth-context-middleware)** - Deep dive into ISV/IAM auth context flow
-- **[Examples](/examples)** - Real-world authentication examples
-- **[API Reference](/api/)** - Complete API documentation
-- **[Configuration Guide](/guide/configuration)** - Learn about configuration options 
+- [Examples](/examples/)
+- [Configuration](/guide/configuration) 

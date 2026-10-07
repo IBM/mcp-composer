@@ -170,7 +170,7 @@ See more examples [here](/examples/)
 
 ### Basic Configuration File
 
-Create a basic configuration file - `config/member_servers.json`:
+Create a basic configuration file, or start from `example/member_servers.json`:
 
 ```json
 [
@@ -189,7 +189,7 @@ Create a basic configuration file - `config/member_servers.json`:
 Set the path to the basic configuration file in your `.env` file using the `SERVER_CONFIG_FILE_PATH` variable:
 
 ```env
-SERVER_CONFIG_FILE_PATH=config/member_servers.json
+SERVER_CONFIG_FILE_PATH=example/member_servers.json
 ```
 
 ### Environment Variables
@@ -200,13 +200,13 @@ Update `.env`:
 # Server Configuration
 ####### MCP Composer Server env variables
 
-MCP_BASE_URL=http://0.0.0.0:9000/mcp
+MCP_BASE_URL=http://127.0.0.1:9000/mcp
 
 # This server and version config file will be automatically created 
 # in the root folder when you register a server.
 SERVER_CONFIG_FILE_PATH=mcp_servers.json
 VERSION_CONFIG_FILE_PATH=versioned_config.json
-VERSION_ADAPTER_TYPE=file # 'ibm_vault' if you want to use ibm secret manager
+VERSION_ADAPTER_TYPE=file
 
 # MCP Composer server transport mode
 MCP_MODE=sse
@@ -219,31 +219,13 @@ ENABLE_OAUTH=False
 OAUTH_HOST=localhost    
 OAUTH_PORT=8080
 OAUTH_SERVER_URL=http://localhost:8080
-OAUTH_CALLBACK_PATH=https://localhost:8080/auth/idaas/callback
+OAUTH_CALLBACK_PATH=https://localhost:8080/callback
 OAUTH_CLIENT_ID=<edit-me>
 OAUTH_CLIENT_SECRET=<edit-me>
 OAUTH_AUTH_URL=https://example.com/authorize
 OAUTH_TOKEN_URL=https://example.com/token
 OAUTH_MCP_SCOPE=user
 OAUTH_PROVIDER_SCOPE=openid
-
-
-####### MCP composer client env variables
-TOOL_SELECT_METHOD=llm
-# watsonx or ollama
-CHAT_MODEL_NAME=watsonx
-MAX_TOKENS=1000
-
-# watsonx env variables
-# e.g., meta-llama/llama-4-maverick-17b-128e-instruct-fp8, meta-llama/llama-3-3-70b-instruct, ibm/granite-3-3-8b-instruct
-WATSONX_CHAT_MODEL=ibm/granite-3-3-8b-instruct
-WATSONX_URL=https://eu-de.ml.cloud.ibm.com
-WATSONX_API_KEY=<edit-me>
-WATSONX_PROJECT_ID=<edit-me>
-
-# ollama model (must exist in local ollama models)
-# e.g., granite3.3:8b
-OLLAMA_CHAT_MODEL=<edit-me>
 ```
 
 ## Common Commands

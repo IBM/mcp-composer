@@ -1,6 +1,6 @@
 # Docker Guide
 
-Generic images (no private IBM registries). Build from `modules/mcp_composer`.
+Generic images. Build from `modules/mcp_composer`.
 
 ## Quick start
 

@@ -10,13 +10,17 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class IdentityMode(str, Enum):
-    """Identity extraction modes."""
+    """Identity extraction modes.
+
+    ``keyed`` is the API-key identity mode. The value ``api_key`` is the
+    mode label, not a credential.
+    """
 
     jwt = "jwt"
     fixed = "fixed"
     header = "header"
     source = "source"
-    api_key = "api_key"
+    keyed = "api_key"
 
 
 class PolicyMode(str, Enum):

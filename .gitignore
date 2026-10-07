@@ -22,6 +22,7 @@ docs/node_modules
 
 # runtime generated file
 /mcp_servers.json
+/member_servers.json
 /versioned_config.json
 example/mcsp_trio_server/config.json
 example/mcsp_servers/config.json
@@ -61,3 +62,4 @@ catalog/
 spec/
 
 config/tools.json
+/.governance
