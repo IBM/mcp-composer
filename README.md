@@ -18,7 +18,6 @@
 - [Installation](#installation)
   - [Prerequisites](#prerequisites)
   - [Setup](#setup)
-  - [Use as Tool](#use-as-tool)
 - [Development with Makefile](#development-with-makefile)
 - [Usage](#usage)
 - [Key Features](#key-features)
@@ -78,21 +77,7 @@ The goal is to provide a single unified MCP Composer that:
 
 ## Installation
 
-Update the pyproject.toml if you need to install both `mcp_composer` and `mcp_composer_app`
-
-```
-[tool.setuptools.packages.find]
-where = ["src"]
-include = ["mcp_composer", "mcp_composer_app"]
-```
-
-If we only want to install `mcp_composer`
-
-```
-[tool.setuptools.packages.find]
-where = ["src"]
-include = ["mcp_composer"]
-```
+MCP Composer ships as the `mcp-composer` package under `modules/mcp_composer`. There is no separate application package. Run it with the `mcp-composer` command, or import `mcp_composer` from Python.
 
 ### Prerequisites
 

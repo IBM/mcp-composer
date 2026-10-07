@@ -29,5 +29,6 @@
 - Moved the manual OAuth script to `modules/mcp_composer/examples/oauth_provider_manual.py`
 - Removed `.github/CODEOWNERS`. Maintainer is [mansura-habiba](https://github.com/mansura-habiba) (`MAINTAINERS.md`), matching [IBM/mcp-composer](https://github.com/IBM/mcp-composer)
 - Branch `oss-release-prep` pushed to `github.ibm.com/ai-elite/mcp-composer`
+- README no longer documents `mcp_composer_app`; that package is removed
 
 

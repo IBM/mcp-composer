@@ -46,7 +46,7 @@ MCP Composer handles authentication for upstream services:
 
 ```
 ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│   MCP Client    │    │  MCP Inspector  │    │  Chatbot UI     │
+│   MCP Client    │    │  MCP Inspector  │    │       CLI       │
 └─────────┬───────┘    └─────────┬───────┘    └─────────┬───────┘
           │                      │                      │
           └──────────────────────┼──────────────────────┘

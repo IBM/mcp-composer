@@ -28,5 +28,5 @@ features:
     title: CLI & API
     details: Launch via CLI or integrate via API. Support for both HTTP and stdio modes with flexible configuration options.
   - icon: 🤖
-    title: Chatbot Ready
-    details: Includes a chatbot agent service with UI demo for easy integration and testing of your MCP tools. 
+    title: MCP Clients
+    details: Connect any MCP client, including MCP Inspector, over stdio, HTTP, or SSE. 

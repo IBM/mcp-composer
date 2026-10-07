@@ -4,7 +4,7 @@ import { withMermaid } from "vitepress-plugin-mermaid";
 export default withMermaid(
   defineConfig({
     title: 'MCP Composer',
-    description: 'A FastAPI-based Composer that manages multiple MCP servers and tools',
+    description: 'A FastMCP-based composer that manages multiple MCP servers and tools',
     // Use the correct base URL for IBM GitHub Pages
     base: '/mcp-composer/',
 
