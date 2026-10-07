@@ -18,3 +18,4 @@ Release notes on GitHub are grouped with [`.github/release.yml`](.github/release
 
 - Public community docs follow the FastMCP contribution model: issue-first reports, Apache 2.0, Contributor Covenant, and private vulnerability reporting.
 - Continuous integration runs the unit suite on pull requests.
+- A GitHub Release tagged `mcp_composer-vX.Y.Z` publishes the package to PyPI.

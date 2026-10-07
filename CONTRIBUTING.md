@@ -95,4 +95,20 @@ Read review comments, evaluate concrete findings, and respond to requested chang
 
 ## Maintainer release
 
-Versions come from git tags matching `mcp_composer-v{version}` (see `modules/mcp_composer/pyproject.toml`). Publishing a GitHub Release runs `.github/workflows/publish.yaml`, which builds the wheel and attaches it to the release. PyPI upload remains a separate maintainer step (`make upload-pypi`) until trusted publishing is configured.
+Versions come from git tags matching `mcp_composer-v{version}` (see `modules/mcp_composer/pyproject.toml`).
+
+Publishing a GitHub Release from that tag runs two workflows:
+
+- `.github/workflows/publish.yaml` builds the wheel and attaches it to the GitHub release.
+- `.github/workflows/pypi.yml` builds the same tag and publishes it to PyPI with [trusted publishing](https://docs.pypi.org/trusted-publishers/). No PyPI token is stored in the repository.
+
+Before the first publish, add a trusted publisher on the `mcp-composer` project:
+
+| Setting | PyPI | TestPyPI |
+| --- | --- | --- |
+| Owner | GitHub org that runs the workflow | same |
+| Repository | `mcp-composer` | `mcp-composer` |
+| Workflow | `pypi.yml` | `pypi.yml` |
+| Environment | `pypi` | `testpypi` |
+
+Create those two GitHub environments on the repository. A manual run of **Publish to PyPI** publishes to TestPyPI when "Publish to TestPyPI instead of PyPI" is checked, and only from a commit that is exactly an `mcp_composer-vX.Y.Z` tag.
