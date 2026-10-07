@@ -106,7 +106,7 @@ status: ## Show toolchain versions
 	@echo "Python: $$(python3 --version 2>/dev/null || true)"
 	@echo "Uv: $$(uv --version 2>/dev/null || true)"
 
-# FastMCP-style: local sync/build only. Publishing is not a Make target.
+# Local sync/build only. Publishing is not a Make target.
 # Cut a GitHub Release (tag mcp_composer-vX.Y.Z) on github.com/IBM/mcp-composer;
 # .github/workflows/pypi.yml publishes to PyPI on release: published.
 build: ## Sync deps and build wheel/sdist locally (does not publish)
