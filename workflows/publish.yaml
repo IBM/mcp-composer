@@ -1,0 +1,28 @@
+name: Publish on new release
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: write
+
+jobs:
+  package:
+    name: mcp-composer release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: astral-sh/setup-uv@v5
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Build wheel and sdist
+        working-directory: modules/mcp_composer
+        run: uv build
+      - name: Attach artifacts
+        uses: softprops/action-gh-release@v2
+        with:
+          files: modules/mcp_composer/dist/*
