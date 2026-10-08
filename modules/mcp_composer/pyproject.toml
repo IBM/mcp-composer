@@ -29,7 +29,7 @@ dependencies = [
     "httpx==0.28.1",
     "beautifulsoup4>=4.12.0",
     "markdownify>=0.12.0",
-    "aiohttp==3.13.5",
+    "aiohttp==3.14.3",
     "jsonschema>=4.24.0",
     "uncurl==0.0.11",
     "pydantic==2.13.4",
@@ -48,11 +48,11 @@ dependencies = [
     "pyasn1>=0.6.2",
     "filelock>=3.20.3",
     "packaging>=24.0",
-    "sentence-transformers==5.6.0",
+    "sentence-transformers==6.1.0",
     "a2a-sdk==0.3.26",
     "asyncpg>=0.29.0",
     "numpy==2.4.4",
-    "pandas==3.0.2",
+    "pandas==3.0.6",
     "authlib==1.7.1",
     "boto3>=1.34.0",
     "python-multipart==0.0.32",
@@ -78,9 +78,9 @@ dev = [
     "pre-commit",
     "black==26.3.1",
     "mypy==1.20.2",
-    "coverage==7.13.5",
+    "coverage==7.16.2",
     "bandit==1.9.4",
-    "twine==6.2.0",
+    "twine==7.0.0",
     "debugpy>=1.8.16",
     "detect-secrets>=1.5.0"
 ]
@@ -101,7 +101,7 @@ secrets = [
 
 # AI/ML features
 ai = [
-    "google-genai==2.14.0",
+    "google-genai==2.28.0",
     "litellm==1.83.0",
     "ollama>=0.6.1",
     "scikit-learn>=1.7.1"
@@ -130,10 +130,10 @@ build-backend = "hatchling.build"
 source = "uv-dynamic-versioning"
 
 [tool.uv-dynamic-versioning]
-enable = true
 vcs = "git"
-tag_pattern = "mcp_composer-v{version}"
-default_version = "0.0.0"
+# Tags look like mcp_composer-v0.2.1
+pattern = 'mcp_composer-v(?P<base>\d+\.\d+\.\d+)'
+fallback_version = "0.0.0"
 # --- key bits to avoid "+<hash>" ---
 style = "pep440"        # ensure PEP 440 shape
 metadata = false        # DO NOT add local metadata (commit hash, dirty flag)
