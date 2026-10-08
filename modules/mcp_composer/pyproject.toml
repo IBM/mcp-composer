@@ -29,7 +29,7 @@ dependencies = [
     "httpx==0.28.1",
     "beautifulsoup4>=4.12.0",
     "markdownify>=0.12.0",
-    "aiohttp==3.13.5",
+    "aiohttp==3.14.3",
     "jsonschema>=4.24.0",
     "uncurl==0.0.11",
     "pydantic==2.13.4",
