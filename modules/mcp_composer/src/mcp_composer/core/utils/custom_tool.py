@@ -52,7 +52,7 @@ class DynamicToolGenerator:
     def _validate_curl_exists(api_name: str) -> bool:
         """
         Validate if the given API exists under custom_tool/openapi/
-        Example: OpenApiTool.validate_api_exists("instana") - True / False
+        Example: OpenApiTool.validate_api_exists("example_api") - True / False
         """
         try:
             current_file = os.path.abspath(__file__)
@@ -473,7 +473,7 @@ class OpenApiTool:
     def _validate_api_exists(api_name: str) -> bool:
         """
         Validate if the given API exists under custom_tool/openapi/
-        Example: OpenApiTool.validate_api_exists("instana") - True / False
+        Example: OpenApiTool.validate_api_exists("example_api") - True / False
         """
         try:
             current_file = os.path.abspath(__file__)

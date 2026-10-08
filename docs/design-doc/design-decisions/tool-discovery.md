@@ -487,7 +487,7 @@ Track these explicitly; v1 does **not** close them. Each item includes **why we 
 
 | ID | Issue | Why we need it | Notes |
 | -- | ----- | -------------- | ----- |
-| OI-5 | **Composer-level search** across all members’ inner catalogs | Composer users ask cross-product questions; forcing the agent to know `mcp-member_*` vs `mcp-aspera_*` first causes missed tools | Today search is per layered server |
+| OI-5 | **Composer-level search** across all members’ inner catalogs | Composer users ask cross-product questions; forcing the agent to know `mcp-member_*` vs `mcp-server2_*` first causes missed tools | Today search is per layered server |
 | OI-6 | **Operation-level entitlement** | Listing tools the user cannot call wastes shortlist slots and causes authorized-looking failures after selection | Server-level entitlement only today |
 
 ### Product / platform

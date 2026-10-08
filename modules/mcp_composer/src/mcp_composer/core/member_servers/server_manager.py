@@ -536,19 +536,6 @@ class ServerManager:
         """Get a member server details from in-memory"""
         return self._member_servers.get(server_id)
 
-    def is_iam_enabled_for_server(self, server_id: str) -> bool:
-        """
-        Return True only if the server config has solis_config.isIamEnabled === true.
-        Both solis_config and isIamEnabled may be absent; treat missing as False.
-        """
-        member = self.get_member(server_id)
-        if member is None:
-            return False
-        solis_config = member.config.get("solis_config")
-        if not solis_config or not isinstance(solis_config, dict):
-            return False
-        return solis_config.get("isIamEnabled", False) is True
-
     def prepare_activation(self, server_id: str) -> dict[str, object]:
         """
         Validates and returns updated config for reactivating a server.

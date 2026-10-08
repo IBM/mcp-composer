@@ -176,7 +176,7 @@ Below, **REST** lines note parity with HTTP where the implementation mirrors reg
 |--|--|
 | **Purpose** | Fetch one skill record by name, optionally pinned to a version. |
 | **REST parity** | Mirrors **`GET /v0/skills/{name}/versions/{version}`** or **latest** when version is omitted. |
-| **Parameters** | **`name`** (required) — catalog skill id, e.g. `ibm-instana-skill`. **`version`** (optional) — exact semver string; omit or null for **latest** (`isLatest` in registry). |
+| **Parameters** | **`name`** (required) — catalog skill id, e.g. `sample-service-skill`. **`version`** (optional) — exact semver string; omit or null for **latest** (`isLatest` in registry). |
 | **Response** | `{"skill": {...}, "_meta": {...}}`. Public **`skill`** document; **`_meta`** includes registry official block and optional **`metadata`** (private catalog metadata safe for API — not `remotes_config`; remote transport/headers merged per `SkillManager` rules). |
 | **Errors** | **`ValueError`** if name is blank or no matching skill/version. |
 

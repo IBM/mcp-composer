@@ -137,61 +137,61 @@ def test_filter_tools_user_instances_empty_unchanged(
 def test_filter_tools_empty_user_instances_hides_product_servers(
     tool_manager,
 ):  # pylint: disable=redefined-outer-name
-    """With no entitlement, tools from members with solis_config.product_id are hidden."""
+    """With no entitlement, tools from members with product_id are hidden."""
     t_member = MagicMock()
-    t_member.name = "mcp-wx-data_get_service_info"
+    t_member.name = "mcp-server-a_get_service_info"
     t_plain = MagicMock()
     t_plain.name = "enable_all_tools"
     tools = [t_member, t_plain]
 
     member = MagicMock()
-    member.id = "mcp-wx-data"
+    member.id = "mcp-server-a"
     member.health_status = HealthStatus.healthy
     member.disabled_tools = []
     member.tools_description = {}
-    member.config = {"solis_config": {"product_id": "lakehouse"}}
+    member.config = {"product_id": "product-a"}
     tool_manager._server_manager.list.return_value = [member]
 
     result = tool_manager.filter_tools(tools, user_instances=[])
     names = [t.name for t in result]
-    assert "mcp-wx-data_get_service_info" not in names
+    assert "mcp-server-a_get_service_info" not in names
     assert "enable_all_tools" in names
 
 
 def test_filter_tools_user_instances_filters_by_product(
     tool_manager,
 ):  # pylint: disable=redefined-outer-name
-    """With user_instances containing only lakehouse, tools for gi are removed."""
-    t_wx = MagicMock()
-    t_wx.name = "mcp-wx-data_get_service_info"
-    t_gi = MagicMock()
-    t_gi.name = "mcp-gurdium_get_type_info"
-    tools = [t_wx, t_gi]
+    """With user_instances containing only product-a, tools for product-b are removed."""
+    t_a = MagicMock()
+    t_a.name = "mcp-server-a_get_service_info"
+    t_b = MagicMock()
+    t_b.name = "mcp-server-b_get_type_info"
+    tools = [t_a, t_b]
 
-    member_wx = MagicMock()
-    member_wx.id = "mcp-wx-data"
-    member_wx.health_status = HealthStatus.healthy
-    member_wx.disabled_tools = []
-    member_wx.tools_description = {}
-    member_wx.config = {"solis_config": {"product_id": "lakehouse"}}
+    member_a = MagicMock()
+    member_a.id = "mcp-server-a"
+    member_a.health_status = HealthStatus.healthy
+    member_a.disabled_tools = []
+    member_a.tools_description = {}
+    member_a.config = {"product_id": "product-a"}
 
-    member_gi = MagicMock()
-    member_gi.id = "mcp-gurdium"
-    member_gi.health_status = HealthStatus.healthy
-    member_gi.disabled_tools = []
-    member_gi.tools_description = {}
-    member_gi.config = {"solis_config": {"product_id": "gi"}}
+    member_b = MagicMock()
+    member_b.id = "mcp-server-b"
+    member_b.health_status = HealthStatus.healthy
+    member_b.disabled_tools = []
+    member_b.tools_description = {}
+    member_b.config = {"product_id": "product-b"}
 
-    tool_manager._server_manager.list.return_value = [member_wx, member_gi]
+    tool_manager._server_manager.list.return_value = [member_a, member_b]
 
-    user_instances = [{"subscription": {"productId": "lakehouse"}}]
+    user_instances = [{"subscription": {"productId": "product-a"}}]
 
     result = tool_manager.filter_tools(tools, user_instances=user_instances)
 
     result_names = [t.name for t in result]
 
-    assert "mcp-wx-data_get_service_info" in result_names
-    assert "mcp-gurdium_get_type_info" not in result_names
+    assert "mcp-server-a_get_service_info" in result_names
+    assert "mcp-server-b_get_type_info" not in result_names
 
 
 def test_filter_tools_composer_tools_always_kept(
@@ -203,14 +203,16 @@ def test_filter_tools_composer_tools_always_kept(
     tools = [tool_no_prefix]
 
     member = MagicMock()
-    member.id = "mcp-wx-data"
+    member.id = "mcp-server-a"
     member.health_status = HealthStatus.healthy
     member.disabled_tools = []
     member.tools_description = {}
-    member.config = {"solis_config": {"product_id": "lakehouse"}}
+    member.config = {"product_id": "product-a"}
     tool_manager._server_manager.list.return_value = [member]
 
-    user_instances = [{"subscription": {"productId": "gi"}}]  # user has only gi
+    user_instances = [
+        {"subscription": {"productId": "product-b"}}
+    ]  # user has only product-b
 
     result = tool_manager.filter_tools(tools, user_instances=user_instances)
 
@@ -221,26 +223,26 @@ def test_filter_tools_composer_tools_always_kept(
 def test_filter_tools_server_no_product_id_filtered_out(
     tool_manager,
 ):  # pylint: disable=redefined-outer-name
-    """Server with no solis_config.product_id: tool is filtered out when user_instances provided."""
+    """Server with no product_id: tool is filtered out when user_instances provided."""
     t1 = MagicMock()
-    t1.name = "mcp-aspera_get_service_info"
+    t1.name = "mcp-server-c_get_service_info"
     tools = [t1]
 
     member = MagicMock()
-    member.id = "mcp-aspera"
+    member.id = "mcp-server-c"
     member.health_status = HealthStatus.healthy
     member.disabled_tools = []
     member.tools_description = {}
-    member.config = {}  # no solis_config
+    member.config = {}  # no product_id
     tool_manager._server_manager.list.return_value = [member]
 
-    user_instances = [{"subscription": {"productId": "lakehouse"}}]
+    user_instances = [{"subscription": {"productId": "product-a"}}]
 
     result = tool_manager.filter_tools(tools, user_instances=user_instances)
 
     # Tool should be filtered out because server has no product_id and doesn't match user's instances
     result_names = [t.name for t in result]
-    assert "mcp-aspera_get_service_info" not in result_names
+    assert "mcp-server-c_get_service_info" not in result_names
 
 
 # ---------- Async Tests ----------

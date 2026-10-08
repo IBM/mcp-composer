@@ -1,10 +1,10 @@
 [
   {
-    "id": "snow-search",
+    "id": "example-oauth-service",
     "type": "openapi",
     "open_api": {
-      "endpoint": "https://<edit-me>.service-now.com/",
-      "spec_filepath": "./tests/specs/snow_table_api_latest_spec.json",
+      "endpoint": "https://api.example.com/",
+      "spec_filepath": "./tests/specs/example_table_api_spec.json",
       "custom_routes": [
         {
           "methods": [
@@ -27,12 +27,12 @@
     },
     "auth_strategy": "oauth2",
     "auth": {
-      "clientId": "ENV_SNOW_CLIENT_ID",
-      "clientSecret": "ENV_SNOW_CLIENT_SECRET",
-      "refreshToken": "ENV_SNOW_REFRESH_TOKEN",
-      "token_url": "https://<edit-me>.service-now.com/oauth_token.do",
-      "scope": "useraccount"
+      "clientId": "ENV_OAUTH_CLIENT_ID",
+      "clientSecret": "ENV_OAUTH_CLIENT_SECRET",
+      "refreshToken": "ENV_OAUTH_REFRESH_TOKEN",
+      "token_url": "https://api.example.com/oauth_token",
+      "scope": "read"
     },
-    "_id": "snow-search"
+    "_id": "example-oauth-service"
   }
 ]

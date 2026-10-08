@@ -24,7 +24,7 @@ async def test_get_tool_accepts_version_argument() -> None:
         steps=[
             WorkflowStep(
                 step=1,
-                toolname="mcp-gurdium",
+                toolname="mcp-server-a",
                 tool="list_policy",
                 input={},
             )
@@ -43,14 +43,14 @@ async def test_get_tool_accepts_version_argument() -> None:
 @pytest.mark.asyncio
 async def test_workflow_tool_run_returns_execution_plan() -> None:
     workflow = WorkflowJSON(
-        name="guardium-policy",
-        description="Get Guardium policy summary",
+        name="server-policy",
+        description="Get policy summary",
         version="1.0.0",
-        goal="Get Guardium policy summary",
+        goal="Get policy summary",
         steps=[
             WorkflowStep(
                 step=1,
-                toolname="mcp-gurdium",
+                toolname="mcp-server-a",
                 tool="list_policy",
                 input={},
             )
@@ -61,9 +61,9 @@ async def test_workflow_tool_run_returns_execution_plan() -> None:
 
     assert result.structured_content is not None
     plan = result.structured_content
-    assert plan["workflow_name"] == "guardium-policy"
-    assert plan["steps"][0]["mcp_tool_name"] == "mcp-gurdium_list_policy"
-    assert plan["steps"][0]["layered_make_tool_call"] == "mcp-gurdium_make_tool_call"
+    assert plan["workflow_name"] == "server-policy"
+    assert plan["steps"][0]["mcp_tool_name"] == "mcp-server-a_list_policy"
+    assert plan["steps"][0]["layered_make_tool_call"] == "mcp-server-a_make_tool_call"
     assert plan["steps"][0]["tool"] == "list_policy"
 
 
@@ -79,7 +79,7 @@ async def test_refresh_tools_paginates_catalog_list() -> None:
         version="1.0.0",
         goal="One",
         steps=[
-            WorkflowStep(step=1, toolname="mcp-gurdium", tool="list_policy", input={})
+            WorkflowStep(step=1, toolname="mcp-server-a", tool="list_policy", input={})
         ],
     )
     page1 = MagicMock()

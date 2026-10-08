@@ -388,10 +388,6 @@ def load_jwt_provider(prefix: str = "JWT_") -> "JWTAuthProvider | None":
         jwt_provider = load_jwt_provider()
         # Looks for: JWT_SECRET, JWT_REQUIRED, etc.
 
-        # Use application-specific prefix
-        jwt_provider = load_jwt_provider(prefix="SOLIS_JWT_")
-        # Looks for: SOLIS_JWT_SECRET, SOLIS_JWT_REQUIRED, etc.
-
         jwt_provider = load_jwt_provider(prefix="MYAPP_JWT_")
         # Looks for: MYAPP_JWT_SECRET, MYAPP_JWT_REQUIRED, etc.
     """

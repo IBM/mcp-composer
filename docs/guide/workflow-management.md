@@ -71,7 +71,7 @@ Default location: **`resources/workflows/`** at the repository root (override wi
 | `instruction` | Yes | `description` (MCP tool description) |
 | `version` | No (default `1.0.0`) | `version` |
 | `goal` | No | `goal` (defaults to `instruction`) |
-| `prefixes` | No | Resolves `product` → mounted server id (e.g. `gurdium` → `mcp-gurdium`) |
+| `prefixes` | No | Resolves `product` → mounted server id (e.g. `scanner` → `mcp-scanner`) |
 | `output` | Yes | `steps[]` |
 
 ### Step object
@@ -79,7 +79,7 @@ Default location: **`resources/workflows/`** at the repository root (override wi
 | Field | Required | Notes |
 |-------|----------|------|
 | `step` | No | Step number (default: order in array) |
-| `product` | Yes | Key for `prefixes` (e.g. `gurdium`, `wx-data`) |
+| `product` | Yes | Key for `prefixes` (e.g. `scanner`, `service-a`) |
 | `tool` | Yes | Underlying tool on that server |
 | `tool_prefix` | No | Overrides `prefixes` for this step |
 | `input` | No | Arguments; may use `{{placeholders}}` from prior steps |
@@ -88,15 +88,15 @@ Example (one element from a bundle file):
 
 ```json
 {
-  "name": "list-open-guardium-vulnerabilities",
-  "instruction": "List all open vulnerabilities across Guardium-monitored data stores",
+  "name": "list-open-issues",
+  "instruction": "List all open issues across monitored stores",
   "version": "1.0.0",
-  "prefixes": { "gurdium": "mcp-gurdium" },
+  "prefixes": { "scanner": "mcp-scanner" },
   "output": [
     {
       "step": 1,
-      "product": "gurdium",
-      "tool": "list_vulnerabilities",
+      "product": "scanner",
+      "tool": "list_issues",
       "input": {
         "filter": { "status": "OPEN" },
         "pagination": { "offset": 0, "limit": 50 }
@@ -106,7 +106,7 @@ Example (one element from a bundle file):
 }
 ```
 
-Default product → server prefix map (when `prefixes` is omitted) is defined in [`workflow_file_loader.py`](../../modules/mcp_composer/src/mcp_composer/core/workflow_file_loader.py) (`mcp-gurdium`, `mcp-wx-data`, `mcp-servicenow`, etc.).
+Explicit `prefixes` mappings can be defined in the workflow file (e.g. `{"scanner": "mcp-scanner"}`).
 
 ---
 
@@ -217,7 +217,7 @@ Tool names on the client may be prefixed with the mount namespace (e.g. `workflo
 
 | Pattern | When | Action |
 |---------|------|--------|
-| **Direct** | Member server exposes tools with prefix | Call `mcp_tool_name` (e.g. `mcp-gurdium_list_vulnerabilities`) with resolved `input` |
+| **Direct** | Member server exposes tools with prefix | Call `mcp_tool_name` (e.g. `mcp-scanner_list_issues`) with resolved `input` |
 | **Layered** | Server exposes `get_service_info`, `get_type_info`, `make_tool_call` | Use `{server_id}_make_tool_call` with `tool_name` from the plan and `arguments` = resolved `input`; use `get_type_info` when schema is unclear |
 
 See [Layered MCP server](./layered_mcp_server.md) for the discovery trio.
@@ -246,8 +246,8 @@ Use MCP tools when workflows are maintained directly in the catalog:
   "steps": [
     {
       "step": 1,
-      "toolname": "mcp-gurdium",
-      "tool": "list_vulnerabilities",
+      "toolname": "mcp-scanner",
+      "tool": "list_issues",
       "input": {}
     }
   ],

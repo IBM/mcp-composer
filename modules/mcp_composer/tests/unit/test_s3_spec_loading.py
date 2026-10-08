@@ -23,7 +23,9 @@ class TestS3SpecLoading:
     @pytest.mark.asyncio
     async def test_s3_virtual_hosted_style_url_detection(self, sample_spec):
         """Test detection and parsing of S3 virtual-hosted style URLs"""
-        s3_url = "https://bucket-solis-openapi-spec.s3.us-east-1.amazonaws.com/lakehouse-v3-short.json"
+        s3_url = (
+            "https://example-openapi-specs.s3.us-east-1.amazonaws.com/api-spec.json"
+        )
 
         # Mock boto3 at import time
         mock_boto3 = MagicMock()
@@ -47,7 +49,7 @@ class TestS3SpecLoading:
             # Verify boto3 was called correctly
             mock_boto3.client.assert_called_once_with("s3", region_name="us-east-1")
             mock_s3_client.get_object.assert_called_once_with(
-                Bucket="bucket-solis-openapi-spec", Key="lakehouse-v3-short.json"
+                Bucket="example-openapi-specs", Key="api-spec.json"
             )
 
             # Verify the spec was loaded correctly

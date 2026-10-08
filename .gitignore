@@ -41,7 +41,6 @@ docs/node_modules/
 modules/mcp_composer/tests/integration/*
 modules/mcp_composer/tests/specs/snow_table_api_latest_spec.json
 docs/release/pypirelease.md
-.solis_jwt_cache.json
 composer_resources.json
 composer_prompts.json
 member_server_masked.json

@@ -191,17 +191,17 @@ The input to MCP Composer will look like
 ```
 [
   {
-    "id": "mcp-instana",
+    "id": "mcp-example",
     "type": "openapi",
     "open_api": {
-      "endpoint": "https://demous-instana.instana.io",
-      "spec_filepath": "./instana-openapi.json", // this could be also spec_url
+      "endpoint": "https://api.example.com",
+      "spec_filepath": "./example-openapi.json", // this could be also spec_url
       "custom_routes": [
         {
           "methods": [
             "GET"
           ],
-          "pattern": ".*/application-monitoring/.*",
+          "pattern": ".*/monitoring/.*",
           "mcp_type": "TOOL"
         },
         {
