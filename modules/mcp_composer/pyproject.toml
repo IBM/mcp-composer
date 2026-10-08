@@ -130,10 +130,10 @@ build-backend = "hatchling.build"
 source = "uv-dynamic-versioning"
 
 [tool.uv-dynamic-versioning]
-enable = true
 vcs = "git"
-tag_pattern = "mcp_composer-v{version}"
-default_version = "0.0.0"
+# Tags look like mcp_composer-v0.2.1
+pattern = 'mcp_composer-v(?P<base>\d+\.\d+\.\d+)'
+fallback_version = "0.0.0"
 # --- key bits to avoid "+<hash>" ---
 style = "pep440"        # ensure PEP 440 shape
 metadata = false        # DO NOT add local metadata (commit hash, dirty flag)
