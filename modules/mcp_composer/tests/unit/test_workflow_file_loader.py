@@ -25,9 +25,7 @@ from mcp_composer.store.catalog_in_memory_database import CatalogInMemoryDatabas
 
 
 def test_slug_from_instruction_strips_product_tag():
-    slug = slug_from_instruction(
-        "[gurdium] List all open vulnerabilities across data stores"
-    )
+    slug = slug_from_instruction("[scanner] List all open issues across data stores")
     assert slug.startswith("list-all-open")
     assert "[" not in slug
 
@@ -35,8 +33,8 @@ def test_slug_from_instruction_strips_product_tag():
 def test_resolve_tool_prefix_step_override():
     assert (
         resolve_tool_prefix(
-            "gurdium",
-            entry_prefixes={"gurdium": "gurdium"},
+            "scanner",
+            entry_prefixes={"scanner": "scanner"},
             step_prefix="custom-srv",
         )
         == "custom-srv"
@@ -44,32 +42,30 @@ def test_resolve_tool_prefix_step_override():
 
 
 def test_prefixed_tool_name():
-    assert prefixed_tool_name("gurdium", "list_vulnerabilities") == (
-        "gurdium_list_vulnerabilities"
-    )
+    assert prefixed_tool_name("scanner", "list_issues") == ("scanner_list_issues")
 
 
 def test_file_entry_to_workflow_json():
     entry = {
-        "name": "list-open-vulns",
-        "instruction": "List open vulnerabilities",
-        "prefixes": {"gurdium": "gurdium"},
+        "name": "list-open-issues",
+        "instruction": "List open issues",
+        "prefixes": {"scanner": "scanner"},
         "output": [
             {
                 "step": 1,
-                "product": "gurdium",
-                "tool": "list_vulnerabilities",
+                "product": "scanner",
+                "tool": "list_issues",
                 "input": {"filter": {"status": "OPEN"}},
             }
         ],
     }
     wf = file_entry_to_workflow_json(entry, source_file="test.json", used_names=set())
-    assert wf.name == "list-open-vulns"
-    assert wf.description == "List open vulnerabilities"
-    assert wf.steps[0].toolname == "gurdium"
+    assert wf.name == "list-open-issues"
+    assert wf.description == "List open issues"
+    assert wf.steps[0].toolname == "scanner"
     plan = build_execution_plan(wf)
-    assert plan["steps"][0]["mcp_tool_name"] == "gurdium_list_vulnerabilities"
-    assert plan["steps"][0]["layered_make_tool_call"] == "gurdium_make_tool_call"
+    assert plan["steps"][0]["mcp_tool_name"] == "scanner_list_issues"
+    assert plan["steps"][0]["layered_make_tool_call"] == "scanner_make_tool_call"
     assert plan["execution_guidance"]["pattern"] == "discover_plan_execute_sequentially"
 
 
@@ -89,8 +85,8 @@ def test_parse_workflows_from_json_string_accepts_bundle_array():
                 "output": [
                     {
                         "step": 1,
-                        "product": "gurdium",
-                        "tool": "list_vulnerabilities",
+                        "product": "scanner",
+                        "tool": "list_issues",
                         "input": {},
                     }
                 ],
@@ -101,7 +97,7 @@ def test_parse_workflows_from_json_string_accepts_bundle_array():
                 "output": [
                     {
                         "step": 1,
-                        "product": "gurdium",
+                        "product": "scanner",
                         "tool": "get_asset_list",
                         "input": {},
                     }
@@ -125,8 +121,8 @@ def test_parse_workflows_from_json_string_accepts_single_catalog_document():
             "steps": [
                 {
                     "step": 1,
-                    "toolname": "gurdium",
-                    "tool": "list_vulnerabilities",
+                    "toolname": "scanner",
+                    "tool": "list_issues",
                     "input": {},
                 }
             ],
@@ -166,8 +162,8 @@ async def test_sync_writes_one_catalog_row_per_file(tmp_path: Path):
                     "output": [
                         {
                             "step": 1,
-                            "product": "gurdium",
-                            "tool": "list_vulnerabilities",
+                            "product": "scanner",
+                            "tool": "list_issues",
                             "input": {},
                         }
                     ],
@@ -178,8 +174,8 @@ async def test_sync_writes_one_catalog_row_per_file(tmp_path: Path):
                     "output": [
                         {
                             "step": 1,
-                            "product": "gurdium",
-                            "tool": "list_vulnerabilities",
+                            "product": "scanner",
+                            "tool": "list_issues",
                             "input": {},
                         }
                     ],
@@ -217,8 +213,8 @@ async def test_sync_workflow_files_to_catalog(tmp_path: Path):
                 "output": [
                     {
                         "step": 1,
-                        "product": "gurdium",
-                        "tool": "list_vulnerabilities",
+                        "product": "scanner",
+                        "tool": "list_issues",
                         "input": {},
                     }
                 ],
@@ -233,7 +229,7 @@ async def test_sync_workflow_files_to_catalog(tmp_path: Path):
     assert result["one_row_per_workflow"] is True
     assert result["published"][0]["name"] == "wf-one"
     latest = await mgr.get_latest("wf-one")
-    assert latest.workflow.steps[0].toolname == "gurdium"
+    assert latest.workflow.steps[0].toolname == "scanner"
 
 
 def test_load_workflow_entries_from_directory():

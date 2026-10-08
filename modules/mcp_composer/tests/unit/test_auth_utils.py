@@ -7,8 +7,8 @@ from mcp_composer.middleware.auth_utils import tool_name_to_server_id
 
 def test_tool_name_to_server_id_with_prefix():
     """Tool name with server prefix returns prefix before first '_'."""
-    assert tool_name_to_server_id("mcp-gurdium_make_tool_call") == "mcp-gurdium"
-    assert tool_name_to_server_id("mcp-wx-data_list_tools") == "mcp-wx-data"
+    assert tool_name_to_server_id("mcp-server1_make_tool_call") == "mcp-server1"
+    assert tool_name_to_server_id("mcp-server2_list_tools") == "mcp-server2"
     assert tool_name_to_server_id("server_foo") == "server"
 
 

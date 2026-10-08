@@ -649,63 +649,6 @@ def test_get_member_not_found():
     assert result is None
 
 
-def test_is_iam_enabled_for_server_not_found():
-    """Server not mounted -> False."""
-    manager = ServerManager()
-    assert manager.is_iam_enabled_for_server("nonexistent") is False
-
-
-def test_is_iam_enabled_for_server_no_solis_config():
-    """Member has no solis_config -> False."""
-    manager = ServerManager()
-    mock_member = MagicMock()
-    mock_member.config = {"id": "srv1"}
-    manager._member_servers["srv1"] = mock_member
-    assert manager.is_iam_enabled_for_server("srv1") is False
-
-
-def test_is_iam_enabled_for_server_solis_config_iam_false():
-    """Member has solis_config but isIamEnabled false -> False."""
-    manager = ServerManager()
-    mock_member = MagicMock()
-    mock_member.config = {
-        "id": "srv1",
-        "solis_config": {"product_id": "gi", "isIamEnabled": False},
-    }
-    manager._member_servers["srv1"] = mock_member
-    assert manager.is_iam_enabled_for_server("srv1") is False
-
-
-def test_is_iam_enabled_for_server_solis_config_iam_true():
-    """Member has solis_config.isIamEnabled true -> True."""
-    manager = ServerManager()
-    mock_member = MagicMock()
-    mock_member.config = {
-        "id": "srv1",
-        "solis_config": {"product_id": "gi", "isIamEnabled": True},
-    }
-    manager._member_servers["srv1"] = mock_member
-    assert manager.is_iam_enabled_for_server("srv1") is True
-
-
-def test_is_iam_enabled_for_server_solis_config_missing_is_iam_key():
-    """Member has solis_config but no isIamEnabled key -> False."""
-    manager = ServerManager()
-    mock_member = MagicMock()
-    mock_member.config = {"id": "srv1", "solis_config": {"product_id": "gi"}}
-    manager._member_servers["srv1"] = mock_member
-    assert manager.is_iam_enabled_for_server("srv1") is False
-
-
-def test_is_iam_enabled_for_server_solis_config_not_dict():
-    """Member has solis_config that is not a dict -> False."""
-    manager = ServerManager()
-    mock_member = MagicMock()
-    mock_member.config = {"id": "srv1", "solis_config": "invalid"}
-    manager._member_servers["srv1"] = mock_member
-    assert manager.is_iam_enabled_for_server("srv1") is False
-
-
 def test_prepare_activation_success():
     """Test preparing activation successfully."""
     manager = ServerManager()

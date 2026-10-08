@@ -329,7 +329,7 @@ class TestLayeredOpenAPIFactory:
             mock_openapi_spec,
             mock_client,
             server_id="unknown",
-            product_id="lakehouse",
+            product_id="test-product",
             custom_routes=custom_routes,
         )
 
@@ -340,8 +340,8 @@ class TestLayeredOpenAPIFactory:
             "state": "active",
             "dashboardURL": "https://example.com/dashboard",
             "subscription": {
-                "subscriptionName": "watsonx.data",
-                "productId": "lakehouse",
+                "subscriptionName": "test-subscription",
+                "productId": "test-product",
             },
         }
         auth_context = {
@@ -352,8 +352,8 @@ class TestLayeredOpenAPIFactory:
             "user_instances": [
                 {
                     "instance_id": full_instance["id"],
-                    "subscriptionName": "watsonx.data",
-                    "productId": "lakehouse",
+                    "subscriptionName": "test-subscription",
+                    "productId": "test-product",
                     "host": full_instance["dashboardURL"].split("?")[0].rstrip("/"),
                 },
             ],
@@ -397,8 +397,8 @@ class TestLayeredOpenAPIFactory:
         assert (
             user_instances[0]["instance_id"] == "20251128-1445-2831-7084-4a9a364b8b6b"
         )
-        assert user_instances[0]["subscriptionName"] == "watsonx.data"
-        assert user_instances[0]["productId"] == "lakehouse"
+        assert user_instances[0]["subscriptionName"] == "test-subscription"
+        assert user_instances[0]["productId"] == "test-product"
 
     def test_layered_factory_with_custom_routes(self, mock_openapi_spec, mock_client):
         """Test LayeredOpenAPIFactory with custom routes."""

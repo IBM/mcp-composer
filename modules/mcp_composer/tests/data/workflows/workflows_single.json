@@ -5,8 +5,8 @@
   "output": [
     {
       "step": 1,
-      "product": "gurdium",
-      "tool": "list_vulnerabilities",
+      "product": "scanner",
+      "tool": "list_issues",
       "input": {}
     }
   ]

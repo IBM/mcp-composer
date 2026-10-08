@@ -81,7 +81,6 @@ composer = MCPComposer(
 
 **For detailed JWT setup instructions, see:**
 - [`modules/mcp_composer/composers/QUICK_START_JWT.md`](../../modules/mcp_composer/composers/QUICK_START_JWT.md) - 2-minute quick start
-- [`modules/mcp_composer/composers/SOLIS_JWT_SETUP.md`](../../modules/mcp_composer/composers/SOLIS_JWT_SETUP.md) - Comprehensive setup guide
 - [`modules/mcp_composer/src/mcp_composer/core/auth/jwt/README.md`](../../modules/mcp_composer/src/mcp_composer/core/auth/jwt/README.md) - Technical implementation details
 
 ### 2. Bearer Token Authentication

@@ -130,7 +130,7 @@ class MCPToolManager:
         locally disabled tools, performing the following actions for all member servers:
         1. Removes disabled tools.
         2. Updates tool descriptions.
-        3. When user_instances is provided, removes tools whose server's solis_config.product_id
+        3. When user_instances is provided, removes tools whose server's product_id
            is not present in any of the user's instances.
         """
         try:
@@ -176,7 +176,11 @@ class MCPToolManager:
             # 4. Product-based filter: when user_instances is provided, keep only tools
             # whose server's product_id is in the user's instances (or server has no product_id)
             server_to_product: dict[str, str | None] = {
-                member.id: (member.config.get("solis_config") or {}).get("product_id")
+                member.id: (
+                    (member.config.get("product_id") or member.config.get("productId"))
+                    if isinstance(member.config, dict)
+                    else None
+                )
                 for member in server_config
             }
 

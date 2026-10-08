@@ -132,7 +132,10 @@ class TestLoggerFactory:
         """Test get_logger when existing logger has handlers"""
         # Mock existing logger with handlers
         mock_logger = Mock()
-        mock_logger.handlers = [Mock()]  # Non-empty handlers list
+        mock_logger.filters = []
+        mock_handler = Mock()
+        mock_handler.filters = []
+        mock_logger.handlers = [mock_handler]  # Non-empty handlers list
         mock_get_logger.return_value = mock_logger
 
         logger = LoggerFactory.get_logger()
@@ -146,6 +149,7 @@ class TestLoggerFactory:
         """Test get_logger when creating new logger without handlers"""
         # Mock new logger without handlers
         mock_logger = Mock()
+        mock_logger.filters = []
         mock_logger.handlers = []  # Empty handlers list
         mock_get_logger.return_value = mock_logger
 

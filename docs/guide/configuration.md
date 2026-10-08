@@ -754,7 +754,7 @@ S3 access uses the standard AWS credential chain (no additional configuration ne
   "type": "openapi",
   "open_api": {
     "endpoint": "https://api.example.com",
-    "spec_url": "https://bucket-solis-openapi-spec.s3.us-east-1.amazonaws.com/lakehouse-v3-short.json"
+    "spec_url": "https://example.amazonaws.com/api-spec.json"
   },
   "auth_strategy": "bearer",
   "auth": {
