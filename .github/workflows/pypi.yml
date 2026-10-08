@@ -38,7 +38,7 @@ jobs:
           fi
           echo "version=${BASH_REMATCH[1]}" >> "$GITHUB_OUTPUT"
       - uses: astral-sh/setup-uv@v5
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
       - name: Build wheel and sdist
