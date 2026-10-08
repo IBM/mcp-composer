@@ -16,12 +16,29 @@ class LoggerFactory:
     """
 
     @staticmethod
+    def _iter_filters(obj) -> list:
+        """Return filter list; tolerate mocks/non-iterables used in unit tests."""
+        filters = getattr(obj, "filters", None)
+        if filters is None:
+            return []
+        try:
+            return list(filters)
+        except TypeError:
+            return []
+
+    @staticmethod
     def _ensure_secret_filter(logger: logging.Logger) -> None:
         """Attach secret redaction once so credentials never reach handlers."""
-        if not any(isinstance(f, SecretRedactionFilter) for f in logger.filters):
+        if not any(
+            isinstance(f, SecretRedactionFilter)
+            for f in LoggerFactory._iter_filters(logger)
+        ):
             logger.addFilter(SecretRedactionFilter())
         for handler in logger.handlers:
-            if not any(isinstance(f, SecretRedactionFilter) for f in handler.filters):
+            if not any(
+                isinstance(f, SecretRedactionFilter)
+                for f in LoggerFactory._iter_filters(handler)
+            ):
                 handler.addFilter(SecretRedactionFilter())
 
     @staticmethod
