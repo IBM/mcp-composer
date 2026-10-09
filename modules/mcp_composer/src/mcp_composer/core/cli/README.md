@@ -7,7 +7,7 @@ This document provides comprehensive documentation for the MCP Composer CLI, a m
 MCP Composer provides a powerful CLI that allows you to:
 
 - **Initialize** new projects with ready-to-run configurations (`init`)
-- **Start** the server in different modes (HTTP, SSE, STDIO) (`run`, `composer start`)
+- **Start** the server in different modes (HTTP, STDIO) (`run`, `composer start`)
 - **Configure** server settings and authentication
 - **Manage** middleware configurations (`middleware`)
 - **Monitor** server health and status (`composer status`, `composer logs`)
@@ -95,14 +95,14 @@ See the [Init Command](#init-command---initialize-project) section for detailed 
 # Start in HTTP mode (default)
 mcp-composer --mode http --host 0.0.0.0 --port 9000
 
-# Start in SSE mode
-mcp-composer --mode sse --host localhost --port 9000
+# Start in HTTP (Streamable) mode
+mcp-composer --mode http --host localhost --port 9000
 
 # Start in STDIO mode
 mcp-composer --mode stdio --script-path /path/to/server.py
 
 # Start with OAuth authentication
-mcp-composer --mode sse --auth-type oauth --host localhost --port 9000
+mcp-composer --mode http --auth-type oauth --host localhost --port 9000
 ```
 
 ### Help and Version
@@ -129,16 +129,16 @@ mcp-composer composer --help
 
 | Option | Description | Default |
 |--------|-------------|---------|
-| `--mode` | Server mode: `http`, `sse`, or `stdio` | `stdio` |
-| `--host` | Host to bind to (HTTP/SSE mode) | `0.0.0.0` |
-| `--port` | Port to run on (HTTP/SSE mode) | `9000` |
+| `--mode` | Server mode: `http` or `stdio` | `stdio` |
+| `--host` | Host to bind to (HTTP mode) | `0.0.0.0` |
+| `--port` | Port to run on (HTTP mode) | `9000` |
 | `--id` | Unique ID for MCP instance | `mcp-local` |
-| `--endpoint` | Endpoint for HTTP or SSE server running remotely | None |
+| `--endpoint` | Endpoint for HTTP server running remotely | None |
 | `--script-path` | Path to script for stdio mode | None |
 | `--directory` | Working directory for uvicorn process | None |
 | `--config_path` | Path to JSON config for MCP member servers | None |
 | `--auth-type` | Authentication type (oauth) | None |
-| `--sse-url` | Langflow compatible URL for remote SSE/HTTP server | None |
+| `--remote-url` | Langflow-compatible URL for remote HTTP server | None |
 | `--remote-auth-type` | Authentication type for remote server | `none` |
 | `--client-auth-type` | Authentication type for client | `none` |
 | `--disable-composer-tools` | Disable composer tools | `False` |
@@ -162,17 +162,17 @@ mcp-composer --mode http --endpoint http://api.example.com
 mcp-composer --mode http --auth-type oauth --host localhost --port 9000
 ```
 
-#### SSE Mode
+#### Streamable HTTP Mode
 
 ```bash
-# Basic SSE server
-mcp-composer --mode sse --host localhost --port 9000
+# Basic HTTP (Streamable) server
+mcp-composer --mode http --host localhost --port 9000
 
 # With endpoint
-mcp-composer --mode sse --endpoint http://localhost:8001/sse
+mcp-composer --mode http --endpoint http://localhost:8001/mcp
 
 # With OAuth authentication
-mcp-composer --mode sse --auth-type oauth --host localhost --port 9000
+mcp-composer --mode http --auth-type oauth --host localhost --port 9000
 
 # With OAuth configuration
 mcp-composer --mode http \
@@ -222,8 +222,8 @@ mcp-composer run [OPTIONS]
 # HTTP mode with endpoint
 mcp-composer run --mode http --endpoint http://api.example.com
 
-# SSE mode with OAuth
-mcp-composer run --mode sse --auth-type oauth --host localhost --port 9000
+# HTTP mode with OAuth
+mcp-composer run --mode http --auth-type oauth --host localhost --port 9000
 
 # STDIO mode with script
 mcp-composer run --mode stdio --script-path /path/to/server.py --id mcp-news
@@ -232,7 +232,7 @@ mcp-composer run --mode stdio --script-path /path/to/server.py --id mcp-news
 mcp-composer run --mode http --env DEBUG=true --env LOG_LEVEL=debug
 
 # With remote server connection
-mcp-composer run --mode http --sse-url http://localhost:8001/sse --remote-auth-type oauth
+mcp-composer run --mode http --remote-url http://localhost:8001/mcp --remote-auth-type oauth
 ```
 
 ### `version` - Show Version
@@ -274,9 +274,9 @@ mcp-composer init [PROJECT_NAME] [OPTIONS]
 | `--with-examples` | Include example files (tools, middleware, configs) | `False` |
 | `--with-venv` / `--no-venv` | Create virtual environment in project | `True` |
 | `--adapter` | Setup variant: `local` or `cloud` | Interactive prompt |
-| `--port`, `-p` | Default port for HTTP/SSE server | `9000` |
-| `--host` | Default host for HTTP/SSE server | `0.0.0.0` |
-| `--mode` | Default server mode: `http`, `sse`, or `stdio` | Depends on adapter |
+| `--port`, `-p` | Default port for HTTP server | `9000` |
+| `--host` | Default host for HTTP server | `0.0.0.0` |
+| `--mode` | Default server mode: `http` or `stdio` | Depends on adapter |
 | `--auth-type` | Authentication type: `oauth` or `none` | `none` |
 | `--database` | Database type: `sqlite`, `postgres`, or `none` | `none` |
 | `--description` | Project description | Generated from name |
@@ -352,9 +352,9 @@ When running without `--defaults`, you'll be prompted for:
 2. **Description**: A brief description of your project
 3. **Setup variant**: 
    - `local`: For local development (stdio mode default)
-   - `cloud`: For cloud deployment (http/sse mode default)
-4. **Server mode**: `stdio`, `http`, or `sse`
-5. **Port & Host**: (Only for http/sse modes)
+   - `cloud`: For cloud deployment (http mode default)
+4. **Server mode**: `stdio` or `http`
+5. **Port & Host**: (Only for http mode)
 6. **Authentication**: `none` or `oauth`
 7. **Database**: `none`, `sqlite`, or `postgres`
 8. **Include examples**: Whether to include example files
@@ -492,7 +492,7 @@ if __name__ == "__main__":
 2. **Cloud Adapter** (`--adapter cloud`):
    - Default mode: `http`
    - Best for: Production deployments, API servers, cloud hosting
-   - Creates: HTTP/SSE configuration, ready for containerization
+   - Creates: HTTP configuration, ready for containerization
 
 **Best Practices:**
 
@@ -722,11 +722,11 @@ uv add python-daemon
 # Start in HTTP mode
 mcp-composer composer start --mode http --endpoint http://api.example.com
 
-# Start in SSE mode with OAuth
-mcp-composer composer start --mode sse --auth-type oauth --host localhost --port 9000
+# Start in HTTP mode with OAuth
+mcp-composer composer start --mode http --auth-type oauth --host localhost --port 9000
 
 # Start as daemon
-mcp-composer composer start --mode sse --daemon --pid-file /var/run/mcp-composer.pid
+mcp-composer composer start --mode http --daemon --pid-file /var/run/mcp-composer.pid
 
 # Start with custom log file
 mcp-composer composer start --mode http --daemon --log-file /var/log/mcp-composer.log
@@ -836,7 +836,7 @@ mcp-composer composer restart --port 9000
 mcp-composer composer restart --port 9000 --force
 
 # Restart with new configuration
-mcp-composer composer restart --mode sse --auth-type oauth --port 9000
+mcp-composer composer restart --mode http --auth-type oauth --port 9000
 ```
 
 ## OAuth Authentication
@@ -986,7 +986,7 @@ Middleware configurations use JSON format:
 mcp-composer --mode http --port 9000 --log-level debug --config_path config/dev.json
 
 # Start with environment variables
-mcp-composer run --mode sse --env DEBUG=true --env LOG_LEVEL=debug --host localhost --port 9000
+mcp-composer run --mode http --env DEBUG=true --env LOG_LEVEL=debug --host localhost --port 9000
 ```
 
 ### Production Setup
@@ -1062,7 +1062,7 @@ mcp-composer composer logs --port 9000 --follow
 uv add python-daemon
 
 # Then daemon commands will work
-mcp-composer composer start --mode sse --daemon --port 9000
+mcp-composer composer start --mode http --daemon --port 9000
 ```
 
 #### 2. Port Already in Use

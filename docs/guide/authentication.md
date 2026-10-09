@@ -462,13 +462,13 @@ case AuthStrategy.JSESSIONID.value:
 
 ### Transport-Level Authentication
 
-For HTTP/SSE/STDIO transport types, authentication is handled at the transport level:
+For HTTP/STDIO transport types, authentication is handled at the transport level:
 
 ```python
 async def _build_from_transport(self, transport_type=None) -> FastMCP:
     # ... transport class selection ...
     
-    if transport_type in {MemberServerType.HTTP, MemberServerType.SSE}:
+    if transport_type in {MemberServerType.HTTP}:
         endpoint = config[ConfigKey.ENDPOINT]
         auth = None
         if oauth:

@@ -209,7 +209,7 @@ VERSION_CONFIG_FILE_PATH=versioned_config.json
 VERSION_ADAPTER_TYPE=file
 
 # MCP Composer server transport mode
-MCP_MODE=sse
+MCP_MODE=http
 
 # by default oauth disabled
 ENABLE_OAUTH=False

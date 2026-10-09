@@ -321,8 +321,6 @@ async def main():
         await gw.run_http_async(host="0.0.0.0", port=9000, log_level="debug", path="/mcp")
     elif mode == "stdio":
         await gw.run_stdio_async()
-    elif mode == "sse":
-        await gw.run_sse_async(host="0.0.0.0", port=9000, log_level="debug")
     else:
         raise ValueError(f"Unsupported MCP_MODE: {mode}")
 
@@ -339,7 +337,7 @@ if __name__ == "__main__":
 
 2. **Environment-Based Configuration**:
    - Uses `MCP_MODE` environment variable to determine server mode
-   - Supports HTTP, stdio, and SSE modes
+   - Supports HTTP and stdio modes
 
 3. **Middleware Inspection**:
    - Uses `mgr.describe()` to see what middleware was loaded
@@ -358,8 +356,8 @@ python example/middlewares/test_composer_middleware.py
 # Run in stdio mode
 MCP_MODE=stdio python example/middlewares/test_composer_middleware.py
 
-# Run in SSE mode
-MCP_MODE=sse python example/middlewares/test_composer_middleware.py
+# Run in HTTP mode
+MCP_MODE=http python example/middlewares/test_composer_middleware.py
 ```
 
 ### Expected Output

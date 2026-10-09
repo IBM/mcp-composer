@@ -4,7 +4,7 @@ MCP Composer is a FastMCP server that mounts member servers and forwards tool ca
 
 ## What you can register
 
-- **HTTP and SSE** MCP servers
+- **HTTP** MCP servers
 - **Stdio** local servers, limited to `MCP_COMPOSER_STDIO_ALLOWLIST`
 - **OpenAPI** specs, turned into tools
 - **GraphQL** schemas, turned into tools
@@ -24,13 +24,13 @@ MCP Composer is a FastMCP server that mounts member servers and forwards tool ca
                       │
         ┌─────────────┼─────────────┐
         │             │             │
-   HTTP / SSE      OpenAPI       GraphQL
+   HTTP            OpenAPI       GraphQL
    stdio           catalog
 ```
 
 ## Security defaults
 
-- The CLI binds HTTP and SSE to `127.0.0.1`.
+- The CLI binds HTTP to `127.0.0.1`.
 - A non-loopback bind requires authentication.
 - A stdio `command` must resolve to a path on `MCP_COMPOSER_STDIO_ALLOWLIST`. An empty allowlist fails closed.
 

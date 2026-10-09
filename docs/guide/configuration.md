@@ -134,19 +134,16 @@ MCP_COMPOSER_MODE=prod
 
 **Default:** `stdio`
 
-**Allowed Values:** `stdio`, `sse`, `http`
+**Allowed Values:** `stdio`, `http`
 
 **Example:**
 
 ```bash
-# Server-Sent Events mode
-MCP_MODE=sse
+# HTTP (Streamable) mode
+MCP_MODE=http
 
 # Standard I/O mode
 MCP_MODE=stdio
-
-# HTTP mode
-MCP_MODE=http
 ```
 
 ---
@@ -596,7 +593,7 @@ MCP_ENV=dev
 # Basic dev configuration
 MCP_BASE_URL=http://127.0.0.1:9000/mcp
 MCP_COMPOSER_MODE=dev
-MCP_MODE=sse
+MCP_MODE=http
 MCP_DATABASE_TYPE=local_file
 MCP_DATABASE_FILE_PATH=mcp_servers.json
 MCP_USE_LOCAL_FILE_STORAGE=True
@@ -609,7 +606,7 @@ ENABLE_OAUTH=False
 # Production configuration
 MCP_BASE_URL=https://mcp-composer.example.com/mcp
 MCP_COMPOSER_MODE=prod
-MCP_MODE=sse
+MCP_MODE=http
 MCP_DATABASE_TYPE=postgresql
 ENABLE_OAUTH=True
 
@@ -670,7 +667,7 @@ Location: `example/member_servers.json`
 
 ### Server Types
 
-#### HTTP/SSE Servers
+#### HTTP Servers
 
 ```json
 {

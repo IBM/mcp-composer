@@ -159,7 +159,7 @@ MCP_WORKFLOW_FILES_SYNC=false
 ### Example: Catalog Composer with Postgres + workflow sync
 
 ```bash
-export MCP_MODE=sse
+export MCP_MODE=http
 export MCP_ENABLE_WORKFLOW_CATALOG_MCP=true
 export MCP_DATABASE_TYPE=postgres
 export MCP_DATABASE_USER=postgres

@@ -19,8 +19,8 @@ discoverability and accountability within the Backstage Internal Developer Porta
 # Generate catalog from HTTP MCP server
 mcp-composer catalog generate-catalog --mcp-url http://localhost:9000/mcp --outputdir ./catalog
 
-# Generate catalog from SSE MCP server
-mcp-composer catalog generate-catalog --mcp-url http://localhost:8000/sse --outputdir ./catalog
+# Generate catalog from HTTP (Streamable) MCP server
+mcp-composer catalog generate-catalog --mcp-url http://localhost:8000/mcp --outputdir ./catalog
 
 # Dry run to preview what would be generated
 mcp-composer catalog generate-catalog --mcp-url http://localhost:9000/mcp --dry-run
@@ -230,10 +230,10 @@ mcp-composer tag generate-tag \
   --mcp-transport http \
   --output results.json
 
-# Tag tools from live MCP endpoint (SSE transport)
+# Tag tools from live MCP endpoint (HTTP transport)
 mcp-composer tag generate-tag \
-  --mcp-endpoint http://localhost:8000/sse \
-  --mcp-transport sse \
+  --mcp-endpoint http://localhost:8000/mcp \
+  --mcp-transport http \
   --output results.json
 
 # Tag tools using stdio transport
@@ -268,7 +268,7 @@ mcp-composer tag generate-tag \
 - `--from-json`: Path to JSON file containing tool descriptors
 - `--mcp-endpoint`: Live MCP endpoint URL
 - `--mcp-auth-token`: Authorization token for MCP endpoint
-- `--mcp-transport`: Transport type (http, sse, stdio)
+- `--mcp-transport`: Transport type (http, stdio)
 - `--command`: Command for stdio transport
 - `--args`: Arguments for the stdio command
 - `--mcp-scan-output`: Path to MCP-Scan output JSON

@@ -14,7 +14,7 @@ Also, you can manage multiple MCP servers and tools with dynamic registration, a
 ### Core Capabilities
 - **Multi-Server Orchestration**: Manage and coordinate multiple MCP servers simultaneously
 - **Dynamic Configuration**: Register servers and tools at runtime using JSON configurations
-- **Multiple Transport Modes**: Support for stdio, HTTP, and Server-Sent Events (SSE)
+- **Multiple Transport Modes**: Support for stdio and HTTP (Streamable HTTP)
 - **Authentication Support**: OAuth integration and dynamic token management
 - **Middleware System**: Extensible middleware framework for request/response processing
 - **Tool Management**: Support for OpenAPI, GraphQL, CLI tools, and custom implementations
@@ -22,8 +22,7 @@ Also, you can manage multiple MCP servers and tools with dynamic registration, a
 
 ### Transport Modes
 - **stdio**: Direct process communication (default)
-- **HTTP**: RESTful API endpoints
-- **SSE**: Server-Sent Events for real-time communication
+- **HTTP**: Streamable HTTP endpoints
 
 ### Middleware Management
 - **Validation**: Validate middleware configuration files
@@ -68,14 +67,14 @@ mcp-composer --mode stdio
 # Run with HTTP mode
 mcp-composer --mode http --endpoint http://api.example.com --id http-server
 
-# Set custom host and port for HTTP/SSE modes
+# Set custom host and port for HTTP mode
 mcp-composer --mode http --host 127.0.0.1 --port 8080 --endpoint http://api.example.com
 
-# Run with SSE mode
-mcp-composer --mode sse --endpoint http://localhost:8001/sse --id sse-server
+# Run with HTTP (Streamable) mode
+mcp-composer --mode http --endpoint http://localhost:8001/mcp --id http-server
 
-# Run SSE server as STDIO
-mcp-composer --mode stdio --sse-url http://localhost:8001/sse 
+# Run HTTP server as STDIO
+mcp-composer --mode stdio --remote-url http://localhost:8001/mcp
 ```
 
 ### Server Configuration
@@ -108,14 +107,14 @@ A servers.json file can have different type of mcp server
     }
   },
   {
-    "id": "sse-server",
-    "type": "sse",
-    "endpoint": "http://localhost:8001/sse",
+    "id": "remote-http-server",
+    "type": "http",
+    "endpoint": "http://localhost:8001/mcp",
   },
   {
     "id": "http-server",
     "type": "http",
-    "endpoint": "http://localhost:8002/http",
+    "endpoint": "http://localhost:8002/mcp",
   },
   {
     "id": "mcp-xxx",

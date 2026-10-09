@@ -38,15 +38,15 @@ The three catalog tool surfaces (**`skill-catalog`**, **`agent-catalog`**, **`wo
 | **`MCP_ENABLE_AGENT_CATALOG_MCP`** | Mount agent catalog tools | same | same |
 | **`MCP_ENABLE_WORKFLOW_CATALOG_MCP`** | Mount workflow catalog tools | same | same |
 
-**Transport (how clients connect to this MCP server):** set **`MCP_MODE`** to **`sse`** (Catalog Composer default), **`http`**, or **`stdio`**. This selects the wire protocol for the composer process; it is separate from the per-mount enable flags above.
+**Transport (how clients connect to this MCP server):** set **`MCP_MODE`** to **`http`** (default) or **`stdio`**. This selects the wire protocol for the composer process; it is separate from the per-mount enable flags above.
 
-**Example `.env` fragment** (Postgres + all three catalog MCP servers + SSE):
+**Example `.env` fragment** (Postgres + all three catalog MCP servers + HTTP):
 
 ```bash
 MCP_DATABASE_TYPE=postgres
 MCP_DATABASE_URL=postgresql://<suername>:=<p w d>@db.example.com:<port>/<db_name>
 
-MCP_MODE=sse
+MCP_MODE=http
 
 # Optional: omit these lines to keep all three mounts enabled (default).
 # MCP_ENABLE_SKILL_CATALOG_MCP=true
@@ -190,7 +190,7 @@ Run it from the **`mcp_composer`** package directory so imports resolve:
 cd modules/mcp_composer && uv run python composers/catalog_composer.py
 ```
 
-**`MCP_MODE`** selects **`http`**, **`sse`**, or **`stdio`** (Catalog Composer defaults **`sse`**). See the module docstring for the full env surface, including **`MCP_COMPOSER_TENANT_ID`**, **`MCP_COMPOSER_ALLOWED_TOOLS`**, and **`MCP_COMPOSER_SKILL_REFRESH_INTERVAL_SECS`** for the startup skill poller.
+**`MCP_MODE`** selects **`http`** or **`stdio`** (default **`http`**). See the module docstring for the full env surface, including **`MCP_COMPOSER_TENANT_ID`**, **`MCP_COMPOSER_ALLOWED_TOOLS`**, and **`MCP_COMPOSER_SKILL_REFRESH_INTERVAL_SECS`** for the startup skill poller.
 
 Each catalog mount can be turned off independently. Values are read at **import** time; use case-insensitive **`true` / `1` / `yes` / `on`** to enable and **`false` / `0` / `no` / `off`** to disable. Unset means **enabled**.
 

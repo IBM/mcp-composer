@@ -18,7 +18,7 @@ The default listen address is `http://127.0.0.1:9000/mcp`.
 
 | Variable | Default | Purpose |
 |----------|---------|---------|
-| `MCP_MODE` | `http` | `http`, `sse`, or `stdio` |
+| `MCP_MODE` | `http` | `http` or `stdio` |
 | `MCP_HOST` | `127.0.0.1` | Loopback name only |
 | `MCP_PORT` | `9000` | Listen port |
 

@@ -1,6 +1,6 @@
 # MCP Composer
 
-MCP Composer is a [FastMCP](https://github.com/PrefectHQ/fastmcp) server that mounts other MCP servers and exposes their tools through one endpoint. Register servers at runtime with JSON. Supported member types are HTTP, SSE, stdio, OpenAPI, and GraphQL.
+MCP Composer is a [FastMCP](https://github.com/PrefectHQ/fastmcp) server that mounts other MCP servers and exposes their tools through one endpoint. Register servers at runtime with JSON. Supported member types are HTTP, stdio, OpenAPI, and GraphQL.
 
 ## Install
 
@@ -20,7 +20,7 @@ The package is `mcp-composer`. There is no separate application package.
 mcp-composer --mode http --host 127.0.0.1 --port 9000
 ```
 
-HTTP and SSE bind to loopback unless you configure authentication. A non-loopback bind without auth is rejected. Stdio member servers run only when the resolved command is listed in `MCP_COMPOSER_STDIO_ALLOWLIST`.
+HTTP binds to loopback unless you configure authentication. A non-loopback bind without auth is rejected. Stdio member servers run only when the resolved command is listed in `MCP_COMPOSER_STDIO_ALLOWLIST`.
 
 Point the composer at a member list:
 

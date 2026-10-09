@@ -22,8 +22,7 @@ When enabled, the composer mounts MCP sub-servers:
 - `scheduled-tasks` tools (`schedule_create`, `schedule_list`, `schedule_cancel`) when `MCP_ENABLE_SCHEDULED_TASKS_MCP=true` (no namespace prefix)
 
 The server transport is controlled by `MCP_MODE`:
-- `sse` (default)
-- `http`
+- `http` (default)
 - `stdio`
 
 ### Run it
@@ -42,7 +41,7 @@ python composers/catalog_composer.py
 
 ### Required/important environment variables
 
-- `MCP_MODE`: `http | sse | stdio` (default `sse`)
+- `MCP_MODE`: `http | stdio` (default `http`)
 - `MCP_ENABLE_SKILL_CATALOG_MCP`: `true|false` (default `true`)
 - `MCP_ENABLE_AGENT_CATALOG_MCP`: `true|false` (default `true`)
 - `MCP_ENABLE_WORKFLOW_CATALOG_MCP`: `true|false` (default `true`)
@@ -358,7 +357,7 @@ So for local setup:
 
 ```bash
 # Transport + mounted catalogs
-MCP_MODE=sse
+MCP_MODE=http
 MCP_ENABLE_SKILL_CATALOG_MCP=true
 MCP_ENABLE_AGENT_CATALOG_MCP=true
 MCP_ENABLE_WORKFLOW_CATALOG_MCP=true
