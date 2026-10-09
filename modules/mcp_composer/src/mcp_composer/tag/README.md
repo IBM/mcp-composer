@@ -28,8 +28,8 @@ mcp-composer tag --mcp-endpoint http://localhost:8000
 # With authentication
 mcp-composer tag --mcp-endpoint http://localhost:8000 --mcp-auth-token "your-token"
 
-# Specify transport type (http or sse)
-mcp-composer tag --mcp-endpoint http://localhost:8000 --mcp-transport sse
+# Specify transport type (http or stdio)
+mcp-composer tag --mcp-endpoint http://localhost:8000 --mcp-transport http
 ```
 
 ### 2. Apply Custom Rules

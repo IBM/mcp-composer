@@ -27,7 +27,7 @@ MCP Composer supports multiple types of member servers that can be added dynamic
   - server ID
   - Type (`openapi`, `cli`, `client`, `mcp`)
   - Endpoint or command
-  - Transport type (`sse`, `http`)
+  - Transport type (`http`)
   - Authentication strategy and credentials
 - Automatically registers the member’s tools, prompts, and resources
 
@@ -67,15 +67,15 @@ sequenceDiagram
 
 | Server Type | Description | Use Case |
 |-------------|-------------|----------|
-| **HTTP/SSE** | Standard HTTP/HTTPS endpoints and Server-Sent Events | REST APIs, real-time data streams |
+| **HTTP** | Standard HTTP/HTTPS endpoints (Streamable HTTP) | REST APIs |
 | **STDIO** | Standard input/output communication | Local scripts, command-line tools |
 | **OpenAPI** | REST APIs with OpenAPI specifications | Third-party APIs, internal services |
 | **GraphQL** | GraphQL APIs with schema files | Modern APIs, flexible data queries |
 
 
-#### 1. HTTP/SSE Servers
+#### 1. HTTP Servers
 
-MCP servers accessible via HTTP/HTTPS or Server-Sent Events.
+MCP servers accessible via HTTP/HTTPS (Streamable HTTP transport).
 
 ```python
 # Basic HTTP server
@@ -85,17 +85,17 @@ await composer.register_mcp_server({
     "endpoint": "https://api.customers.com/mcp"
 })
 
-# SSE server
+# Additional HTTP server
 await composer.register_mcp_server({
-    "id": "sse-server",
-    "type": "sse", 
-    "endpoint": "https://api.example.com/sse"
+    "id": "http-server",
+    "type": "http",
+    "endpoint": "https://api.example.com/mcp"
 })
 ```
 
 **Configuration Options:**
 - `id`: Unique identifier for the server
-- `type`: Must be "http" or "sse"
+- `type`: Must be "http"
 - `endpoint`: Full URL to the MCP server endpoint
 - `auth_strategy`: Authentication strategy (optional)
 - `auth`: Authentication configuration (required if `auth_strategy` is provided)

@@ -35,26 +35,26 @@ The server will start on `http://localhost:8080`.
 
 This server supports multiple transport protocols that can run on the same port:
 
-#### SSE (Server-Sent Events) - Default
+#### HTTP (Streamable) - Default
 ```bash
 uv run mcp-simple-auth
 # or explicitly:
-uv run mcp-simple-auth --transport sse
-```
-
-SSE transport provides endpoint:
-- `/sse`
-
-#### Streamable HTTP
-```bash
 uv run mcp-simple-auth --transport streamable-http
 ```
 
-Streamable HTTP transport provides endpoint:
+HTTP (Streamable) transport provides endpoint:
 - `/mcp`
 
+#### STDIO
+```bash
+uv run mcp-simple-auth --transport stdio
+```
 
-This ensures backward compatibility without needing multiple server instances. When using SSE transport (`--transport sse`), only the `/sse` endpoint is available.
+STDIO transport provides endpoint:
+- n/a (stdio communication)
+
+
+This ensures backward compatibility without needing multiple server instances. When using HTTP (Streamable) transport (`--transport streamable-http`), only the `/mcp` endpoint is available.
 
 ## Available Tool
 
@@ -73,6 +73,6 @@ If the server fails to start, check:
 1. Environment variables `MCP_W3_W3_CLIENT_ID` and `MCP_W3_W3_CLIENT_SECRET` are set
 2. The W3 OAuth app callback URL matches `https://localhost:8080/auth/idaas/callback`
 3. No other service is using port 8080
-4. The transport specified is valid (`sse` or `streamable-http`)
+4. The transport specified is valid (`streamable-http` or `stdio`)
 
 You can use [Inspector](https://github.com/modelcontextprotocol/inspector) to test Auth

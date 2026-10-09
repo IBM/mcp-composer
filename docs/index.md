@@ -26,7 +26,7 @@ features:
     details: Built-in health checks for member servers.
   - icon: 🛠️
     title: CLI & API
-    details: Launch with the CLI. Clients connect over MCP using stdio, HTTP, or SSE.
+    details: Launch with the CLI. Clients connect over MCP using stdio or HTTP.
   - icon: 🤖
     title: MCP Clients
-    details: Connect any MCP client, including MCP Inspector, over stdio, HTTP, or SSE. 
+    details: Connect any MCP client, including MCP Inspector, over stdio or HTTP.
