@@ -1,5 +1,6 @@
 """Test module for dynamic_token_client.py"""
 
+import logging
 import time
 from unittest.mock import AsyncMock, Mock, patch
 
@@ -501,6 +502,32 @@ class TestDynamicTokenClient:
     def test_dynamic_token_client_inheritance(self, mock_client):
         """Test that DynamicTokenClient inherits from httpx.AsyncClient"""
         assert isinstance(mock_client, httpx.AsyncClient)
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("server", ["", "turbo"])
+    async def test_basic_auth_failure_does_not_log_secret(
+        self, mock_client_basic_auth, caplog, server
+    ):
+        """Basic-auth refresh errors must not write the client secret."""
+        secret = "basic-client-secret-do-not-log"
+        mock_client_basic_auth.auth_data[ConfigKey.SECRET] = secret
+        if server:
+            mock_client_basic_auth.auth_data[ConfigKey.SERVER] = server
+        method = "post" if server == "turbo" else "get"
+        log = logging.getLogger("mcp-composer")
+        log.propagate = True
+
+        with patch(
+            f"httpx.AsyncClient.{method}",
+            side_effect=httpx.ConnectError("network down"),
+        ):
+            with caplog.at_level(logging.ERROR, logger="mcp-composer"):
+                with pytest.raises(httpx.HTTPError):
+                    await mock_client_basic_auth._refresh_token()
+
+        text = " ".join(record.getMessage() for record in caplog.records)
+        assert secret not in text
+        assert "credentials omitted" in text
 
     def test_get_header_for_basic_auth(self, mock_client_basic_auth):
         """Test _get_header_for_basic_auth method"""

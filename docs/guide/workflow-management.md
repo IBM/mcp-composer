@@ -82,7 +82,7 @@ Default location: **`resources/workflows/`** at the repository root (override wi
 | `product` | Yes | Key for `prefixes` (e.g. `scanner`, `service-a`) |
 | `tool` | Yes | Underlying tool on that server |
 | `tool_prefix` | No | Overrides `prefixes` for this step |
-| `input` | No | Arguments; may use `{{placeholders}}` from prior steps |
+| `input` | No | Arguments; may use <span v-pre>`{{placeholders}}`</span> from prior steps |
 
 Example (one element from a bundle file):
 
@@ -208,7 +208,7 @@ Tool names on the client may be prefixed with the mount namespace (e.g. `workflo
 2. **Select** — Match user intent to a workflow tool description (or `list_workflows` / `get_workflow`).
 3. **Plan** — Call the workflow tool (optional `input` for known placeholder values).
 4. **Execute sequentially** — For each step in `steps`:
-   - Resolve `{{...}}` in `input` from prior step results.
+   - Resolve <span v-pre>`{{...}}`</span> in `input` from prior step results.
    - Call the composer using **`mcp_tool_name`** (direct) or **`layered_make_tool_call`** with `tool_name` + `arguments` when the server is layered.
    - Confirm `expected_behaviour` when present; revise on failure before continuing.
 5. **Report** — Summarize outcomes for the user.

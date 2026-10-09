@@ -151,3 +151,65 @@ def test_logger_factory_attaches_filter():
 def test_redact_for_log_leaves_primitives():
     assert redact_for_log(3) == 3
     assert redact_for_log(None) is None
+
+
+def test_api_key_identity_is_not_logged(caplog):
+    from mcp_composer.middleware.acl.policy.config import IdentityMode, Settings
+    from mcp_composer.middleware.acl.policy.identity_manager import IdentityManager
+
+    api_key = "live-api-key-do-not-log"
+    manager = IdentityManager(
+        Settings(identity_mode=IdentityMode.keyed, api_key_header="X-API-Key")
+    )
+    context = type("Ctx", (), {"headers": {"X-API-Key": api_key}})()
+    log = logging.getLogger("mcp-composer")
+    log.propagate = True
+
+    with caplog.at_level(logging.DEBUG, logger="mcp-composer"):
+        user_id, attributes = manager.extract_identity(context)
+
+    assert user_id == api_key
+    assert attributes["api_key"] == api_key
+    text = " ".join(record.getMessage() for record in caplog.records)
+    assert api_key not in text
+    assert "Extracted API key identity" in text
+
+
+def test_load_jwt_provider_does_not_log_secret(caplog, monkeypatch):
+    from mcp_composer.core.auth.jwt.jwt_utils import load_jwt_provider
+
+    secret = "jwt-key-material-do-not-log-0123456789abcdef"
+    monkeypatch.setenv(
+        "JWT_SECRET", f"-----BEGIN PUBLIC KEY-----\n{secret}\n-----END PUBLIC KEY-----"
+    )
+    log = logging.getLogger("mcp-composer")
+    log.propagate = True
+
+    with caplog.at_level(logging.DEBUG, logger="mcp-composer"):
+        provider = load_jwt_provider()
+
+    assert provider is not None
+    text = " ".join(record.getMessage() for record in caplog.records)
+    assert secret not in text
+    # CodeQL treats the env-var name as sensitive; do not log JWT_SECRET.
+    assert "JWT_SECRET" not in text
+    assert "configured environment variable" in text
+
+
+def test_load_jwt_provider_failure_does_not_log_secret(caplog, monkeypatch):
+    from mcp_composer.core.auth.jwt.jwt_utils import load_jwt_provider
+
+    secret = "jwt-failure-key-material-do-not-log"
+    monkeypatch.setenv("JWT_SECRET", secret)
+    log = logging.getLogger("mcp-composer")
+    log.propagate = True
+
+    with caplog.at_level(logging.DEBUG, logger="mcp-composer"):
+        with pytest.raises(Exception):
+            load_jwt_provider()
+
+    text = " ".join(record.getMessage() for record in caplog.records)
+    assert secret not in text
+    assert "JWT_SECRET" not in text
+    assert "environment secret variable" in text
+    assert "ValidationError" in text or "ValueError" in text
