@@ -190,11 +190,9 @@ class DynamicTokenClient(httpx.AsyncClient):
                     response = await super().post(
                         token_url, headers=headers, auth=auth, data=turbo_data
                     )
-                except httpx.HTTPError as exc:
-                    logger.error("Turbo Basic auth request failed: %s", exc)
+                except httpx.HTTPError:
+                    logger.error("Turbo Basic auth request failed; credentials omitted")
                     logger.error("Token URL: %s", token_url)
-                    masked_secret = "*" * len(str(_secret)) if _secret else None
-                    logger.error("ID: %s, Secret: %s", _id, masked_secret)
                     raise
 
             elif auth_generation_method.lower() == AuthStrategy.BASIC.lower():
@@ -212,11 +210,9 @@ class DynamicTokenClient(httpx.AsyncClient):
                         response = await super().get(
                             token_url, headers=headers, auth=auth
                         )
-                except httpx.HTTPError as exc:
-                    logger.error("Basic auth request failed: %s", exc)
+                except httpx.HTTPError:
+                    logger.error("Basic auth request failed; credentials omitted")
                     logger.error("Token URL: %s", token_url)
-                    masked_secret = "*" * len(str(_secret)) if _secret else None
-                    logger.error("ID: %s, Secret: %s", _id, masked_secret)
                     raise
 
             else:

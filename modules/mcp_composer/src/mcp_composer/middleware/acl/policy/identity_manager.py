@@ -183,7 +183,7 @@ class IdentityManager:
             "header": self.settings.api_key_header,
         }
 
-        logger.debug("Extracted API key identity: %s", user_id)
+        logger.debug("Extracted API key identity")
         return user_id, attributes
 
     def _get_headers(self, context: Any) -> dict[str, str]:

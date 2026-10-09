@@ -402,9 +402,8 @@ def load_jwt_provider(prefix: str = "JWT_") -> "JWTAuthProvider | None":
     jwt_secret = os.getenv(secret_var)
     if jwt_secret:
         try:
-            logger.info(
-                "Loading JWT public key from %s environment variable", secret_var
-            )
+            # Do not log secret_var: CodeQL treats the env var name as sensitive.
+            logger.info("Loading JWT public key from configured environment variable")
 
             # Detect format: PEM, JSON, or raw key
             jwt_secret = jwt_secret.strip()
@@ -450,11 +449,16 @@ def load_jwt_provider(prefix: str = "JWT_") -> "JWTAuthProvider | None":
                 issuer=os.getenv(f"{prefix}ISSUER"),
                 audience=os.getenv(f"{prefix}AUDIENCE"),
             )
-            logger.info("JWT authentication configured from %s", secret_var)
+            logger.info(
+                "JWT authentication configured from environment secret variable"
+            )
             return provider
 
         except Exception as e:
-            logger.error("Failed to load JWT from %s: %s", secret_var, e, exc_info=True)
+            logger.error(
+                "Failed to load JWT from environment secret variable: %s",
+                type(e).__name__,
+            )
             raise
 
     # Priority 2: Load from full environment configuration
