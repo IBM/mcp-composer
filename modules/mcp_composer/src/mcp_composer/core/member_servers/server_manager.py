@@ -19,7 +19,13 @@ from mcp_composer.core.utils.exceptions import (
     MemberServerError,
     ToolDuplicateError,
     ToolDisableError,
+    ServerConfigurationError,
+    ServerMountError,
+    ServerBuildError,
+    ServerNotFoundError,
+    ServerError,
 )
+from mcp_composer.core.utils.security import sanitize_config
 from mcp_composer.core.utils.utils import get_endpoint_from_config
 from mcp_composer.store.database import DatabaseInterface
 from mcp_composer.core.utils.tools import check_duplicate_tool
@@ -72,7 +78,10 @@ class ServerManager:
     ) -> str:
         server_id = config.get("id")
         if not isinstance(server_id, str) or not server_id:
-            raise ValueError("Server configuration must include an 'id' field.")
+            raise ServerConfigurationError(
+                "Server configuration must include a valid 'id' field",
+                context={"config": config}
+            )
 
         config["_id"] = server_id
 
@@ -110,8 +119,12 @@ class ServerManager:
                     ", ".join(missing_description_tools),
                 )
                 mcp_composer._tool_manager.unmount(server_id)
-                raise MemberServerError(
-                    f"Tools missing descriptions: {', '.join(missing_description_tools)}"
+                raise ServerConfigurationError(
+                    f"Tools missing descriptions for server '{server_id}'",
+                    context={
+                        "server_id": server_id,
+                        "missing_tools": missing_description_tools
+                    }
                 )
 
             member = MemberMCPServer(
@@ -135,9 +148,44 @@ class ServerManager:
             )
             return f"Server '{server_id}' mounted successfully."
 
-        except Exception as e:
-            logger.exception("Error mounting MCP server '%s': %s", server_id, e)
+        except ServerConfigurationError:
+            # Re-raise configuration errors as-is to preserve original context
             raise
+        except (ValueError, TypeError, KeyError) as e:
+            # Configuration parsing/validation errors
+            logger.error(
+                "Invalid configuration for server '%s': %s",
+                server_id,
+                e,
+                extra={"config": sanitize_config(config)}
+            )
+            raise ServerConfigurationError(
+                f"Invalid configuration for server '{server_id}'",
+                context={"server_id": server_id, "config": sanitize_config(config), "error": str(e)}
+            ) from e
+        except (ConnectionError, TimeoutError) as e:
+            # Network/connection errors during mount
+            logger.error(
+                "Connection failed while mounting server '%s': %s",
+                server_id,
+                e,
+                extra={"config": sanitize_config(config)}
+            )
+            raise ServerMountError(
+                f"Failed to connect to server '{server_id}'",
+                context={"server_id": server_id, "endpoint": config.get("endpoint"), "error": str(e)}
+            ) from e
+        except Exception as e:
+            # Unexpected errors during build/mount process
+            logger.exception(
+                "Unexpected error mounting MCP server '%s'",
+                server_id,
+                extra={"config": sanitize_config(config)}
+            )
+            raise ServerBuildError(
+                f"Failed to build/mount server '{server_id}'",
+                context={"server_id": server_id, "error": str(e)}
+            ) from e
 
     async def register_server(
         self,
@@ -157,9 +205,32 @@ class ServerManager:
 
             return await self._mount_and_register_server(config, mcp_composer)
 
+        except (ServerConfigurationError, ServerMountError, ServerBuildError):
+            # Re-raise specific server errors as-is to preserve original context
+            # These exceptions already have proper context from _mount_and_register_server
+            raise
+        except ValidationError as e:
+            # Schema validation errors from ServerConfigValidator
+            logger.error(
+                "Server configuration validation failed: %s",
+                e,
+                extra={"config": sanitize_config(config)}
+            )
+            raise ServerConfigurationError(
+                "Invalid server configuration",
+                context={"config": sanitize_config(config), "validation_error": str(e)}
+            ) from e
         except Exception as e:
-            logger.exception("Failed to register server: %s", e)
-            raise ToolError(f"Failed to register server: {e}") from e
+            # Unexpected errors not caught by more specific handlers
+            logger.exception(
+                "Unexpected error registering server: %s",
+                e,
+                extra={"config": sanitize_config(config)}
+            )
+            raise ServerError(
+                "Failed to register server",
+                context={"config": sanitize_config(config), "error": str(e)}
+            ) from e
 
     async def update_server_config(
         self,
@@ -174,21 +245,28 @@ class ServerManager:
             )
 
             if new_config.get("id") and new_config["id"] != server_id:
-                raise ValidationError(
-                    "Server ID in config does not match the target server ID."
+                raise ServerConfigurationError(
+                    "Server ID in config does not match the target server ID",
+                    context={"server_id": server_id, "config_id": new_config.get("id")}
                 )
             new_config["id"] = server_id
 
             ServerConfigValidator(new_config).validate()
 
             if not self.has_member_server(server_id):
-                raise NotFoundError(f"Server '{server_id}' not found.")
+                raise ServerNotFoundError(
+                    f"Server '{server_id}' not found",
+                    context={"server_id": server_id}
+                )
 
             mcp_composer._tool_manager.unmount(server_id)
             self.remove_member(server_id)
 
             if not self._database:
-                raise NotFoundError("Database not found.")
+                raise ServerConfigurationError(
+                    "Database not available for server update",
+                    context={"server_id": server_id}
+                )
 
             existing_config = self._database.get_document(server_id)
             if self._config_manager is not None and existing_config:
@@ -206,15 +284,24 @@ class ServerManager:
                 new_config, mcp_composer, save_to_db=False
             )
 
-        except (ValidationError, NotFoundError) as err:
-            logger.error("Error updating server '%s': %s", server_id, err)
-            raise ToolError(f"Failed to update server '{server_id}': {err}") from err
-
+        except (ServerConfigurationError, ServerNotFoundError, ServerMountError, ServerBuildError):
+            # Re-raise specific server errors as-is
+            raise
+        except ValidationError as e:
+            logger.error("Server configuration validation failed for '%s': %s", server_id, e)
+            raise ServerConfigurationError(
+                f"Invalid configuration for server '{server_id}'",
+                context={"server_id": server_id, "new_config": new_config, "validation_error": str(e)}
+            ) from e
         except Exception as e:
             logger.exception(
-                "Unexpected error while updating server '%s': %s", server_id, e
+                "Unexpected error while updating server '%s'",
+                server_id
             )
-            raise ToolError(f"Failed to update server '{server_id}': {e}") from e
+            raise ServerError(
+                f"Failed to update server '{server_id}'",
+                context={"server_id": server_id, "error": str(e)}
+            ) from e
 
     async def activate_server(
         self,
@@ -234,22 +321,77 @@ class ServerManager:
             )
             return f"Server '{server_id}' activated"
 
+        except (ServerConfigurationError, ServerNotFoundError, ServerMountError, ServerBuildError):
+            # Re-raise specific server errors as-is
+            raise
+        except (NotFoundError, ToolError) as e:
+            logger.error("Failed to activate server '%s': %s", server_id, e)
+            raise ServerError(
+                f"Failed to activate server '{server_id}'",
+                context={"server_id": server_id, "error": str(e)}
+            ) from e
         except Exception as e:
-            logger.exception("Failed to activate server '%s': %s", server_id, e)
-            raise ToolError(f"Failed to activate server '{server_id}': {e}") from e
+            logger.exception("Unexpected error activating server '%s'", server_id)
+            raise ServerError(
+                f"Failed to activate server '{server_id}'",
+                context={"server_id": server_id, "error": str(e)}
+            ) from e
 
     def deactivate_server(self, server_id: str, mcp_composer) -> str:
-        """Deactivate a mounted server."""
+        """Deactivate a mounted server (idempotent operation).
+
+        This operation is idempotent - calling it multiple times on the same
+        server will succeed without error, avoiding race conditions in concurrent
+        scenarios.
+
+        Args:
+            server_id: ID of server to deactivate
+            mcp_composer: Composer instance for tool unmounting
+
+        Returns:
+            Success message indicating server was deactivated or already deactivated
+
+        Raises:
+            ServerNotFoundError: If server doesn't exist
+            ServerError: If deactivation fails
+        """
         try:
-            self.prepare_deactivation(server_id)
+            # Check if already deactivated (idempotent behavior)
+            status = self.get_server_status(server_id)
+
+            if status == SERVER_STATUS_UNKNOWN:
+                raise ServerNotFoundError(f"Server '{server_id}' not found", context={"server_id": server_id})
+
+            # Idempotent: already deactivated is success, not error
+            if status == SERVER_STATUS_DEACTIVATED:
+                logger.info("Server '%s' is already deactivated", server_id)
+                return f"Server '{server_id}' is already deactivated"
+
+            # Proceed with deactivation
+            self.check_server_exist(server_id)
+            self.mark_deactivated(server_id)
+            self.remove_member(server_id)
             mcp_composer._tool_manager.unmount(server_id)
-            return f"Server '{server_id}' deactivated."
+
+            return f"Server '{server_id}' deactivated successfully"
+
+        except ServerNotFoundError:
+            # Re-raise server not found errors as-is
+            raise
         except NotFoundError as e:
-            logger.warning("Deactivation failed: %s", e)
-            raise ToolError(str(e)) from e
+            logger.warning("Deactivation failed for '%s': %s", server_id, e)
+            raise ServerNotFoundError(f"Server '{server_id}' not found", context={"server_id": server_id}) from e
+        except ToolError as e:
+            logger.error("Tool error during deactivation of '%s': %s", server_id, e)
+            raise ServerError(
+                f"Failed to deactivate server '{server_id}': tool unmount failed",
+                context={"server_id": server_id, "error": str(e)},
+            ) from e
         except Exception as e:
-            logger.exception("Error deactivating server '%s': %s", server_id, e)
-            raise ToolError(f"Failed to deactivate server '{server_id}': {e}") from e
+            logger.exception("Unexpected error deactivating server '%s'", server_id)
+            raise ServerError(
+                f"Failed to deactivate server '{server_id}'", context={"server_id": server_id, "error": str(e)}
+            ) from e
 
     async def member_health(
         self, config: list[MemberMCPServer]
@@ -586,14 +728,27 @@ class ServerManager:
     def prepare_deactivation(self, server_id: str) -> None:
         """
         Validates and updates DB to mark the server as deactivated.
-        Raises appropriate exceptions if validation fails.
+
+        Note: This method is deprecated in favor of the idempotent
+        deactivate_server() method. It's kept for backward compatibility
+        but should not be used directly.
+
+        Raises:
+            ServerNotFoundError: If server doesn't exist
+            ServerError: If server is already deactivated
         """
         status = self.get_server_status(server_id)
         if status == SERVER_STATUS_UNKNOWN:
-            raise NotFoundError(f"Server '{server_id}' not found in DB.")
+            raise ServerNotFoundError(
+                f"Server '{server_id}' not found in database",
+                context={"server_id": server_id}
+            )
 
         if status == SERVER_STATUS_DEACTIVATED:
-            raise ToolError(f"Server '{server_id}' is already deactivated.")
+            raise ServerError(
+                f"Server '{server_id}' is already deactivated",
+                context={"server_id": server_id, "status": status}
+            )
 
         self.check_server_exist(server_id)
 

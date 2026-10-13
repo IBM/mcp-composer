@@ -3,11 +3,16 @@
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from fastmcp.exceptions import NotFoundError, ToolError
+from fastmcp.exceptions import NotFoundError
 
 from mcp_composer.core.composer import MCPComposer
 from mcp_composer.core.member_servers.server_manager import ServerManager
-from mcp_composer.core.utils.exceptions import ToolDisableError
+from mcp_composer.core.utils.exceptions import (
+    ToolDisableError,
+    ServerError,
+    ServerNotFoundError,
+    ServerConfigurationError
+)
 
 # pylint: disable=protected-access
 
@@ -53,7 +58,7 @@ async def test_register_server_validation_error():
         "mcp_composer.core.member_servers.server_manager.ServerConfigValidator"
     ) as mock_validator:
         mock_validator.return_value.validate.side_effect = Exception("fail")
-        with pytest.raises(ToolError):
+        with pytest.raises(ServerError):
             await manager.register_server(config, MagicMock())
 
 
@@ -93,7 +98,7 @@ async def test_update_server_config_not_found():
     ):
         mock_validator.return_value.validate.return_value = None
         manager._database = MagicMock()
-        with pytest.raises(ToolError):
+        with pytest.raises(ServerNotFoundError):
             await manager.update_server_config("srv", config, MagicMock())
 
 
@@ -143,12 +148,27 @@ async def test_activate_server_already_mounted():
 def test_deactivate_server_success():
     manager = ServerManager()
     manager._member_servers["srv"] = MagicMock()
-    with patch.object(manager, "prepare_deactivation") as mock_prepare:
-        mcp_composer = MCPComposer()
-        result = manager.deactivate_server("srv", mcp_composer)
-        mock_prepare.assert_called_once_with("srv")
-        assert hasattr(manager._member_servers["srv"], "health_status")
-        assert "deactivated" in result
+    
+    # Mock the database to return active status
+    mock_db = MagicMock()
+    mock_db.get_server_status.return_value = "active"
+    manager._database = mock_db
+    
+    # Mock the tool manager unmount
+    mcp_composer = MCPComposer()
+    mcp_composer._tool_manager = MagicMock()
+    mcp_composer._tool_manager.unmount = MagicMock()
+    
+    result = manager.deactivate_server("srv", mcp_composer)
+    
+    # Verify database methods were called
+    mock_db.get_server_status.assert_called_once_with("srv")
+    mock_db.mark_deactivated.assert_called_once_with("srv")
+    
+    # Verify tool unmount was called
+    mcp_composer._tool_manager.unmount.assert_called_once_with("srv")
+    
+    assert "deactivated" in result.lower()
 
 
 # Additional comprehensive tests from test_server_manager_extended.py
@@ -246,7 +266,7 @@ async def test_update_server_config_server_not_found():
 
     new_config = {"id": "test_server", "type": "updated_type"}
 
-    with pytest.raises(ToolError) as exc_info:
+    with pytest.raises(ServerConfigurationError) as exc_info:
         await manager.update_server_config(
             "nonexistent_server", new_config, mcp_composer
         )
@@ -259,7 +279,7 @@ async def test_activate_server_not_found():
     manager = ServerManager()
     mcp_composer = MagicMock()
 
-    with pytest.raises(ToolError) as exc_info:
+    with pytest.raises(ServerError) as exc_info:
         await manager.activate_server("nonexistent_server", mcp_composer)
     assert "Failed to activate server 'nonexistent_server'" in str(exc_info.value)
 
@@ -269,9 +289,9 @@ def test_deactivate_server_not_found():
     manager = ServerManager()
     mcp_composer = MagicMock()
 
-    with pytest.raises(ToolError) as exc_info:
+    with pytest.raises(ServerNotFoundError) as exc_info:
         manager.deactivate_server("nonexistent_server", mcp_composer)
-    assert "Server 'nonexistent_server' not found in DB" in str(exc_info.value)
+    assert "Server 'nonexistent_server' not found" in str(exc_info.value)
 
 
 @pytest.mark.asyncio
@@ -697,9 +717,9 @@ def test_prepare_deactivation_not_found():
     """Test preparing deactivation for non-existent server."""
     manager = ServerManager()
 
-    with pytest.raises(NotFoundError) as exc_info:
+    with pytest.raises(ServerNotFoundError) as exc_info:
         manager.prepare_deactivation("nonexistent_server")
-    assert "not found in DB" in str(exc_info.value)
+    assert "not found" in str(exc_info.value)
 
 
 def test_mark_deactivated_success():

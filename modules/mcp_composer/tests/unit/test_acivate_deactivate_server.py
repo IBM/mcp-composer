@@ -5,6 +5,7 @@ import pytest
 
 from mcp_composer.core.composer import MCPComposer
 from mcp_composer.store.fake_database import FakeDatabase
+from mcp_composer.core.utils.exceptions import ServerError
 
 # pylint: disable=protected-access,redefined-outer-name
 
@@ -53,7 +54,7 @@ async def test_activate_mcp_server_success(fake_db, server_config):
 async def test_activate_mcp_server_invalid_id(fake_db):
     composer = MCPComposer("composer", config=[], database_config=fake_db)
 
-    with pytest.raises(ToolError):
+    with pytest.raises(ServerError):
         await composer.activate_mcp_server("invalid-server-id")
 
 
@@ -117,7 +118,6 @@ async def test_deactivate_mcp_server_twice(fake_db, server_config):
 
         await composer.deactivate_mcp_server(server_config["id"])
 
-        with pytest.raises(ToolError) as excinfo:
-            await composer.deactivate_mcp_server(server_config["id"])
-
-        assert "already deactivated" in str(excinfo.value)
+        # Idempotent behavior: deactivating twice should succeed, not raise error
+        result = await composer.deactivate_mcp_server(server_config["id"])
+        assert "already deactivated" in result.lower()
