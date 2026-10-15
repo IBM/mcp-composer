@@ -1,8 +1,11 @@
-"""Redact secrets from log records and structured log payloads."""
+"""Redact secrets from structured values and formatted log messages.
+
+LoggerFactory applies these helpers to every record it emits. Callers do not
+attach a logging filter.
+"""
 
 from __future__ import annotations
 
-import logging
 import re
 from collections.abc import Mapping
 from typing import Any
@@ -114,26 +117,3 @@ def redact_message(message: str) -> str:
     redacted = _JWT.sub(REDACTED, redacted)
     redacted = _COOKIE_HEADER.sub(rf"\1{REDACTED}", redacted)
     return redacted
-
-
-class SecretRedactionFilter(logging.Filter):
-    """Logging filter that redacts secrets from the final record message."""
-
-    def filter(self, record: logging.LogRecord) -> bool:
-        try:
-            if record.args:
-                if isinstance(record.args, Mapping):
-                    record.args = redact_for_log(record.args)
-                elif isinstance(record.args, tuple):
-                    record.args = tuple(redact_for_log(arg) for arg in record.args)
-                else:
-                    record.args = redact_for_log(record.args)
-
-            rendered = record.getMessage()
-            scrubbed = redact_message(rendered)
-            if scrubbed != rendered:
-                record.msg = scrubbed
-                record.args = ()
-        except Exception:  # noqa: BLE001 — never break logging
-            return True
-        return True

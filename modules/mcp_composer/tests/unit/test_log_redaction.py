@@ -8,7 +8,6 @@ import pytest
 
 from mcp_composer.core.utils.log_redaction import (
     REDACTED,
-    SecretRedactionFilter,
     is_sensitive_key,
     redact_for_log,
     redact_headers,
@@ -66,16 +65,13 @@ class TestLogRedactionHelpers:
         assert REDACTED in redact_message("Bearer secret-token-value")
 
 
-class TestSecretRedactionFilter:
-    def test_filter_redacts_format_args_dict(self, caplog):
-        logger = logging.getLogger("test-secret-filter-dict")
-        logger.handlers.clear()
-        logger.filters.clear()
-        logger.addFilter(SecretRedactionFilter())
+class TestLoggerFactoryRedaction:
+    def test_factory_redacts_format_args_dict(self, caplog):
+        logger = LoggerFactory.get_logger("test-factory-redact-dict")
         logger.setLevel(logging.INFO)
         logger.propagate = True
 
-        with caplog.at_level(logging.INFO, logger="test-secret-filter-dict"):
+        with caplog.at_level(logging.INFO, logger="test-factory-redact-dict"):
             logger.info("auth payload %s", {"password": "do-not-log", "user": "a"})
 
         text = " ".join(r.message for r in caplog.records)
@@ -83,15 +79,12 @@ class TestSecretRedactionFilter:
         assert REDACTED in text
         assert "user" in text or "'user'" in text
 
-    def test_filter_redacts_password_in_message(self, caplog):
-        logger = logging.getLogger("test-secret-filter-msg")
-        logger.handlers.clear()
-        logger.filters.clear()
-        logger.addFilter(SecretRedactionFilter())
+    def test_factory_redacts_password_in_message(self, caplog):
+        logger = LoggerFactory.get_logger("test-factory-redact-msg")
         logger.setLevel(logging.INFO)
         logger.propagate = True
 
-        with caplog.at_level(logging.INFO, logger="test-secret-filter-msg"):
+        with caplog.at_level(logging.INFO, logger="test-factory-redact-msg"):
             logger.info("pwd=hunter2")
 
         text = " ".join(r.message for r in caplog.records)
@@ -108,7 +101,7 @@ async def test_jsessionid_login_does_not_log_password(caplog):
     from mcp_composer.core.auth_handler.dynamic_token_manager import DynamicTokenManager
     from mcp_composer.core.utils import AuthStrategy, ConfigKey
 
-    # Ensure factory logger has the redaction filter.
+    # The default factory logger redacts records before they are emitted.
     LoggerFactory.get_logger()
 
     manager = DynamicTokenManager(
@@ -143,9 +136,18 @@ async def test_jsessionid_login_does_not_log_password(caplog):
     assert "session-secret-id" not in text
 
 
-def test_logger_factory_attaches_filter():
+def test_logger_factory_redacts_without_a_filter(caplog):
     logger = LoggerFactory.get_logger("mcp-composer-redaction-check")
-    assert any(isinstance(f, SecretRedactionFilter) for f in logger.filters)
+    logger.setLevel(logging.INFO)
+    logger.propagate = True
+
+    with caplog.at_level(logging.INFO, logger="mcp-composer-redaction-check"):
+        logger.info("Authorization: Bearer secret-token-value")
+
+    text = " ".join(r.message for r in caplog.records)
+    assert "secret-token-value" not in text
+    assert REDACTED in text
+    assert logger.filters == []
 
 
 def test_redact_for_log_leaves_primitives():

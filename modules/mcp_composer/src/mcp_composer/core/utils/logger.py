@@ -3,43 +3,53 @@
 import logging
 import os
 import sys
+from collections.abc import Mapping
+
 from dotenv import load_dotenv
 
-from mcp_composer.core.utils.log_redaction import SecretRedactionFilter
+from mcp_composer.core.utils.log_redaction import redact_for_log, redact_message
 
 load_dotenv()
+
+
+def _redact_record(record: logging.LogRecord) -> None:
+    """Scrub credential material before a handler or parent logger sees the record."""
+    try:
+        if record.args:
+            if isinstance(record.args, Mapping):
+                record.args = redact_for_log(record.args)
+            elif isinstance(record.args, tuple):
+                record.args = tuple(redact_for_log(arg) for arg in record.args)
+            else:
+                record.args = redact_for_log(record.args)
+        if "message" in record.__dict__:
+            del record.message
+        rendered = record.getMessage()
+        scrubbed = redact_message(rendered)
+        if scrubbed != rendered:
+            record.msg = scrubbed
+            record.args = ()
+            record.message = scrubbed
+    except Exception:  # noqa: BLE001 — never break logging
+        return
+
+
+class _ComposerLogger(logging.Logger):
+    """Logger whose records are redacted before any handler formats them."""
+
+    def handle(self, record: logging.LogRecord) -> None:
+        _redact_record(record)
+        super().handle(record)
 
 
 class LoggerFactory:
     """
     Produces consistent structured loggers across the system.
+
+    Every logger it returns redacts passwords, tokens, API keys, and bearer
+    values before the stream handler, the file handler, or a parent logger
+    receives the record.
     """
-
-    @staticmethod
-    def _iter_filters(obj) -> list:
-        """Return filter list; tolerate mocks/non-iterables used in unit tests."""
-        filters = getattr(obj, "filters", None)
-        if filters is None:
-            return []
-        try:
-            return list(filters)
-        except TypeError:
-            return []
-
-    @staticmethod
-    def _ensure_secret_filter(logger: logging.Logger) -> None:
-        """Attach secret redaction once so credentials never reach handlers."""
-        if not any(
-            isinstance(f, SecretRedactionFilter)
-            for f in LoggerFactory._iter_filters(logger)
-        ):
-            logger.addFilter(SecretRedactionFilter())
-        for handler in logger.handlers:
-            if not any(
-                isinstance(f, SecretRedactionFilter)
-                for f in LoggerFactory._iter_filters(handler)
-            ):
-                handler.addFilter(SecretRedactionFilter())
 
     @staticmethod
     def get_logger(name: str = "mcp-composer", level: str = "INFO") -> logging.Logger:
@@ -77,5 +87,6 @@ class LoggerFactory:
                 # This prevents the logger from failing completely
                 pass
 
-        LoggerFactory._ensure_secret_filter(logger)
+        if type(logger) is logging.Logger:
+            logger.__class__ = _ComposerLogger
         return logger
