@@ -24,7 +24,7 @@ keywords = [
     "model context protocol", "llm", "agent",
 ]
 dependencies = [
-    "fastmcp==3.4.8",
+    "fastmcp==4.1.0",
     "requests==2.34.2",
     "httpx==0.28.1",
     "beautifulsoup4>=4.12.0",
