@@ -4,6 +4,7 @@ Extends FastMCP with runtime composition, tool management, and database-backed c
 """
 
 import os
+import socket
 from typing import Any, Callable, Literal
 from dotenv import load_dotenv
 from fastmcp import FastMCP
@@ -14,7 +15,7 @@ from starlette.middleware import Middleware as ASGIMiddleware
 from fastmcp.resources import Resource, ResourceTemplate
 from fastmcp.tools import Tool
 from mcp_composer.core.tools import MCPToolManager
-from mcp_composer.core.utils import LoggerFactory
+from mcp_composer.core.utils.logger import LoggerFactory
 from mcp_composer.core.utils.banner import print_mcp_composer_banner
 from mcp_composer.core.utils.exceptions import (
     ServerNotFoundError,
@@ -131,17 +132,21 @@ class MCPComposer(FastMCP):
         except (ValueError, TypeError) as e:
             logger.exception(
                 "Failed to initialize server configuration manager: Invalid configuration",
-                extra={"version_adapter_config": version_adapter_config}
+                extra={"version_adapter_config": version_adapter_config},
             )
             from mcp_composer.core.utils.exceptions import ConfigValidationError
+
             raise ConfigValidationError(
                 "Invalid server configuration manager setup",
-                context={"version_adapter_config": version_adapter_config, "error": str(e)}
+                context={
+                    "version_adapter_config": version_adapter_config,
+                    "error": str(e),
+                },
             ) from e
-        except Exception as e:
+        except Exception:
             logger.exception(
                 "Unexpected error initializing server configuration manager",
-                extra={"version_adapter_config": version_adapter_config}
+                extra={"version_adapter_config": version_adapter_config},
             )
             raise
 
@@ -486,25 +491,21 @@ class MCPComposer(FastMCP):
         except (NotFoundError, ServerNotFoundError) as e:
             logger.warning("Server '%s' not found for deletion: %s", server_id, e)
             raise ServerNotFoundError(
-                f"Server '{server_id}' not found",
-                context={"server_id": server_id}
+                f"Server '{server_id}' not found", context={"server_id": server_id}
             ) from e
         except ToolError as e:
             # Tool unmount failed - wrap in ServerError for consistency
             logger.error("Failed to unmount tools for server '%s': %s", server_id, e)
             raise ServerError(
                 f"Failed to delete server '{server_id}': Tool unmount failed",
-                context={"server_id": server_id, "error": str(e)}
+                context={"server_id": server_id, "error": str(e)},
             ) from e
         except Exception as e:
             # Unexpected errors
-            logger.exception(
-                "Unexpected error deleting member server '%s'",
-                server_id
-            )
+            logger.exception("Unexpected error deleting member server '%s'", server_id)
             raise ServerError(
                 f"Failed to delete server '{server_id}'",
-                context={"server_id": server_id, "error": str(e)}
+                context={"server_id": server_id, "error": str(e)},
             ) from e
 
     async def unmount_server(self, server_id: str) -> str:
@@ -843,6 +844,10 @@ class MCPComposer(FastMCP):
         json_response: bool | None = None,
         stateless_http: bool | None = None,
         stateless: bool | None = None,
+        host_origin_protection: bool | Literal["auto"] | None = None,
+        allowed_hosts: list[str] | None = None,
+        allowed_origins: list[str] | None = None,
+        sockets: list[socket.socket] | None = None,
     ) -> None:
         """
         Override the default banner to display MCP Composer branding for HTTP transports.
@@ -892,4 +897,8 @@ class MCPComposer(FastMCP):
                 json_response=json_response,
                 stateless_http=stateless_http,
                 stateless=stateless,
+                host_origin_protection=host_origin_protection,
+                allowed_hosts=allowed_hosts,
+                allowed_origins=allowed_origins,
+                sockets=sockets,
             )

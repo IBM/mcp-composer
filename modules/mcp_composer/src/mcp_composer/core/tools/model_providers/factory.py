@@ -8,8 +8,7 @@ Supports both chat/completion and embedding generation.
 from mcp_composer.core.tools.model_providers.base import ModelProviderAdapter
 from mcp_composer.core.tools.model_providers.litellm_adapter import LiteLLMAdapter
 from mcp_composer.core.tools.model_providers.ollama_adapter import OllamaAdapter
-from mcp_composer.core.utils import LoggerFactory
-
+from mcp_composer.core.utils.logger import LoggerFactory
 logger = LoggerFactory.get_logger()
 
 # Provider registry for chat/completion

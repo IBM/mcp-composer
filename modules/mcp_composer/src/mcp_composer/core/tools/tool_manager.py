@@ -29,7 +29,8 @@ from mcp_composer.core.utils.exceptions import (
     ToolError,
 )
 from mcp_composer.store.database import DatabaseInterface
-from mcp_composer.core.utils import LoggerFactory, get_server_doc_info
+from mcp_composer.core.utils.logger import LoggerFactory
+from mcp_composer.core.utils import get_server_doc_info
 from mcp_composer.core.member_servers import ServerManager
 from mcp_composer.core.utils.tools import (
     generate_tool_from_curl,
@@ -349,7 +350,7 @@ class MCPToolManager:
                 extra={"error": str(e)}
             )
             return []
-        except Exception as e:
+        except Exception:
             # Unexpected error - log but return empty list for backward compatibility
             logger.exception("Unexpected error fetching all tools. Returning empty list for graceful degradation.")
             return []

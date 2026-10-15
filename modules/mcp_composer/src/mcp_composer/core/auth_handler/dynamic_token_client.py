@@ -9,7 +9,8 @@ from mcp_composer.core.auth_handler.oauth_handler import (
     refresh_access_token,
     resolve_env_value,
 )
-from mcp_composer.core.utils import AuthStrategy, ConfigKey, LoggerFactory
+from mcp_composer.core.utils.logger import LoggerFactory
+from mcp_composer.core.utils import AuthStrategy, ConfigKey
 
 logger = LoggerFactory.get_logger()
 

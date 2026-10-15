@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Any
 from dotenv import load_dotenv, find_dotenv
 
-from mcp_composer.core.utils import LoggerFactory
+from mcp_composer.core.utils.logger import LoggerFactory
 from mcp_composer.core.utils.exceptions import ToolDuplicateError
 from mcp_composer.core.utils.tools import check_duplicate_tool
 from .database import DatabaseInterface

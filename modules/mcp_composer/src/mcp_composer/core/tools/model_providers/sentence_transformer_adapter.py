@@ -6,8 +6,7 @@ Adapter for using sentence-transformers library for embeddings.
 
 from typing import Any
 from .base import ModelProviderAdapter
-from mcp_composer.core.utils import LoggerFactory
-
+from mcp_composer.core.utils.logger import LoggerFactory
 logger = LoggerFactory.get_logger()
 
 SentenceTransformer: Any = None

@@ -3,8 +3,7 @@
 from typing import Any, TYPE_CHECKING
 import jwt
 from datetime import datetime, timedelta, timezone
-from mcp_composer.core.utils import LoggerFactory
-
+from mcp_composer.core.utils.logger import LoggerFactory
 if TYPE_CHECKING:
     from mcp_composer.core.auth.jwt.jwt_provider import JWTAuthProvider
 
