@@ -1,3 +1,4 @@
+from .base_adapter import BaseDatabaseAdapter
 from .database import DatabaseInterface
 from .local_file_adapter import LocalFileAdapter
 from .postgres_adapter import PostgresAdapter
@@ -11,6 +12,7 @@ from .catalog_factory import get_catalog_db
 
 __all__ = [
     "DatabaseInterface",
+    "BaseDatabaseAdapter",
     "LocalFileAdapter",
     "PostgresAdapter",
     "FakeDatabase",

@@ -10,6 +10,7 @@ import httpx
 from fastmcp import FastMCP, Client
 from fastmcp.client.auth import OAuth
 from fastmcp.server import create_proxy
+from fastmcp.server.providers.openapi import MCPType, RouteMap
 from fastmcp.client.transports import (
     StreamableHttpTransport,
     SSETransport,
@@ -33,7 +34,6 @@ from mcp_composer.core.auth_handler import (
 from mcp_composer.core.tools.graphql_tool import GraphQLTool
 from mcp_composer.core.member_servers.layered_factory_oa import LayeredOpenAPIFactory
 from mcp_composer.core.member_servers.layered_factory_mcp import LayeredMCPFactory
-from mcp_composer.core.member_servers.layered_constants import DEFAULT_EXCLUDE_CONFIG
 
 logger = LoggerFactory.get_logger()
 
@@ -419,9 +419,10 @@ class MCPServerBuilder:
 
         # Check if layered is enabled in the OPEN_API configuration
         if openapi_config.get(ConfigKey.LAYERED, False):  # type: ignore[attr-defined]
-            exclude_all_route = await load_custom_mappings_from_json(
-                DEFAULT_EXCLUDE_CONFIG
-            )
+            # Build the exclude-all route directly. Passing DEFAULT_EXCLUDE_CONFIG
+            # through load_custom_mappings_from_json would append a second
+            # catch-all EXCLUDE sentinel.
+            exclude_all_route = [RouteMap(mcp_type=MCPType.EXCLUDE)]
             # Ensure spec is a dict and http_client is not None
             if not isinstance(spec, dict):
                 raise ValueError("OpenAPI spec must be a dictionary")

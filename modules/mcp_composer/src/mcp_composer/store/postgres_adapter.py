@@ -21,14 +21,14 @@ from mcp_composer.core.utils.exceptions import ToolDuplicateError
 from mcp_composer.core.utils import LoggerFactory
 from mcp_composer.core.utils.tools import check_duplicate_tool
 
-from .database import DatabaseInterface
+from .base_adapter import BaseDatabaseAdapter
 
 logger = LoggerFactory.get_logger()
 if TYPE_CHECKING:
     from mcp_composer.core.composer import MCPComposer
 
 
-class PostgresAdapter(DatabaseInterface):
+class PostgresAdapter(BaseDatabaseAdapter):
     def __init__(
         self,
         host: str | None = None,
@@ -483,12 +483,7 @@ class PostgresAdapter(DatabaseInterface):
                     # Create new config if server doesn't exist
                     config = {"id": server_id, "type": "composer"}
 
-                # Update or initialize tools_description
-                tools_description = config.get("tools_description", {})
-                if not isinstance(tools_description, dict):
-                    tools_description = {}
-                tools_description[tool] = description
-                config["tools_description"] = tools_description  # type: ignore
+                self._apply_tool_description(config, tool, description)
 
                 # Update the document
                 await conn.execute(
