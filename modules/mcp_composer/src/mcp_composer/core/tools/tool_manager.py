@@ -23,7 +23,11 @@ from fastmcp.server.providers import LocalProvider
 
 from mcp_composer.core.member_servers.member_server import HealthStatus, MemberMCPServer
 from mcp_composer.middleware.auth_utils import tool_name_to_server_id
-from mcp_composer.core.utils.exceptions import ToolDisableError, ToolDuplicateError
+from mcp_composer.core.utils.exceptions import (
+    ToolDisableError,
+    ToolDuplicateError,
+    ToolError,
+)
 from mcp_composer.store.database import DatabaseInterface
 from mcp_composer.core.utils import LoggerFactory, get_server_doc_info
 from mcp_composer.core.member_servers import ServerManager
@@ -95,9 +99,22 @@ class MCPToolManager:
                         if namespace_prefix == server_id:
                             del providers[idx]
                             break
+        except (IndexError, KeyError, AttributeError) as e:
+            logger.error(
+                "Error unmounting server '%s': Invalid server state",
+                server_id,
+                extra={"error": str(e)}
+            )
+            raise ToolError(
+                f"Failed to unmount server '{server_id}': Invalid server state",
+                context={"server_id": server_id, "error": str(e)}
+            ) from e
         except Exception as e:
-            logger.exception("Error unmounting server '%s': %s", server_id, e)
-            raise RuntimeError(f"Error unmounting server '{server_id}'") from e
+            logger.exception("Unexpected error unmounting server '%s'", server_id)
+            raise ToolError(
+                f"Failed to unmount server '{server_id}'",
+                context={"server_id": server_id, "error": str(e)}
+            ) from e
 
     async def has_tool(self, key: str | list[str]) -> bool:
         """Check if one or more tools exist by name."""
@@ -234,8 +251,21 @@ class MCPToolManager:
             # Load tools from OpenAPI Specifications
             server_data = await generate_tool_from_open_api()
             return server_data
+        except (ValueError, TypeError, AttributeError) as e:
+            logger.error(
+                "Failed to load custom tools: Invalid tool configuration",
+                extra={"error": str(e)}
+            )
+            raise ToolError(
+                "Failed to load custom tools: Invalid configuration",
+                context={"error": str(e)}
+            ) from e
         except Exception as e:
-            raise e
+            logger.exception("Unexpected error loading custom tools")
+            raise ToolError(
+                "Failed to load custom tools",
+                context={"error": str(e)}
+            ) from e
 
     async def fetch_server_tools(
         self,
@@ -298,6 +328,8 @@ class MCPToolManager:
             return await self.fetch_server_tools(server, remove, description)
 
         # Default Case: All tools
+        # Note: Returns empty list on failure for graceful degradation
+        # This maintains backward compatibility where empty tool list is acceptable
         try:
             _tools = await self._composer.list_tools()
             if _tools and len(_tools) > 0:
@@ -307,9 +339,19 @@ class MCPToolManager:
                 )
                 return tools
             else:
+                logger.info("No tools available from composer")
                 return []
+        except (AttributeError, TypeError) as e:
+            # Composer not properly initialized - log error but return empty list
+            # This allows the system to continue operating with degraded functionality
+            logger.error(
+                "Failed to fetch tools: Composer not properly initialized. Returning empty list for graceful degradation.",
+                extra={"error": str(e)}
+            )
+            return []
         except Exception as e:
-            logger.exception("Error fetching all tools: %s", e)
+            # Unexpected error - log but return empty list for backward compatibility
+            logger.exception("Unexpected error fetching all tools. Returning empty list for graceful degradation.")
             return []
 
     async def get_tool_config_by_name(self, name: str) -> list[dict]:
