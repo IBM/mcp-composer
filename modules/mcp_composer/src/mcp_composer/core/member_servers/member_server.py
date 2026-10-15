@@ -7,8 +7,7 @@ from fastmcp import FastMCP
 from fastmcp.utilities.components import (
     _convert_set_default_none,
 )
-from mcp_composer.core.utils import LoggerFactory
-
+from mcp_composer.core.utils.logger import LoggerFactory
 logger = LoggerFactory.get_logger()
 
 

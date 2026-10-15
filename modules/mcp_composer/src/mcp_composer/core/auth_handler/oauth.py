@@ -20,8 +20,7 @@ from mcp.shared.auth import OAuthClientInformationFull, OAuthToken
 from pydantic import AnyHttpUrl, AnyUrl
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from starlette.exceptions import HTTPException
-from mcp_composer.core.utils import LoggerFactory
-
+from mcp_composer.core.utils.logger import LoggerFactory
 logger = LoggerFactory.get_logger()
 load_dotenv()
 

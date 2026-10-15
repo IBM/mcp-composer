@@ -9,8 +9,7 @@ from fastmcp.tools import Tool
 from fastmcp.tools import ToolResult
 from mcp.types import TextContent
 
-from mcp_composer.core.utils import LoggerFactory
-
+from mcp_composer.core.utils.logger import LoggerFactory
 logger = LoggerFactory.get_logger()
 
 

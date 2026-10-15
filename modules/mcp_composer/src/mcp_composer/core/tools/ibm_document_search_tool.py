@@ -15,8 +15,7 @@ from pydantic import (
     field_validator,
 )
 
-from mcp_composer.core.utils import LoggerFactory
-
+from mcp_composer.core.utils.logger import LoggerFactory
 logger = LoggerFactory.get_logger()
 
 
