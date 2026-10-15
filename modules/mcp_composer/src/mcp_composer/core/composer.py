@@ -7,6 +7,7 @@ import os
 from typing import Any, Callable, Literal
 from dotenv import load_dotenv
 from fastmcp import FastMCP
+from fastmcp.exceptions import NotFoundError
 from fastmcp.server.auth.auth import OAuthProvider
 from fastmcp.server.auth.providers.jwt import JWTVerifier
 from starlette.middleware import Middleware as ASGIMiddleware
@@ -15,6 +16,11 @@ from fastmcp.tools import Tool
 from mcp_composer.core.tools import MCPToolManager
 from mcp_composer.core.utils import LoggerFactory
 from mcp_composer.core.utils.banner import print_mcp_composer_banner
+from mcp_composer.core.utils.exceptions import (
+    ServerNotFoundError,
+    ServerError,
+    ToolError,
+)
 from mcp_composer.core.member_servers import (
     ServerManager,
     MemberMCPServer,
@@ -122,8 +128,21 @@ class MCPComposer(FastMCP):
             return ServerConfigurationManager(
                 version_adapter_config=version_adapter_config
             )
-        except Exception:
-            logger.exception("Failed to initialize server configuration manager")
+        except (ValueError, TypeError) as e:
+            logger.exception(
+                "Failed to initialize server configuration manager: Invalid configuration",
+                extra={"version_adapter_config": version_adapter_config}
+            )
+            from mcp_composer.core.utils.exceptions import ConfigValidationError
+            raise ConfigValidationError(
+                "Invalid server configuration manager setup",
+                context={"version_adapter_config": version_adapter_config, "error": str(e)}
+            ) from e
+        except Exception as e:
+            logger.exception(
+                "Unexpected error initializing server configuration manager",
+                extra={"version_adapter_config": version_adapter_config}
+            )
             raise
 
     def _initialize_database(
@@ -450,12 +469,43 @@ class MCPComposer(FastMCP):
         )
 
     async def delete_mcp_server(self, server_id: str) -> str:
-        """Delete a single server."""
+        """Delete a single server.
+
+        Args:
+            server_id: ID of the server to delete
+
+        Returns:
+            Success message
+
+        Raises:
+            ServerNotFoundError: If server doesn't exist
+            ServerError: If unmount fails or other errors occur
+        """
         try:
             return await self.unmount_server(server_id)
+        except (NotFoundError, ServerNotFoundError) as e:
+            logger.warning("Server '%s' not found for deletion: %s", server_id, e)
+            raise ServerNotFoundError(
+                f"Server '{server_id}' not found",
+                context={"server_id": server_id}
+            ) from e
+        except ToolError as e:
+            # Tool unmount failed - wrap in ServerError for consistency
+            logger.error("Failed to unmount tools for server '%s': %s", server_id, e)
+            raise ServerError(
+                f"Failed to delete server '{server_id}': Tool unmount failed",
+                context={"server_id": server_id, "error": str(e)}
+            ) from e
         except Exception as e:
-            logger.exception("Failed to delete member server '%s': %s", server_id, e)
-            return f"Failed to delete member server '{server_id}'"
+            # Unexpected errors
+            logger.exception(
+                "Unexpected error deleting member server '%s'",
+                server_id
+            )
+            raise ServerError(
+                f"Failed to delete server '{server_id}'",
+                context={"server_id": server_id, "error": str(e)}
+            ) from e
 
     async def unmount_server(self, server_id: str) -> str:
         """Unmount a member server and remove it from the DB."""

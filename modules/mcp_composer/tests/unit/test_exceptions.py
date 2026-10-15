@@ -44,7 +44,10 @@ class TestMCPComposerError:
         error = MCPComposerError("Test error")
         assert str(error) == "Test error"
         assert error.message == "Test error"
-        assert error.context == {}
+        # Context now includes automatic metadata (exception_type, timestamp)
+        assert "exception_type" in error.context
+        assert "timestamp" in error.context
+        assert error.context["exception_type"] == "MCPComposerError"
 
     def test_error_with_context(self):
         """Test error creation with context."""
