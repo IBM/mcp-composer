@@ -61,11 +61,38 @@ def test_filter_tools_removes_and_updates(
     filtered = tool_manager.filter_tools(tools)
     filtered_names = [t.name for t in filtered]
 
-    # Current implementation applies disable() on composer and updates descriptions.
-    # It does not remove disabled tools unless product-based filtering is active.
-    assert "a" in filtered_names
+    # Disabled tools are filtered in memory. FastMCP disable() must not be called.
+    assert "a" not in filtered_names
     assert "test_server_b" in filtered_names
     assert tool2.description == "desc"
+    tool_manager._composer.disable.assert_not_called()
+
+
+def test_filter_tools_does_not_call_disable(
+    tool_manager,
+):  # pylint: disable=redefined-outer-name
+    """Repeated list_tools filtering must not append Visibility transforms."""
+    tool_manager._server_manager.list.return_value = []
+    tool = MagicMock()
+    tool.name = "a"
+
+    for _ in range(100):
+        tool_manager.filter_tools([tool])
+
+    tool_manager._composer.disable.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_enable_tools_does_not_call_composer_enable(
+    tool_manager,
+):  # pylint: disable=redefined-outer-name
+    """enable_tools must not append FastMCP Visibility transforms."""
+    tool_manager._disabled_tools = ["a", "b"]
+    result = await tool_manager.enable_tools(["a"])
+    assert "a" not in tool_manager._disabled_tools
+    assert "b" in tool_manager._disabled_tools
+    tool_manager._composer.enable.assert_not_called()
+    assert "Enabled" in result
 
 
 def test_filter_tools_handles_no_config(

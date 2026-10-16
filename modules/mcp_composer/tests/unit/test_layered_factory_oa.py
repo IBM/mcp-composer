@@ -295,6 +295,28 @@ class TestLayeredOpenAPIFactory:
         assert "data" in result
 
     @pytest.mark.asyncio
+    async def test_make_tool_call_get_request_empty_arguments_does_not_send_body(
+        self, layered_factory, mock_client
+    ):
+        """Empty arguments on a GET must not send an HTTP body."""
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {"policies": []}
+        mock_response.headers = {"content-type": "application/json"}
+        mock_client.request = AsyncMock(return_value=mock_response)
+
+        result = await layered_factory.make_tool_call(
+            tool_name="get_test_data",
+            arguments={},
+        )
+
+        assert result["success"] is True
+        mock_client.request.assert_awaited_once()
+        call_kwargs = mock_client.request.call_args.kwargs
+        assert call_kwargs["json"] is None
+        assert call_kwargs["method"] == "GET"
+
+    @pytest.mark.asyncio
     async def test_make_tool_call_invalid_service(self, layered_factory):
         """Test make_tool_call with invalid service."""
         result = await layered_factory.make_tool_call("invalid_service")
