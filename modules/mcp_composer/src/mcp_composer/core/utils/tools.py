@@ -155,3 +155,30 @@ def check_duplicate_tool(existing_tools: list[str], tools: list[str]) -> set:
     tools_exists = set(existing_tools)
     new_tools = set(tools)
     return tools_exists.intersection(new_tools)
+
+
+async def tool_from_curl_factory(config: dict[str, Any]) -> Tool:
+    """Create a CLI tool through ToolFactory."""
+    from mcp_composer.core.tools.tool_factory import ToolFactory
+
+    logger.debug("Creating CLI tool via ToolFactory")
+    return await ToolFactory.create_tool("cli", config)  # type: ignore[return-value]
+
+
+async def tool_from_open_api_factory(
+    open_api: dict[str, Any], auth_config: dict[str, Any] | None = None
+) -> tuple[str, Any]:
+    """Create an OpenAPI mount target through ToolFactory."""
+    from mcp_composer.core.tools.tool_factory import ToolFactory
+
+    logger.debug("Creating OpenAPI tool via ToolFactory")
+    config = {"openapi_spec": open_api, "auth_config": auth_config}
+    return await ToolFactory.create_tool("openapi", config)  # type: ignore[return-value]
+
+
+async def tool_from_script_factory(config: dict[str, Any]) -> Tool:
+    """Create a Python script tool through ToolFactory."""
+    from mcp_composer.core.tools.tool_factory import ToolFactory
+
+    logger.debug("Creating script tool via ToolFactory")
+    return await ToolFactory.create_tool("script", config)  # type: ignore[return-value]

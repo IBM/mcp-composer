@@ -1,8 +1,31 @@
 """Unified configuration schema for MCP Composer."""
 
-from typing import Any
-from pydantic import BaseModel, Field, field_validator, ConfigDict
+from functools import wraps
+from typing import Any, Callable, TypeVar
+
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 from enum import Enum
+
+from mcp_composer.core.utils.validation import (
+    ValidationError as CoreValidationError,
+    validate_non_empty_string,
+    validate_one_of,
+)
+
+T = TypeVar("T")
+
+
+def pydantic_validator_wrapper(validation_func: Callable[..., T]) -> Callable[..., T]:
+    """Convert core ValidationError into ValueError for Pydantic field validators."""
+
+    @wraps(validation_func)
+    def wrapper(*args: Any, **kwargs: Any) -> T:
+        try:
+            return validation_func(*args, **kwargs)
+        except CoreValidationError as exc:
+            raise ValueError(str(exc)) from exc
+
+    return wrapper
 
 
 class ConfigSection(str, Enum):
@@ -39,19 +62,15 @@ class ServerConfig(BaseModel):
     @field_validator("id")
     @classmethod
     def validate_id(cls, v: str) -> str:
-        if not v or not v.strip():
-            raise ValueError("Server ID cannot be empty")
-        return v.strip()
+        return pydantic_validator_wrapper(validate_non_empty_string)(v, "Server ID")
 
     @field_validator("type")
     @classmethod
     def validate_type(cls, v: str) -> str:
         valid_types = ["http", "sse", "openapi", "stdio", "graphql", "local", "client"]
-        if v not in valid_types:
-            raise ValueError(
-                f"Invalid server type '{v}'. Must be one of: {', '.join(valid_types)}"
-            )
-        return v
+        return pydantic_validator_wrapper(validate_one_of)(
+            v, valid_types, "server type"
+        )
 
 
 class MiddlewareConfig(BaseModel):
@@ -73,9 +92,9 @@ class MiddlewareConfig(BaseModel):
     @field_validator("name")
     @classmethod
     def validate_name(cls, v: str) -> str:
-        if not v or not v.strip():
-            raise ValueError("Middleware name cannot be empty")
-        return v.strip()
+        return pydantic_validator_wrapper(validate_non_empty_string)(
+            v, "Middleware name"
+        )
 
     @field_validator("kind")
     @classmethod
@@ -87,9 +106,9 @@ class MiddlewareConfig(BaseModel):
     @field_validator("mode")
     @classmethod
     def validate_mode(cls, v: str) -> str:
-        if v not in ["enabled", "disabled"]:
-            raise ValueError("Mode must be 'enabled' or 'disabled'")
-        return v
+        return pydantic_validator_wrapper(validate_one_of)(
+            v, ["enabled", "disabled"], "mode"
+        )
 
 
 class PromptArgument(BaseModel):
@@ -112,16 +131,14 @@ class PromptConfig(BaseModel):
     @field_validator("name")
     @classmethod
     def validate_name(cls, v: str) -> str:
-        if not v or not v.strip():
-            raise ValueError("Prompt name cannot be empty")
-        return v.strip()
+        return pydantic_validator_wrapper(validate_non_empty_string)(v, "Prompt name")
 
     @field_validator("template")
     @classmethod
     def validate_template(cls, v: str) -> str:
-        if not v or not v.strip():
-            raise ValueError("Prompt template cannot be empty")
-        return v.strip()
+        return pydantic_validator_wrapper(validate_non_empty_string)(
+            v, "Prompt template"
+        )
 
 
 class ToolConfig(BaseModel):
@@ -164,22 +181,23 @@ class ResourceConfig(BaseModel):
     @field_validator("name")
     @classmethod
     def validate_name(cls, v: str) -> str:
-        if not v or not v.strip():
-            raise ValueError("Resource name cannot be empty")
-        return v.strip()
+        return pydantic_validator_wrapper(validate_non_empty_string)(v, "Resource name")
 
     @field_validator("uri", "uri_template")
     @classmethod
     def validate_uri_fields(cls, v: str | None) -> str | None:
-        if v is not None and not v.strip():
-            raise ValueError("URI/URI template cannot be empty string")
-        return v.strip() if v else None
+        if v is not None:
+            return pydantic_validator_wrapper(validate_non_empty_string)(
+                v, "URI/URI template"
+            )
+        return None
 
-    def model_post_init(self, __context) -> None:
-        """Validate that either uri or uri_template is provided."""
+    @model_validator(mode="after")
+    def check_uri_or_template(self) -> "ResourceConfig":
+        """Fill a default URI when neither uri nor uri_template is set."""
         if not self.uri and not self.uri_template:
-            # Auto-generate URI if not provided
             self.uri = f"resource://{self.name}"
+        return self
 
 
 class UnifiedConfig(BaseModel):

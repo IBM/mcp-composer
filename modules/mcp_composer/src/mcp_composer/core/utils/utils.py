@@ -51,6 +51,9 @@ async def load_custom_mappings_from_json(json_data: str | list[dict]) -> list[Ro
         mappings = json_data
 
     route_maps = []
+    if not mappings:
+        return route_maps
+
     for mapping in mappings:
         methods = mapping.get("methods", "*")
         pattern = mapping["pattern"]
@@ -61,7 +64,22 @@ async def load_custom_mappings_from_json(json_data: str | list[dict]) -> list[Ro
         except KeyError as e:
             raise ValueError(f"Invalid MCP type: {mcp_type_str}") from e
 
-        route_maps.append(RouteMap(methods=methods, pattern=pattern, mcp_type=mcp_type))
+        tags_raw = mapping.get("tags")
+        tags = set(tags_raw) if tags_raw else set()
+        route_maps.append(
+            RouteMap(methods=methods, pattern=pattern, mcp_type=mcp_type, tags=tags)
+        )
+
+    # Catch-all so non-layered FastMCP routing excludes operations that no
+    # earlier TOOL/RESOURCE rule matched. Skip when the list already ends
+    # with that sentinel.
+    last = route_maps[-1]
+    if not (
+        getattr(last, "mcp_type", None) == MCPType.EXCLUDE
+        and str(getattr(last, "pattern", "")) in (".*", "")
+        and getattr(last, "methods", None) in ("*", ["*"], None)
+    ):
+        route_maps.append(RouteMap(mcp_type=MCPType.EXCLUDE))
 
     return route_maps
 
