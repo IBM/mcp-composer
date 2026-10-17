@@ -1221,7 +1221,7 @@ requests = [
 
 [[package]]
 name = "google-genai"
-version = "2.30.1"
+version = "2.31.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "anyio" },
@@ -1235,9 +1235,9 @@ dependencies = [
     { name = "typing-extensions" },
     { name = "websockets" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/df/8a/76e592bca2a4ff63a8ba8025012ccae2d1a9aa1762af2278f43756045e12/google_genai-2.30.1.tar.gz", hash = "sha256:a348b28b86a98fbc8e0bea759e14ae3ac807954355df8638079715d027cd14d5", size = 736895, upload-time = "2026-10-13T14:11:18.246Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/34/69/6a3d3839ab56ec17d7923c8679b38955e286e0a9793df10ce6d13bc5f122/google_genai-2.31.0.tar.gz", hash = "sha256:71518537de2ba967a61960cba844691dca3dd4ff07726c01a6917d132213541e", size = 745679, upload-time = "2026-10-14T23:52:24.836Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/46/28/faa7c02d87df1343aa8e51c816694a82eb37f41d0e83253e6e75a00b96ec/google_genai-2.30.1-py3-none-any.whl", hash = "sha256:1bb8961c60f7100439a45067a32764a18da0f8d0f95954ffc777d1f8225a2469", size = 1199070, upload-time = "2026-10-13T14:11:16.459Z" },
+    { url = "https://files.pythonhosted.org/packages/1c/64/1e9ab799830101ccbdcb67376a3f12b59e51f57643862999fd31af6938a1/google_genai-2.31.0-py3-none-any.whl", hash = "sha256:c87b9d495a24b09dedb29b852a201bea69ecd0b3f6c2561dc68f4055451b1b90", size = 1208245, upload-time = "2026-10-14T23:52:22.766Z" },
 ]
 
 [[package]]
@@ -2111,8 +2111,8 @@ requires-dist = [
     { name = "duckduckgo-search", marker = "extra == 'search'", specifier = ">=6.3.0" },
     { name = "fastmcp", specifier = "==3.4.8" },
     { name = "filelock", specifier = ">=3.20.3" },
-    { name = "google-genai", marker = "extra == 'ai'", specifier = "==2.30.1" },
-    { name = "google-genai", marker = "extra == 'all'", specifier = "==2.30.1" },
+    { name = "google-genai", marker = "extra == 'ai'", specifier = "==2.31.0" },
+    { name = "google-genai", marker = "extra == 'all'", specifier = "==2.31.0" },
     { name = "httpx", specifier = "==0.28.1" },
     { name = "hvac", marker = "extra == 'all'", specifier = "==2.4.0" },
     { name = "hvac", marker = "extra == 'secrets'", specifier = "==2.4.0" },
