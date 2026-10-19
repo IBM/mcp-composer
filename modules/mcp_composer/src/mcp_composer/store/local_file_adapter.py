@@ -3,20 +3,21 @@
 import os
 import json
 from pathlib import Path
-from typing import Any
 from dotenv import load_dotenv, find_dotenv
 
 from mcp_composer.core.utils.logger import LoggerFactory
 from mcp_composer.core.utils.exceptions import ToolDuplicateError
 from mcp_composer.core.utils.tools import check_duplicate_tool
 from .database import DatabaseInterface
+from mcp_composer.core.utils import LoggerFactory
+from .base_adapter import BaseDatabaseAdapter
 
 load_dotenv(find_dotenv(".env"))
 
 logger = LoggerFactory.get_logger()
 
 
-class LocalFileAdapter(DatabaseInterface):
+class LocalFileAdapter(BaseDatabaseAdapter):
     """Local file storage"""
 
     def __init__(
@@ -245,58 +246,22 @@ class LocalFileAdapter(DatabaseInterface):
     ) -> None:
         """Common method to update the disabled tools list for a server."""
         data = self._read_data()
-        tools = list(set(tools))  # Remove duplicates
 
         for server in data:
             if server.get("id") != server_id:
                 continue
 
-            if enable:
-                server["disabled_tools"] = tools
-                logger.info(
-                    "Updated disabled tool list for server:%s, disabled tools:%s",
-                    server_id,
-                    server["disabled_tools"],
-                )
-            else:
-                if len(tools) == 1 and tools[0].lower() == "all":
-                    existing_tools: list[Any] = []
-                else:
-                    existing_tools_obj = server.get("disabled_tools", [])
-                    existing_tools = (
-                        list(existing_tools_obj)
-                        if isinstance(existing_tools_obj, list)
-                        else []
-                    )
-
-                duplicate_tool = check_duplicate_tool(existing_tools, tools)
-                if duplicate_tool:
-                    raise ToolDuplicateError(
-                        f"Tool {duplicate_tool} is already removed"
-                    )
-
-                if existing_tools:
-                    disabled_tools = server["disabled_tools"]
-                    if isinstance(disabled_tools, list):
-                        disabled_tools.extend(tools)
-                    logger.info("Updated remove tool list for server:%s", server_id)
-                    logger.info("Previous tools:%s", existing_tools)
-                else:
-                    server["disabled_tools"] = tools
-                    logger.info(
-                        "Added new remove tool list: %s for server %s", tools, server_id
-                    )
-
+            self._apply_disabled_tools(server, tools, enable)
+            logger.info(
+                "Updated disabled tool list for server:%s, disabled tools:%s",
+                server_id,
+                server.get("disabled_tools"),
+            )
             break
         else:
             if not enable:
-                # Create new server entry if not found
                 data.append(
-                    {
-                        "id": server_id,
-                        "type": "composer",
-                        "disabled_tools": tools,
-                    }
+                    self._new_composer_server_stub(server_id, disabled_tools=tools)
                 )
 
         self._write_data(data)
@@ -316,23 +281,8 @@ class LocalFileAdapter(DatabaseInterface):
         data = self._read_data()
         for server in data:
             if server.get("id") == server_id:
-                tools_description = server.get("tools_description")
-                # if tools description already found, update it
-                # if not add the tools description
-                if tools_description and isinstance(tools_description, dict):
-                    tools_description.update({tool: description})
-                    logger.info(
-                        "Tool description:%s is updated for server: %s",
-                        tools_description,
-                        server_id,
-                    )
-                else:
-                    server["tools_description"] = {tool: description}
-                    logger.info(
-                        "Tool description: %s is added for server: %s",
-                        tools_description,
-                        server_id,
-                    )
+                self._apply_tool_description(server, tool, description)
+                logger.info("Tool description updated for server: %s", server_id)
 
         self._write_data(data)
 
@@ -366,52 +316,18 @@ class LocalFileAdapter(DatabaseInterface):
     def disable_prompts(self, prompts: list[str], server_id: str) -> None:
         """Add or Update disabled prompts in file for the member server"""
         data = self._read_data()
-        prompts = list(set(prompts))
-
         for server in data:
             if server.get("id") != server_id:
                 continue
 
-            existing_prompts_obj = server.get("disabled_prompts", [])
-            existing_prompts = (
-                list(existing_prompts_obj)
-                if isinstance(existing_prompts_obj, list)
-                else []
+            self._apply_disabled_named_items(
+                server,
+                "disabled_prompts",
+                "prompts_description",
+                prompts,
+                "Prompt",
             )
-            prompts_description = server.get("prompts_description", {})
-
-            duplicate_prompt = check_duplicate_tool(existing_prompts, prompts)
-            if duplicate_prompt:
-                raise ToolDuplicateError(
-                    f"Prompt {duplicate_prompt} is already disabled"
-                )
-
-            # Update disabled_prompts
-            if existing_prompts:
-                disabled_prompts = server["disabled_prompts"]
-                if isinstance(disabled_prompts, list):
-                    disabled_prompts.extend(prompts)
-                logger.info("Updated disabled prompt list for server:%s", server_id)
-                logger.info("Previous prompts:%s", existing_prompts)
-            else:
-                server["disabled_prompts"] = prompts
-                logger.info(
-                    "Added new disabled prompt list: %s  for server %s",
-                    prompts,
-                    server_id,
-                )
-
-            # Remove prompt descriptions if they exist
-            disabled_prompts_obj = server["disabled_prompts"]
-            if (
-                disabled_prompts_obj
-                and prompts_description
-                and isinstance(prompts_description, dict)
-            ):
-                if isinstance(disabled_prompts_obj, list):
-                    for prompt in disabled_prompts_obj:
-                        prompts_description.pop(prompt, None)
-
+            logger.info("Updated disabled prompt list for server:%s", server_id)
             break
 
         self._write_data(data)
@@ -419,70 +335,34 @@ class LocalFileAdapter(DatabaseInterface):
     def enable_prompts(self, prompts: list[str], server_id: str) -> None:
         """Enable prompts which already disabled"""
         data = self._read_data()
-        prompts = list(set(prompts))
         for server in data:
             if server.get("id") != server_id:
                 continue
 
-            server["disabled_prompts"] = prompts
+            self._apply_enabled_named_items(server, "disabled_prompts", prompts)
             logger.info(
                 "Updated disabled prompt list for server:%s, disabled prompts:%s",
                 server_id,
                 server["disabled_prompts"],
             )
-
             break
         self._write_data(data)
 
     def disable_resources(self, resources: list[str], server_id: str) -> None:
         """Add or Update disabled resources in file for the member server"""
         data = self._read_data()
-        resources = list(set(resources))
-
         for server in data:
             if server.get("id") != server_id:
                 continue
 
-            existing_resources_obj = server.get("disabled_resources", [])
-            existing_resources = (
-                list(existing_resources_obj)
-                if isinstance(existing_resources_obj, list)
-                else []
+            self._apply_disabled_named_items(
+                server,
+                "disabled_resources",
+                "resources_description",
+                resources,
+                "Resource",
             )
-            resources_description = server.get("resources_description", {})
-
-            duplicate_resource = check_duplicate_tool(existing_resources, resources)
-            if duplicate_resource:
-                raise ToolDuplicateError(
-                    f"Resource {duplicate_resource} is already disabled"
-                )
-
-            # Update disabled_resources
-            if existing_resources:
-                disabled_resources = server["disabled_resources"]
-                if isinstance(disabled_resources, list):
-                    disabled_resources.extend(resources)
-                logger.info("Updated disabled resource list for server:%s", server_id)
-                logger.info("Previous resources:%s", existing_resources)
-            else:
-                server["disabled_resources"] = resources
-                logger.info(
-                    "Added new disabled resource list: %s  for server %s",
-                    resources,
-                    server_id,
-                )
-
-            # Remove resource descriptions if they exist
-            disabled_resources_obj = server["disabled_resources"]
-            if (
-                disabled_resources_obj
-                and resources_description
-                and isinstance(resources_description, dict)
-            ):
-                if isinstance(disabled_resources_obj, list):
-                    for resource in disabled_resources_obj:
-                        resources_description.pop(resource, None)
-
+            logger.info("Updated disabled resource list for server:%s", server_id)
             break
 
         self._write_data(data)
@@ -490,18 +370,16 @@ class LocalFileAdapter(DatabaseInterface):
     def enable_resources(self, resources: list[str], server_id: str) -> None:
         """Enable resources which already disabled"""
         data = self._read_data()
-        resources = list(set(resources))
         for server in data:
             if server.get("id") != server_id:
                 continue
 
-            server["disabled_resources"] = resources
+            self._apply_enabled_named_items(server, "disabled_resources", resources)
             logger.info(
                 "Updated disabled resource list for server:%s, disabled resources:%s",
                 server_id,
                 server["disabled_resources"],
             )
-
             break
         self._write_data(data)
 

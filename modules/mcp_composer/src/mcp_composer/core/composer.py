@@ -33,11 +33,6 @@ from mcp_composer.core.config.server_configuration_manager import (
 from mcp_composer.core.utils.custom_tool import DynamicToolGenerator, OpenApiTool
 from mcp_composer.core.utils.utils import get_endpoint_from_config
 from mcp_composer.store.database import DatabaseInterface
-from mcp_composer.core.utils.tools import (
-    tool_from_curl,
-    tool_from_open_api,
-    tool_from_script,
-)
 from mcp_composer.core.prompts import MCPPromptManager
 from mcp_composer.core.resources import MCPResourceManager
 from mcp_composer.a2a_service.a2a_mcp import (
@@ -537,15 +532,31 @@ class MCPComposer(FastMCP):
         )
 
     async def add_tools_from_curl(self, tool_config: dict[str, Any]) -> str:
-        """Create a tool from a curl command."""
-        fn = await tool_from_curl(tool_config)
-        self.add_tool(Tool.from_function(fn))
+        """Create a tool from a curl command via ToolFactory."""
+        from mcp_composer.core.tools.tool_factory import ToolFactory
+
+        logger.info("Adding CLI tool via ToolFactory")
+        result = await ToolFactory.create_tool("cli", tool_config)
+        if isinstance(result, tuple):
+            raise TypeError(
+                "CLI tool creation returned unexpected tuple. "
+                "Expected Tool instance for tool type 'cli'."
+            )
+        self.add_tool(result)
         return "Successfully added tools"
 
     async def add_tools_from_python(self, tool_config: dict[str, Any]) -> str:
-        """Create a tool from a python script."""
-        fn = await tool_from_script(tool_config)
-        self.add_tool(Tool.from_function(fn))
+        """Create a tool from a python script via ToolFactory."""
+        from mcp_composer.core.tools.tool_factory import ToolFactory
+
+        logger.debug("Adding Python script tool via ToolFactory")
+        result = await ToolFactory.create_tool("script", tool_config)
+        if isinstance(result, tuple):
+            raise TypeError(
+                "Script tool creation returned unexpected tuple. "
+                "Expected Tool instance for tool type 'script'."
+            )
+        self.add_tool(result)
         return "Successfully added tools"
 
     async def add_tools_from_openapi(
@@ -553,8 +564,18 @@ class MCPComposer(FastMCP):
         openapi_spec: dict[str, Any],
         auth_config: dict[str, Any] | None = None,
     ) -> str:
-        """Create a tool from OpenAPI Specification"""
-        server_name, client = await tool_from_open_api(openapi_spec, auth_config)
+        """Create a tool from an OpenAPI specification via ToolFactory."""
+        from mcp_composer.core.tools.tool_factory import ToolFactory
+
+        logger.debug("Adding OpenAPI tool via ToolFactory")
+        config = {"openapi_spec": openapi_spec, "auth_config": auth_config}
+        result = await ToolFactory.create_tool("openapi", config)
+        if not isinstance(result, tuple) or len(result) != 2:
+            raise TypeError(
+                "OpenAPI tool creation should return tuple (server_name, client). "
+                f"Got: {type(result)}"
+            )
+        server_name, client = result
         self.mount(FastMCP.from_openapi(openapi_spec, client), server_name)
         return "Successfully added tools"
 

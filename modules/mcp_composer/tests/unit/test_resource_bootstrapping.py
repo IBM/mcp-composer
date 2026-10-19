@@ -59,7 +59,7 @@ class TestResourceConfig:
 
     def test_empty_uri_validation(self):
         """Test that empty URI string raises validation error."""
-        with pytest.raises(ValueError, match="URI/URI template cannot be empty string"):
+        with pytest.raises(ValueError, match="URI/URI template cannot be empty"):
             ResourceConfig(name="test", uri="")
 
     def test_invalid_mime_type(self):
