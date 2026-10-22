@@ -102,7 +102,7 @@ secrets = [
 # AI/ML features
 ai = [
     "google-genai==2.30.1",
-    "litellm==1.105.0",
+    "litellm==1.105.1",
     "ollama>=0.6.1",
     "scikit-learn>=1.7.1"
 ]
