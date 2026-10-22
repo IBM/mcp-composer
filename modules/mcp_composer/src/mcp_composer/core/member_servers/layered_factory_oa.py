@@ -498,7 +498,10 @@ class LayeredOpenAPIFactory(FastMCP):
                 for http_method, operation in path_item.items():
                     if http_method.lower() in HTTP_METHODS:
                         # Check if this operation should be included based on custom routes
-                        if self._should_include_operation(http_method.upper(), path):
+                        operation_tags = operation.get(OPERATION_KEYS["TAGS"]) or []
+                        if self._should_include_operation(
+                            http_method.upper(), path, operation_tags
+                        ):
                             operation_id = operation.get(OPERATION_KEYS["OPERATION_ID"])
                             if operation_id:
                                 services[operation_id] = {
@@ -545,44 +548,55 @@ class LayeredOpenAPIFactory(FastMCP):
                                 }
         return services
 
-    def _should_include_operation(self, http_method: str, path: str) -> bool:
+    def _route_rule_matches_tags(
+        self, route_rule: RouteMap, operation_tags_set: frozenset[str]
+    ) -> bool:
+        """Return True when the rule has no tag filter or all rule tags are on the operation."""
+        rule_tags: set[str] = getattr(route_rule, "tags", set()) or set()
+        if not rule_tags:
+            return True
+        return rule_tags.issubset(operation_tags_set)
+
+    def _should_include_operation(
+        self,
+        http_method: str,
+        path: str,
+        operation_tags: list[str] | None = None,
+    ) -> bool:
         """
         Determine if an operation should be included based on custom routes.
         If no custom routes are provided, include all operations.
         If custom routes are provided, only include operations that are explicitly marked as TOOL/RESOURCE.
         Operations marked as EXCLUDE are always excluded.
+        Route rules may optionally filter by OpenAPI operation tags (FastMCP RouteMap.tags).
         """
         if not self.custom_routes:
-            # Default behavior: include all operations if no custom routes specified
             return True
 
-        # Track if this operation has been explicitly handled by any rule
+        operation_tags_set = frozenset(operation_tags or [])
         operation_handled = False
         should_include = False
 
-        # Apply custom routes filtering based on user configuration
         for route_rule in self.custom_routes:
-            # RouteMap objects have attributes, not dict-like access
             methods = getattr(route_rule, "methods", DEFAULT_VALUES["EMPTY_LIST"])
             pattern = getattr(route_rule, "pattern", DEFAULT_PATTERN)
             mcp_type = getattr(route_rule, "mcp_type", DEFAULT_MCP_TYPE)
 
-            # Check if this operation matches the route rule
-            if http_method in methods and self._matches_pattern(path, pattern):  # type: ignore[operator]
-                operation_handled = True
+            if http_method not in methods:  # type: ignore[operator]
+                continue
+            if not self._matches_pattern(path, pattern):
+                continue
+            if not self._route_rule_matches_tags(route_rule, operation_tags_set):
+                continue
 
-                if mcp_type in (MCPType.TOOL, MCPType.RESOURCE):
-                    should_include = True
-                elif mcp_type == MCPType.EXCLUDE:
-                    # EXCLUDE rules take precedence - always exclude
-                    return False
+            operation_handled = True
+            if mcp_type in (MCPType.TOOL, MCPType.RESOURCE):
+                should_include = True
+            elif mcp_type == MCPType.EXCLUDE:
+                return False
 
-        # If operation was handled by custom routes, return the decision
         if operation_handled:
             return should_include
-
-        # If no custom route rule matched this operation, exclude it by default
-        # This ensures that only explicitly allowed operations are included
         return False
 
     def _matches_pattern(self, path: str, pattern: str) -> bool:
