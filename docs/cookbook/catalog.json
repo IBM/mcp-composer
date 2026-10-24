@@ -11,10 +11,22 @@
     "topic": "Instruct",
     "summary": "Register one prompt template and print its name."
   },
-  {
+    {
     "slug": "publish-a-note",
     "title": "Publish a note",
     "topic": "Share",
     "summary": "Store a short text resource a client can read back by URI."
+  },
+  {
+    "slug": "mount-a-stdio-server",
+    "title": "Mount a stdio server",
+    "topic": "Connect",
+    "summary": "Start a local member server, list the tools it adds, and call one."
+  },
+  {
+    "slug": "import-an-openapi-spec",
+    "title": "Import an OpenAPI spec",
+    "topic": "Import",
+    "summary": "Turn a local OpenAPI file into composer tools and print their names."
   }
 ]

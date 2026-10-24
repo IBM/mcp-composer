@@ -18,13 +18,17 @@ def main() -> int:
         if slug in seen:
             errors.append(f"duplicate slug {slug}")
         seen.add(slug)
+        folder = ROOT / "example" / "cookbook" / slug
         page = ROOT / "docs" / "cookbook" / f"{slug}.md"
-        runner = ROOT / "example" / "cookbook" / slug / "run.py"
+        runner = folder / "run.py"
         if not page.is_file():
             errors.append(f"missing page {page.relative_to(ROOT)}")
         if not runner.is_file():
             errors.append(f"missing runner {runner.relative_to(ROOT)}")
-        for path in (page, runner):
+        paths = [page]
+        if folder.is_dir():
+            paths.extend(path for path in folder.rglob("*") if path.is_file())
+        for path in paths:
             if not path.is_file():
                 continue
             text = path.read_text(encoding="utf-8").lower()
