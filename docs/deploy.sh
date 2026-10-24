@@ -1,40 +1,31 @@
 #!/bin/bash
-set -e
+set -euo pipefail
 
-# Step 1: Detect project root and set paths
+# Publish the VitePress site, including the cookbook, to GitHub Pages.
+# gh-pages is replaced on each run because the branch holds only the built site.
+
 if [ -f ".vitepress/config.ts" ]; then
-  # You're inside the docs/ folder
-  BUILD_CMD="vitepress build"
+  ROOT="."
   DIST_DIR=".vitepress/dist"
-else
-  # You're in the project root
-  BUILD_CMD="vitepress build docs"
+elif [ -f "docs/.vitepress/config.ts" ]; then
+  ROOT="docs"
   DIST_DIR="docs/.vitepress/dist"
+else
+  echo "Run this from the repository root or the docs directory." >&2
+  exit 1
 fi
 
-# Step 2: Clean previous build
-rm -rf "$DIST_DIR"
+echo "Building site from ${ROOT}..."
+npm --prefix "$ROOT" install
+npm --prefix "$ROOT" run docs:build
 
-# Step 3: Build site
-echo "🔧 Building site..."
-npx $BUILD_CMD
-
-# Step 4: Prepare for GitHub Pages deployment
 cd "$DIST_DIR"
 touch .nojekyll
-
-# Step 5: Deploy to gh-pages
 git init
 git add -A
-
-COMMIT_MSG="🚀 Deploy VitePress docs - $(date '+%Y-%m-%d %H:%M:%S')"
-git commit -m "$COMMIT_MSG"
-
-git push -f git@github.ibm.com:ai-elite/mcp-composer.git HEAD:gh-pages
-
-# Step 6: Cleanup
-cd -
+git commit -m "Deploy docs $(date '+%Y-%m-%d %H:%M:%S')"
+git push -f git@github.com:IBM/mcp-composer.git HEAD:gh-pages
+cd - >/dev/null
 rm -rf "$DIST_DIR/.git"
 
-echo "✅ Deployed to: https://pages.github.ibm.com/ai-elite/mcp-composer/"
-
+echo "Deployed to: https://ibm.github.io/mcp-composer/"
