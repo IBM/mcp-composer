@@ -67,6 +67,7 @@ class MCPToolManager:
         self._database = database
         self._disabled_tools: list[str] = []
         self._tools: list[str] = []
+        self._last_transforms_len: int | None = None
 
     def _get_mounted_servers(self):
         """Safely access mounted servers, returning empty list if not initialized."""
@@ -104,17 +105,17 @@ class MCPToolManager:
             logger.error(
                 "Error unmounting server '%s': Invalid server state",
                 server_id,
-                extra={"error": str(e)}
+                extra={"error": str(e)},
             )
             raise ToolError(
                 f"Failed to unmount server '{server_id}': Invalid server state",
-                context={"server_id": server_id, "error": str(e)}
+                context={"server_id": server_id, "error": str(e)},
             ) from e
         except Exception as e:
             logger.exception("Unexpected error unmounting server '%s'", server_id)
             raise ToolError(
                 f"Failed to unmount server '{server_id}'",
-                context={"server_id": server_id, "error": str(e)}
+                context={"server_id": server_id, "error": str(e)},
             ) from e
 
     async def has_tool(self, key: str | list[str]) -> bool:
@@ -180,7 +181,27 @@ class MCPToolManager:
                     for name, desc in member.tools_description.items():
                         description_updates[f"{member.id}_{name}"] = desc
 
-            self._composer.disable(names=remove_set)
+            # Do not call FastMCP disable() here. Each call appends a Visibility
+            # transform, and list_tools invokes this filter, so the chain grows
+            # until call_tool raises RecursionError.
+            transforms_len = len(getattr(self._composer, "transforms", []) or [])
+            prev_len = self._last_transforms_len
+            delta = 0 if prev_len is None else (transforms_len - prev_len)
+            self._last_transforms_len = transforms_len
+            logger.info(
+                "transforms_len=%s prev=%s delta=%s remove_set_size=%s",
+                transforms_len,
+                prev_len,
+                delta,
+                len(remove_set),
+            )
+            if delta > 0:
+                logger.warning(
+                    "TRANSFORM_LEAK_DETECTED transforms_len grew: prev=%s now=%s delta=%s",
+                    prev_len,
+                    transforms_len,
+                    delta,
+                )
 
             # 3. Filter and update the tools dictionary
             # filtered_tools = [tool for tool in tools if tool.name not in remove_set]
@@ -218,6 +239,9 @@ class MCPToolManager:
 
             result = []
             for tool in tools:
+                if tool.name in remove_set:
+                    continue
+
                 server_id = tool_name_to_server_id(tool.name)
 
                 # Always keep tools that are not mapped to a product-bearing server
@@ -255,17 +279,16 @@ class MCPToolManager:
         except (ValueError, TypeError, AttributeError) as e:
             logger.error(
                 "Failed to load custom tools: Invalid tool configuration",
-                extra={"error": str(e)}
+                extra={"error": str(e)},
             )
             raise ToolError(
                 "Failed to load custom tools: Invalid configuration",
-                context={"error": str(e)}
+                context={"error": str(e)},
             ) from e
         except Exception as e:
             logger.exception("Unexpected error loading custom tools")
             raise ToolError(
-                "Failed to load custom tools",
-                context={"error": str(e)}
+                "Failed to load custom tools", context={"error": str(e)}
             ) from e
 
     async def fetch_server_tools(
@@ -347,12 +370,14 @@ class MCPToolManager:
             # This allows the system to continue operating with degraded functionality
             logger.error(
                 "Failed to fetch tools: Composer not properly initialized. Returning empty list for graceful degradation.",
-                extra={"error": str(e)}
+                extra={"error": str(e)},
             )
             return []
         except Exception:
             # Unexpected error - log but return empty list for backward compatibility
-            logger.exception("Unexpected error fetching all tools. Returning empty list for graceful degradation.")
+            logger.exception(
+                "Unexpected error fetching all tools. Returning empty list for graceful degradation."
+            )
             return []
 
     async def get_tool_config_by_name(self, name: str) -> list[dict]:
@@ -429,7 +454,6 @@ class MCPToolManager:
         self._disabled_tools = [
             tl for tl in disabled_tools if tl not in tools_to_remove
         ]
-        self._composer.enable(names=set(tools_to_remove))
 
         if self._database:
             self._database.enable_tools(

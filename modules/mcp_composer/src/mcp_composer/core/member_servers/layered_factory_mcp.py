@@ -515,18 +515,29 @@ class LayeredMCPFactory(FastMCP):
         )
         return json.dumps(payload, indent=2)
 
-    async def get_type_info(self, tool_name: str) -> str:
+    async def get_type_info(
+        self,
+        tool_name: str = "",
+        service: str | None = None,
+        operationId: str | None = None,
+    ) -> str:
         """
         Get detailed information about a specific tool.
 
+        The response uses ``tool_name`` rather than ``name`` so a schema property
+        named ``name`` is not walked as the tool identity.
+
         Args:
             tool_name: The name of the tool to inspect
+            service: Alias accepted when the model passes an OpenAPI service name.
+            operationId: Alias accepted when the model passes an operation id.
 
         Returns:
             JSON string with detailed tool information including extracted parameters
         """
         import json
 
+        tool_name = tool_name or service or operationId or ""
         tools = await self._fetch_tools()
 
         # Find the requested tool
@@ -536,7 +547,7 @@ class LayeredMCPFactory(FastMCP):
             return json.dumps(self._mcp_not_found(tool_name, tools), indent=2)
 
         result = {
-            "name": tool["name"],
+            "tool_name": tool["name"],
             "description": tool["description"],
         }
 
@@ -633,7 +644,12 @@ class LayeredMCPFactory(FastMCP):
         return parameters
 
     async def make_tool_call(
-        self, tool_name: str, arguments: dict[str, Any] | None = None
+        self,
+        tool_name: str = "",
+        arguments: dict[str, Any] | None = None,
+        service: str | None = None,
+        operationId: str | None = None,
+        request: dict[str, Any] | None = None,
     ) -> str:
         """
         Execute a tool call on the underlying MCP server.
@@ -641,14 +657,29 @@ class LayeredMCPFactory(FastMCP):
         Args:
             tool_name: The name of the tool to execute
             arguments: The arguments to pass to the tool (optional)
+            service: Alias accepted when the model passes an OpenAPI service name.
+            operationId: Alias accepted when the model passes an operation id.
+            request: OpenAPI-style request. Path params, query params, and body
+                are flattened into the tool arguments.
 
         Returns:
             JSON string with the result from the tool execution
         """
         import json
 
-        if arguments is None:
-            arguments = {}
+        tool_name = tool_name or service or operationId or ""
+        flat_arguments: dict[str, Any] = {}
+        if isinstance(arguments, dict):
+            flat_arguments = arguments
+        elif isinstance(request, dict):
+            for key in ("path_params", "query_params", "body"):
+                nested = request.get(key)
+                if isinstance(nested, dict):
+                    flat_arguments.update(nested)
+            for key, value in request.items():
+                if key not in ("path_params", "query_params", "headers", "body"):
+                    flat_arguments[key] = value
+        arguments = flat_arguments
 
         logger.info("Calling tool '%s' with arguments: %s", tool_name, arguments)
 

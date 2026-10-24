@@ -171,7 +171,7 @@ async def test_layered_mcp_factory_get_type_info_with_parameters_schema():
         result = await factory.get_type_info("test_tool")
         result_dict = json.loads(result)
 
-        assert result_dict["name"] == "test_tool"
+        assert result_dict["tool_name"] == "test_tool"
         assert result_dict["description"] == "Test tool"
         assert result_dict["inputSchema"] == mock_tool.parameters
         assert "parameters" in result_dict

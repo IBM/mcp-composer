@@ -633,13 +633,21 @@ class LayeredOpenAPIFactory(FastMCP):
             "usage": USAGE_MESSAGES["GET_SERVICE_INFO"],
         }
 
-    def get_type_info(self, service: str) -> dict[str, Any]:
+    def get_type_info(
+        self,
+        service: str = "",
+        tool_name: str | None = None,
+        operationId: str | None = None,
+    ) -> dict[str, Any]:
         """
         Get detailed parameter information for a service.
 
         Args:
             service: The service name (operationId)
+            tool_name: Alias used when the model passes the MCP tool name.
+            operationId: Alias used when the model passes the OpenAPI operation id.
         """
+        service = service or tool_name or operationId or ""
         if service not in self.service_info:
             return self._not_found_suggestions(service)
 
@@ -741,7 +749,12 @@ class LayeredOpenAPIFactory(FastMCP):
         )
 
     async def make_tool_call(
-        self, service: str, request: dict[str, Any] | None = None
+        self,
+        service: str = "",
+        request: dict[str, Any] | None = None,
+        tool_name: str | None = None,
+        operationId: str | None = None,
+        arguments: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """
         Execute an API call to the specified service.
@@ -749,9 +762,28 @@ class LayeredOpenAPIFactory(FastMCP):
         Args:
             service: The service name (operationId)
             request: Request data with path_params, query_params, headers, body
+            tool_name: Alias used when the model passes the MCP tool name.
+            operationId: Alias used when the model passes the OpenAPI operation id.
+            arguments: Flat argument map. GET, DELETE, and HEAD values become
+                query parameters. Other methods become the JSON body.
         """
+        service = service or tool_name or operationId or ""
         if service not in self.service_info:
             return self._not_found_suggestions(service)
+
+        if request is None and isinstance(arguments, dict):
+            if not arguments:
+                request = {}
+            else:
+                service_data_meta = self.service_info.get(service, {})
+                op_http_method = str(
+                    service_data_meta.get(SERVICE_KEYS["HTTP_METHOD"], "")
+                ).upper()
+                has_req_body = bool(service_data_meta.get(SERVICE_KEYS["REQUEST_BODY"]))
+                if op_http_method in ("GET", "DELETE", "HEAD") or not has_req_body:
+                    request = {REQUEST_KEYS["QUERY_PARAMS"]: arguments}
+                else:
+                    request = {REQUEST_KEYS["BODY"]: arguments}
 
         # Ensure request is a dictionary
         request_dict = request if request is not None else DEFAULT_VALUES["EMPTY_DICT"]
@@ -776,6 +808,12 @@ class LayeredOpenAPIFactory(FastMCP):
                 REQUEST_KEYS["HEADERS"], DEFAULT_VALUES["EMPTY_DICT"]
             )
             request_body = request_dict.get(REQUEST_KEYS["BODY"])  # type: ignore[attr-defined]
+            # httpx sends json={} as a body. GET, DELETE, and HEAD must not.
+            if (
+                str(http_method).upper() in ("GET", "DELETE", "HEAD")
+                or request_body == {}
+            ):
+                request_body = None
 
             # Get authentication context and build auth headers
             auth_headers = {}
