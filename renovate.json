@@ -2,5 +2,14 @@
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "extends": [
     "config:recommended"
+  ],
+  "packageRules": [
+    {
+      "description": "Land minor and patch updates in one pull request. pytest stays separate because 9.1 changes logger capture and fails unit tests.",
+      "matchUpdateTypes": ["minor", "patch"],
+      "excludePackageNames": ["pytest"],
+      "groupName": "minor and patch dependencies",
+      "groupSlug": "minor-patch"
+    }
   ]
 }
