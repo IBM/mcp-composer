@@ -19,12 +19,12 @@
     "vite": "8.3.4",
     "@vitejs/plugin-vue": "^6.0.0",
     "lodash-es": "4.18.1",
-    "postcss": "8.5.29",
+    "postcss": "8.5.31",
     "nanoid": "6.0.2",
-    "vue": "3.5.43",
-    "@vue/server-renderer": "3.5.43",
+    "vue": "3.5.44",
+    "@vue/server-renderer": "3.5.44",
     "source-map-js": "1.2.2",
-    "dompurify": "3.4.16",
+    "dompurify": "3.4.17",
     "uuid": "14.0.3"
   }
 }
