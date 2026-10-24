@@ -28,5 +28,29 @@
     "title": "Import an OpenAPI spec",
     "topic": "Import",
     "summary": "Turn a local OpenAPI file into composer tools and print their names."
+  },
+  {
+    "slug": "describe-lookalike-tools",
+    "title": "Describe look-alike tools",
+    "topic": "Route",
+    "summary": "Mount two box-counting tools whose descriptions say when not to use the other."
+  },
+  {
+    "slug": "hide-a-write-tool",
+    "title": "Hide a write tool",
+    "topic": "Route",
+    "summary": "Mount a count tool and a seal tool, then drop the write tool from the client list."
+  },
+  {
+    "slug": "choose-a-tool",
+    "title": "Choose a tool",
+    "topic": "Route",
+    "summary": "Score a short request against three tools and print resolved, fan-out, clarify, or no match."
+  },
+  {
+    "slug": "keep-a-skill-across-turns",
+    "title": "Keep a skill across turns",
+    "topic": "Instruct",
+    "summary": "Match a skill from a message, keep it on the next turn, then add a second skill."
   }
 ]
