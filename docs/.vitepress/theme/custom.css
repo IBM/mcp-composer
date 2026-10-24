@@ -1,0 +1,26 @@
+:root {
+  --vp-font-family-base: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+  --vp-font-family-mono: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  --vp-c-brand-1: #0f6e56;
+  --vp-c-brand-2: #0b5340;
+  --vp-c-brand-3: #1f8a6d;
+  --vp-c-brand-soft: rgba(15, 110, 86, 0.12);
+}
+
+.dark {
+  --vp-c-brand-1: #7dcea0;
+  --vp-c-brand-2: #b7e4c7;
+  --vp-c-brand-3: #52b788;
+}
+
+.vp-doc h1 {
+  font-weight: 640;
+  letter-spacing: -0.02em;
+}
+
+.vp-doc blockquote {
+  border-left: 3px solid var(--vp-c-brand-1);
+  background: var(--vp-c-brand-soft);
+  padding: 4px 16px;
+  border-radius: 8px;
+}

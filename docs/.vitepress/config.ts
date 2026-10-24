@@ -11,9 +11,7 @@ export default withMermaid(
 
     head: [
       ['link', { rel: 'icon', href: '/favicon.ico' }],
-      ['meta', { name: 'theme-color', content: '#646cff' }],
-      ['link', { rel: 'preload stylesheet', href: '/mcp-composer/assets/style.Cto_0cRC.css', as: 'style' }],
-      ['link', { rel: 'preload stylesheet', href: '/mcp-composer/vp-icons.css', as: 'style' }],
+      ['meta', { name: 'theme-color', content: '#0f6e56' }],
     ],
 
     // Ignore dead links during development
@@ -24,9 +22,8 @@ export default withMermaid(
       siteTitle: 'MCP Composer',
 
       nav: [
-        { text: 'Home', link: '/' },
-        { text: 'Cookbook', link: '/cookbook/' },
-        { text: 'Guide', link: '/guide/' },
+        { text: 'Cookbook', link: '/' },
+        { text: 'Reference', link: '/guide/' },
         { text: 'Examples', link: '/examples/' },
         { text: 'GitHub', link: 'https://github.com/ibm/mcp-composer' }
       ],
@@ -88,14 +85,17 @@ export default withMermaid(
         '/cookbook/': [
           {
             text: 'Cookbook',
-            items: [
-              { text: 'All recipes', link: '/cookbook/' },
-              ...recipes.map((recipe) => ({
-                text: recipe.title,
-                link: `/cookbook/${recipe.slug}`,
-              })),
-            ],
+            items: [{ text: 'All recipes', link: '/' }],
           },
+          ...Array.from(
+            recipes.reduce((groups, recipe) => {
+              const items = groups.get(recipe.topic) ?? []
+              items.push({ text: recipe.title, link: `/cookbook/${recipe.slug}` })
+              groups.set(recipe.topic, items)
+              return groups
+            }, new Map<string, { text: string; link: string }[]>()),
+            ([text, items]) => ({ text, items })
+          ),
         ],
         '/examples/': [
           {

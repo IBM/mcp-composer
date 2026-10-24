@@ -52,5 +52,59 @@
     "title": "Keep a skill across turns",
     "topic": "Instruct",
     "summary": "Match a skill from a message, keep it on the next turn, then add a second skill."
+  },
+  {
+    "slug": "manage-a-member",
+    "title": "Manage a member",
+    "topic": "Servers",
+    "summary": "Pause a member, resume it, replace its config, then remove it."
+  },
+  {
+    "slug": "mount-an-http-member",
+    "title": "Mount an HTTP member",
+    "topic": "Servers",
+    "summary": "Register a local HTTP member with a bearer token and read its health."
+  },
+  {
+    "slug": "rewrite-a-tool-description",
+    "title": "Rewrite a tool description",
+    "topic": "Tools",
+    "summary": "Replace the description the composer stores for one mounted tool."
+  },
+  {
+    "slug": "enable-a-hidden-tool",
+    "title": "Enable a hidden tool",
+    "topic": "Tools",
+    "summary": "Hide a write tool, then show it on the client list again."
+  },
+  {
+    "slug": "add-a-python-tool",
+    "title": "Add a Python tool",
+    "topic": "Tools",
+    "summary": "Turn one Python function into a composer tool."
+  },
+  {
+    "slug": "add-a-curl-tool",
+    "title": "Add a curl tool",
+    "topic": "Tools",
+    "summary": "Turn one curl command into a composer tool without sending the request."
+  },
+  {
+    "slug": "publish-a-skill",
+    "title": "Publish a skill",
+    "topic": "Catalog",
+    "summary": "Save a skill, mark that version deprecated, then delete it."
+  },
+  {
+    "slug": "publish-an-agent",
+    "title": "Publish an agent",
+    "topic": "Catalog",
+    "summary": "Save an agent row, list it, then delete it."
+  },
+  {
+    "slug": "publish-a-workflow",
+    "title": "Publish a workflow",
+    "topic": "Workflows",
+    "summary": "Save a two-step playbook, list it, then mark that version deprecated."
   }
 ]
