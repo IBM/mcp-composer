@@ -38,35 +38,42 @@ vars:
 
 ##@ QA
 
+# QA runs inside the package uv environment. Override with MODULE= or module=.
+MODULE ?= mcp_composer
+ifdef module
+MODULE := $(module)
+endif
+MODULE_DIR := modules/$(MODULE)
+
 all: format lint type-check security test coverage ## Run full QA suite
 
-format: ## Format with black (module=mcp_composer)
-	@if [ -z "$(module)" ]; then \
-	  echo "Usage: make format module=<module_name>"; exit 1; \
+_check-module:
+	@if [ ! -d "$(MODULE_DIR)" ]; then \
+	  echo "Module '$(MODULE)' not found at $(MODULE_DIR)"; exit 1; \
 	fi
-	@if [ ! -d "modules/$(module)" ]; then \
-	  echo "Module '$(module)' not found in modules/"; exit 1; \
-	fi
-	cd modules/$(module) && uv run black .
 
-lint: ## Lint with ruff
+format: _check-module ## Format with black (MODULE=mcp_composer)
 	@mkdir -p ./chroes_output
-	uv run ruff check . > ./chroes_output/ruff_output.txt
+	cd $(MODULE_DIR) && uv run black .
 
-type-check: ## Type-check with mypy
+lint: _check-module ## Lint with ruff inside the module environment
 	@mkdir -p ./chroes_output
-	uv run mypy ./modules/mcp_composer/ > ./chroes_output/mypy_output.txt
+	cd $(MODULE_DIR) && uv run ruff check src tests composers > ../../chroes_output/ruff_output.txt
 
-security: ## Bandit security scan
+type-check: _check-module ## Type-check with mypy inside the module environment
 	@mkdir -p ./chroes_output
-	uv run bandit -r ./modules/mcp_composer/src -f txt -o ./chroes_output/bandit_output.txt || true
+	cd $(MODULE_DIR) && uv run mypy src/mcp_composer > ../../chroes_output/mypy_output.txt
+
+security: _check-module ## Bandit security scan inside the module environment
+	@mkdir -p ./chroes_output
+	cd $(MODULE_DIR) && uv run bandit -r src -f txt -o ../../chroes_output/bandit_output.txt || true
 
 quality: ## Local Sonar-style scorecard (bandit + ruff; no SonarQube)
 	@python3 scripts/quality_scorecard.py
 
-test: ## Unit tests with coverage
+test: _check-module ## Unit tests with coverage, isolated from a developer .env
 	@mkdir -p ./chroes_output
-	uv run coverage run -m pytest ./modules/mcp_composer/tests/unit/ > ./chroes_output/test_output.txt
+	cd $(MODULE_DIR) && uv run coverage run -m pytest tests/unit/ > ../../chroes_output/test_output.txt
 
 test-with-cleanup: test ## Tests then clean artifacts
 	@$(MAKE) clean-test
@@ -81,7 +88,7 @@ test-module: ## Unit tests for one module (module=mcp_composer)
 	cd modules/$(module) && uv run pytest tests/unit/ -v
 
 coverage: test ## Coverage report
-	uv run coverage report -m
+	cd $(MODULE_DIR) && uv run coverage report -m
 
 check: format lint type-check security test coverage ## Alias for full QA
 
@@ -126,7 +133,8 @@ help: ## Show this help
 	/^##@/ { printf "\n\033[1m%s\033[0m\n", substr($$0, 5) } ' $(MAKEFILE_LIST)
 	@echo ""
 	@echo "Examples:"
-	@echo "  make format module=mcp_composer"
+	@echo "  make format"
+	@echo "  make lint MODULE=mcp_composer"
 	@echo "  make test-module module=mcp_composer"
 	@echo "  make build"
 	@echo "  make docker-build IMAGE_URI=ghcr.io/you/mcp-composer:dev"

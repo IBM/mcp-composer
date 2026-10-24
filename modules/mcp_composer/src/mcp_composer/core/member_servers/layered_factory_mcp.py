@@ -19,8 +19,7 @@ from mcp_composer.core.member_servers.layered_discovery import (
     resolve_discovery_response,
     suggest_names,
 )
-from mcp_composer.core.utils import LoggerFactory
-
+from mcp_composer.core.utils.logger import LoggerFactory
 logger = LoggerFactory.get_logger()
 
 AUTH_KEY_USER_INSTANCES_FULL = "user_instances_full"

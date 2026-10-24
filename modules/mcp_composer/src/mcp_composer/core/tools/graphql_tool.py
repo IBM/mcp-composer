@@ -10,7 +10,8 @@ from mcp.types import TextContent
 from pydantic import PrivateAttr
 from starlette.exceptions import HTTPException
 
-from mcp_composer.core.utils import ConfigKey, LoggerFactory, AuthStrategy
+from mcp_composer.core.utils.logger import LoggerFactory
+from mcp_composer.core.utils import ConfigKey, AuthStrategy
 
 logger = LoggerFactory.get_logger()
 

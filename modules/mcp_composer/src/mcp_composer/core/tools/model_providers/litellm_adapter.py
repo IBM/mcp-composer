@@ -7,8 +7,7 @@ Supports both chat/completion and embedding generation.
 
 from typing import Any
 from mcp_composer.core.tools.model_providers.base import ModelProviderAdapter
-from mcp_composer.core.utils import LoggerFactory
-
+from mcp_composer.core.utils.logger import LoggerFactory
 logger = LoggerFactory.get_logger()
 
 # Try to import litellm, but handle gracefully if not available

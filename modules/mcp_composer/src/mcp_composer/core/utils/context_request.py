@@ -3,8 +3,7 @@ import json
 
 from fastmcp.server.middleware import MiddlewareContext
 from typing import Any
-from mcp_composer.core.utils import LoggerFactory
-
+from mcp_composer.core.utils.logger import LoggerFactory
 HEADER_USER_INSTANCES = "X-User-Instances"
 
 logger = LoggerFactory.get_logger()

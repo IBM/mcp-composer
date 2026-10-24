@@ -194,9 +194,14 @@ module = [
     "uncurl.*",
     "jsonref.*",
     "daemon.*",
-    "github.*"
+    "github.*",
 ]
 ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["yaml", "yaml.*"]
+ignore_missing_imports = true
+follow_imports = "skip"
 
 [tool.pytest.ini_options]
 pythonpath = ["src"]

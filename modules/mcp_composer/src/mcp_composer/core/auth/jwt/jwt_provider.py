@@ -3,8 +3,7 @@
 from typing import Any
 from fastmcp.server.auth.providers.jwt import JWTVerifier
 from .jwt_config import JWTConfig
-from mcp_composer.core.utils import LoggerFactory
-
+from mcp_composer.core.utils.logger import LoggerFactory
 logger = LoggerFactory.get_logger()
 
 

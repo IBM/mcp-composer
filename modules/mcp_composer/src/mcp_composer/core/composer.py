@@ -4,6 +4,7 @@ Extends FastMCP with runtime composition, tool management, and database-backed c
 """
 
 import os
+import socket
 from typing import Any, Callable, Literal
 from dotenv import load_dotenv
 from fastmcp import FastMCP
@@ -14,7 +15,7 @@ from starlette.middleware import Middleware as ASGIMiddleware
 from fastmcp.resources import Resource, ResourceTemplate
 from fastmcp.tools import Tool
 from mcp_composer.core.tools import MCPToolManager
-from mcp_composer.core.utils import LoggerFactory
+from mcp_composer.core.utils.logger import LoggerFactory
 from mcp_composer.core.utils.banner import print_mcp_composer_banner
 from mcp_composer.core.utils.exceptions import (
     ServerNotFoundError,
@@ -864,6 +865,10 @@ class MCPComposer(FastMCP):
         json_response: bool | None = None,
         stateless_http: bool | None = None,
         stateless: bool | None = None,
+        host_origin_protection: bool | Literal["auto"] | None = None,
+        allowed_hosts: list[str] | None = None,
+        allowed_origins: list[str] | None = None,
+        sockets: list[socket.socket] | None = None,
     ) -> None:
         """
         Override the default banner to display MCP Composer branding for HTTP transports.
@@ -913,4 +918,8 @@ class MCPComposer(FastMCP):
                 json_response=json_response,
                 stateless_http=stateless_http,
                 stateless=stateless,
+                host_origin_protection=host_origin_protection,
+                allowed_hosts=allowed_hosts,
+                allowed_origins=allowed_origins,
+                sockets=sockets,
             )

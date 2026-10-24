@@ -8,8 +8,7 @@ from fastmcp.server.auth.providers.aws import AWSCognitoProvider
 from fastmcp.server.auth.oidc_proxy import OIDCProxy
 from fastmcp.server.auth.providers.introspection import IntrospectionTokenVerifier
 
-from mcp_composer.core.utils import LoggerFactory
-
+from mcp_composer.core.utils.logger import LoggerFactory
 logger = LoggerFactory.get_logger()
 
 

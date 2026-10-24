@@ -148,26 +148,26 @@ async def test_activate_server_already_mounted():
 def test_deactivate_server_success():
     manager = ServerManager()
     manager._member_servers["srv"] = MagicMock()
-    
+
     # Mock the database to return active status
     mock_db = MagicMock()
     mock_db.get_server_status.return_value = "active"
     manager._database = mock_db
-    
+
     # Mock the tool manager unmount
     mcp_composer = MCPComposer()
     mcp_composer._tool_manager = MagicMock()
     mcp_composer._tool_manager.unmount = MagicMock()
-    
+
     result = manager.deactivate_server("srv", mcp_composer)
-    
+
     # Verify database methods were called
     mock_db.get_server_status.assert_called_once_with("srv")
     mock_db.mark_deactivated.assert_called_once_with("srv")
-    
+
     # Verify tool unmount was called
     mcp_composer._tool_manager.unmount.assert_called_once_with("srv")
-    
+
     assert "deactivated" in result.lower()
 
 

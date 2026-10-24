@@ -18,7 +18,7 @@ except ImportError:
         asyncpg = None  # type: ignore
 
 from mcp_composer.core.utils.exceptions import ToolDuplicateError
-from mcp_composer.core.utils import LoggerFactory
+from mcp_composer.core.utils.logger import LoggerFactory
 from mcp_composer.core.utils.tools import check_duplicate_tool
 
 from .base_adapter import BaseDatabaseAdapter

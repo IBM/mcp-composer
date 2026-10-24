@@ -13,8 +13,7 @@ from fastmcp.tools import ToolResult
 from mcp.types import TextContent
 from pydantic import BaseModel, ConfigDict, Field, PrivateAttr
 from markdownify import markdownify as md
-from mcp_composer.core.utils import LoggerFactory
-
+from mcp_composer.core.utils.logger import LoggerFactory
 logger = LoggerFactory.get_logger()
 
 CONTENT_API_URL = "https://www.ibm.com/docs/api/v1/content"

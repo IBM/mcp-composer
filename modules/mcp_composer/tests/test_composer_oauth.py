@@ -12,7 +12,7 @@ from mcp.server.auth.middleware.auth_context import get_access_token
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../src")))
 from mcp_composer.core.auth_handler.providers import OAuthProviderFactory
-from mcp_composer.core.utils import LoggerFactory
+from mcp_composer.core.utils.logger import LoggerFactory
 from mcp_composer.core.composer import MCPComposer
 from mcp_composer.core.auth_handler.oauth import ServerSettings
 

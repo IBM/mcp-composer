@@ -36,8 +36,7 @@ from mcp_composer.core.member_servers.layered_discovery import (
     resolve_discovery_response,
     suggest_names,
 )
-from mcp_composer.core.utils import LoggerFactory
-
+from mcp_composer.core.utils.logger import LoggerFactory
 logger = LoggerFactory.get_logger()
 
 # Auth-context helpers (optional middleware). Stubs keep forwarding testable and
@@ -485,7 +484,7 @@ class LayeredOpenAPIFactory(FastMCP):
 
         return cleaned_responses
 
-    def _build_service_metadata(self) -> dict[str, dict[str, object]]:
+    def _build_service_metadata(self) -> dict[str, dict[str, Any]]:
         """
         Build service metadata from operations by parsing OpenAPI spec and applying custom routes filtering.
         Only operations that match the custom routes (TOOL) are included in service_info.
