@@ -6,6 +6,9 @@ hero:
   tagline: Manage multiple MCP servers and tools with dynamic registration, authentication, and unified interface
   actions:
     - theme: brand
+      text: Cookbook
+      link: /cookbook/
+    - theme: alt
       text: Get Started
       link: /guide/
     - theme: alt

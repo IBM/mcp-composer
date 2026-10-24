@@ -1,5 +1,6 @@
 import { defineConfig } from 'vitepress'
 import { withMermaid } from "vitepress-plugin-mermaid";
+import recipes from '../cookbook/catalog.json';
 
 export default withMermaid(
   defineConfig({
@@ -24,6 +25,7 @@ export default withMermaid(
 
       nav: [
         { text: 'Home', link: '/' },
+        { text: 'Cookbook', link: '/cookbook/' },
         { text: 'Guide', link: '/guide/' },
         { text: 'Examples', link: '/examples/' },
         { text: 'GitHub', link: 'https://github.com/ibm/mcp-composer' }
@@ -82,6 +84,18 @@ export default withMermaid(
               { text: 'Overview', link: '/api/' }
             ]
           }
+        ],
+        '/cookbook/': [
+          {
+            text: 'Cookbook',
+            items: [
+              { text: 'All recipes', link: '/cookbook/' },
+              ...recipes.map((recipe) => ({
+                text: recipe.title,
+                link: `/cookbook/${recipe.slug}`,
+              })),
+            ],
+          },
         ],
         '/examples/': [
           {

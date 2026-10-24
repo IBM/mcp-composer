@@ -1,0 +1,20 @@
+[
+  {
+    "slug": "list-member-servers",
+    "title": "List member servers",
+    "topic": "Compose",
+    "summary": "Start a composer on an empty local store and print how many member servers it has."
+  },
+  {
+    "slug": "add-a-prompt",
+    "title": "Add a prompt",
+    "topic": "Instruct",
+    "summary": "Register one prompt template and print its name."
+  },
+  {
+    "slug": "publish-a-note",
+    "title": "Publish a note",
+    "topic": "Share",
+    "summary": "Store a short text resource a client can read back by URI."
+  }
+]
