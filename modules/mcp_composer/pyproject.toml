@@ -24,7 +24,7 @@ keywords = [
     "model context protocol", "llm", "agent",
 ]
 dependencies = [
-    "fastmcp==3.4.9",
+    "fastmcp==3.4.10",
     "requests==2.34.2",
     "httpx==0.28.1",
     "beautifulsoup4>=4.12.0",
@@ -46,7 +46,7 @@ dependencies = [
     "protobuf>=6.33.5",
     "jaraco-context>=6.1.0",
     "pyasn1>=0.6.2",
-    "filelock>=3.20.3",
+    "filelock>=4.2.1",
     "packaging>=24.0",
     "sentence-transformers==6.1.0",
     "a2a-sdk==0.3.26",
@@ -125,6 +125,16 @@ mcp-composer = "mcp_composer.core.cli.cli_main:main"
 [build-system]
 requires = ["hatchling", "uv-dynamic-versioning>=0.7.0"]
 build-backend = "hatchling.build"
+
+[tool.uv]
+constraint-dependencies = [
+    "virtualenv>=21.14.9",
+    "setuptools>=84.1.0",
+]
+# litellm 1.106.x caps filelock below 4. The patched release is 4.2.1.
+override-dependencies = [
+    "filelock>=4.2.1",
+]
 
 [tool.hatch.version]
 source = "uv-dynamic-versioning"
