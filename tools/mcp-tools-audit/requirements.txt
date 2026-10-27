@@ -1,0 +1,13 @@
+# Basic usage requires only the Python standard library:
+# - json
+# - os
+# - re
+# - threading
+# - time
+# - urllib.request
+# - urllib.error
+# - urllib.parse
+# - argparse
+
+# Optional: required only for the --use-db flag
+# psycopg2-binary>=2.9.0
