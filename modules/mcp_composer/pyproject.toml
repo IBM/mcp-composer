@@ -24,39 +24,39 @@ keywords = [
     "model context protocol", "llm", "agent",
 ]
 dependencies = [
-    "fastmcp==3.4.9",
+    "fastmcp==3.4.10",
     "requests==2.34.2",
     "httpx==0.28.1",
-    "beautifulsoup4>=4.12.0",
-    "markdownify>=0.12.0",
+    "beautifulsoup4==4.15.0",
+    "markdownify==1.2.3",
     "aiohttp==3.14.5",
-    "jsonschema>=4.24.0",
+    "jsonschema==4.26.0",
     "uncurl==0.0.11",
     "pydantic==2.14.1",
     "pydantic-settings==2.16.1",
-    "types-requests>=2.32.4.20250611",
-    "jsonref>=1.1.0",
-    "deepdiff>=8.6.1",
-    "typer>=0.17.0",
-    "python-daemon>=3.1.2",
-    "python-dotenv>=1.0.0",
-    "pyyaml>=6.0.2",
-    "rich>=13.7",
-    "cryptography>=46.0.6",
-    "protobuf>=6.33.5",
-    "jaraco-context>=6.1.0",
-    "pyasn1>=0.6.2",
-    "filelock>=3.20.3",
-    "packaging>=24.0",
+    "types-requests==2.33.0.20261006",
+    "jsonref==1.1.0",
+    "deepdiff==9.1.0",
+    "typer==0.27.3",
+    "python-daemon==3.1.2",
+    "python-dotenv==1.2.4",
+    "pyyaml==6.0.3",
+    "rich==15.0.0",
+    "cryptography==50.0.2",
+    "protobuf==7.36.2",
+    "jaraco-context==6.1.2",
+    "pyasn1==0.6.4",
+    "filelock==4.2.4",
+    "packaging==26.3",
     "sentence-transformers==6.1.0",
     "a2a-sdk==0.3.26",
-    "asyncpg>=0.29.0",
+    "asyncpg==0.32.0",
     "numpy==2.4.6",
     "pandas==3.0.6",
     "authlib==1.9.1",
-    "boto3>=1.34.0",
+    "boto3==1.43.108",
     "python-multipart==0.0.32",
-    "urllib3>=2.8.0"
+    "urllib3==2.8.0"
 ]
 
 [project.urls]
@@ -66,31 +66,31 @@ Repository = "https://github.com/ibm/mcp-composer"
 [dependency-groups]
 dev = [
     "dirty-equals==0.11",
-    "pylint>=3.3.7",
+    "pylint==4.1.2",
     "pytest==9.0.3",
     "pytest-asyncio==1.4.0",
     "pytest-cov==7.1.0",
-    "pytest-flakefinder",
+    "pytest-flakefinder==1.1.0",
     "pytest-report==0.2.1",
     "pytest-timeout==2.4.0",
     "pytest-xdist==3.8.0",
-    "ruff",
-    "pre-commit",
+    "ruff==0.16.10",
+    "pre-commit==4.6.2",
     "black==26.10.1",
     "mypy==1.20.2",
     "coverage==7.16.2",
     "bandit==1.9.4",
     "twine==7.0.0",
-    "debugpy>=1.8.16",
-    "detect-secrets>=1.5.0"
+    "debugpy==1.8.22",
+    "detect-secrets==1.5.0"
 ]
 
 [project.optional-dependencies]
 # Existing optional dependencies
 tracing = [
-    "opentelemetry-api>=1.39.0",
-    "opentelemetry-sdk>=1.39.0",
-    "opentelemetry-exporter-otlp>=1.39.0",
+    "opentelemetry-api==1.45.1",
+    "opentelemetry-sdk==1.45.1",
+    "opentelemetry-exporter-otlp==1.45.1",
 ]
 
 
@@ -103,14 +103,14 @@ secrets = [
 ai = [
     "google-genai==2.33.0",
     "litellm==1.106.0",
-    "ollama>=0.6.1",
-    "scikit-learn>=1.7.1"
+    "ollama==0.6.3",
+    "scikit-learn==1.9.1"
 ]
 
 
 # Search functionality
 search = [
-    "duckduckgo-search>=6.3.0",
+    "duckduckgo-search==8.1.1",
 ]
 
 
@@ -123,8 +123,18 @@ all = [
 mcp-composer = "mcp_composer.core.cli.cli_main:main"
 
 [build-system]
-requires = ["hatchling", "uv-dynamic-versioning>=0.7.0"]
+requires = ["hatchling==1.32.4", "uv-dynamic-versioning==0.14.1"]
 build-backend = "hatchling.build"
+
+[tool.uv]
+constraint-dependencies = [
+    "virtualenv==21.15.0",
+    "setuptools==84.2.1",
+]
+# litellm 1.106.x caps filelock below 4. The patched release is 4.2.4.
+override-dependencies = [
+    "filelock==4.2.4",
+]
 
 [tool.hatch.version]
 source = "uv-dynamic-versioning"
