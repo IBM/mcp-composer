@@ -48,13 +48,13 @@ dependencies = [
     "pyasn1==0.6.4",
     "filelock==4.2.4",
     "packaging==26.3",
-    "sentence-transformers==6.1.0",
+    "sentence-transformers==6.2.0",
     "a2a-sdk==0.3.26",
     "asyncpg==0.32.0",
     "numpy==2.4.6",
-    "pandas==3.0.6",
+    "pandas==3.1.0",
     "authlib==1.9.1",
-    "boto3==1.43.108",
+    "boto3==1.43.118",
     "python-multipart==0.0.32",
     "urllib3==2.8.0"
 ]
@@ -66,19 +66,19 @@ Repository = "https://github.com/ibm/mcp-composer"
 [dependency-groups]
 dev = [
     "dirty-equals==0.11",
-    "pylint==4.1.2",
-    "pytest==9.0.3",
+    "pylint==4.1.3",
+    "pytest==9.1.1",
     "pytest-asyncio==1.4.0",
     "pytest-cov==7.1.0",
     "pytest-flakefinder==1.1.0",
     "pytest-report==0.2.1",
     "pytest-timeout==2.4.0",
     "pytest-xdist==3.8.0",
-    "ruff==0.16.10",
-    "pre-commit==4.6.2",
+    "ruff==0.17.2",
+    "pre-commit==4.7.0",
     "black==26.10.1",
     "mypy==1.20.2",
-    "coverage==7.16.2",
+    "coverage==7.17.0",
     "bandit==1.9.4",
     "twine==7.0.0",
     "debugpy==1.8.22",
@@ -102,7 +102,7 @@ secrets = [
 # AI/ML features
 ai = [
     "google-genai==2.33.0",
-    "litellm==1.106.0",
+    "litellm==1.106.3",
     "ollama==0.6.3",
     "scikit-learn==1.9.1"
 ]
