@@ -1,7 +1,7 @@
 # Local development image (generic Python, no private registries).
 #   docker build -f Dockerfile.local -t mcp-composer:dev .
 
-ARG PYTHON_IMAGE=python:3.12-slim-bookworm
+ARG PYTHON_IMAGE=python:3.15-slim-bookworm
 
 FROM ${PYTHON_IMAGE}
 
