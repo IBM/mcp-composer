@@ -1,0 +1,16 @@
+{
+  "skills": [
+    {
+      "name": "count-open-boxes",
+      "description": "Count open boxes on a shelf. Not for sealed boxes.",
+      "tags": ["count", "open", "boxes"],
+      "allowed-tools": ["count_open_boxes"]
+    },
+    {
+      "name": "seal-a-box",
+      "description": "Seal one open box after the caller asks for that change.",
+      "tags": ["seal", "box"],
+      "allowed-tools": ["seal_box"]
+    }
+  ]
+}

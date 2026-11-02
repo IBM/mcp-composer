@@ -42,6 +42,7 @@ docs/
 ├── .vitepress/
 │   └── config.ts          # VitePress configuration
 ├── guide/                 # User guides
+├── cookbook/              # Task recipes. Programs live in example/cookbook/
 ├── api/                   # API documentation
 ├── examples/              # Code examples
 ├── public/                # Static assets
@@ -110,12 +111,9 @@ The main configuration is in `.vitepress/config.ts`:
 
 ### GitHub Pages
 
-The documentation is automatically deployed to GitHub Pages via GitHub Actions:
+Publish the site, including the cookbook, with `deploy.sh`. The script installs the docs dependencies, runs `npm run docs:build`, and pushes `.vitepress/dist` to the `gh-pages` branch.
 
-1. Push to `main` branch
-2. GitHub Actions builds the site
-3. Deploys to `gh-pages` branch
-4. Available at `https://username.github.io/mcp-composer/`
+The site is https://ibm.github.io/mcp-composer/
 
 ### Manual Deployment
 
@@ -193,8 +191,10 @@ npm run docs:build
 chek if there is any error in the console or not if not
 
 
-4. Run the deploy.sh
+4. Publish the site, including the cookbook
 
 ```
 ./deploy.sh
 ```
+
+That pushes the built site to `gh-pages` on the public repository.
