@@ -23,6 +23,6 @@ jobs:
         working-directory: modules/mcp_composer
         run: uv build
       - name: Attach artifacts
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           files: modules/mcp_composer/dist/*
