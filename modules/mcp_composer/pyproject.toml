@@ -67,7 +67,7 @@ Repository = "https://github.com/ibm/mcp-composer"
 dev = [
     "dirty-equals==0.11",
     "pylint==4.1.2",
-    "pytest==9.0.3",
+    "pytest==9.2.0",
     "pytest-asyncio==1.4.0",
     "pytest-cov==7.1.0",
     "pytest-flakefinder==1.1.0",
