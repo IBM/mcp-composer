@@ -45,7 +45,7 @@ dependencies = [
     "cryptography==50.0.2",
     "protobuf==7.36.2",
     "jaraco-context==6.1.2",
-    "pyasn1==0.6.4",
+    "pyasn1==0.6.5",
     "filelock==4.2.4",
     "packaging==26.3",
     "sentence-transformers==6.1.0",
