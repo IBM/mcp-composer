@@ -32,6 +32,7 @@ from mcp_composer.core.config.server_configuration_manager import (
 )
 from mcp_composer.core.utils.custom_tool import DynamicToolGenerator, OpenApiTool
 from mcp_composer.core.utils.utils import get_endpoint_from_config
+from mcp_composer.middleware.tool.disabled_tools import DisabledToolsMiddleware
 from mcp_composer.store.database import DatabaseInterface
 from mcp_composer.core.prompts import MCPPromptManager
 from mcp_composer.core.resources import MCPResourceManager
@@ -111,6 +112,7 @@ class MCPComposer(FastMCP):
         )
         database = self._initialize_database(name, database_config)
         self._initialize_managers(database)
+        self.add_middleware(DisabledToolsMiddleware(self))
         self._load_initial_state(config)
         self._register_startup_tools()
         logger.info("MCP Composer initialization completed for name: %s", name)
