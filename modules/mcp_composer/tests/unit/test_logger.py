@@ -7,6 +7,11 @@ from unittest.mock import Mock, patch, MagicMock
 from mcp_composer.core.utils.logger import LoggerFactory
 
 
+def _composer_handlers(logger):
+    # pytest >= 9.2 attaches its capture handlers directly to non-propagating loggers.
+    return [h for h in logger.handlers if not type(h).__module__.startswith("_pytest")]
+
+
 class TestLoggerFactory:
     """Test cases for LoggerFactory"""
 
@@ -55,8 +60,7 @@ class TestLoggerFactory:
         logger = LoggerFactory.get_logger()
 
         # Should have at least 1 handler (StreamHandler), and possibly 2 (StreamHandler + FileHandler)
-        assert len(logger.handlers) >= 1
-        assert len(logger.handlers) <= 2
+        assert 1 <= len(_composer_handlers(logger)) <= 2
 
     def test_get_logger_stream_handler(self):
         """Test that StreamHandler is configured correctly"""
@@ -95,7 +99,7 @@ class TestLoggerFactory:
 
         # Check that all handlers have the same formatter
         formatter = None
-        for handler in logger.handlers:
+        for handler in _composer_handlers(logger):
             if formatter is None:
                 formatter = handler.formatter
             else:

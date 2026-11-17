@@ -9,7 +9,6 @@ from mcp_composer.core.utils.logger import LoggerFactory
 from mcp_composer.core.utils.exceptions import ToolDuplicateError
 from mcp_composer.core.utils.tools import check_duplicate_tool
 from .database import DatabaseInterface
-from mcp_composer.core.utils import LoggerFactory
 from .base_adapter import BaseDatabaseAdapter
 
 load_dotenv(find_dotenv(".env"))
