@@ -559,7 +559,7 @@ class PostgresAdapter(BaseDatabaseAdapter):
                         )
                     config["disabled_prompts"].extend(prompts)  # type: ignore
                 else:
-                    config["disabled_prompts"] = prompts  # type: ignore  # type: ignore
+                    config["disabled_prompts"] = prompts  # type: ignore
 
                 # Remove prompt descriptions if they exist
                 if config["disabled_prompts"] and prompts_description:
@@ -694,7 +694,7 @@ class PostgresAdapter(BaseDatabaseAdapter):
                         )
                     config["disabled_resources"].extend(resources)  # type: ignore
                 else:
-                    config["disabled_resources"] = resources  # type: ignore  # type: ignore
+                    config["disabled_resources"] = resources  # type: ignore
 
                 # Remove resource descriptions if they exist
                 if config["disabled_resources"] and resources_description:
