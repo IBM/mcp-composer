@@ -15,14 +15,14 @@ jobs:
       - uses: actions/checkout@v7.0.1
         with:
           fetch-depth: 0
-      - uses: astral-sh/setup-uv@v10.3.0
-      - uses: actions/setup-python@v7.0.0
+      - uses: astral-sh/setup-uv@v10.3.3
+      - uses: actions/setup-python@v7.1.0
         with:
           python-version: "3.12"
       - name: Build wheel and sdist
         working-directory: modules/mcp_composer
         run: uv build
       - name: Attach artifacts
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           files: modules/mcp_composer/dist/*
