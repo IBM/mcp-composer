@@ -16,6 +16,7 @@ import httpx
 from starlette.exceptions import HTTPException
 
 from mcp_composer.core.utils.logger import LoggerFactory
+from mcp_composer.core.utils.outbound_url import assert_outbound_url_allowed
 from mcp_composer.core.utils.utils import load_from_json, save_to_json
 
 # Lazy import for optional AI dependencies
@@ -315,10 +316,22 @@ def require_a2a_auth(func):
 
 async def fetch_agent_card(url: str) -> Any:
     """
+    Fetch the agent card from the agent's URL, refusing non-public destinations.
+
+    The card's own ``url`` is also checked, because A2A clients later connect to it.
+    """
+    await assert_outbound_url_allowed(url)
+    card = await _fetch_agent_card_unchecked(url)
+    await assert_outbound_url_allowed(card.url)
+    return card
+
+
+async def _fetch_agent_card_unchecked(url: str) -> Any:
+    """
     Fetch the agent card from the agent's URL.
     First try the main URL, then the well-known location.
     """
-    async with httpx.AsyncClient() as client:
+    async with httpx.AsyncClient(follow_redirects=False) as client:
         # First try the main endpoint
         try:
             response = await client.get(url)

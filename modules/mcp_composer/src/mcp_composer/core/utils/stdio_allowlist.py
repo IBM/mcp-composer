@@ -82,7 +82,8 @@ def assert_network_bind_allowed(mode: str, host: str, auth_type: str | None) -> 
     host_l = (host or "").strip().lower()
     if host_l in LOOPBACK_HOSTS:
         return
-    if auth_type:
+    # Must match the CLI predicate that actually installs an auth provider.
+    if auth_type == "oauth":
         return
     raise ValueError(
         f"Refusing to bind {host} without authentication. "

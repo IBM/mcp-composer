@@ -47,6 +47,12 @@ def reset_state(monkeypatch):
     # Reset embedding adapter
     module_under_test._embedding_adapter = None
 
+    # Fake agent hosts used below do not resolve; allow them past the outbound URL guard.
+    monkeypatch.setenv(
+        "MCP_COMPOSER_OUTBOUND_ALLOWLIST",
+        "agent,agent1,agent2,test,fallback,wellknown,valid,nope,other,missing",
+    )
+
     # Stub persistence to avoid disk IO
     monkeypatch.setattr(module_under_test, "save_to_json", lambda *args, **kwargs: None)
     monkeypatch.setattr(module_under_test, "load_from_json", lambda *args, **kwargs: {})
