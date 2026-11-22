@@ -112,5 +112,13 @@ def test_bind_guard_allows_non_loopback_with_oauth() -> None:
     assert_network_bind_allowed("http", "0.0.0.0", "oauth")
 
 
+@pytest.mark.parametrize("auth_type", ["none", "nope", "OAuth", " oauth", ""])
+def test_bind_guard_rejects_non_loopback_with_auth_type_that_installs_no_provider(
+    auth_type: str,
+) -> None:
+    with pytest.raises(ValueError, match="Refusing to bind"):
+        assert_network_bind_allowed("http", "0.0.0.0", auth_type)
+
+
 def test_bind_guard_ignores_stdio_mode() -> None:
     assert_network_bind_allowed("stdio", "0.0.0.0", None)

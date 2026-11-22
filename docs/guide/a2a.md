@@ -167,6 +167,8 @@ multi-turn behavior, use this request/response contract with external agents.
 
 Registers an A2A agent with the bridge server by fetching its agent card from the provided URL.
 
+The URL and the `url` in the returned agent card must use `http` or `https` and resolve to public addresses. Loopback, link-local (including `169.254.169.254`), and private-range destinations are refused. To register internal agents, set `MCP_COMPOSER_OUTBOUND_ALLOWLIST` to a comma-separated list of hostnames, IPs, or CIDRs, for example `MCP_COMPOSER_OUTBOUND_ALLOWLIST=localhost,10.0.0.0/8`.
+
 **Parameters:**
 
 - `url` (string): URL of the A2A agent to register

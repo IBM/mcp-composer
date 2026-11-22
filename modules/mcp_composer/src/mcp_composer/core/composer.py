@@ -32,6 +32,8 @@ from mcp_composer.core.config.server_configuration_manager import (
 )
 from mcp_composer.core.utils.custom_tool import DynamicToolGenerator, OpenApiTool
 from mcp_composer.core.utils.utils import get_endpoint_from_config
+from mcp_composer.core.utils.stdio_allowlist import LOOPBACK_HOSTS
+from mcp_composer.middleware.tool.disabled_tools import DisabledToolsMiddleware
 from mcp_composer.store.database import DatabaseInterface
 from mcp_composer.core.prompts import MCPPromptManager
 from mcp_composer.core.resources import MCPResourceManager
@@ -111,6 +113,7 @@ class MCPComposer(FastMCP):
         )
         database = self._initialize_database(name, database_config)
         self._initialize_managers(database)
+        self.add_middleware(DisabledToolsMiddleware(self))
         self._load_initial_state(config)
         self._register_startup_tools()
         logger.info("MCP Composer initialization completed for name: %s", name)
@@ -806,6 +809,8 @@ class MCPComposer(FastMCP):
         # Collect all member server apps
         server_apps = {}
         for server_id, server in self._http_mounted_servers.items():
+            # FastMCP gates each app with its own instance's auth; members must use the composer's.
+            server.auth = self.auth
             server_apps[server_id] = server.http_app()
 
         # Create a combined lifespan that manages composer + all server lifespans
@@ -887,6 +892,13 @@ class MCPComposer(FastMCP):
         if self._enable_multi_server_routing and self._http_mounted_servers:
             import uvicorn
 
+            bind_host = host or "0.0.0.0"
+            if self.auth is None and bind_host.strip().lower() not in LOOPBACK_HOSTS:
+                raise ValueError(
+                    f"Refusing to bind {bind_host} without authentication. "
+                    "Configure an auth provider or bind to 127.0.0.1."
+                )
+
             logger.info("Starting MCP Composer with multi-server HTTP routing")
             app = self.get_multi_server_http_app()
 
@@ -895,7 +907,7 @@ class MCPComposer(FastMCP):
             config_dict.update(
                 {
                     "app": app,
-                    "host": host or "0.0.0.0",
+                    "host": bind_host,
                     "port": port or 8000,
                     "log_level": log_level or "info",
                 }

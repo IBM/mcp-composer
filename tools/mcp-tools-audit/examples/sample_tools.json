@@ -1,0 +1,51 @@
+{
+  "active": {
+    "mcp-inventory": [
+      {
+        "name": "get_item",
+        "description": "Retrieve a single inventory item by its SKU, including quantity on hand and warehouse location."
+      },
+      {
+        "name": "list_items",
+        "description": "List inventory items, optionally filtered by warehouse or category."
+      },
+      {
+        "name": "search_items",
+        "description": "List inventory items, optionally filtered by warehouse, category, or keyword."
+      },
+      {
+        "name": "update_stock",
+        "description": "Adjust the quantity on hand for an inventory item by SKU. Use a negative delta to remove stock."
+      },
+      {
+        "name": "get_user",
+        "description": "Get user"
+      }
+    ],
+    "mcp-billing": [
+      {
+        "name": "get_invoice",
+        "description": "Retrieve a single invoice by invoice ID, including line items and payment status."
+      },
+      {
+        "name": "list_invoices",
+        "description": "List invoices for a customer, optionally filtered by status or date range."
+      },
+      {
+        "name": "get_user",
+        "description": "Get the billing profile for a customer, including payment method and billing address."
+      },
+      {
+        "name": "get_users",
+        "description": "List all customers with their billing profiles. Supports pagination."
+      },
+      {
+        "name": "do_action",
+        "description": "Perform action"
+      }
+    ]
+  },
+  "deactivated": [
+    "mcp-legacy-reports"
+  ]
+}
