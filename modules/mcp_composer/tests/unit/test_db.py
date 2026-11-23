@@ -15,6 +15,12 @@ from mcp_composer.store.fake_database import FakeDatabase
 ###############################################################################
 # Fixtures
 ###############################################################################
+@pytest.fixture(autouse=True)
+def _allow_loopback_members(monkeypatch):
+    """Test members point at loopback; allow them past the outbound URL guard."""
+    monkeypatch.setenv("MCP_COMPOSER_OUTBOUND_ALLOWLIST", "127.0.0.1")
+
+
 @pytest.fixture
 def fake_db():
     """Provides a fresh fake database for each test"""

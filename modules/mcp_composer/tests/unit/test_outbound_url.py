@@ -100,3 +100,84 @@ async def test_fetch_agent_card_refuses_card_pointing_at_internal_url():
     ):
         with pytest.raises(ValueError, match="non-public address"):
             await a2a_mcp.fetch_agent_card("https://8.8.8.8/agent")
+
+
+@pytest.mark.parametrize(
+    "config",
+    [
+        {"id": "a", "type": "http", "endpoint": "http://169.254.169.254/"},
+        {"id": "a", "type": "sse", "endpoint": "http://127.0.0.1:8080/sse"},
+        {
+            "id": "a",
+            "type": "openapi",
+            "open_api": {
+                "endpoint": "http://10.0.0.5/",
+                "spec_url": "https://example.com/s.json",
+            },
+        },
+        {
+            "id": "a",
+            "type": "openapi",
+            "open_api": {
+                "endpoint": "https://example.com",
+                "spec_url": "http://192.168.1.10/s.json",
+            },
+        },
+        {
+            "id": "a",
+            "type": "http",
+            "endpoint": "https://example.com",
+            "auth": {"token_url": "http://169.254.169.254/token"},
+        },
+        {
+            "id": "a",
+            "type": "graphql",
+            "graphql": {"endpoint": "http://localhost/graphql"},
+        },
+    ],
+)
+@pytest.mark.asyncio
+async def test_member_config_refuses_non_public_destinations(config):
+    from mcp_composer.core.utils.outbound_url import (
+        assert_member_config_destinations_allowed,
+    )
+
+    with pytest.raises(ValueError, match="non-public|http or https"):
+        await assert_member_config_destinations_allowed(config)
+
+
+@pytest.mark.asyncio
+async def test_member_config_skips_stdio_without_urls():
+    from mcp_composer.core.utils.outbound_url import (
+        assert_member_config_destinations_allowed,
+    )
+
+    await assert_member_config_destinations_allowed(
+        {"id": "a", "type": "stdio", "command": "/bin/x", "args": ["1"]}
+    )
+
+
+@pytest.mark.asyncio
+async def test_member_config_honours_allowlist(monkeypatch):
+    from mcp_composer.core.utils.outbound_url import (
+        assert_member_config_destinations_allowed,
+    )
+
+    monkeypatch.setenv(OUTBOUND_ALLOWLIST_ENV, "10.0.0.0/8")
+    await assert_member_config_destinations_allowed(
+        {"id": "a", "type": "http", "endpoint": "http://10.0.0.5/mcp"}
+    )
+
+
+@pytest.mark.asyncio
+async def test_register_server_rejects_metadata_endpoint():
+    from mcp_composer.core.member_servers.server_manager import ServerManager
+    from mcp_composer.core.utils.exceptions import ServerConfigurationError
+
+    manager = ServerManager.__new__(ServerManager)
+    composer = MagicMock()
+    with pytest.raises(ServerConfigurationError):
+        await manager.register_server(
+            {"id": "evil", "type": "http", "endpoint": "http://169.254.169.254/"},
+            composer,
+        )
