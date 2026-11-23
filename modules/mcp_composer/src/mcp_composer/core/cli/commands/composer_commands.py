@@ -20,6 +20,10 @@ from typing import Annotated, TYPE_CHECKING
 import typer
 from typer import Option
 
+from mcp_composer.core.cli.auth_type import (
+    auth_type_callback,
+    peer_auth_type_callback,
+)
 from mcp_composer.core.utils.logger import LoggerFactory
 
 # Initialize logger
@@ -95,7 +99,8 @@ def start_composer(
         str | None,
         Option(
             "--auth-type",
-            help="Optional auth type. If 'oauth', uses OAuth authentication",
+            help="Optional auth type: oauth or none (case-insensitive)",
+            callback=auth_type_callback,
         ),
     ] = None,
     # Remote server configuration
@@ -111,12 +116,15 @@ def start_composer(
         Option(
             "--remote-auth-type",
             help="Authentication type for remote server (oauth or none)",
+            callback=peer_auth_type_callback,
         ),
     ] = "none",
     client_auth_type: Annotated[
         str,
         Option(
-            "--client-auth-type", help="Authentication type for client (oauth or none)"
+            "--client-auth-type",
+            help="Authentication type for client (oauth or none)",
+            callback=peer_auth_type_callback,
         ),
     ] = "none",
     # Configuration
@@ -641,7 +649,8 @@ def restart_composer(
         str | None,
         Option(
             "--auth-type",
-            help="Optional auth type. If 'oauth', uses OAuth authentication",
+            help="Optional auth type: oauth or none (case-insensitive)",
+            callback=auth_type_callback,
         ),
     ] = None,
     sse_url: Annotated[
@@ -656,12 +665,15 @@ def restart_composer(
         Option(
             "--remote-auth-type",
             help="Authentication type for remote server (oauth or none)",
+            callback=peer_auth_type_callback,
         ),
     ] = "none",
     client_auth_type: Annotated[
         str,
         Option(
-            "--client-auth-type", help="Authentication type for client (oauth or none)"
+            "--client-auth-type",
+            help="Authentication type for client (oauth or none)",
+            callback=peer_auth_type_callback,
         ),
     ] = "none",
     config_path: Annotated[

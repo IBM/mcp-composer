@@ -19,6 +19,7 @@ from rich.panel import Panel
 from rich.prompt import Prompt, Confirm
 from rich import print as rprint
 
+from mcp_composer.core.cli.auth_type import auth_type_callback
 from mcp_composer.core.utils.logger import LoggerFactory
 
 # Initialize logger and console
@@ -86,6 +87,7 @@ def init_project(
             "--auth-type",
             help="Authentication type: oauth or none",
             case_sensitive=False,
+            callback=auth_type_callback,
         ),
     ] = None,
     database: Annotated[
