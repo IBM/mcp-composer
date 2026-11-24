@@ -23,7 +23,16 @@ from mcp_composer.core.auth_handler.oauth import ServerSettings
 from mcp_composer.core.auth_handler.providers import OAuthProviderFactory
 from mcp_composer.core.utils import MemberServerType
 from mcp_composer.core.utils.logger import LoggerFactory
-from mcp_composer.core.utils.stdio_allowlist import assert_network_bind_allowed
+from mcp_composer.core.utils.stdio_allowlist import (
+    assert_auth_installed,
+    assert_network_bind_allowed,
+    auth_type_installs_provider,
+    normalize_auth_type,
+)
+from mcp_composer.core.cli.auth_type import (
+    auth_type_callback,
+    peer_auth_type_callback,
+)
 from mcp_composer.core.utils.oauth_cli_utils import (
     oauth_pkce_login_async,
     get_issuer,
@@ -318,7 +327,8 @@ def run_composer(
         str | None,
         Option(
             "--auth-type",
-            help="Optional auth type. If 'oauth', uses OAuth authentication",
+            help="Optional auth type: oauth or none (case-insensitive)",
+            callback=auth_type_callback,
         ),
     ] = None,
     auth_provider: Annotated[
@@ -344,12 +354,15 @@ def run_composer(
         Option(
             "--remote-auth-type",
             help="Authentication type for remote server (oauth or none)",
+            callback=peer_auth_type_callback,
         ),
     ] = "none",
     client_auth_type: Annotated[
         str,
         Option(
-            "--client-auth-type", help="Authentication type for client (oauth or none)"
+            "--client-auth-type",
+            help="Authentication type for client (oauth or none)",
+            callback=peer_auth_type_callback,
         ),
     ] = "none",
     # Configuration
@@ -578,6 +591,7 @@ def init_command(
             "--auth-type",
             help="Authentication type: oauth or none",
             case_sensitive=False,
+            callback=auth_type_callback,
         ),
     ] = None,
     database: Annotated[
@@ -662,7 +676,8 @@ def main_callback(
         str | None,
         Option(
             "--auth_type",
-            help="Optional auth type. If 'oauth', uses OAuth authentication",
+            help="Optional auth type: oauth or none (case-insensitive)",
+            callback=auth_type_callback,
         ),
     ] = None,
     auth_provider: Annotated[
@@ -708,12 +723,15 @@ def main_callback(
         Option(
             "--remote_auth_type",
             help="Authentication type for remote server (oauth or none)",
+            callback=peer_auth_type_callback,
         ),
     ] = None,
     client_auth_type: Annotated[
         str | None,
         Option(
-            "--client_auth_type", help="Authentication type for client (oauth or none)"
+            "--client_auth_type",
+            help="Authentication type for client (oauth or none)",
+            callback=peer_auth_type_callback,
         ),
     ] = None,
     env: Annotated[
@@ -971,11 +989,14 @@ async def run_dynamic_composer(
     """Run MCP Composer with dynamically constructed configuration."""
     logger.info("Running MCP Composer with dynamic configuration... %s", auth_type)
     try:
+        auth_type = normalize_auth_type(auth_type)
+        remote_auth_type = normalize_auth_type(remote_auth_type) or "none"
+        client_auth_type = normalize_auth_type(client_auth_type) or "none"
         assert_network_bind_allowed(mode, host, auth_type)
     except ValueError as exc:
         raise typer.BadParameter(str(exc)) from exc
 
-    if auth_type == "oauth":
+    if auth_type_installs_provider(auth_type):
         logger.info("Detected --auth_type oauth and provider: %s", auth_provider)
         settings = ServerSettings(provider=auth_provider)
         # 2. Filter out keys whose values are empty strings
@@ -989,6 +1010,10 @@ async def run_dynamic_composer(
             **filtered_settings
         ).get_provider_instance()
         mcp = MCPComposer("composer", auth=oauth_provider)
+        try:
+            assert_auth_installed(auth_type, getattr(mcp, "auth", None) is not None)
+        except ValueError as exc:
+            raise typer.BadParameter(str(exc)) from exc
     else:
         logger.info("Running MCP Composer without OAuth")
         mcp = MCPComposer("composer", config=config)  # type: ignore
@@ -1026,7 +1051,7 @@ async def run_dynamic_composer(
 
         remote_proxy: MCPComposer | None = None
 
-        if remote_auth_type == "oauth":
+        if auth_type_installs_provider(remote_auth_type):
             remote_settings = ServerSettings(
                 prefix="REMOTE_OAUTH_", provider=auth_provider
             )
@@ -1050,7 +1075,7 @@ async def run_dynamic_composer(
             except Exception as exc:
                 logger.warning("Failed to clear proxy tools: %s", exc)
 
-        elif client_auth_type == "oauth":
+        elif auth_type_installs_provider(client_auth_type):
             client_issuer = get_issuer(remote_url)
             client_scope = "openid"
             client_id = None
@@ -1325,6 +1350,7 @@ def _create_composer_instance(
         port = 9000
 
     try:
+        auth_type = normalize_auth_type(auth_type)
         assert_network_bind_allowed(mode, host, auth_type)
     except ValueError as exc:
         raise typer.BadParameter(str(exc)) from exc
@@ -1335,7 +1361,7 @@ def _create_composer_instance(
         config = _build_config_from_args(mode, id, endpoint, script_path, directory)
 
     # Create composer
-    if auth_type == "oauth":
+    if auth_type_installs_provider(auth_type):
         logger.info("Detected --auth_type oauth")
         settings = ServerSettings(provider=auth_provider)
         # 2. Filter out keys whose values are empty strings
@@ -1349,6 +1375,12 @@ def _create_composer_instance(
             **filtered_settings
         ).get_provider_instance()
         composer = MCPComposer("composer", auth=oauth_provider)
+        try:
+            assert_auth_installed(
+                auth_type, getattr(composer, "auth", None) is not None
+            )
+        except ValueError as exc:
+            raise typer.BadParameter(str(exc)) from exc
     else:
         composer = MCPComposer("composer", config=config)
 

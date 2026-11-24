@@ -30,6 +30,9 @@ from mcp_composer.core.utils.security import sanitize_config
 from mcp_composer.core.utils.utils import get_endpoint_from_config
 from mcp_composer.store.database import DatabaseInterface
 from mcp_composer.core.utils.tools import check_duplicate_tool
+from mcp_composer.core.utils.outbound_url import (
+    assert_member_config_destinations_allowed,
+)
 from mcp_composer.core.utils.validator import ServerConfigValidator, ValidationError
 
 logger = LoggerFactory.get_logger()
@@ -196,6 +199,14 @@ class ServerManager:
                 context={"server_id": server_id, "error": str(e)},
             ) from e
 
+    @staticmethod
+    async def _assert_destinations_allowed(config: dict[str, object]) -> None:
+        """Refuse caller-supplied configs that point at non-public destinations."""
+        try:
+            await assert_member_config_destinations_allowed(config)
+        except ValueError as exc:
+            raise ValidationError(str(exc)) from exc
+
     async def register_server(
         self,
         config: dict[str, object],
@@ -204,6 +215,7 @@ class ServerManager:
         """Register a new member server."""
         try:
             ServerConfigValidator(config).validate()
+            await self._assert_destinations_allowed(config)
 
             server_id = config.get("id", "")
             if not isinstance(server_id, str):
@@ -261,6 +273,7 @@ class ServerManager:
             new_config["id"] = server_id
 
             ServerConfigValidator(new_config).validate()
+            await self._assert_destinations_allowed(new_config)
 
             if not self.has_member_server(server_id):
                 raise ServerNotFoundError(

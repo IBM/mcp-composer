@@ -69,6 +69,51 @@ def assert_stdio_command_allowed(command: str | None) -> str:
 
 LOOPBACK_HOSTS = frozenset({"127.0.0.1", "localhost", "::1"})
 
+AUTH_TYPE_OAUTH = "oauth"
+AUTH_TYPE_NONE = "none"
+AUTH_TYPE_CHOICES = (AUTH_TYPE_OAUTH, AUTH_TYPE_NONE)
+
+
+def normalize_auth_type(auth_type: str | None) -> str | None:
+    """
+    Normalise a user-supplied ``--auth-type`` value.
+
+    Returns ``"oauth"``, ``"none"`` or ``None`` (unset). Matching is
+    case-insensitive and ignores surrounding whitespace; any other value raises
+    ``ValueError`` so it can never reach the bind guard or the authenticator.
+    """
+    if auth_type is None:
+        return None
+    value = auth_type.strip().lower()
+    if not value:
+        return None
+    if value not in AUTH_TYPE_CHOICES:
+        raise ValueError(
+            f"Invalid auth type '{auth_type}'. Expected one of: "
+            f"{', '.join(AUTH_TYPE_CHOICES)}."
+        )
+    return value
+
+
+def auth_type_installs_provider(auth_type: str | None) -> bool:
+    """
+    Single predicate deciding whether an auth provider is installed.
+
+    Used by both the bind guard and the CLI code that installs the provider,
+    so the two can never disagree. The comparison is exact on purpose: callers
+    must pass a value already normalised by ``normalize_auth_type``.
+    """
+    return auth_type == AUTH_TYPE_OAUTH
+
+
+def assert_auth_installed(auth_type: str | None, provider_installed: bool) -> None:
+    """Fail closed when authentication was requested but no provider exists."""
+    if auth_type_installs_provider(auth_type) and not provider_installed:
+        raise ValueError(
+            "Authentication was requested but no auth provider was installed; "
+            "refusing to start."
+        )
+
 
 def assert_network_bind_allowed(mode: str, host: str, auth_type: str | None) -> None:
     """
@@ -82,8 +127,7 @@ def assert_network_bind_allowed(mode: str, host: str, auth_type: str | None) -> 
     host_l = (host or "").strip().lower()
     if host_l in LOOPBACK_HOSTS:
         return
-    # Must match the CLI predicate that actually installs an auth provider.
-    if auth_type == "oauth":
+    if auth_type_installs_provider(auth_type):
         return
     raise ValueError(
         f"Refusing to bind {host} without authentication. "

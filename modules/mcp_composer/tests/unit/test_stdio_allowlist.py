@@ -122,3 +122,54 @@ def test_bind_guard_rejects_non_loopback_with_auth_type_that_installs_no_provide
 
 def test_bind_guard_ignores_stdio_mode() -> None:
     assert_network_bind_allowed("stdio", "0.0.0.0", None)
+
+
+@pytest.mark.parametrize("raw", ["oauth", "OAuth", "OAUTH", " oauth ", "OaUtH"])
+def test_normalize_auth_type_accepts_oauth_case_variants(raw: str) -> None:
+    from mcp_composer.core.utils.stdio_allowlist import normalize_auth_type
+
+    assert normalize_auth_type(raw) == "oauth"
+
+
+@pytest.mark.parametrize("raw", ["none", "None", " NONE "])
+def test_normalize_auth_type_accepts_none_variants(raw: str) -> None:
+    from mcp_composer.core.utils.stdio_allowlist import normalize_auth_type
+
+    assert normalize_auth_type(raw) == "none"
+
+
+@pytest.mark.parametrize("raw", [None, "", "   "])
+def test_normalize_auth_type_unset(raw) -> None:
+    from mcp_composer.core.utils.stdio_allowlist import normalize_auth_type
+
+    assert normalize_auth_type(raw) is None
+
+
+@pytest.mark.parametrize("raw", ["oauth2", "false", "nope", "oauth;", "o auth"])
+def test_normalize_auth_type_rejects_unknown(raw: str) -> None:
+    from mcp_composer.core.utils.stdio_allowlist import normalize_auth_type
+
+    with pytest.raises(ValueError, match="Invalid auth type"):
+        normalize_auth_type(raw)
+
+
+@pytest.mark.parametrize("raw", ["OAuth", "OAUTH", " oauth "])
+def test_bind_guard_and_installer_agree_on_normalised_case_variants(raw: str) -> None:
+    from mcp_composer.core.utils.stdio_allowlist import (
+        auth_type_installs_provider,
+        normalize_auth_type,
+    )
+
+    normalised = normalize_auth_type(raw)
+    assert auth_type_installs_provider(normalised)
+    assert_network_bind_allowed("http", "0.0.0.0", normalised)
+
+
+def test_assert_auth_installed_fails_closed() -> None:
+    from mcp_composer.core.utils.stdio_allowlist import assert_auth_installed
+
+    assert_auth_installed("oauth", True)
+    assert_auth_installed("none", False)
+    assert_auth_installed(None, False)
+    with pytest.raises(ValueError, match="no auth provider"):
+        assert_auth_installed("oauth", False)

@@ -76,3 +76,36 @@ async def assert_outbound_url_allowed(url: str) -> str:
             f"Add it to {OUTBOUND_ALLOWLIST_ENV} to allow it."
         )
     return url
+
+
+def _member_config_urls(config: dict) -> list[str]:
+    """Collect URLs in a member-server config that the composer will connect to."""
+    urls: list[str] = []
+
+    def add(value: object) -> None:
+        if isinstance(value, str) and value.strip():
+            urls.append(value)
+
+    add(config.get("endpoint"))
+    for section in ("open_api", "graphql"):
+        block = config.get(section)
+        if isinstance(block, dict):
+            add(block.get("endpoint"))
+            add(block.get("spec_url"))
+    auth = config.get("auth")
+    if isinstance(auth, dict):
+        add(auth.get("token_url"))
+        add(auth.get("login_url"))
+    return urls
+
+
+async def assert_member_config_destinations_allowed(config: dict) -> None:
+    """
+    Apply the outbound destination guard to every URL a caller-supplied
+    member-server config makes the composer connect to.
+
+    Stdio and local members have no network destination and are skipped.
+    Raises ``ValueError`` on the first refused URL.
+    """
+    for url in _member_config_urls(config):
+        await assert_outbound_url_allowed(url)

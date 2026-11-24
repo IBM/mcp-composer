@@ -22,6 +22,29 @@ from mcp_composer.core.utils.utils import (
 logger = LoggerFactory.get_logger()
 
 
+def safe_child_path(root: Path, name: object) -> Path:
+    """
+    Return ``root / name`` resolved, refusing anything that escapes ``root``.
+
+    ``name`` must be a plain single path component (no separators, no ``..``,
+    not absolute). Raises ``ValueError`` otherwise.
+    """
+    if (
+        not isinstance(name, str)
+        or not name
+        or "\x00" in name
+        or "\\" in name
+        or name in (".", "..")
+        or Path(name).name != name
+    ):
+        raise ValueError("Name must be a plain identifier without path separators")
+    resolved_root = root.resolve()
+    child = (resolved_root / name).resolve()
+    if child == resolved_root or not child.is_relative_to(resolved_root):
+        raise ValueError("Name escapes the tool output directory")
+    return child
+
+
 class ToolPaths:
     """Custom tool paths"""
 
@@ -190,17 +213,14 @@ class DynamicToolGenerator:
             tool_id = tool_data.get("id")
             if not tool_id:
                 raise ValueError("Tool data must include an 'id' field")
-
             # Base path: custom_tool/curl/<tool_id>
             current_file = os.path.abspath(__file__)
             current_dir = os.path.dirname(current_file)
             parent_dir = os.path.dirname(current_dir)
-            base_path = (
-                Path(parent_dir)
-                / ToolPaths.OUTPUT_DIR_NAME
-                / ToolPaths.CURL_DIR_NAME
-                / tool_id
+            curl_root = (
+                Path(parent_dir) / ToolPaths.OUTPUT_DIR_NAME / ToolPaths.CURL_DIR_NAME
             )
+            base_path = safe_child_path(curl_root, tool_id)
             os.makedirs(base_path, exist_ok=True)
 
             # Get all versioned subdirectories starting with 'v'
@@ -456,6 +476,7 @@ class OpenApiTool:
         auth_config: dict[str, object] | None = None,
     ) -> None:
         self.output_dir = "custom_tool"
+        safe_child_path(Path(self.output_dir) / "openapi", file_name)
         self.file_name = f"{file_name}.json"
         self.auth_file_name = f"{file_name}_auth.json"
         self.open_api = open_api
