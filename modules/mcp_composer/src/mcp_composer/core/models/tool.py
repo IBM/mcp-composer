@@ -36,6 +36,22 @@ class ToolBuilderConfig(BaseModel):
         description="Permissions required to run the tool, e.g., {'role 1': 'permission 1'}",
     )
 
+    @field_validator("name")
+    @classmethod
+    def validate_name(cls, name: str) -> str:
+        """Reject names that are empty or could be used as filesystem paths"""
+        if (
+            not name.strip()
+            or "\x00" in name
+            or "/" in name
+            or "\\" in name
+            or name.strip() in (".", "..")
+        ):
+            raise ValueError(
+                "Tool name must not be empty or contain path separators or '..'"
+            )
+        return name
+
     @model_validator(mode="after")
     def validate_config_sources(self) -> "ToolBuilderConfig":
         """Validate config value is present or not"""

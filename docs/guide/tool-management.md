@@ -109,6 +109,8 @@ curl_config = {
 await composer.add_tools_from_curl(curl_config)
 ```
 
+NOTE: To expose `add_tools_from_curl` as an MCP tool to clients, add `ENABLE_ADD_TOOLS_USING_CURL=True` in .env. It is disabled by default. Tools defined in a configuration file are not affected.
+
 - **Fields required**: `name`, `tool_type`, and `curl_config`
 - **✅ Supports**: Both authenticated and unauthenticated APIs
 
