@@ -244,9 +244,12 @@ class MCPComposer(FastMCP):
 
     def _get_dynamic_tool_generators(self) -> list[Any]:
         """Get optional dynamic tool generators."""
+        generators: list[Any] = []
+        if os.getenv("ENABLE_ADD_TOOLS_USING_CURL", "false").lower() == "true":
+            generators.append(self.add_tools_from_curl)
         if os.getenv("ENABLE_ADD_TOOLS_USING_PYTHON", "false").lower() == "true":
-            return [self.add_tools_from_python]
-        return []
+            generators.append(self.add_tools_from_python)
+        return generators
 
     def _get_tool_management_tools(self) -> list[Any]:
         """Get tool management tools."""
@@ -257,7 +260,6 @@ class MCPComposer(FastMCP):
             self._tool_manager.enable_tools,
             self._tool_manager.update_tool_description,
             self.filter_tool,
-            self.add_tools_from_curl,
             self.add_tools_from_openapi,
             self.rollback_openapi_tool_version,
             self.rollback_curl_tool_version,

@@ -81,9 +81,11 @@ class DynamicToolGenerator:
             current_file = os.path.abspath(__file__)
             current_dir = os.path.dirname(current_file)
             parent_dir = os.path.dirname(current_dir)
-            api_path = os.path.join(parent_dir, "custom_tool", "curl", api_name)
+            api_path = safe_child_path(
+                Path(parent_dir) / "custom_tool" / "curl", api_name
+            )
 
-            return os.path.isdir(api_path)
+            return api_path.is_dir()
         except Exception as e:
             logger.exception("Failed to validate curl function tool existence: %s", e)
             return False
@@ -500,9 +502,11 @@ class OpenApiTool:
             current_file = os.path.abspath(__file__)
             current_dir = os.path.dirname(current_file)
             parent_dir = os.path.dirname(current_dir)
-            api_path = os.path.join(parent_dir, "custom_tool", "openapi", api_name)
+            api_path = safe_child_path(
+                Path(parent_dir) / "custom_tool" / "openapi", api_name
+            )
 
-            return os.path.isdir(api_path)
+            return api_path.is_dir()
         except Exception as e:
             logger.exception("Failed to validate API existence: %s", e)
             return False
