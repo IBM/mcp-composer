@@ -28,33 +28,33 @@ dependencies = [
     "requests==2.34.2",
     "httpx==0.28.1",
     "beautifulsoup4==4.15.0",
-    "markdownify==1.2.3",
+    "markdownify==1.2.4",
     "aiohttp==3.14.5",
     "jsonschema==4.26.0",
-    "pydantic==2.14.1",
-    "pydantic-settings==2.16.1",
+    "pydantic==2.14.4",
+    "pydantic-settings==2.16.3",
     "types-requests==2.33.0.20261006",
     "jsonref==1.1.0",
-    "deepdiff==9.1.0",
-    "typer==0.27.3",
+    "deepdiff==9.2.1",
+    "typer==0.29.2",
     "python-daemon==3.1.2",
     "python-dotenv==1.2.4",
-    "pyyaml==6.0.3",
+    "pyyaml==6.0.4",
     "rich==15.0.0",
     "cryptography==50.0.2",
     "protobuf==7.36.2",
     "jaraco-context==6.1.2",
     "pyasn1==0.6.5",
-    "filelock==4.2.4",
+    "filelock==4.3.1",
     "packaging==26.3",
-    "sentence-transformers==6.1.0",
+    "sentence-transformers==6.3.0",
     "a2a-sdk==0.3.26",
     "asyncpg==0.32.0",
     "numpy==2.4.6",
-    "pandas==3.0.6",
-    "authlib==1.9.1",
-    "boto3==1.43.108",
-    "python-multipart==0.0.32",
+    "pandas==3.1.1",
+    "authlib==1.9.10",
+    "boto3==1.44.9",
+    "python-multipart==0.0.34",
     "urllib3==2.8.0"
 ]
 
@@ -65,19 +65,19 @@ Repository = "https://github.com/ibm/mcp-composer"
 [dependency-groups]
 dev = [
     "dirty-equals==0.11",
-    "pylint==4.1.2",
-    "pytest==9.0.3",
-    "pytest-asyncio==1.4.0",
+    "pylint==4.1.4",
+    "pytest==9.2.0",
+    "pytest-asyncio==1.5.0",
     "pytest-cov==7.1.0",
     "pytest-flakefinder==1.1.0",
     "pytest-report==0.2.1",
     "pytest-timeout==2.4.0",
     "pytest-xdist==3.8.0",
-    "ruff==0.16.10",
-    "pre-commit==4.6.2",
+    "ruff==0.17.6",
+    "pre-commit==4.7.0",
     "black==26.10.1",
     "mypy==2.4.1",
-    "coverage==7.16.2",
+    "coverage==7.17.5",
     "bandit==1.9.4",
     "twine==7.0.0",
     "debugpy==1.8.22",
@@ -100,8 +100,8 @@ secrets = [
 
 # AI/ML features
 ai = [
-    "google-genai==3.3.0",
-    "litellm==1.106.0",
+    "google-genai==3.6.1",
+    "litellm==1.110.2",
     "ollama==0.6.3",
     "scikit-learn==1.9.1"
 ]
@@ -122,7 +122,7 @@ all = [
 mcp-composer = "mcp_composer.core.cli.cli_main:main"
 
 [build-system]
-requires = ["hatchling==1.32.4", "uv-dynamic-versioning==0.14.1"]
+requires = ["hatchling==1.33.0", "uv-dynamic-versioning==0.14.1"]
 build-backend = "hatchling.build"
 
 [tool.uv]
@@ -133,7 +133,7 @@ constraint-dependencies = [
 ]
 # litellm 1.106.x caps filelock below 4. The patched release is 4.2.4.
 override-dependencies = [
-    "filelock==4.2.4",
+    "filelock==4.3.1",
 ]
 
 [tool.hatch.version]
