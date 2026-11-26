@@ -2128,7 +2128,6 @@ dependencies = [
     { name = "sentence-transformers" },
     { name = "typer" },
     { name = "types-requests" },
-    { name = "uncurl" },
     { name = "urllib3" },
 ]
 
@@ -2235,7 +2234,6 @@ requires-dist = [
     { name = "sentence-transformers", specifier = "==6.1.0" },
     { name = "typer", specifier = "==0.27.3" },
     { name = "types-requests", specifier = "==2.33.0.20261006" },
-    { name = "uncurl", specifier = "==0.0.11" },
     { name = "urllib3", specifier = "==2.8.0" },
 ]
 provides-extras = ["ai", "all", "search", "secrets", "tracing"]
@@ -4334,19 +4332,6 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/6b/5a/92ce0b3ea5481915f55da994c2c2c5f7a3c09949afde196ee89f8ab961aa/uncalled_for-0.4.0.tar.gz", hash = "sha256:335b95bd2422332ec210d518f314a16e4c640921c39fc8bf2ad095bd3538f4af", size = 56979, upload-time = "2026-08-10T14:51:46.247Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/a2/40/97cec87c077eb3291fc7905e6633e08b7ca593c57d30238444bcb6bb3d53/uncalled_for-0.4.0-py3-none-any.whl", hash = "sha256:16c4bb3337532e4bd5569adc192285976f3ad5305402256d34c67a12b5c968bd", size = 15502, upload-time = "2026-08-10T14:51:45.068Z" },
-]
-
-[[package]]
-name = "uncurl"
-version = "0.0.11"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "pyperclip" },
-    { name = "six" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/e2/90/95297af714749e5f6dedb8677bd3b6087dc3e31a212633f90c92bbda24c0/uncurl-0.0.11.tar.gz", hash = "sha256:530c9bbd4d118f4cde6194165ff484cc25b0661cd256f19e9d5fcb53fc077790", size = 3288, upload-time = "2021-03-21T18:49:10.2Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/7f/f4/20f213a91ef5a09f53d24333e002a71fbb53b38d5eaa9e49d39f7ce1941e/uncurl-0.0.11-py3-none-any.whl", hash = "sha256:5961e93f07a5c9f2ef8ae4245bd92b0a6ce503c851de980f5b70080ae74cdc59", size = 7367, upload-time = "2021-03-21T18:49:11.554Z" },
 ]
 
 [[package]]

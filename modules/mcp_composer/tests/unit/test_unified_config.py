@@ -379,65 +379,40 @@ class TestConfigLoader:
         assert result["failed"][0]["error"] == "Error"
 
     @pytest.mark.asyncio
-    async def test_apply_tools_success(self):
-        """Test successful tools application."""
+    async def test_apply_tools_rejects_unsupported_registration(self):
+        """Tools in config are no longer registered; they are reported as failed."""
         tools = {
             "tool1": Mock(model_dump=Mock(return_value={"openapi": "3.0.3"})),
             "tool2": Mock(
                 model_dump=Mock(return_value={"tool_type": "curl", "name": "test"})
             ),
-        }
-
-        self.composer.add_tools_from_openapi = AsyncMock()
-        self.composer.add_tools_from_curl = AsyncMock()
-
-        result = await self.loader._apply_tools(tools)
-
-        assert result["total"] == 2
-        assert len(result["registered"]) == 2
-        assert len(result["failed"]) == 0
-        self.composer.add_tools_from_openapi.assert_called_once()
-        self.composer.add_tools_from_curl.assert_called_once()
-
-    @pytest.mark.asyncio
-    async def test_apply_tools_skip_non_tool(self):
-        """Test tools application skips non-tool entries."""
-        tools = {
-            "tool1": Mock(model_dump=Mock(return_value={"openapi": "3.0.3"})),
-            "server1": Mock(
-                model_dump=Mock(
-                    return_value={
-                        "id": "test",
-                        "type": "http",
-                        "endpoint": "http://test",
-                    }
-                )
+            "tool3": Mock(
+                model_dump=Mock(return_value={"tool_type": "script", "name": "test"})
             ),
         }
 
-        self.composer.add_tools_from_openapi = AsyncMock()
-
         result = await self.loader._apply_tools(tools)
 
-        assert result["total"] == 2
-        assert len(result["registered"]) == 1
-        assert len(result["skipped"]) == 1
-        assert result["skipped"][0]["name"] == "server1"
+        assert result["total"] == 3
+        assert result["registered"] == []
+        assert len(result["failed"]) == 3
+        assert all("no longer supported" in f["error"] for f in result["failed"])
 
     @pytest.mark.asyncio
-    async def test_apply_tools_unknown_type(self):
-        """Test tools application with unknown tool type."""
+    async def test_apply_tools_skips_disabled(self):
+        """Disabled tool entries are skipped, not failed."""
         tools = {
             "tool1": Mock(
-                model_dump=Mock(return_value={"tool_type": "unknown", "name": "test"})
+                model_dump=Mock(
+                    return_value={"tool_type": "curl", "name": "t", "enabled": False}
+                )
             )
         }
 
         result = await self.loader._apply_tools(tools)
 
-        assert result["total"] == 1
-        assert len(result["failed"]) == 1
-        assert "Unknown tool type" in result["failed"][0]["error"]
+        assert len(result["skipped"]) == 1
+        assert result["failed"] == []
 
     @pytest.mark.asyncio
     async def test_apply_prompts_success(self):

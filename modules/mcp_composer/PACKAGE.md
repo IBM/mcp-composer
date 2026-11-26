@@ -176,7 +176,6 @@ By default, MCP Composer acts as an MCP management system and exposes the follow
 - **activate_mcp_server**: Activate a previously deactivated server
 - **deactivate_mcp_server**: Deactivate a server temporarily
 - **add_tools**: Add individual tools to the composer
-- **add_tools_from_openapi**: Import tools from OpenAPI specifications
 - **list_member_servers**: List all registered member servers
 
 #### Tool Management Tools

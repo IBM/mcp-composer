@@ -40,16 +40,12 @@ __all__ = [
     "load_json",
     "load_json_sync",
     "load_spec_from_url",
-    "ensure_dependencies_installed",
-    "extract_imported_modules",
     "get_server_doc_info",
 ]
 
 _LAZY_AUTH = {"get_client"}
 _LAZY_UTILS = {
     "build_prompt_from_dict",
-    "ensure_dependencies_installed",
-    "extract_imported_modules",
     "get_member_health",
     "get_server_doc_info",
     "get_version_adapter",

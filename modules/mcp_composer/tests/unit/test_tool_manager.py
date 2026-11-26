@@ -276,25 +276,6 @@ def test_filter_tools_server_no_product_id_filtered_out(
 
 
 @pytest.mark.asyncio
-async def test_load_custom_tools_handles_import(
-    tool_manager, monkeypatch
-):  # pylint: disable=redefined-outer-name
-    monkeypatch.setattr("mcp_composer.core.tools.tool_manager.custom_tools", None)
-    monkeypatch.setattr(
-        "mcp_composer.core.tools.tool_manager.generate_tool_from_curl",
-        AsyncMock(return_value=[]),
-    )
-    monkeypatch.setattr(
-        "mcp_composer.core.tools.tool_manager.generate_tool_from_open_api",
-        AsyncMock(return_value={}),
-    )
-
-    result = await tool_manager.load_custom_tools()
-
-    assert isinstance(result, dict)
-
-
-@pytest.mark.asyncio
 async def test_fetch_server_tools_and_update_desc(
     tool_manager,
 ):  # pylint: disable=redefined-outer-name
