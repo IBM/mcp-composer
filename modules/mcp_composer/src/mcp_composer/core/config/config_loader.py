@@ -25,6 +25,10 @@ logger = LoggerFactory.get_logger()
 
 # Constants for skip reasons
 SKIP_REASON_DISABLED = "disabled"
+TOOLS_SECTION_UNSUPPORTED = (
+    "Registering tools from configuration (openapi, curl, script) is no longer "
+    "supported. Register an MCP server instead."
+)
 
 
 class ConfigLoader:
@@ -606,70 +610,17 @@ class ConfigLoader:
                     self.logger.info(f"Skipped disabled tool: {tool_name}")
                     continue
 
-                # Skip non-tool entries (server configs, lists, etc.)
-                if not self._is_tool_config(tool_dict):
-                    results["skipped"].append(
-                        {
-                            "name": tool_name,
-                            "reason": "Not a tool configuration (appears to be server config or other)",
-                        }
-                    )
-                    self.logger.debug(f"Skipping non-tool entry: {tool_name}")
-                    continue
-
-                # Check if it's an OpenAPI tool
-                if tool_dict.get("openapi"):
-                    # Register OpenAPI tool using the composer's method
-                    await self.composer.add_tools_from_openapi(tool_dict)
-                    results["registered"].append(
-                        {
-                            "name": tool_name,
-                            "type": "openapi",
-                            "status": "successfully registered",
-                        }
-                    )
-                    self.logger.info(
-                        f"Successfully registered OpenAPI tool: {tool_name}"
-                    )
-
-                # Check if it's a custom tool with tool_type
-                elif tool_dict.get("tool_type") == "curl":
-                    # Register curl tool
-                    await self.composer.add_tools_from_curl(tool_dict)
-                    results["registered"].append(
-                        {
-                            "name": tool_name,
-                            "type": "curl",
-                            "status": "successfully registered",
-                        }
-                    )
-                    self.logger.info(f"Successfully registered curl tool: {tool_name}")
-
-                elif tool_dict.get("tool_type") == "script":
-                    # Register script tool
-                    await self.composer.add_tools_from_python(tool_dict)
-                    results["registered"].append(
-                        {
-                            "name": tool_name,
-                            "type": "script",
-                            "status": "successfully registered",
-                        }
-                    )
-                    self.logger.info(
-                        f"Successfully registered script tool: {tool_name}"
-                    )
-
-                else:
-                    # Unknown tool type
-                    results["failed"].append(
-                        {
-                            "name": tool_name,
-                            "error": "Unknown tool type. Expected 'openapi', 'curl', or 'script' tool_type",
-                        }
-                    )
-                    self.logger.error(
-                        f"Unknown tool type for {tool_name}: {tool_dict.get('tool_type', 'none')}"
-                    )
+                # Registering tools from configuration (OpenAPI, curl, script)
+                # is no longer supported. Fail loudly rather than skip silently.
+                results["failed"].append(
+                    {
+                        "name": tool_name,
+                        "error": TOOLS_SECTION_UNSUPPORTED,
+                    }
+                )
+                self.logger.error(
+                    f"Cannot register tool {tool_name}: {TOOLS_SECTION_UNSUPPORTED}"
+                )
 
             except Exception as e:
                 results["failed"].append({"name": tool_name, "error": str(e)})

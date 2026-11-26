@@ -1,14 +1,12 @@
 """Utility functions"""
 
 import asyncio
-import importlib.util
 import inspect
 import json
 import keyword
 import os
 import re
 import string
-import subprocess
 from typing import Any, Callable
 
 import aiohttp
@@ -269,21 +267,6 @@ def get_server_doc_info(doc: dict) -> tuple[list[str], dict[str, str]]:
         disabled_tools = doc.get("disabled_tools", [])
         tools_description = doc.get("tools_description", {})
     return disabled_tools, tools_description
-
-
-def extract_imported_modules(script: str):
-    """Get import module names from the python script"""
-    # Naive regex for finding `import` and `from ... import`
-    pattern = r"^\s*(?:import|from)\s+([\w_]+)"
-    return list(set(re.findall(pattern, script, re.MULTILINE)))
-
-
-def ensure_dependencies_installed(dependencies):
-    """Install the python packages mentioned in the python script"""
-    for package in dependencies:
-        if importlib.util.find_spec(package) is None:
-            logger.info("Installing missing package: %s", package)
-            subprocess.check_call(["uv", "pip", "install", package])
 
 
 def build_prompt_from_dict(entry: dict) -> Prompt:

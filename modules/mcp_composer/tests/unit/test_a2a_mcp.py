@@ -25,6 +25,7 @@ from mcp_composer.a2a_service.a2a_mcp import (
 )
 from mcp_composer.a2a_service import a2a_mcp as module_under_test
 from a2a.types import (
+    AgentInterface,
     AgentCard,
     AgentCapabilities,
     AgentSkill,
@@ -1147,3 +1148,48 @@ def test_get_embedding_adapter_fallback_logs_warning(monkeypatch):
         assert adapter == fallback_adapter
         # Verify both providers were called (primary failed, fallback succeeded)
         assert mock_factory.create_embedding_provider.call_count == 2
+
+
+# ---------- Outbound guard covers every card URL ----------
+
+
+def _card_with_interface(interface_url: str) -> AgentCard:
+    card = build_agent_card(url="http://agent:10000")
+    card.additional_interfaces = [
+        AgentInterface(transport="JSONRPC", url=interface_url)
+    ]
+    return card
+
+
+@pytest.mark.asyncio
+async def test_fetch_agent_card_rejects_private_additional_interface(monkeypatch):
+    """A public primary url must not hide a private additional_interfaces url."""
+    card = _card_with_interface("http://127.0.0.1:9999")
+
+    async def _unchecked(url):
+        return card
+
+    monkeypatch.setattr(module_under_test, "_fetch_agent_card_unchecked", _unchecked)
+    with pytest.raises(ValueError, match="non-public"):
+        await fetch_agent_card("http://test:8080")
+
+
+@pytest.mark.asyncio
+async def test_send_message_rejects_stored_card_with_private_interface(monkeypatch):
+    """Cards loaded from disk skip registration, so send_message must re-check."""
+    url = "http://agent:10000"
+    module_under_test.registered_agents[url] = _card_with_interface(
+        "http://169.254.169.254"
+    )
+    connected = []
+    monkeypatch.setattr(
+        module_under_test,
+        "_create_client_factory",
+        lambda _c: connected.append(1) or DummyFactory(DummyA2AClient()),
+    )
+
+    res = await send_message(url, "ping")
+
+    assert res["status"] == "error"
+    assert "not allowed" in res["message"]
+    assert connected == []

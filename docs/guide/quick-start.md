@@ -129,43 +129,6 @@ curl -X POST http://localhost:9000/mcp/tools/call_tool \
   }'
 ```
 
-## Step 6: Add Custom Tools
-
-### Add a Curl Tool
-
-```json
-{
-  "name": "weather",
-  "tool_type": "curl",
-  "curl_config": {
-    "value": "curl 'https://api.openweathermap.org/data/2.5/weather?q={{city}}&appid=YOUR_API_KEY'"
-  },
-  "description": "Get weather information for a city",
-  "permission": {
-    "user": "read"
-  }
-}
-```
-
-### Add a Python Script Tool
-
-```json
-{
-  "name": "calculate",
-  "tool_type": "script",
-  "script_config": {
-    "value": "def add_numbers(a: float, b: float) -> float:\n    return a + b"
-  },
-  "description": "Add two numbers",
-  "permission": {
-    "user": "execute"
-  }
-}
-```
-
-Check how to generate tools from an OpenAPI Specification [here](/examples/#generate-tool-from-openapi-specification)  
-See more examples [here](/examples/)
-
 ## Configuration Examples
 
 ### Basic Configuration File

@@ -5,7 +5,7 @@ Extends FastMCP with runtime composition, tool management, and database-backed c
 
 import os
 import socket
-from typing import Any, Callable, Literal
+from typing import Any, Literal
 from dotenv import load_dotenv
 from fastmcp import FastMCP
 from fastmcp.exceptions import NotFoundError
@@ -30,7 +30,6 @@ from mcp_composer.core.member_servers import (
 from mcp_composer.core.config.server_configuration_manager import (
     ServerConfigurationManager,
 )
-from mcp_composer.core.utils.custom_tool import DynamicToolGenerator, OpenApiTool
 from mcp_composer.core.utils.utils import get_endpoint_from_config
 from mcp_composer.core.utils.stdio_allowlist import LOOPBACK_HOSTS
 from mcp_composer.middleware.disabled_prompts_resources import (
@@ -223,7 +222,6 @@ class MCPComposer(FastMCP):
         load_registered_agents()
         return (
             self._get_server_tools()
-            + self._get_dynamic_tool_generators()
             + self._get_tool_management_tools()
             + self._get_prompt_tools()
             + self._get_resource_tools()
@@ -242,15 +240,6 @@ class MCPComposer(FastMCP):
             self._server_manager.list_servers,
         ]
 
-    def _get_dynamic_tool_generators(self) -> list[Any]:
-        """Get optional dynamic tool generators."""
-        generators: list[Any] = []
-        if os.getenv("ENABLE_ADD_TOOLS_USING_CURL", "false").lower() == "true":
-            generators.append(self.add_tools_from_curl)
-        if os.getenv("ENABLE_ADD_TOOLS_USING_PYTHON", "false").lower() == "true":
-            generators.append(self.add_tools_from_python)
-        return generators
-
     def _get_tool_management_tools(self) -> list[Any]:
         """Get tool management tools."""
         return [
@@ -260,9 +249,6 @@ class MCPComposer(FastMCP):
             self._tool_manager.enable_tools,
             self._tool_manager.update_tool_description,
             self.filter_tool,
-            self.add_tools_from_openapi,
-            self.rollback_openapi_tool_version,
-            self.rollback_curl_tool_version,
             # self.get_available_tools,
             # Optional tools:
             # self._tool_manager.disable_tools_by_server,
@@ -310,12 +296,6 @@ class MCPComposer(FastMCP):
     def resource_manager(self) -> MCPResourceManager:
         """Expose the resource manager for tool integration."""
         return self._resource_manager
-
-    async def _load_custom_tools(self):
-        """Load tools using saved OpenAPI, Curl, and Python script."""
-        server_data = await self._tool_manager.load_custom_tools()
-        for name, client in server_data.items():
-            self.mount(self.from_openapi(client[0], client[1]), name)  # type: ignore[arg-type]
 
     async def _mount_member_server(self, config: dict[str, Any]) -> str:
         try:
@@ -400,8 +380,6 @@ class MCPComposer(FastMCP):
         Mount multiple servers from a JSON list in self.config.
         This runs at startup or from manual trigger.
         """
-        await self._load_custom_tools()
-
         # Apply unified configuration if loaded
         if (
             self._server_config_manager.unified_config_applied
@@ -540,68 +518,6 @@ class MCPComposer(FastMCP):
         return self._server_manager.deactivate_server(
             server_id=server_id, mcp_composer=self
         )
-
-    async def add_tools_from_curl(self, tool_config: dict[str, Any]) -> str:
-        """Create a tool from a curl command via ToolFactory."""
-        from mcp_composer.core.tools.tool_factory import ToolFactory
-
-        logger.info("Adding CLI tool via ToolFactory")
-        result = await ToolFactory.create_tool("cli", tool_config)
-        if isinstance(result, tuple):
-            raise TypeError(
-                "CLI tool creation returned unexpected tuple. "
-                "Expected Tool instance for tool type 'cli'."
-            )
-        self.add_tool(result)
-        return "Successfully added tools"
-
-    async def add_tools_from_python(self, tool_config: dict[str, Any]) -> str:
-        """Create a tool from a python script via ToolFactory."""
-        from mcp_composer.core.tools.tool_factory import ToolFactory
-
-        logger.debug("Adding Python script tool via ToolFactory")
-        result = await ToolFactory.create_tool("script", tool_config)
-        if isinstance(result, tuple):
-            raise TypeError(
-                "Script tool creation returned unexpected tuple. "
-                "Expected Tool instance for tool type 'script'."
-            )
-        self.add_tool(result)
-        return "Successfully added tools"
-
-    async def add_tools_from_openapi(
-        self,
-        openapi_spec: dict[str, Any],
-        auth_config: dict[str, Any] | None = None,
-    ) -> str:
-        """Create a tool from an OpenAPI specification via ToolFactory."""
-        from mcp_composer.core.tools.tool_factory import ToolFactory
-
-        logger.debug("Adding OpenAPI tool via ToolFactory")
-        config = {"openapi_spec": openapi_spec, "auth_config": auth_config}
-        result = await ToolFactory.create_tool("openapi", config)
-        if not isinstance(result, tuple) or len(result) != 2:
-            raise TypeError(
-                "OpenAPI tool creation should return tuple (server_name, client). "
-                f"Got: {type(result)}"
-            )
-        server_name, client = result
-        self.mount(FastMCP.from_openapi(openapi_spec, client), server_name)
-        return "Successfully added tools"
-
-    async def rollback_openapi_tool_version(self, name: str, version: str) -> str:
-        """Rollback to the specific version of OpenAPI"""
-        OpenApiTool.set_rollback_version(name, version)
-        self._tool_manager.unmount(name)
-        await self._load_custom_tools()
-        return f"OpenAPI tools successfully roll backed to version: {version}"
-
-    async def rollback_curl_tool_version(self, name: str, version: str) -> str:
-        """Rollback to the specific version of OpenAPI"""
-        DynamicToolGenerator.set_rollback_version(name, version)
-        self.remove_tool(name)
-        await self._load_custom_tools()
-        return f"Successfully roll backed to version: {version}"
 
     async def filter_tool(self, keyword: str):
         """Filter tools by keyword"""

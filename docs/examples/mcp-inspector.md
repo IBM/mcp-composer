@@ -130,7 +130,6 @@ Click the **Connect** button to establish connection with MCP Composer.
    - `enable_tools`
    - `update_tool_description`
    - `add_tools`
-   - `add_tools_from_openapi`
    - `add_prompts`
    - `get_all_prompts`
 
@@ -287,45 +286,6 @@ Try calling a tool with invalid parameters:
    }
    ```
 3. **Execute**: Click **Call Tool**
-
-## Step 12: Add Custom Tools
-
-### Add Curl Tool
-
-1. **Select Tool**: Choose `add_tools`
-2. **Fill Parameters**:
-
-```json
-{
-  "tools": [
-    {
-      "name": "weather",
-      "tool_type": "curl",
-      "curl_config": {
-        "value": "curl 'https://api.openweathermap.org/data/2.5/weather?q={{city}}&appid=YOUR_API_KEY'"
-      },
-      "description": "Get weather information for a city",
-      "permission": {
-        "user": "read"
-      }
-    }
-  ]
-}
-```
-
-3. **Execute**: Click **Call Tool**
-
-### Test Custom Tool
-
-1. **List Tools**: Refresh the tool list
-2. **Select Tool**: Choose the new `weather` tool
-3. **Fill Parameters**:
-   ```json
-   {
-     "city": "New York"
-   }
-   ```
-4. **Execute**: Click **Call Tool**
 
 ## Troubleshooting
 

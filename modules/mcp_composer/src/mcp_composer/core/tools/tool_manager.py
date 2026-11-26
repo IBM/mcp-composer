@@ -1,7 +1,6 @@
 """Tool Manager"""
 
 from __future__ import annotations
-import inspect
 from collections.abc import Sequence
 from typing import TYPE_CHECKING, Any
 
@@ -33,8 +32,6 @@ from mcp_composer.core.utils.logger import LoggerFactory
 from mcp_composer.core.utils import get_server_doc_info
 from mcp_composer.core.member_servers import ServerManager
 from mcp_composer.core.utils.tools import (
-    generate_tool_from_curl,
-    generate_tool_from_open_api,
     tool_exist,
     tool_config,
     check_duplicate_tool,
@@ -42,12 +39,6 @@ from mcp_composer.core.utils.tools import (
 
 if TYPE_CHECKING:
     from mcp_composer.core.composer import MCPComposer
-
-try:
-    from mcp_composer.core.utils.custom_tool import tools as custom_tools  # type: ignore
-except ImportError:
-    custom_tools = None
-
 
 logger = LoggerFactory.get_logger()
 
@@ -261,35 +252,6 @@ class MCPToolManager:
         except Exception as e:
             logger.exception("Tools filtering failed: %s", e)
             raise
-
-    async def load_custom_tools(self):
-        """Load tools using saved OpenAPI, Curl, and Python script."""
-        try:
-            if custom_tools:
-                for name, func in inspect.getmembers(custom_tools, inspect.isfunction):
-                    logger.info("Adding tool from custom tool folder: %s", name)
-                    self._composer.add_tool(Tool.from_function(func))
-            # Load tools from curl commands
-            for tool_fn in await generate_tool_from_curl():
-                self._composer.add_tool(Tool.from_function(tool_fn))
-
-            # Load tools from OpenAPI Specifications
-            server_data = await generate_tool_from_open_api()
-            return server_data
-        except (ValueError, TypeError, AttributeError) as e:
-            logger.error(
-                "Failed to load custom tools: Invalid tool configuration",
-                extra={"error": str(e)},
-            )
-            raise ToolError(
-                "Failed to load custom tools: Invalid configuration",
-                context={"error": str(e)},
-            ) from e
-        except Exception as e:
-            logger.exception("Unexpected error loading custom tools")
-            raise ToolError(
-                "Failed to load custom tools", context={"error": str(e)}
-            ) from e
 
     async def fetch_server_tools(
         self,

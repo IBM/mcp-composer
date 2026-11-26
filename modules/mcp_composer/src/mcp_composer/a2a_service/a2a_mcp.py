@@ -314,15 +314,27 @@ def require_a2a_auth(func):
     return wrapper
 
 
+async def assert_agent_card_destinations_allowed(card: Any) -> None:
+    """
+    Apply the outbound destination guard to every URL the A2A client may dial.
+
+    The client connects to ``card.url`` and to any ``additional_interfaces`` URL,
+    so all of them must pass, not only the primary one.
+    """
+    await assert_outbound_url_allowed(card.url)
+    for interface in getattr(card, "additional_interfaces", None) or []:
+        await assert_outbound_url_allowed(interface.url)
+
+
 async def fetch_agent_card(url: str) -> Any:
     """
     Fetch the agent card from the agent's URL, refusing non-public destinations.
 
-    The card's own ``url`` is also checked, because A2A clients later connect to it.
+    Every URL on the card is also checked, because A2A clients later connect to them.
     """
     await assert_outbound_url_allowed(url)
     card = await _fetch_agent_card_unchecked(url)
-    await assert_outbound_url_allowed(card.url)
+    await assert_agent_card_destinations_allowed(card)
     return card
 
 
@@ -538,6 +550,13 @@ async def send_message(
         }
 
     agent_card = registered_agents[agent_url]
+    # The stored card may predate the guard (loaded from disk at startup), so
+    # re-check every URL the client could dial before connecting.
+    try:
+        await assert_agent_card_destinations_allowed(agent_card)
+    except ValueError as e:
+        logger.error("Refusing to send to agent %s: %s", agent_url, e)
+        return {"status": "error", "message": f"Agent destination not allowed: {e}"}
     outbound_message_id = message_id or str(uuid.uuid4())
     meta = _build_message_metadata(
         session_id,
