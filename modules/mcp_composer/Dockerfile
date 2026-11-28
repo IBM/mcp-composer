@@ -2,7 +2,7 @@
 # Build from modules/mcp_composer:
 #   docker build -t mcp-composer:local .
 
-ARG PYTHON_IMAGE=python:3.12-slim-bookworm
+ARG PYTHON_IMAGE=python:3.15-slim-bookworm
 
 #########################################
 # -------- Stage 1: Builder --------
